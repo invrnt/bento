@@ -16,7 +16,7 @@ if (Number.isNaN(publishedAt.valueOf())) throw new Error("published-at must be a
 const commit = required(options, "commit");
 if (!/^[a-f0-9]{40}$/u.test(commit)) throw new Error("commit must be a full lowercase Git SHA");
 
-const repository = "JuanCamiloGrA/bento";
+const repository = "invrnt/bento";
 const baseUrl = `https://github.com/${repository}/releases/download/${encodeURIComponent(tag)}`;
 const files = (await readdir(stage, { withFileTypes: true }))
   .filter((entry) => entry.isFile())

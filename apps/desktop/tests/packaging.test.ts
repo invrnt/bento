@@ -47,9 +47,9 @@ describe("native packaging scaffold", () => {
     };
     expect(forgeSource).toContain('"resources", "icons", "bento"');
     expect(forgeSource).toContain("setupIcon");
-    expect(forgeSource).toContain("github.com/JuanCamiloGrA/bento");
-    expect(packageJson.homepage).toBe("https://github.com/JuanCamiloGrA/bento");
-    expect(packageJson.repository.url).toContain("JuanCamiloGrA/bento.git");
+    expect(forgeSource).toContain("github.com/invrnt/bento");
+    expect(packageJson.homepage).toBe("https://github.com/invrnt/bento");
+    expect(packageJson.repository.url).toContain("invrnt/bento.git");
   });
 
   it("only enables platform signing when the release workflow explicitly opts in", async () => {

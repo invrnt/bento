@@ -6,7 +6,7 @@ import path from "node:path";
 import { EventEmitter } from "node:events";
 import { UpdateInstallMode, UpdateInstallResult, UpdateState } from "../shared/contracts";
 
-const OWNER = "JuanCamiloGrA";
+const OWNER = "invrnt";
 const REPOSITORY = "bento";
 const API_URL = `https://api.github.com/repos/${OWNER}/${REPOSITORY}/releases/latest`;
 const MAX_MANIFEST_BYTES = 512 * 1024;

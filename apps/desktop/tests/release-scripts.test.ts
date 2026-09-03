@@ -162,7 +162,7 @@ describe("release metadata scripts", () => {
       for (const asset of output.assets) {
         expect(asset).toMatchObject({ platform, arch });
         expect(asset.kind).toMatch(/^[a-z-]+$/u);
-        expect(asset.url).toBe(`https://github.com/JuanCamiloGrA/bento/releases/download/v0.1.0/${encodeURIComponent(asset.filename)}`);
+        expect(asset.url).toBe(`https://github.com/invrnt/bento/releases/download/v0.1.0/${encodeURIComponent(asset.filename)}`);
         expect(asset.sha256).toMatch(/^[a-f0-9]{64}$/u);
         expect(asset.size).toBeGreaterThan(0);
       }
@@ -182,7 +182,7 @@ describe("release metadata scripts", () => {
       await writeFile(path.join(root, "RELEASES"), `${sha1.toUpperCase()} ${nupkg} ${contents.length}\n`);
       const output = await generateManifest(root, "win32", "x64");
       expect(output.squirrel.nupkg).toMatchObject({ filename: nupkg, sha1, size: contents.length });
-      expect(output.squirrel.releasesContent).toBe(`${sha1.toUpperCase()} https://github.com/JuanCamiloGrA/bento/releases/download/v0.1.0/${nupkg} ${contents.length}\n`);
+      expect(output.squirrel.releasesContent).toBe(`${sha1.toUpperCase()} https://github.com/invrnt/bento/releases/download/v0.1.0/${nupkg} ${contents.length}\n`);
       await writeFile(path.join(root, "RELEASES"), `${"0".repeat(40)} ${nupkg} ${contents.length}\n`);
       await expect(generateManifest(root, "win32", "x64")).rejects.toThrow();
     } finally {

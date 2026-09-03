@@ -65,7 +65,7 @@ module.exports = {
     {
       name: "@electron-forge/maker-deb",
       platforms: ["linux"],
-      config: { options: { maintainer: "Bento", homepage: "https://github.com/JuanCamiloGrA/bento", categories: ["Utility"], bin: "bento", icon: `${iconRoot}.png` } },
+      config: { options: { maintainer: "Bento", homepage: "https://github.com/invrnt/bento", categories: ["Utility"], bin: "bento", icon: `${iconRoot}.png` } },
     },
   ],
   plugins: [

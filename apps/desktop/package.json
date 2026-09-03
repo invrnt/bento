@@ -4,10 +4,10 @@
   "private": true,
   "description": "Secure cross-platform desktop host for Bento",
   "productName": "Bento",
-  "homepage": "https://github.com/JuanCamiloGrA/bento",
+  "homepage": "https://github.com/invrnt/bento",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/JuanCamiloGrA/bento.git"
+    "url": "git+https://github.com/invrnt/bento.git"
   },
   "author": "Bento contributors",
   "license": "UNLICENSED",
