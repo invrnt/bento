@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
+from bento.infrastructure import process_secrets
 from bento.infrastructure.settings import Settings
 from bento.interfaces.http.main import create_app
 from tests.integration.db.support import migrated_session_factory
@@ -107,3 +108,22 @@ def test_headless_mode_keeps_existing_unauthenticated_contract(tmp_path) -> None
     response = client.get("/api/health")
 
     assert response.status_code == 200
+
+
+def test_desktop_token_is_read_from_the_process_private_holder(tmp_path) -> None:
+    data_dir = tmp_path / "data"
+    (data_dir / "db").mkdir(parents=True)
+    migrated_session_factory(data_dir / "db")
+    process_secrets.clear()
+    process_secrets.adopt_environment_secrets(("BENTO_DESKTOP_API_TOKEN",), {"BENTO_DESKTOP_API_TOKEN": TOKEN})
+    try:
+        app = create_app(
+            Settings(data_dir=str(data_dir), runtime_mode="desktop"),
+            desktop_environ={"BENTO_DESKTOP_ORIGIN": ORIGIN},
+        )
+    finally:
+        process_secrets.clear()
+    client = TestClient(app)
+
+    assert client.get("/api/health", headers={"Origin": ORIGIN}).status_code == 401
+    assert client.get("/api/health", headers={"Origin": ORIGIN, "Authorization": f"Bearer {TOKEN}"}).status_code == 200

@@ -13,6 +13,7 @@ from bento.adapters.security import InMemoryKeyStore, WrappedFileKeyStore, load_
 from bento.adapters.security import key_store as key_store_module
 from bento.adapters.security.primitives import b64url_encode
 from bento.domain.errors import IntegrityError, ValidationFailedError
+from bento.infrastructure import process_secrets
 from bento.ports.key_store import DEVICE_IDENTITY, TELEGRAM_SESSION, VAULT_KEYRING
 
 POSIX = os.name == "posix"
@@ -255,3 +256,34 @@ def test_wrapped_store_works_with_file_based_key(tmp_path: Path) -> None:
     asyncio.run(store.put("device.identity", b"identity"))
     reopened = WrappedFileKeyStore(tmp_path / "secure", load_wrapping_key({}, tmp_path).key)
     assert asyncio.run(reopened.get("device.identity")) == b"identity"
+
+
+@pytest.fixture
+def held_wrapping_key():
+    process_secrets.clear()
+
+    def hold(value: str) -> None:
+        process_secrets.adopt_environment_secrets(("BENTO_DEVICE_WRAPPING_KEY",), {"BENTO_DEVICE_WRAPPING_KEY": value})
+
+    yield hold
+    process_secrets.clear()
+
+
+def test_desktop_provided_key_wins_and_never_touches_the_key_file(tmp_path: Path, held_wrapping_key) -> None:
+    file_key = load_wrapping_key({}, tmp_path).key
+    held_wrapping_key(b64url_encode(WRAPPING_KEY))
+
+    loaded = load_wrapping_key({"BENTO_DEVICE_WRAPPING_KEY": b64url_encode(b"\x07" * 32)}, tmp_path)
+
+    assert loaded.key == WRAPPING_KEY != file_key
+    assert loaded.file_based is False and loaded.path is None
+
+
+def test_invalid_desktop_provided_key_fails_closed_without_creating_a_key_file(tmp_path: Path, held_wrapping_key) -> None:
+    held_wrapping_key("not-a-valid-key")
+
+    with pytest.raises(ValidationFailedError) as caught:
+        load_wrapping_key({}, tmp_path)
+
+    assert "not-a-valid-key" not in str(caught.value)
+    assert not (tmp_path / "secure").exists()

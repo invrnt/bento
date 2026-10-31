@@ -135,7 +135,10 @@ Unknown targets from a newer desktop build should fall back to Actividad.
 | `BENTO_TELEGRAM_API_ID`, `BENTO_TELEGRAM_API_HASH`, `BENTO_RELAY_URL`, `BENTO_PUBLIC_SITE_URL` | present in build configuration | Packaged: from `resources/build-config.json` only (inherited values stripped). Development: from the parent environment. Values are validated (id digits, 32-hex hash, `wss:`/`https:` relay, `https:` site; loopback `ws:`/`http:` allowed only in development); invalid ones are dropped and logged by key name. |
 | `ENVIRONMENT` | packaged builds | `production` (the backend refuses `STORAGE_BACKEND=fake`). Unpackaged runs keep the inherited value. |
 | `STORAGE_BACKEND` | unpackaged and `BENTO_DEV_STORAGE_BACKEND=fake` | `fake`. Packaged builds strip an inherited `STORAGE_BACKEND=fake`. |
-| existing | always | `BENTO_RUNTIME_MODE=desktop`, `HOST=127.0.0.1`, `DATA_DIR`, `API_PORT`, `BENTO_DESKTOP_API_TOKEN`, `BENTO_DESKTOP_ORIGIN` |
+| existing | always | `BENTO_RUNTIME_MODE=desktop`, `HOST=127.0.0.1`, `DATA_DIR`, `BENTO_DESKTOP_ORIGIN` |
+| `BENTO_DESKTOP_API_TOKEN` | API process only | a fresh per-launch token for each API process; inherited values are stripped from every sidecar. The backend moves it (and `BENTO_DEVICE_WRAPPING_KEY`) out of `os.environ` at start, so children never inherit either. |
+
+`API_PORT` and `--port` are no longer passed: the API binds `127.0.0.1:0` and prints `BENTO_API_READY {"port":N}` on stdout once it accepts connections; main reads the port only from that line. `BENTO_SIDECAR_PATH` (development override of the sidecar executable) is ignored by packaged builds and never forwarded.
 
 No Bot API variables (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_*_CHAT_ID`, webhook secret, `BENTO_ENCRYPTION_KEY`) are forwarded any more; stored legacy desktop secrets are deleted on startup (without decrypting or logging them).
 

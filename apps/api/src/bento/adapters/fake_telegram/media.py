@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-import shutil
 import struct
 import subprocess
 import tempfile
 import zlib
 from collections.abc import Sequence
 from pathlib import Path
+
+from bento.infrastructure.child_processes import child_environment, resolve_executable
 
 Rgb = tuple[int, int, int]
 
@@ -97,7 +98,7 @@ def pdf_bytes(text: str) -> bytes:
 
 def mp4_bytes() -> bytes:
     """A one-second test pattern via ffmpeg when installed; otherwise a minimal ISO-BMFF container."""
-    ffmpeg = shutil.which("ffmpeg")
+    ffmpeg = resolve_executable("ffmpeg")
     if ffmpeg is not None:
         with tempfile.TemporaryDirectory(prefix="bento-fake-mp4-") as directory:
             target = Path(directory) / "clip.mp4"
@@ -106,7 +107,15 @@ def mp4_bytes() -> bytes:
                 "-c:v", "mpeg4", "-pix_fmt", "yuv420p", "-y", str(target),
             ]  # fmt: skip
             try:
-                subprocess.run(command, check=True, capture_output=True, timeout=20)
+                subprocess.run(
+                    command,
+                    check=True,
+                    capture_output=True,
+                    timeout=20,
+                    env=child_environment(),
+                    cwd=directory,
+                    stdin=subprocess.DEVNULL,
+                )
                 return target.read_bytes()
             except (OSError, subprocess.SubprocessError):
                 pass

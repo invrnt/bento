@@ -125,7 +125,11 @@ async function startDesktop(): Promise<void> {
   const logPath = path.join(app.getPath("logs"), "desktop.jsonl");
   await prepareLog(logPath);
   const knownSecrets: string[] = [];
-  const log = new RedactingLog((line) => { void appendFile(logPath, `${line}\n`, { encoding: "utf8", mode: 0o600 }); }, () => knownSecrets);
+  // The per-launch API tokens are redacted too, even though only main and the API ever hold them.
+  const log = new RedactingLog(
+    (line) => { void appendFile(logPath, `${line}\n`, { encoding: "utf8", mode: 0o600 }); },
+    () => [...knownSecrets, ...(supervisor?.redactionValues() ?? [])],
+  );
   const state = new DesktopStateStore(path.join(desktopData, "preferences.json"));
   if ((await state.load()).recovered) log.write("warn", "desktop preferences were reset to defaults");
   const bootstrapStore = new BootstrapStore(path.join(desktopData, "bootstrap.json"), path.join(userData, "bento-data"));

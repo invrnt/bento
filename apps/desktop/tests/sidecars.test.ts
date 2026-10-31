@@ -4,7 +4,8 @@ import path from "node:path";
 import { PassThrough } from "node:stream";
 import { describe, expect, it, vi } from "vitest";
 import { BENTO_ORIGIN } from "../src/shared/contracts";
-import { SECRET_ENVIRONMENT, SECRET_SETTING_KEYS, SidecarSupervisor } from "../src/main/sidecars";
+import { parseApiReadyLine, resolveSidecarCommand, SECRET_ENVIRONMENT, SECRET_SETTING_KEYS, SidecarSupervisor } from "../src/main/sidecars";
+import { RedactingLog } from "../src/main/redaction";
 import { LEGACY_SECRET_SETTING_KEYS } from "../src/main/secrets";
 import { sidecarRuntimeEnvironment } from "../src/main/build-config";
 
@@ -32,6 +33,14 @@ function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
+const API_PORT = 43127;
+
+/** Mimics the sidecar: one-shot commands exit, the API announces the port it bound itself. */
+function sidecarBehaviour(command: string, child: FakeChild, port = API_PORT): void {
+  if (command === "migrate" || command === "probe") queueMicrotask(() => child.exit(0));
+  if (command === "api") queueMicrotask(() => child.stdout.write(`BENTO_API_READY {"port":${port}}\n`));
+}
+
 function setup() {
   const launches: Array<{ command: string; args: string[]; child: FakeChild; env: NodeJS.ProcessEnv }> = [];
   const fetch = vi.fn(async () => jsonResponse({ status: "ready" }));
@@ -40,7 +49,6 @@ function setup() {
     command: { executable: "bento-sidecar", prefixArguments: [] },
     dataDir: "/tmp/bento-test-data",
     secretEnvironment: { legacy_bot_token: "legacy-secret" },
-    reservePort: async () => 43127,
     randomToken: () => "unguessable-per-launch-token-1234567890",
     fetch,
     delay,
@@ -48,7 +56,7 @@ function setup() {
       const child = new FakeChild();
       const command = arguments_[0] ?? "";
       launches.push({ command, args: arguments_.slice(1), child, env: options.env });
-      if (command === "migrate" || command === "probe") queueMicrotask(() => child.exit(0));
+      sidecarBehaviour(command, child);
       return child;
     },
   });
@@ -61,16 +69,19 @@ describe("authenticated sidecar lifecycle", () => {
     await supervisor.start();
 
     expect(launches.map((launch) => launch.command)).toEqual(["migrate", "api", "worker"]);
-    expect(launches[1]?.args).toEqual(["--host", "127.0.0.1", "--port", "43127"]);
+    // Neither the port nor the token is ever on a command line.
+    for (const launch of launches) expect(launch.args.join(" ")).not.toMatch(/--port|unguessable/u);
     expect(launches[1]?.env).toMatchObject({
       BENTO_RUNTIME_MODE: "desktop",
       HOST: "127.0.0.1",
-      API_PORT: "43127",
       DATA_DIR: "/tmp/bento-test-data",
       BENTO_DESKTOP_ORIGIN: BENTO_ORIGIN,
     });
+    expect(launches[1]?.env).not.toHaveProperty("API_PORT");
     expect(Object.values(launches[1]!.env)).not.toContain("legacy-secret");
-    expect(launches[1]?.env.BENTO_DESKTOP_API_TOKEN?.length).toBeGreaterThanOrEqual(32);
+    expect(launches[1]?.env.BENTO_DESKTOP_API_TOKEN).toBe("unguessable-per-launch-token-1234567890");
+    // Only the API needs the token.
+    for (const launch of [launches[0]!, launches[2]!]) expect(launch.env).not.toHaveProperty("BENTO_DESKTOP_API_TOKEN");
     const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("http://127.0.0.1:43127/api/desktop/readiness");
     const headers = new Headers(init.headers);
@@ -100,14 +111,13 @@ describe("authenticated sidecar lifecycle", () => {
       command: { executable: "bento-sidecar", prefixArguments: [] },
       dataDir: "/tmp/bento-test-data",
       secretEnvironment: legacyValues,
-      reservePort: async () => 43127,
       randomToken: () => "unguessable-per-launch-token-1234567890",
       fetch: async () => jsonResponse({ status: "ready" }),
       spawnProcess: (_executable, arguments_, options) => {
         const child = new FakeChild();
         const command = arguments_[0] ?? "";
         launches.push({ command, env: options.env });
-        if (command === "migrate") queueMicrotask(() => child.exit(0));
+        sidecarBehaviour(command, child);
         return child;
       },
     });
@@ -131,14 +141,13 @@ describe("authenticated sidecar lifecycle", () => {
         runtimeEnvironment: { BENTO_TELEGRAM_API_ID: "12345", BENTO_RUNTIME_MODE: "headless" },
         strippedEnvironment: ["BENTO_RELAY_URL"],
         deviceWrappingKey: key,
-        reservePort: async () => 43127,
-        randomToken: () => "unguessable-per-launch-token-1234567890",
+          randomToken: () => "unguessable-per-launch-token-1234567890",
         fetch: async () => jsonResponse({ status: "ready" }),
         spawnProcess: (_executable, arguments_, options) => {
           const child = new FakeChild();
           const command = arguments_[0] ?? "";
           launches.push({ command, env: options.env });
-          if (command === "migrate" || command === "probe") queueMicrotask(() => child.exit(0));
+          sidecarBehaviour(command, child);
           return child;
         },
       });
@@ -169,13 +178,12 @@ describe("authenticated sidecar lifecycle", () => {
         dataDir: "/tmp/bento-test-data",
         runtimeEnvironment: runtime.set,
         strippedEnvironment: runtime.strip,
-        reservePort: async () => 43127,
-        randomToken: () => "unguessable-per-launch-token-1234567890",
+          randomToken: () => "unguessable-per-launch-token-1234567890",
         fetch: async () => jsonResponse({ status: "ready" }),
         spawnProcess: (_executable, arguments_, options) => {
           const child = new FakeChild();
           launches.push({ command: arguments_[0] ?? "", env: options.env });
-          if (arguments_[0] === "migrate") queueMicrotask(() => child.exit(0));
+          sidecarBehaviour(arguments_[0] ?? "", child);
           return child;
         },
       });
@@ -198,13 +206,12 @@ describe("authenticated sidecar lifecycle", () => {
       const supervisor = new SidecarSupervisor({
         command: { executable: "bento-sidecar", prefixArguments: [] },
         dataDir: "/tmp/bento-test-data",
-        reservePort: async () => 43127,
-        randomToken: () => "unguessable-per-launch-token-1234567890",
+          randomToken: () => "unguessable-per-launch-token-1234567890",
         fetch: async () => jsonResponse({ status: "ready" }),
         spawnProcess: (_executable, arguments_, options) => {
           const child = new FakeChild();
           launches.push({ command: arguments_[0] ?? "", env: options.env });
-          if (arguments_[0] === "migrate") queueMicrotask(() => child.exit(0));
+          sidecarBehaviour(arguments_[0] ?? "", child);
           return child;
         },
       });
@@ -286,7 +293,6 @@ describe("authenticated sidecar lifecycle", () => {
     const supervisor = new SidecarSupervisor({
       command: { executable: "bento-sidecar", prefixArguments: [] },
       dataDir: "/tmp/bento-test-data",
-      reservePort: async () => 43127,
       randomToken: () => "unguessable-per-launch-token-1234567890",
       fetch: async () => jsonResponse({ status: "ready" }),
       delay: async () => undefined,
@@ -298,7 +304,7 @@ describe("authenticated sidecar lifecycle", () => {
         }
         const child = new FakeChild();
         launches.push({ command, child });
-        if (command === "migrate") queueMicrotask(() => child.exit(0));
+        sidecarBehaviour(command, child);
         return child;
       },
     });
@@ -317,7 +323,6 @@ describe("authenticated sidecar lifecycle", () => {
     const weak = new SidecarSupervisor({
       command: { executable: "bento-sidecar", prefixArguments: [] },
       dataDir: "/tmp/bento-test-data",
-      reservePort: async () => 43127,
       randomToken: () => "weak",
       spawnProcess: () => {
         throw new Error("must not spawn");
@@ -325,5 +330,157 @@ describe("authenticated sidecar lifecycle", () => {
     });
     await expect(weak.start()).rejects.toThrow(/token.*short/i);
     expect(launches).toHaveLength(0);
+  });
+  it("reads the API port only from the API's own stdout and sends no token before it", async () => {
+    const fetch = vi.fn(async () => jsonResponse({ status: "ready" }));
+    let api: FakeChild | null = null;
+    const supervisor = new SidecarSupervisor({
+      command: { executable: "bento-sidecar", prefixArguments: [] },
+      dataDir: "/tmp/bento-test-data",
+      randomToken: () => "unguessable-per-launch-token-1234567890",
+      fetch,
+      delay: async () => undefined,
+      spawnProcess: (_executable, arguments_) => {
+        const child = new FakeChild();
+        const command = arguments_[0] ?? "";
+        if (command === "api") api = child;
+        else sidecarBehaviour(command, child);
+        return child;
+      },
+    });
+    const started = supervisor.start();
+    await vi.waitFor(() => expect(api).not.toBeNull());
+    // Other output, partial lines, and malformed announcements are not a port.
+    api!.stdout.write("INFO starting\nBENTO_API_READY {\"port\":0}\nBENTO_API_READY {\"port\":1,\"x\":2}\nBENTO_API_");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(fetch).not.toHaveBeenCalled();
+    await expect(supervisor.apiFetch("/api/health")).rejects.toThrow(/not available/u);
+    api!.stdout.write("READY {\"port\":50123}\r\n");
+    await started;
+    const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("http://127.0.0.1:50123/api/desktop/readiness");
+    expect(init.redirect).toBe("error");
+  });
+
+  it("fails startup when the API exits or never reports its port", async () => {
+    for (const behaviour of ["exit", "silent"] as const) {
+      const fetch = vi.fn(async () => jsonResponse({ status: "ready" }));
+      const supervisor = new SidecarSupervisor({
+        command: { executable: "bento-sidecar", prefixArguments: [] },
+        dataDir: "/tmp/bento-test-data",
+        randomToken: () => "unguessable-per-launch-token-1234567890",
+        fetch,
+        readinessTimeoutMs: 50,
+        shutdownTimeoutMs: 10,
+        spawnProcess: (_executable, arguments_) => {
+          const child = new FakeChild();
+          const command = arguments_[0] ?? "";
+          if (command === "api" && behaviour === "exit") queueMicrotask(() => child.exit(1));
+          else if (command !== "api") sidecarBehaviour(command, child);
+          return child;
+        },
+      });
+      await expect(supervisor.start()).rejects.toThrow(behaviour === "exit" ? /exited/u : /report its port/u);
+      expect(fetch).not.toHaveBeenCalled();
+    }
+  });
+
+  it("stops sending the token to a port as soon as its API exits and rotates the token per launch", async () => {
+    let issued = 0;
+    const launches: Array<{ command: string; child: FakeChild; env: NodeJS.ProcessEnv }> = [];
+    const supervisor = new SidecarSupervisor({
+      command: { executable: "bento-sidecar", prefixArguments: [] },
+      dataDir: "/tmp/bento-test-data",
+      randomToken: () => `unguessable-per-launch-token-${String(issued += 1).padStart(12, "0")}`,
+      fetch: async () => jsonResponse({ status: "ready" }),
+      delay: () => new Promise((resolve) => setTimeout(resolve, 5)),
+      spawnProcess: (_executable, arguments_, options) => {
+        const child = new FakeChild();
+        const command = arguments_[0] ?? "";
+        launches.push({ command, child, env: options.env });
+        sidecarBehaviour(command, child, 40000 + launches.length);
+        return child;
+      },
+    });
+    await supervisor.start();
+    const firstApi = launches.find((launch) => launch.command === "api")!;
+    firstApi.child.exit(1);
+    await expect(supervisor.apiFetch("/api/health")).rejects.toThrow(/not available/u);
+    await vi.waitFor(() => expect(launches.filter((launch) => launch.command === "api")).toHaveLength(2));
+    await vi.waitFor(() => expect(supervisor.status.state).toBe("ready"));
+    const tokens = launches.filter((launch) => launch.command === "api").map((launch) => launch.env.BENTO_DESKTOP_API_TOKEN);
+    expect(new Set(tokens).size).toBe(2);
+    expect(supervisor.redactionValues()).toEqual(tokens);
+  });
+
+  it("redacts sidecar output line by line, even when a secret is split across chunks", async () => {
+    const lines: string[] = [];
+    let supervisorRef: SidecarSupervisor | null = null;
+    const log = new RedactingLog((line) => lines.push(line), () => supervisorRef?.redactionValues() ?? []);
+    let api: FakeChild | null = null;
+    const supervisor = new SidecarSupervisor({
+      command: { executable: "bento-sidecar", prefixArguments: [] },
+      dataDir: "/tmp/bento-test-data",
+      randomToken: () => "unguessable-per-launch-token-1234567890",
+      fetch: async () => jsonResponse({ status: "ready" }),
+      log,
+      spawnProcess: (_executable, arguments_) => {
+        const child = new FakeChild();
+        const command = arguments_[0] ?? "";
+        if (command === "api") api = child;
+        sidecarBehaviour(command, child);
+        return child;
+      },
+    });
+    supervisorRef = supervisor;
+    await supervisor.start();
+    api!.stderr.write("leaked unguessable-per-launch");
+    api!.stderr.write("-token-1234567890 in a traceback\n");
+    await vi.waitFor(() => expect(lines.some((line) => line.includes("in a traceback"))).toBe(true));
+    const output = lines.join("\n");
+    expect(output).not.toContain("unguessable-per-launch-token-1234567890");
+    expect(output).not.toContain("-token-1234567890");
+    expect(output).toContain("leaked [REDACTED] in a traceback");
+  });
+
+  it("parses only exact readiness announcements", () => {
+    expect(parseApiReadyLine('BENTO_API_READY {"port":43127}')).toBe(43127);
+    expect(parseApiReadyLine('BENTO_API_READY {"port": 1}')).toBe(1);
+    for (const line of [
+      'BENTO_API_READY {"port":0}',
+      'BENTO_API_READY {"port":65536}',
+      'BENTO_API_READY {"port":"43127"}',
+      'BENTO_API_READY {"port":4312.7}',
+      'BENTO_API_READY {"port":43127,"host":"0.0.0.0"}',
+      "BENTO_API_READY [43127]",
+      'bento_api_ready {"port":43127}',
+      ' BENTO_API_READY {"port":43127}',
+      'BENTO_API_READY {"port":43127',
+    ]) expect(parseApiReadyLine(line)).toBeNull();
+  });
+
+  it("ignores BENTO_SIDECAR_PATH in packaged builds and never forwards it", async () => {
+    const environment = { BENTO_SIDECAR_PATH: "/tmp/evil-sidecar" };
+    expect(resolveSidecarCommand("/opt/Bento/resources", true, "/src/api", environment, "linux"))
+      .toEqual({ executable: path.join("/opt/Bento/resources", "bento-sidecar", "bento-sidecar"), prefixArguments: [] });
+    expect(resolveSidecarCommand("C:/Bento/resources", true, "/src/api", environment, "win32").executable).toMatch(/bento-sidecar\.exe$/u);
+    expect(resolveSidecarCommand("/opt/Bento/resources", false, "/src/api", environment, "linux"))
+      .toEqual({ executable: "/tmp/evil-sidecar", prefixArguments: [] });
+    expect(resolveSidecarCommand("/opt/Bento/resources", false, "/src/api", {}, "linux"))
+      .toEqual({ executable: "uv", prefixArguments: ["run", "--project", "/src/api", "bento-sidecar"] });
+
+    const inherited = { BENTO_SIDECAR_PATH: "/tmp/evil-sidecar", BENTO_DESKTOP_API_TOKEN: "inherited-token", API_PORT: "1" };
+    Object.assign(process.env, inherited);
+    try {
+      const { launches, supervisor } = setup();
+      await supervisor.start();
+      for (const launch of launches) {
+        expect(launch.env).not.toHaveProperty("BENTO_SIDECAR_PATH");
+        expect(launch.env).not.toHaveProperty("API_PORT");
+        expect(launch.env.BENTO_DESKTOP_API_TOKEN).not.toBe("inherited-token");
+      }
+    } finally {
+      for (const key of Object.keys(inherited)) delete process.env[key];
+    }
   });
 });

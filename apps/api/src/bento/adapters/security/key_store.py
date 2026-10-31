@@ -34,6 +34,7 @@ from bento.adapters.security.primitives import (
     b64url_encode,
 )
 from bento.domain.errors import IntegrityError, ValidationFailedError
+from bento.infrastructure import process_secrets
 
 KEY_NAME_PATTERN = re.compile(r"[a-z0-9._-]{1,64}")
 WRAPPING_KEY_ENV = "BENTO_DEVICE_WRAPPING_KEY"
@@ -151,8 +152,14 @@ def validate_key_name(name: str) -> str:
 
 
 def load_wrapping_key(settings_env: Mapping[str, str], data_dir: Path | str) -> WrappingKey:
-    """Return `BENTO_DEVICE_WRAPPING_KEY` (base64url, 32 bytes) from `settings_env`, or read/create
-    `<data_dir>/secure/wrapping.key` (`0600`, base64url text). A present but invalid key fails closed."""
+    """Return `BENTO_DEVICE_WRAPPING_KEY` (base64url, 32 bytes), or read/create
+    `<data_dir>/secure/wrapping.key` (`0600`, base64url text). A present but invalid key fails closed.
+
+    The key the desktop host provided (moved out of the environment by the sidecar launcher) wins
+    over `settings_env`; once provided, the key file is never consulted or created."""
+    provided = process_secrets.get(WRAPPING_KEY_ENV)
+    if provided is not None:
+        return WrappingKey(key=_decode_wrapping_key(provided, WRAPPING_KEY_ENV), file_based=False)
     raw = settings_env.get(WRAPPING_KEY_ENV)
     if raw is not None and raw.strip():
         return WrappingKey(key=_decode_wrapping_key(raw, WRAPPING_KEY_ENV), file_based=False)

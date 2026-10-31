@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -11,6 +10,7 @@ from bento.application.media.service import GeneratedMediaFile
 from bento.domain.assets import Asset, AssetKind
 from bento.domain.errors import UnsupportedMediaTypeError
 from bento.domain.storage import BlobKind
+from bento.infrastructure.child_processes import child_environment, resolve_executable
 
 
 class LocalMediaGenerator:
@@ -115,14 +115,14 @@ class LocalMediaGenerator:
         )
 
     def _generate_video(self, asset: Asset, source_path: Path) -> tuple[GeneratedMediaFile, ...]:
-        ffmpeg = shutil.which("ffmpeg")
-        ffprobe = shutil.which("ffprobe")
+        ffmpeg = resolve_executable("ffmpeg")
+        ffprobe = resolve_executable("ffprobe")
         if ffmpeg is None or ffprobe is None:
             raise RuntimeError("ffmpeg and ffprobe are required for video thumbnails")
 
         target_dir = self._asset_cache_dir(asset.id)
         output = target_dir / "video-thumb.jpg"
-        duration = _video_duration_seconds(ffprobe, source_path)
+        duration = _video_duration_seconds(ffprobe, source_path, target_dir)
         timestamp = min(1.0, duration * 0.1) if duration and duration > 0 else 0.0
         command = [
             ffmpeg,
@@ -140,7 +140,7 @@ class LocalMediaGenerator:
             "-y",
             str(output),
         ]
-        completed = subprocess.run(command, check=False, capture_output=True, text=True)
+        completed = _run_tool(command, target_dir)
         if completed.returncode != 0:
             raise RuntimeError(_safe_process_error("ffmpeg", completed.stderr))
         return (
@@ -160,7 +160,20 @@ class LocalMediaGenerator:
         return target_dir
 
 
-def _video_duration_seconds(ffprobe: str, source_path: Path) -> float | None:
+def _run_tool(command: list[str], working_directory: Path) -> subprocess.CompletedProcess[str]:
+    """Run with an allowlisted environment and a Bento-owned working directory (no DLL planting)."""
+    return subprocess.run(
+        command,
+        check=False,
+        capture_output=True,
+        text=True,
+        env=child_environment(),
+        cwd=working_directory,
+        stdin=subprocess.DEVNULL,
+    )
+
+
+def _video_duration_seconds(ffprobe: str, source_path: Path, working_directory: Path) -> float | None:
     command = [
         ffprobe,
         "-v",
@@ -171,7 +184,7 @@ def _video_duration_seconds(ffprobe: str, source_path: Path) -> float | None:
         "json",
         str(source_path),
     ]
-    completed = subprocess.run(command, check=False, capture_output=True, text=True)
+    completed = _run_tool(command, working_directory)
     if completed.returncode != 0:
         return None
     try:
