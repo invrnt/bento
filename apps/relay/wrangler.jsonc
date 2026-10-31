@@ -1,0 +1,60 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bento-relay",
+  "main": "src/index.ts",
+  // Pinned to the newest date supported by the locally installed workerd so
+  // tests run with production semantics. Bump together with wrangler.
+  "compatibility_date": "2026-10-23",
+  "workers_dev": true,
+  "preview_urls": false,
+  "upload_source_maps": true,
+
+  // `npm run dev` binds to localhost only.
+  "dev": {
+    "ip": "localhost",
+    "port": 8787
+  },
+
+  // Privacy: invocation logs and traces record request URLs, user agents and
+  // geo data. The relay only emits its own structured events (event names,
+  // room age, frame counts, error codes).
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "invocation_logs": false
+    },
+    "traces": {
+      "enabled": false
+    }
+  },
+
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "PAIRING_ROOM",
+        "class_name": "PairingRoom"
+      }
+    ]
+  },
+
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["PairingRoom"]
+    }
+  ],
+
+  // 20 room connections per minute per hashed client IP (per Cloudflare
+  // location). namespace_id must be unique within the Cloudflare account.
+  "ratelimits": [
+    {
+      "name": "ROOM_CONNECT_LIMITER",
+      "namespace_id": "4271",
+      "simple": {
+        "limit": 20,
+        "period": 60
+      }
+    }
+  ]
+}
