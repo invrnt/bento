@@ -12,7 +12,7 @@ const sas = ["🐙", "🌵", "🎈", "🚀"];
 const peer = { device_name: "Portátil de Ana", platform: "linux" };
 const hosted = (overrides: Partial<Pairing> = {}): Pairing => ({
   code: "K7Q2-MXR9-T4WA", error: null, expires_at: new Date(Date.now() + 600_000).toISOString(), id: "pair_h", link: "bento://join?v=1&c=K7Q2-MXR9-T4WA",
-  peer: null, qr: qrMatrix, role: "host", sas: null, state: "waiting", telegram_qr: null, transport: "relay", web_link: "https://bento.app/join#v=1&c=K7Q2-MXR9-T4WA", ...overrides,
+  peer: null, qr: qrMatrix, role: "host", sas: null, state: "waiting", telegram_qr: null, transport: "relay", vault: null, web_link: "https://bento.app/join#v=1&c=K7Q2-MXR9-T4WA", ...overrides,
 });
 
 afterEach(cleanup);
@@ -115,6 +115,42 @@ describe("fallback join requests", () => {
     expect(await screen.findByText("Dispositivo añadido")).toBeInTheDocument();
     expect(api.callsTo("POST /pairing/requests/req_1/review")).toHaveLength(1);
     expect(api.callsTo("POST /pairing/requests/req_1/approve")).toHaveLength(1);
+  });
+
+  it("tells the person when another device already answered the request", async () => {
+    const api = fakeApi({
+      "GET /pairing/requests": { items: [{ created_at: "2026-10-31T10:00:00Z", device_name: "Portátil de Ana", id: "req_3", platform: "linux" }] },
+      "POST /pairing/requests/req_3/review": hosted({
+        error: { code: "pairing_request_taken", message: "Another device answered this request" },
+        id: "pair_t",
+        peer,
+        state: "failed",
+        transport: "telegram",
+      }),
+    });
+    render(<PairingRequestsBanner client={api.client} pollIntervalMs={10} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Revisar" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "¿Añadir «Portátil de Ana · Linux»?" });
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Otro dispositivo respondió a esta solicitud. Si no fuiste tú, cancela en el equipo nuevo.",
+    );
+    expect(within(dialog).queryByRole("button", { name: "Añadir" })).not.toBeInTheDocument();
+    const closeButtons = within(dialog).getAllByRole("button", { name: "Cerrar" });
+    fireEvent.click(closeButtons[closeButtons.length - 1]);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("explains that a removed device has to join as a new one", async () => {
+    const api = fakeApi({
+      "GET /pairing/requests": { items: [{ created_at: "2026-10-31T10:00:00Z", device_name: "Mesa", id: "req_4", platform: "windows" }] },
+      "POST /pairing/requests/req_4/review": () => {
+        throw new FakeHttpError(409, "pairing_device_removed");
+      },
+    });
+    render(<PairingRequestsBanner client={api.client} pollIntervalMs={10} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Revisar" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Ese equipo se quitó de tu nube");
   });
 
   it("can be dismissed for now", async () => {

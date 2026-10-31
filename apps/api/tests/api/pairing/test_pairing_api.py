@@ -6,6 +6,7 @@ import asyncio
 import re
 import time
 from collections.abc import Iterator
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -116,6 +117,9 @@ def test_relay_pairing_over_http(tmp_path: Path, relay: RelayDouble) -> None:
         host_waiting = hosting.until(hosted["id"], "awaiting_approval")
         guest_waiting = joining.until(joined["id"], "awaiting_approval")
         assert host_waiting["sas"] == guest_waiting["sas"] and len(host_waiting["sas"]) == 4
+        assert guest_waiting["vault"] is None
+        refused = joining.call("POST", f"/api/pairing/{joined['id']}/confirm", status=409)
+        assert refused["error"]["code"] == "pairing_state_conflict", "relay guests are authenticated by the code"
         assert host_waiting["peer"] == {"device_name": "guest · Linux", "platform": "linux"}
         assert host_waiting["code"] == code, "the host keeps showing its live code"
 
@@ -150,10 +154,19 @@ def test_fallback_pairing_over_http(tmp_path: Path) -> None:
         assert reviewed["code"] is None and reviewed["qr"] is None
         guest_view = joining.until(requested["id"], "awaiting_approval")
         assert guest_view["sas"] == reviewed["sas"] and len(reviewed["sas"]) == 4
+        assert reviewed["vault"] is None
+        assert guest_view["vault"]["devices_count"] == 1
+        assert datetime.fromisoformat(guest_view["vault"]["created_at"]).tzinfo is not None
 
+        hosting.call("POST", f"/api/pairing/{reviewed['id']}/confirm", status=409)
         hosting.call("POST", f"/api/pairing/requests/{item['id']}/approve")
         hosting.until(reviewed["id"], "completed")
+        time.sleep(0.2)
+        assert joining.call("GET", f"/api/pairing/{requested['id']}")["state"] == "awaiting_approval"
+        confirmed = joining.call("POST", f"/api/pairing/{requested['id']}/confirm")
+        assert confirmed["state"] in {"approving", "bootstrapping", "completed"}
         joining.until(requested["id"], "completed")
+        joining.call("POST", f"/api/pairing/{requested['id']}/confirm", status=409)
         assert hosting.call("GET", "/api/pairing/requests")["items"] == []
         hosting.call("POST", f"/api/pairing/requests/{item['id']}/review", status=404)
         _assert_no_secrets(hosting.bodies + joining.bodies, _secrets(host, guest))
@@ -173,6 +186,7 @@ def test_pairing_errors(tmp_path: Path, relay: RelayDouble) -> None:
         for method, path in (
             ("GET", "/api/pairing/pair_missing"),
             ("POST", "/api/pairing/pair_missing/approve"),
+            ("POST", "/api/pairing/pair_missing/confirm"),
             ("POST", "/api/pairing/pair_missing/reject"),
             ("DELETE", "/api/pairing/pair_missing"),
             ("POST", "/api/pairing/requests/missing/approve"),
@@ -254,3 +268,18 @@ def test_composition_root_wires_the_stage_15_factories(tmp_path: Path, monkeypat
             assert not_signed_in.json()["error"]["code"] == "telegram_not_authorized"
     finally:
         reset_telegram_runtime()
+
+
+def test_fallback_with_several_vaults_is_a_conflict(tmp_path: Path) -> None:
+    host, guest = _setup(tmp_path, "", guest_signed_in=True)
+    other = make_pairing_device(tmp_path, tmp_path / "cloud", "other")
+
+    async def second_vault() -> None:
+        await other.sign_in()
+        await other.vault.create_vault("vlt_second")
+
+    asyncio.run(second_vault())
+    with TestClient(_app(guest, tmp_path / "guest-app")) as guest_client:
+        response = guest_client.post("/api/pairing/request")
+        assert response.status_code == 409
+        assert response.json()["error"]["code"] == "pairing_vault_ambiguous"

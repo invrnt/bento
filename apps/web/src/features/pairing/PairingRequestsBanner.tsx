@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CircleCheck, MonitorSmartphone } from "lucide-react";
+import { CircleCheck, MonitorSmartphone, TriangleAlert } from "lucide-react";
 
 import { apiClient } from "../../api/client";
 import type { ApiClient } from "../../api/client";
@@ -10,9 +10,12 @@ import { Callout } from "../../components/Callout";
 import { Dialog } from "../../components/Dialog";
 import { LoadingState } from "../../components/States";
 import { t } from "../../i18n/dictionary";
+import type { MessageKey } from "../../i18n/dictionary";
 import { usePolledResource } from "../../lib/usePolledResource";
 import { deviceDisplayName } from "../devices/deviceLabels";
+import { errorCode } from "../onboarding/apiErrors";
 import { tf } from "../onboarding/format";
+import { pairingProblem, pairingProblemKeys } from "./pairingErrors";
 import { SasEmojis, SasHint } from "./SasEmojis";
 import { usePairingSession } from "./usePairingSession";
 
@@ -87,7 +90,7 @@ function ReviewDialog({
 }) {
   const [initial, setInitial] = useState<Pairing | null>(null);
   const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
+  const [failure, setFailure] = useState<MessageKey | null>(null);
   const [acting, setActing] = useState<"approve" | "reject" | null>(null);
   const session = usePairingSession(initial, { client, pollIntervalMs });
   const pairing = session.pairing;
@@ -101,19 +104,19 @@ function ReviewDialog({
     reviewedFor.current = request.id;
     reviewPairingRequest(request.id, client)
       .then(setInitial)
-      .catch(() => setFailed(true))
+      .catch((caught: unknown) => setFailure(reviewProblemKey(errorCode(caught))))
       .finally(() => setLoading(false));
   }, [client, request.id]);
 
   async function decide(approve: boolean) {
     setActing(approve ? "approve" : "reject");
-    setFailed(false);
+    setFailure(null);
     try {
       const result = approve ? await approvePairingRequest(request.id, client) : await rejectPairingRequest(request.id, client);
       session.setPairing(result);
       if (!approve) onClose(true);
-    } catch {
-      setFailed(true);
+    } catch (caught) {
+      setFailure(reviewProblemKey(errorCode(caught)));
     } finally {
       setActing(null);
     }
@@ -121,6 +124,7 @@ function ReviewDialog({
 
   const state = pairing?.state;
   const done = state === "completed";
+  const ended = state === "failed" || state === "expired" || state === "cancelled" || state === "rejected";
   const working = state === "approving" || state === "bootstrapping" || state === "needs_telegram_login";
 
   return (
@@ -129,6 +133,10 @@ function ReviewDialog({
         done ? (
           <Button data-autofocus onClick={() => onClose(true)} variant="primary">
             {t("hostPair.done")}
+          </Button>
+        ) : ended ? (
+          <Button data-autofocus onClick={() => onClose(true)} variant="primary">
+            {t("common.close")}
           </Button>
         ) : (
           <>
@@ -155,7 +163,7 @@ function ReviewDialog({
     >
       <div aria-live="polite" className="grid gap-4">
         {loading ? <LoadingState label={t("pairReq.loading")} /> : null}
-        {!loading && pairing?.sas && !done ? (
+        {!loading && pairing?.sas && !done && !ended ? (
           <>
             <p className="text-center text-base text-ink-muted">{t("hostPair.approve.body")}</p>
             <SasEmojis emojis={pairing.sas} />
@@ -167,12 +175,24 @@ function ReviewDialog({
             {tf("hostPair.completed.body", { name })}
           </Callout>
         ) : null}
-        {failed ? (
+        {pairing && ended && state !== "rejected" ? (
+          // Includes `pairing_request_taken`: someone answered first, maybe not one of this person's devices.
+          <Callout icon={<TriangleAlert />} role="alert" title={t("hostPair.failed.title")} tone="danger">
+            {t(state === "expired" ? "pairReq.expired" : reviewProblemKey(pairing.error?.code))}
+          </Callout>
+        ) : null}
+        {failure ? (
           <Callout role="alert" tone="danger">
-            {t("pairReq.failed")}
+            {t(failure)}
           </Callout>
         ) : null}
       </div>
     </Dialog>
   );
+}
+
+/** Review outcomes worth explaining; anything else keeps the generic "try again". */
+function reviewProblemKey(code: string | null | undefined): MessageKey {
+  const problem = pairingProblem(code);
+  return problem === "requestTaken" || problem === "deviceRemoved" ? pairingProblemKeys[problem] : "pairReq.failed";
 }

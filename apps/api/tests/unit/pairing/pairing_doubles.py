@@ -203,6 +203,22 @@ class MemoryDevices:
         self.items[device.id] = device
 
 
+class MemorySyncState:
+    """`SyncStateRepositoryPort` double (key/value text)."""
+
+    def __init__(self, values: dict[str, str] | None = None) -> None:
+        self.values = dict(values or {})
+
+    async def get_value(self, key: str) -> str | None:
+        return self.values.get(key)
+
+    async def set_value(self, key: str, value: str) -> None:
+        self.values[key] = value
+
+    async def is_batch_applied(self, batch_id: str) -> bool:
+        return False
+
+
 class MemoryVault:
     def __init__(self, crypto: VaultCrypto, *, keyring: VaultKeyring | None = None, authorized: Callable[[], bool] = lambda: True) -> None:
         self.crypto = crypto
@@ -268,6 +284,7 @@ def make_unit_device(
     transport: MemoryTransport | None = None,
     timeouts: PairingTimeouts = UNIT,
     name: str = "Equipo · Linux",
+    sync_state: MemorySyncState | None = None,
 ) -> UnitDevice:
     account = StubAccount(authorized=authorized)
     vault = MemoryVault(crypto, keyring=keyring, authorized=lambda: account.authorized)
@@ -283,6 +300,7 @@ def make_unit_device(
         devices=devices,
         verify_commitment=verify_commitment,
         local_device=LocalDeviceInfo(name=name, platform=DevicePlatform.LINUX, app_version="0.1.0"),
+        sync_state=sync_state,
         timeouts=timeouts,
     )
     return UnitDevice(vault=vault, account=account, transport=shared, devices=devices, service=service)
