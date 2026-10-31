@@ -20,6 +20,7 @@ _ERROR_MESSAGES = {
     "vault_locked": "This device has not been granted access to the vault",
     "vault_not_found": "No Bento vault exists in this Telegram account",
     "storage_unavailable": "Telegram is unreachable",
+    "device_removed": "Another device removed this one from the vault; join again to sync",
 }
 
 

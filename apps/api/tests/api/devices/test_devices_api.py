@@ -121,3 +121,50 @@ def test_remove_device_returns_a_new_recovery_kit_once(tmp_path: Path) -> None:
     keyring = asyncio.run(host.vault.keyring())
     assert keyring is not None and keyring.current_epoch == 2
     assert telegram_device_model(laptop.device_id).startswith("Bento (")
+
+
+def test_removal_preview_exclusions_and_acknowledging_new_devices(tmp_path: Path) -> None:
+    host, laptop, _ = _setup(tmp_path)
+    stranger = make_pairing_device(tmp_path, tmp_path / "cloud", "stranger")
+
+    async def plant() -> None:
+        # A row that reached the host through another device's sync data.
+        await host.devices.save(
+            Device(
+                id=stranger.device_id,
+                name="Tablet",
+                platform=DevicePlatform.LINUX,
+                public_key=b64url_encode(stranger.identity.public_key),
+                added_at=datetime(2026, 10, 2, tzinfo=UTC),
+                introduced_by=laptop.device_id,
+                first_seen_at=datetime(2026, 10, 2, tzinfo=UTC),
+            )
+        )
+
+    asyncio.run(plant())
+    with _client(host, tmp_path / "app") as client:
+        listed = {item["id"]: item for item in client.get("/api/devices").json()["items"]}
+        assert listed[stranger.device_id]["needs_review"] is True
+        assert listed[stranger.device_id]["introduced_by"] == laptop.device_id
+        assert listed[stranger.device_id]["first_seen_at"].startswith("2026-10-02")
+
+        preview = client.get(f"/api/devices/{laptop.device_id}/removal-preview")
+        assert preview.status_code == 200, preview.text
+        recipients = [item["id"] for item in preview.json()["recipients"]]
+        assert recipients[0] == host.device_id and set(recipients) == {host.device_id, stranger.device_id}
+        assert client.get(f"/api/devices/{host.device_id}/removal-preview").json()["error"]["code"] == "device_is_current"
+        assert client.get("/api/devices/dev_missing/removal-preview").status_code == 404
+
+        invalid = client.request("DELETE", f"/api/devices/{laptop.device_id}", json={"exclude_device_ids": [host.device_id]})
+        assert invalid.status_code == 400 and invalid.json()["error"]["code"] == "device_exclusion_invalid"
+        removed = client.request("DELETE", f"/api/devices/{laptop.device_id}", json={"exclude_device_ids": [stranger.device_id]})
+        assert removed.status_code == 200, removed.text
+        assert removed.json()["removed_device_ids"] == [laptop.device_id, stranger.device_id]
+
+        everything = {item["id"]: item for item in client.get("/api/devices", params={"include_removed": "true"}).json()["items"]}
+        assert everything[stranger.device_id]["removed_at"] is not None
+        assert everything[stranger.device_id]["needs_review"] is False
+
+        acknowledged = client.post(f"/api/devices/{stranger.device_id}/acknowledge")
+        assert acknowledged.status_code == 200 and acknowledged.json()["id"] == stranger.device_id
+        assert client.post("/api/devices/dev_missing/acknowledge").status_code == 404

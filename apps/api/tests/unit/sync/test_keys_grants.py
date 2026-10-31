@@ -232,3 +232,28 @@ def test_unreadable_sealed_box_with_a_valid_tag_is_rejected() -> None:
     sealed = "not-base64!"
     auth = CRYPTO.grant_auth(w.laptop, w.me.public_key, grant_auth_payload(message, recipient_device_id=w.me.device_id, sealed=sealed))
     rejected(w, replace(message, grants={w.me.device_id: KeysGrant(sealed=sealed, auth=auth)}), "keys_grant")
+
+
+def test_stale_epochs_are_rejected_and_the_current_one_brings_nothing_new() -> None:
+    w = world()
+    rotated = CRYPTO.rotate_keyring(KEYRING)
+    assert asyncio.run(w.applier.apply(grant(w.laptop, rotated, w.me), w.context(rotated))) is None
+    rejected(w, grant(w.laptop, KEYRING, w.me), "keys_epoch_stale", rotated)
+
+
+def test_a_rotation_without_this_device_from_an_active_peer_means_it_was_removed() -> None:
+    w = world()
+    rotated = CRYPTO.rotate_keyring(KEYRING)
+    stranger = CRYPTO.generate_device_identity()
+
+    def removes(message: KeysMessage, keyring: VaultKeyring = KEYRING) -> bool:
+        return asyncio.run(w.applier.removes_this_device(message, w.context(keyring)))
+
+    assert removes(grant(w.laptop, rotated, w.laptop))
+    assert removes(grant(w.laptop, rotated, w.laptop, removed=(w.me.device_id,)))
+    assert not removes(grant(w.laptop, rotated, w.me, w.laptop))
+    assert not removes(grant(stranger, rotated, w.laptop)), "unknown senders remove nobody"
+    assert not removes(grant(w.me, rotated, w.laptop)), "never this device's own message"
+    assert not removes(grant(w.laptop, rotated, w.laptop), rotated), "only a newer epoch"
+    asyncio.run(w.applier.apply(grant(w.laptop, rotated, w.me, removed=(w.phone.device_id,)), w.context()))
+    assert not removes(grant(w.phone, CRYPTO.rotate_keyring(rotated), w.laptop), rotated), "removed senders remove nobody"

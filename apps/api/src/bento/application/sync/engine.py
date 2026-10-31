@@ -520,7 +520,7 @@ class SyncEngine:
         if message.vault_id != context.layout.vault_id:
             return _Processed(context, floor)
         if await self._keys.removes_this_device(message, context):
-            await self._mark_removed(message, ref)
+            await self._mark_removed(context, message, ref)
             return _Processed(context, floor, removed=True)
         try:
             merged = await self._keys.apply(message, context)
@@ -537,13 +537,13 @@ class SyncEngine:
             floor = await self._raise_floor(floor, message.epoch, ref.message_id)
         return _Processed(context, floor)
 
-    async def _mark_removed(self, message: KeysMessage, ref: SyncMessageRef) -> None:
+    async def _mark_removed(self, context: VaultContext, message: KeysMessage, ref: SyncMessageRef) -> None:
         """Another device rotated the keys without this one: stop syncing and forget the vault keys."""
         LOGGER.warning("This device was removed from the vault (keys epoch %s); sync stops here", message.epoch)
         await self._values.set_json(
             DEVICE_REMOVED,
             {
-                "device_id": (await self._vault.device_identity()).device_id,
+                "device_id": context.device.device_id,
                 "epoch": message.epoch,
                 "message_id": ref.message_id,
                 "by": message.sender_device_id,

@@ -81,6 +81,11 @@ def test_status_reflects_the_worker_loop_state_and_pending_ops(tmp_path: Path) -
     assert body["waiting_until"] == "2026-04-01T10:05:00+00:00"
     assert body["error"] == {"code": "telegram_flood_wait", "message": "Telegram asked to wait before retrying", "details": {}}
 
+    asyncio.run(state.set_value("device_removed", json.dumps({"device_id": "dev_api", "epoch": 2})))
+    body = client.get("/api/sync/status").json()
+    assert body["state"] == "paused" and body["bootstrap"] is None
+    assert body["error"]["code"] == "device_removed" and "removed" in body["error"]["message"]
+
 
 def test_sync_now_leaves_a_marker_for_the_worker(tmp_path: Path) -> None:
     data_dir = migrated_data_dir(tmp_path)

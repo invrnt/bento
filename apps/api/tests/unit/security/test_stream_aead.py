@@ -425,3 +425,29 @@ def _reader(data: bytes):
         return data[offset : offset + size]
 
     return read
+
+
+def test_expected_header_digest_is_checked_before_any_segment(tmp_path: Path) -> None:
+    from bento.adapters.security.primitives import b64url_encode
+
+    cipher = StreamingBlobCipher(segment_size=4096)
+    keyring = VaultCrypto().generate_keyring("vlt_digest")
+    source = tmp_path / "plain.bin"
+    source.write_bytes(b"x" * 10_000)
+    params = cipher.new_params(keyring)
+    ciphertext = tmp_path / "cipher.bin"
+    asyncio.run(cipher.encrypt_file(source, ciphertext, keyring=keyring, params=params))
+    data = ciphertext.read_bytes()
+    digest = cipher.header_digest(params)
+    assert digest == b64url_encode(hashlib.sha256(data[:HEADER_SIZE]).digest())
+
+    async def read(offset: int, length: int) -> bytes:
+        return data[offset : offset + length]
+
+    assert asyncio.run(cipher.decrypt_range(read, ciphertext_size=len(data), start=5, length=5, keyring=keyring, expected_header_sha256=digest)) == b"xxxxx"
+    for wrong in ("A" * 43, "ñ"):
+        with pytest.raises(IntegrityError):
+            asyncio.run(cipher.decrypt_range(read, ciphertext_size=len(data), start=5, length=5, keyring=keyring, expected_header_sha256=wrong))
+        with pytest.raises(IntegrityError):
+            asyncio.run(cipher.decrypt_file(ciphertext, tmp_path / "out.bin", keyring=keyring, expected_header_sha256=wrong))
+    assert asyncio.run(cipher.decrypt_file(ciphertext, tmp_path / "out.bin", keyring=keyring, expected_header_sha256=digest))

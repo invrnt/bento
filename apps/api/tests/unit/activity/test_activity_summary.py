@@ -8,12 +8,13 @@ from bento.application.activity import (
     FailedBackupSource,
     FailedInboxItem,
     FailedUpload,
+    NewDevice,
     build_activity,
 )
 from bento.domain.activity import TransferStats
 from bento.domain.backup import BackupPolicy
 from bento.domain.sync import SyncState, SyncStatus
-from bento.domain.vault import VaultState, VaultStatus
+from bento.domain.vault import DEVICE_REMOVED_REASON, VaultState, VaultStatus
 
 NOW = datetime(2026, 3, 1, 12, 0, tzinfo=UTC)
 
@@ -129,3 +130,25 @@ def test_recovery_kit_reminder_only_for_ready_vaults() -> None:
     reminder = _activity(vault=VaultStatus(state=VaultState.READY))
     assert [item.kind.value for item in reminder.attention] == ["recovery_kit"]
     assert reminder.summary.value == "attention"
+
+
+def test_devices_first_seen_through_sync_ask_for_a_review() -> None:
+    snapshot = ActivitySnapshot(new_devices=(NewDevice(device_id="dev_x", name="Tablet", first_seen_at=NOW, introduced_by="dev_a"),))
+    activity = _activity(snapshot, vault=VaultStatus(state=VaultState.READY, recovery_kit_saved=True))
+    [item] = activity.attention
+    assert (item.id, item.kind.value, item.action.value) == ("new_device:dev_x", "new_device", "open_devices")
+    assert item.title_key == "activity.attention.new_device"
+    assert item.params == {"device_id": "dev_x", "name": "Tablet", "first_seen_at": NOW.isoformat()}
+    assert activity.summary.value == "attention"
+
+
+def test_a_removed_device_and_a_stale_kit_are_attention_items() -> None:
+    removed = _activity(vault=VaultStatus(state=VaultState.LOCKED, reason=DEVICE_REMOVED_REASON))
+    [item] = removed.attention
+    assert (item.id, item.title_key, item.action.value) == ("device_removed", "activity.attention.device_removed", "open_settings")
+
+    stale = _activity(vault=VaultStatus(state=VaultState.READY, recovery_kit_saved=False, recovery_kit_stale=True))
+    [kit] = stale.attention
+    assert kit.kind.value == "recovery_kit" and kit.params == {"reason": "stale"}
+    unsaved = _activity(vault=VaultStatus(state=VaultState.READY, recovery_kit_saved=False))
+    assert unsaved.attention[0].params == {}

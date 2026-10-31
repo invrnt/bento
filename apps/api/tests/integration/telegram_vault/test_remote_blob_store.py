@@ -312,3 +312,35 @@ def _session_rows(device: VaultDevice) -> list[str]:
 
     with session_scope(device.sessions) as session:
         return list(session.scalars(select(UploadSessionModel.id)))
+
+
+def test_ciphertext_is_bound_to_its_blob_ref_by_the_header_digest(tmp_path: Path) -> None:
+    """Another file sealed with the same vault keys decrypts fine, so only the synced header digest can tell the
+    swap apart, also on range reads where the plaintext sha256 is never checked."""
+
+    async def scenario() -> None:
+        device = await _ready_device(tmp_path)
+        store = device.blob_store(part_size_bytes=64 * 1024)
+        video, video_meta = _source(tmp_path, 40_000, "video.mp4")
+        other, other_meta = _source(tmp_path, 40_000, "other.mp4")
+        ref = await store.store(str(video), asset_id="asset_1", kind=BlobKind.ORIGINAL, metadata=video_meta)
+        other_ref = await store.store(str(other), asset_id="asset_2", kind=BlobKind.ORIGINAL, metadata=other_meta)
+        digest = ref.encryption.cipher_header_sha256
+        assert digest is not None and len(digest) == 43 and digest != other_ref.encryption.cipher_header_sha256
+        stored = await store.get(ref.id)
+        assert stored is None or stored.encryption.cipher_header_sha256 == digest
+
+        swapped = replace(ref, parts=other_ref.parts, sha256=None)
+        with pytest.raises(IntegrityError) as raised:
+            await store.read_range(swapped, 0, 16)
+        assert raised.value.details["what"] == "blob_header"
+        with pytest.raises(IntegrityError):
+            await store.download(swapped, tmp_path / "swapped.bin")
+        assert not (tmp_path / "swapped.bin").exists()
+
+        # Refs synced before the digest existed keep working (nothing to compare against).
+        legacy = replace(swapped, encryption=replace(ref.encryption, cipher_header_sha256=None))
+        assert await store.read_range(legacy, 0, 16) == other.read_bytes()[:16]
+        assert await store.read_range(ref, 0, 16) == video.read_bytes()[:16]
+
+    run(scenario())
