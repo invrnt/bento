@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from bento.domain.account import TelegramAccount
-from bento.domain.security import DeviceIdentity, VaultKeyring
+from bento.domain.security import DeviceIdentity, RecoveryWrap, VaultKeyring
 from bento.domain.vault import VaultHeader, VaultLayout, VaultStatus
 
 
@@ -53,3 +53,11 @@ class VaultSessionPort(Protocol):
         (best effort): they carry the keyring wrapped by superseded recovery codes.
         """
         ...
+
+
+@runtime_checkable
+class RecoveryKitRecorderPort(Protocol):
+    """Optional capability of a vault session: remember a recovery code generated outside it (key rotation), so
+    `confirm_recovery_kit(last_group)` accepts that kit."""
+
+    async def remember_recovery_kit(self, recovery_code: str, wrap: RecoveryWrap) -> None: ...

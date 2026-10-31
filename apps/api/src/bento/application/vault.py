@@ -4,6 +4,11 @@
 no state that another process could make stale: every call reads the key store and `sync_state` again, so a
 vault unlocked by the API is immediately visible to the worker. Only the (network-bound) discovery of vaults in
 the account is cached briefly.
+
+Header trust (architecture § Header): a header counts as current only when it is MACed with this device's
+current epoch. A removed device keeps older epochs, so an older-epoch header is only ever built upon by
+`update_header` one epoch back and with a fresh recovery wrap (its recovery is never carried forward, and its
+snapshot pointer only when this process verified that header while its epoch was current).
 """
 
 from __future__ import annotations
@@ -19,6 +24,7 @@ from datetime import datetime
 from typing import Protocol
 
 from bento.application.pairing import b64url_encode
+from bento.application.sync.state import DEVICE_REMOVED, REMOVED_DEVICES
 from bento.domain.account import AccountStatus, TelegramAccount
 from bento.domain.devices import Device, DevicePlatform
 from bento.domain.errors import (
@@ -34,7 +40,14 @@ from bento.domain.errors import (
 )
 from bento.domain.security import DeviceIdentity, RecoveryWrap, VaultKeyring
 from bento.domain.sync import SyncMessageKind, SyncState, SyncStatus
-from bento.domain.vault import VaultHeader, VaultLayout, VaultState, VaultStatus, VaultUsage
+from bento.domain.vault import (
+    DEVICE_REMOVED_REASON,
+    VaultHeader,
+    VaultLayout,
+    VaultState,
+    VaultStatus,
+    VaultUsage,
+)
 from bento.ports.key_store import DEVICE_IDENTITY, VAULT_KEYRING, KeyStorePort
 from bento.ports.pairing import DeviceRepositoryPort
 from bento.ports.repositories import ClockPort
@@ -139,6 +152,7 @@ class _CachedKit:
     vault_id: str
     saved: bool
     at: float
+    stale: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,6 +161,8 @@ class _Discovery:
     header: VaultHeader | None
     others: int
     at: float
+    candidates: tuple[tuple[VaultLayout, VaultHeader], ...] = ()
+    """Every vault of the account with a parseable header, newest `created_at` first."""
 
 
 class DeviceIdentityStore:
@@ -165,6 +181,17 @@ class DeviceIdentityStore:
         # Another process may have won the race; everyone keeps the stored identity.
         stored = await self._key_store.get(DEVICE_IDENTITY)
         return self._crypto.device_identity_from_bytes(stored) if stored is not None else identity
+
+    async def renew(self, previous: DeviceIdentity) -> DeviceIdentity:
+        """Replace `previous` with a fresh identity (a removed device joins again under a new id)."""
+        raw = await self._key_store.get(DEVICE_IDENTITY)
+        if raw is not None:
+            stored = self._crypto.device_identity_from_bytes(raw)
+            if stored.device_id != previous.device_id:
+                return stored  # another process renewed it first
+        identity = self._crypto.generate_device_identity()
+        await self._key_store.put(DEVICE_IDENTITY, self._crypto.device_identity_to_bytes(identity))
+        return identity
 
 
 class VaultService:
@@ -201,6 +228,8 @@ class VaultService:
         self._discovery: _Discovery | None = None
         self._context: _CachedContext | None = None
         self._kit: _CachedKit | None = None
+        self._current_header: VaultHeader | None = None
+        """Last header `read_header` verified at this device's current epoch, or that this process published."""
 
     # VaultSessionPort
 
@@ -219,14 +248,25 @@ class VaultService:
         if local is not None:
             layout, keyring = local
             created_at = await self._state.get_value(CREATED_AT_KEY)
+            kit = await self._recovery_kit_state(ports, layout, keyring)
             return VaultStatus(
                 state=VaultState.BOOTSTRAPPING if await self._bootstrapping() else VaultState.READY,
                 vault_id=layout.vault_id,
                 created_at=datetime.fromisoformat(created_at) if created_at else None,
-                recovery_kit_saved=await self._recovery_kit_saved(ports, layout, keyring),
+                recovery_kit_saved=kit.saved,
+                recovery_kit_stale=kit.stale,
                 devices_count=len(await self._devices.list()),
                 usage=await self._usage.usage(),
                 other_vaults=int(await self._state.get_value(OTHER_VAULTS_KEY) or 0),
+            )
+        if await self._removal_flag() is not None:
+            raw = await self._state.get_value(LAYOUT_KEY)
+            created_at = await self._state.get_value(CREATED_AT_KEY)
+            return VaultStatus(
+                state=VaultState.LOCKED,
+                vault_id=_layout_from_json(raw)[0].vault_id if raw is not None else None,
+                created_at=datetime.fromisoformat(created_at) if created_at else None,
+                reason=DEVICE_REMOVED_REASON,
             )
         discovery = await self._discover(ports)
         if discovery.layout is None or discovery.header is None:
@@ -255,7 +295,7 @@ class VaultService:
         if local is None:
             return None
         layout, keyring = local
-        context = VaultContext(layout=layout, keyring=keyring, device=await self.device_identity(), account=account.account)
+        context = VaultContext(layout=layout, keyring=keyring, device=await self._identities.get(), account=account.account)
         self._context = _CachedContext(token=token, context=context, at=self._monotonic())
         return context
 
@@ -270,20 +310,32 @@ class VaultService:
         local = await self._local(account)
         if local is not None:
             layout, keyring = local
-            return VaultContext(layout=layout, keyring=keyring, device=await self.device_identity(), account=account)
+            return VaultContext(layout=layout, keyring=keyring, device=await self._identities.get(), account=account)
+        if await self._removal_flag() is not None:
+            raise VaultLockedError()
         discovery = await self._discover(ports)
         if discovery.layout is None or discovery.header is None:
             raise VaultNotFoundError()
         raise VaultLockedError()
 
     async def device_identity(self) -> DeviceIdentity:
-        return await self._identities.get()
+        """This device's identity. A removed device without usable vault keys gets a fresh one, so it joins
+        again (pairing, recovery code) under a new id that peers have never seen removed."""
+        identity = await self._identities.get()
+        locked_out = await self._key_store.get(VAULT_KEYRING) is None or await self._removal_flag() is not None
+        if locked_out and await self._identity_removed(identity):
+            identity = await self._renew_identity(identity)
+        return identity
 
     async def install(self, layout: VaultLayout, keyring: VaultKeyring) -> VaultStatus:
         ports = self._require_ports()
         account = _authorized(await ports.account.status())
         if keyring.vault_id != layout.vault_id:
             raise ValidationFailedError("The keyring belongs to another vault")
+        identity = await self._identities.get()
+        rejoining = await self._removal_flag() is not None
+        if await self._identity_removed(identity):
+            await self._renew_identity(identity)
         installed = await self._local(account)
         existing = await self._stored_keyring()
         if existing is not None and existing.vault_id == keyring.vault_id:
@@ -292,6 +344,9 @@ class VaultService:
         if installed is None or installed[0] != layout:
             await self._state.set_value(BOOTSTRAP_PENDING_KEY, self._clock.now().isoformat())
         await self._save_layout(layout, account)
+        if rejoining:
+            # Sync stopped right before the keys message that removed this device; it is read again now.
+            await self._state.delete_value(DEVICE_REMOVED)
         header = await self._verified_header(ports, layout, keyring)
         if header is not None:
             await self._state.set_value(CREATED_AT_KEY, header.created_at.isoformat())
@@ -313,6 +368,7 @@ class VaultService:
         await self._write_keyring(keyring)
 
     async def read_header(self) -> VaultHeader | None:
+        """The pinned header, only when MACed with this device's current epoch (None otherwise)."""
         ports = self._optional_ports()
         if ports is None:
             return None
@@ -321,27 +377,58 @@ class VaultService:
             return None
         local = await self._local(account.account)
         if local is not None:
-            return await self._verified_header(ports, *local)
+            header = await self._verified_header(ports, *local)
+            # Remembered for a rotation that follows (`update_header` may keep this header's snapshot pointer).
+            self._current_header = header
+            return header
         discovery = await self._discover(ports)
         return discovery.header
 
     async def update_header(self, mutate: Callable[[VaultHeader], VaultHeader]) -> VaultHeader:
-        """Publish the mutated header (nothing is posted when it does not change), then delete superseded headers."""
+        """Publish the mutated header (nothing is posted when it does not change), then delete superseded headers.
+
+        The base is the pinned header at this device's current epoch, or one epoch back when the mutation brings a
+        fresh recovery wrap (the device that rotated, or anyone generating a new kit after an unfinished rotation).
+        """
         context = await self.require()
         ports = self._require_ports()
-        header = await self._verified_header(ports, context.layout, context.keyring)
-        if header is None:
+        keyring = context.keyring
+        header = await self._pinned_header(ports, context.layout, keyring)
+        if header is None or header.current_epoch < keyring.current_epoch - 1:
             raise IntegrityError("vault_header")
         updated = mutate(header)
         if updated.vault_id != header.vault_id or updated.layout != header.layout:
             raise ValidationFailedError("The vault id and layout of a header cannot change")
-        signed = self._sign(replace(updated, current_epoch=context.keyring.current_epoch, mac=None), context.keyring)
+        if header.current_epoch < keyring.current_epoch:
+            if updated.recovery == header.recovery:
+                # Its wrap holds an older keyring: carrying it forward would leave a kit that cannot open the vault.
+                LOGGER.warning("The vault header is one key epoch behind; a new recovery kit is needed")
+                self._kit = None
+                raise IntegrityError("vault_header_stale")
+            if updated.snapshot is not None and updated.snapshot == header.snapshot and header != self._current_header:
+                LOGGER.warning("Dropped the snapshot pointer of an older-epoch header that this device did not verify")
+                updated = replace(updated, snapshot=None)
+        signed = self._sign(replace(updated, current_epoch=keyring.current_epoch, mac=None), keyring)
         if signed == header:
             return header
         message_id = await ports.transport.publish_header_text(context.layout, signed.to_json())
+        self._current_header = signed
         await self._mirror_kit(signed)
         await self._delete_superseded_headers(ports, context.layout, message_id)
         return signed
+
+    async def remember_recovery_kit(self, recovery_code: str, wrap: RecoveryWrap) -> None:
+        """Record the check of a recovery code this process generated elsewhere (key rotation), so the person can
+        confirm that kit with its last group."""
+        context = await self.require()
+        await self._remember_kit(context.layout.vault_id, recovery_code, wrap)
+        self._kit = None
+
+    async def forget_keys_after_removal(self) -> None:
+        """This device was removed (sync saw a rotation without it): drop the vault keys, keep the local library."""
+        await self._key_store.delete(VAULT_KEYRING)
+        await self._state.set_value(KEYRING_REVISION_KEY, secrets.token_hex(8))
+        self.invalidate()
 
     # Vault use cases
 
@@ -398,14 +485,9 @@ class VaultService:
         discovery = await self._discover(ports, fresh=True)
         if discovery.layout is None or discovery.header is None:
             raise VaultNotFoundError()
-        header = discovery.header
-        keyring = self._crypto.unwrap_with_recovery(header.recovery, code, vault_id=header.vault_id)
-        if not self._verify(keyring, header) or header.current_epoch != keyring.current_epoch:
-            raise IntegrityError("vault_header")
-        if header.layout != discovery.layout:
-            raise IntegrityError("vault_layout")
+        layout, header, keyring = self._unwrap_any(discovery, code)
         await self._state.set_value(OTHER_VAULTS_KEY, str(discovery.others))
-        await self.install(discovery.layout, keyring)
+        await self.install(layout, keyring)
         await self._remember_kit(header.vault_id, code, header.recovery)
         if header.recovery.confirmed_at is None:
             # Opening the vault with the code proves it was saved; tell every device. Unlock succeeded anyway.
@@ -416,12 +498,16 @@ class VaultService:
         return await self.status()
 
     async def rotate_recovery_code(self) -> str:
-        """A new recovery code wrapped into a new header; the previous code no longer opens the vault."""
+        """A new recovery code wrapped into a new header; the previous code no longer opens the vault.
+
+        Also the way out of a stale kit: it may build on a header one epoch back (see `update_header`).
+        """
         context = await self.require()
         code = self._crypto.generate_recovery_code()
         wrap = self._crypto.wrap_for_recovery(context.keyring, code)
         await self.update_header(lambda header: replace(header, recovery=wrap))
         await self._remember_kit(context.layout.vault_id, code, wrap)
+        self._kit = None
         return code
 
     async def confirm_recovery_kit(self, last_group: str) -> VaultStatus:
@@ -438,9 +524,12 @@ class VaultService:
         return await self.status()
 
     async def verify_recovery_code(self, recovery_code: str) -> bool:
-        header = await self.read_header()
-        if header is None:
+        """Whether the code opens the current kit; a stale kit (older-epoch header) opens nothing current."""
+        found, header = await self._recovery_header()
+        if not found:
             raise VaultNotFoundError()
+        if header is None:
+            return False
         try:
             self._crypto.unwrap_with_recovery(header.recovery, recovery_code, vault_id=header.vault_id)
         except (RecoveryCodeInvalidError, IntegrityError, ValidationFailedError):
@@ -452,6 +541,7 @@ class VaultService:
         self._discovery = None
         self._context = None
         self._kit = None
+        self._current_header = None
 
     # Internals
 
@@ -519,6 +609,8 @@ class VaultService:
         keyring = await self._stored_keyring()
         if keyring is None or keyring.vault_id != layout.vault_id:
             return None
+        if await self._removal_flag() is not None:
+            return None
         return layout, keyring
 
     async def _local_layout_id(self) -> str | None:
@@ -538,15 +630,20 @@ class VaultService:
         layouts = await ports.transport.find_vaults()
         for layout in layouts:
             header = _parse_header(await ports.transport.read_header_text(layout))
-            if header is not None and header.vault_id == layout.vault_id:
+            # `created_at` is unauthenticated here; the parser already refused naive timestamps.
+            if header is not None and header.vault_id == layout.vault_id and header.layout == layout:
                 candidates.append((layout, header))
-        candidates.sort(key=lambda item: item[1].created_at, reverse=True)
-        chosen = candidates[0] if candidates else None
+        candidates.sort(key=lambda item: _sort_key(item[1]), reverse=True)
+        stored = await self._stored_keyring()
+        # A device that holds keys picks the vault whose header its keyring authenticates.
+        verified = [item for item in candidates if stored is not None and self._verify(stored, item[1])]
+        chosen = verified[0] if verified else (candidates[0] if candidates else None)
         discovery = _Discovery(
             layout=chosen[0] if chosen else None,
             header=chosen[1] if chosen else None,
             others=max(len(candidates) - 1, 0),
             at=self._monotonic(),
+            candidates=tuple(candidates),
         )
         self._discovery = discovery
         return discovery
@@ -557,12 +654,83 @@ class VaultService:
     async def _verified_header(
         self, ports: TelegramPorts, layout: VaultLayout, keyring: VaultKeyring
     ) -> VaultHeader | None:
+        """The pinned header when MACed with this device's current epoch: older epochs are held by removed devices."""
+        header = await self._pinned_header(ports, layout, keyring)
+        if header is None or header.current_epoch != keyring.current_epoch:
+            return None
+        return header
+
+    async def _pinned_header(
+        self, ports: TelegramPorts, layout: VaultLayout, keyring: VaultKeyring
+    ) -> VaultHeader | None:
+        """The pinned header MACed with any epoch this device holds (callers decide which epochs they accept)."""
         header = _parse_header(await ports.transport.read_header_text(layout))
         if header is None or header.vault_id != layout.vault_id or header.layout != layout:
             return None
-        # Verified with the key of the epoch it declares: a rotation stores the new keyring before the new header
-        # is published. The sync engine applies the epoch floor by Sync message position.
         return header if self._verify(keyring, header) else None
+
+    async def _recovery_header(self) -> tuple[bool, VaultHeader | None]:
+        """`(vault found, header whose wrap a code must open)`: the current-epoch header when unlocked here."""
+        ports = self._optional_ports()
+        if ports is None:
+            return False, None
+        account = await ports.account.status()
+        if not account.authorized or account.account is None:
+            return False, None
+        local = await self._local(account.account)
+        if local is not None:
+            return True, await self._verified_header(ports, *local)
+        header = (await self._discover(ports)).header
+        return header is not None, header
+
+    def _unwrap_any(self, discovery: _Discovery, code: str) -> tuple[VaultLayout, VaultHeader, VaultKeyring]:
+        """The candidate whose recovery wrap this code opens and whose MAC the unwrapped keyring verifies at its own
+        current epoch; that, not the unauthenticated `created_at`, is what identifies the vault."""
+        failure: DomainError = RecoveryCodeInvalidError()
+        for layout, header in discovery.candidates or ((discovery.layout, discovery.header),):  # type: ignore[assignment]
+            if layout is None or header is None:
+                continue
+            try:
+                keyring = self._crypto.unwrap_with_recovery(header.recovery, code, vault_id=header.vault_id)
+            except (RecoveryCodeInvalidError, IntegrityError, ValidationFailedError) as exc:
+                failure = exc
+                continue
+            if header.current_epoch != keyring.current_epoch or not self._verify(keyring, header):
+                failure = IntegrityError("vault_header")
+                continue
+            return layout, header, keyring
+        raise failure
+
+    async def _removal_flag(self) -> dict[str, object] | None:
+        """The `sync_state` mark the sync engine leaves when this device was removed; cleared by `install`."""
+        raw = await self._state.get_value(DEVICE_REMOVED)
+        if raw is None:
+            return None
+        try:
+            flag = json.loads(raw)
+        except ValueError:
+            flag = None
+        return flag if isinstance(flag, dict) else {}
+
+    async def _identity_removed(self, identity: DeviceIdentity) -> bool:
+        flag = await self._removal_flag()
+        if flag is not None and flag.get("device_id") == identity.device_id:
+            return True
+        row = await self._devices.get(identity.device_id)
+        if row is not None and row.removed_at is not None:
+            return True
+        raw = await self._state.get_value(REMOVED_DEVICES)
+        try:
+            removed = json.loads(raw) if raw is not None else []
+        except ValueError:
+            removed = []
+        return isinstance(removed, list) and identity.device_id in removed
+
+    async def _renew_identity(self, previous: DeviceIdentity) -> DeviceIdentity:
+        identity = await self._identities.renew(previous)
+        LOGGER.info("This device was removed from the vault; it joins again with a new device identity")
+        self._context = None
+        return identity
 
     def _verify(self, keyring: VaultKeyring, header: VaultHeader) -> bool:
         if header.current_epoch not in keyring.keys:
@@ -591,26 +759,35 @@ class VaultService:
 
         return mutate
 
-    async def _recovery_kit_saved(self, ports: TelegramPorts, layout: VaultLayout, keyring: VaultKeyring) -> bool:
-        """Vault-wide: the current header's wrap is confirmed. The local mirror answers when Telegram cannot."""
+    async def _recovery_kit_state(self, ports: TelegramPorts, layout: VaultLayout, keyring: VaultKeyring) -> _CachedKit:
+        """Vault-wide: the current header's wrap is confirmed. The local mirror answers when Telegram cannot.
+
+        A pinned header of an older epoch (a rotation whose header never got published) wraps a keyring without the
+        current key: its kit is stale and reported as not saved until a new kit is generated.
+        """
         cached = self._kit
         if (
             cached is not None
             and cached.vault_id == layout.vault_id
             and self._monotonic() - cached.at < RECOVERY_KIT_RECHECK_SECONDS
         ):
-            return cached.saved
+            return cached
         try:
-            header = await self._verified_header(ports, layout, keyring)
+            header = await self._pinned_header(ports, layout, keyring)
         except DomainError as exc:
             LOGGER.debug("Vault header unavailable for the recovery kit state: %s", exc.code)
             header = None
-        if header is None:
+        if header is not None and header.current_epoch < keyring.current_epoch:
+            self._kit = _CachedKit(vault_id=layout.vault_id, saved=False, at=self._monotonic(), stale=True)
+            return self._kit
+        if header is None or header.current_epoch != keyring.current_epoch:
             # Cached as well, so an unreachable or rate-limited Telegram is not asked again on every status call.
             saved = await self._state.get_value(RECOVERY_KIT_SAVED_KEY) == "1"
             self._kit = _CachedKit(vault_id=layout.vault_id, saved=saved, at=self._monotonic())
-            return saved
-        return await self._mirror_kit(header)
+            return self._kit
+        await self._mirror_kit(header)
+        assert self._kit is not None
+        return self._kit
 
     async def _mirror_kit(self, header: VaultHeader) -> bool:
         """Cache the header's recovery kit state and keep the local fallback flag in step with it."""
@@ -705,6 +882,13 @@ def _merge_keyrings(first: VaultKeyring, second: VaultKeyring) -> VaultKeyring:
         current_epoch=max(first.current_epoch, second.current_epoch),
         keys={**first.keys, **second.keys},
     )
+
+
+def _sort_key(header: VaultHeader) -> float:
+    try:
+        return header.created_at.timestamp()
+    except (OverflowError, OSError, ValueError):
+        return float("-inf")
 
 
 def _parse_header(text: str | None) -> VaultHeader | None:

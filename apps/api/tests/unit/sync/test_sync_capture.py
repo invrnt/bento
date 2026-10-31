@@ -142,7 +142,8 @@ def test_local_blob_refs_are_ignored_until_they_become_remote_with_parts_folded(
     assert [item[:3] for item in recorded] == [("blob", "blob_1", "upsert"), ("blob", "blob_1", "upsert")]
     full, update_only = recorded[0][3], recorded[1][3]
     assert set(full) == {
-        "asset_id", "kind", "size_bytes", "sha256", "encryption_mode", "key_epoch", "format_version", "parts"
+        "asset_id", "kind", "size_bytes", "sha256", "encryption_mode", "key_epoch", "format_version",
+        "cipher_header_sha256", "parts",
     }
     assert full["parts"] == [
         {"index": 0, "channel_id": -1001, "message_id": 10, "size_bytes": 100},

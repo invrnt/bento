@@ -194,7 +194,7 @@ class TelegramVaultBlobStore:
             with self._temp_file(".bcipher") as ciphertext:
                 await self._encrypt(context.keyring, Path(source_ref), ciphertext, session, metadata)
                 session = await self._upload_missing_parts(context, session, ciphertext)
-        return _blob_ref(session, metadata.sha256)
+        return self._blob_ref(session, metadata.sha256)
 
     async def store_many(self, uploads: Sequence[RemoteBlobUpload]) -> tuple[BlobRef, ...]:
         """Like `store` for each item, but small single-part blobs (thumbnails, previews) go up in albums of 10."""
@@ -209,7 +209,7 @@ class TelegramVaultBlobStore:
                     context, Path(upload.source_ref), upload.asset_id, upload.kind, upload.metadata
                 )
                 if session.state == UploadState.COMPLETED:
-                    results[index] = _blob_ref(session, upload.metadata.sha256)
+                    results[index] = self._blob_ref(session, upload.metadata.sha256)
                 elif session.ciphertext_size <= limit and not session.completed_parts:
                     ciphertext = batch_dir / f"{secrets.token_hex(12)}{PART_SUFFIX}"
                     await self._encrypt(context.keyring, Path(upload.source_ref), ciphertext, session, upload.metadata)
@@ -227,7 +227,7 @@ class TelegramVaultBlobStore:
                     _check_part_size(remote, session.ciphertext_size)
                     completed = self._complete(replace(session, completed_parts=(remote,)))
                     await self._sessions.save(completed)
-                    results[index] = _blob_ref(completed, upload.metadata.sha256)
+                    results[index] = self._blob_ref(completed, upload.metadata.sha256)
         finally:
             await asyncio.to_thread(shutil.rmtree, batch_dir, True)
         return tuple(results[index] for index in range(len(uploads)))
@@ -253,7 +253,12 @@ class TelegramVaultBlobStore:
             expected = sum(part.size_bytes for part in blob_ref.parts)
             if await asyncio.to_thread(lambda: ciphertext.stat().st_size) != expected:
                 raise IntegrityError("blob")
-            digest = await self._cipher.decrypt_file(ciphertext, destination, keyring=context.keyring)
+            digest = await self._cipher.decrypt_file(
+                ciphertext,
+                destination,
+                keyring=context.keyring,
+                expected_header_sha256=blob_ref.encryption.cipher_header_sha256,
+            )
         if blob_ref.sha256 is not None and digest != blob_ref.sha256:
             destination.unlink(missing_ok=True)
             raise IntegrityError("blob")
@@ -283,6 +288,7 @@ class TelegramVaultBlobStore:
             start=start,
             length=length,
             keyring=context.keyring,
+            expected_header_sha256=blob_ref.encryption.cipher_header_sha256,
         )
 
     async def delete(self, blob_id: str) -> None:
@@ -366,6 +372,9 @@ class TelegramVaultBlobStore:
         session = self._complete(session)
         await self._sessions.save(session)
         return session
+
+    def _blob_ref(self, session: UploadSession, sha256: str) -> BlobRef:
+        return _blob_ref(session, sha256, cipher_header_sha256=self._cipher.header_digest(session.params))
 
     def _complete(self, session: UploadSession) -> UploadSession:
         return replace(session, state=UploadState.COMPLETED, updated_at=self._clock.now())
@@ -470,7 +479,7 @@ def _part_to_json(index: int, part: RemotePart) -> dict[str, int]:
     return {"index": index, "channel_id": part.channel_id, "message_id": part.message_id, "size_bytes": part.size_bytes}
 
 
-def _blob_ref(session: UploadSession, sha256: str) -> BlobRef:
+def _blob_ref(session: UploadSession, sha256: str, *, cipher_header_sha256: str) -> BlobRef:
     return BlobRef(
         id=session.blob_ref_id,
         asset_id=session.asset_id,
@@ -483,6 +492,7 @@ def _blob_ref(session: UploadSession, sha256: str) -> BlobRef:
             mode=EncryptionMode.AES_GCM_STREAM,
             key_epoch=session.params.epoch,
             format_version=BLOB_FORMAT_VERSION,
+            cipher_header_sha256=cipher_header_sha256,
         ),
         parts=tuple(BlobPart.from_remote(index, part) for index, part in enumerate(session.completed_parts)),
     )

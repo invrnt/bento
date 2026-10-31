@@ -53,7 +53,11 @@ class SyncApplyPort(Protocol):
         """Returns the number of fields actually applied after LWW and purge checks."""
         ...
 
-    async def apply_snapshot(self, states: AsyncIterator[EntityState], purged: tuple[tuple[str, str, str], ...]) -> int: ...
+    async def apply_snapshot(
+        self, states: AsyncIterator[EntityState], purged: tuple[tuple[str, str, str], ...], *, source: str | None = None
+    ) -> int:
+        """`source` is the snapshot's creator; device rows it introduces count as already reviewed."""
+        ...
 
 
 class SnapshotSourcePort(Protocol):

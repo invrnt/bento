@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 import uuid
 from collections.abc import Callable
@@ -16,9 +17,20 @@ from sqlalchemy.orm import Session
 
 from bento.application.sync.state import CAPTURE, LAST_HLC
 from bento.domain.errors import ValidationFailedError
-from bento.domain.sync import Hlc, SyncEntity, SyncOperation, SyncOpKind, hlc_receive, hlc_tick
+from bento.domain.sync import (
+    MAX_CLOCK_SKEW_MS,
+    Hlc,
+    SyncEntity,
+    SyncOperation,
+    SyncOpKind,
+    hlc_receive,
+    hlc_tick,
+    hlc_within,
+)
 from bento.domain.vault import canonical_json
 from bento.infrastructure.db.models import SyncFieldClockModel, SyncOutboxModel, SyncPurgedModel, SyncStateModel
+
+LOGGER = logging.getLogger("bento.sync.records")
 
 NowMs = Callable[[], int]
 Now = Callable[[], datetime]
@@ -76,8 +88,21 @@ def op_size(operation: SyncOperation) -> int:
     return len(canonical_json(operation.to_dict()))
 
 
+def trusted_clock(value: str, now_ms: int) -> bool:
+    """A stored field clock or device HLC is usable: well formed and not beyond the local clock plus skew.
+
+    Anything else (written before remote clocks were bounded, or corrupted) is ignored and overwritten, so a
+    poisoned clock can never freeze an entity or make local ticks fail.
+    """
+    return hlc_within(value, now_ms + MAX_CLOCK_SKEW_MS)
+
+
 class HlcCursor:
-    """The device HLC inside one transaction: loaded once, ticked per op, stored back on every change."""
+    """The device HLC inside one transaction: loaded once, ticked per op, stored back on every change.
+
+    A stored HLC that is malformed or ahead of the wall clock by more than the allowed skew is clamped to the
+    wall clock (and repaired on the next store).
+    """
 
     def __init__(self, session: Session, device_id: str, *, now_ms: NowMs, now: Now) -> None:
         self._session = session
@@ -87,29 +112,36 @@ class HlcCursor:
         self._last: Hlc | None = None
         self._row: SyncStateModel | None = None
 
-    def current(self) -> Hlc:
+    def current(self, now_ms: int | None = None) -> Hlc:
         if self._last is None:
             with self._session.no_autoflush:
                 row = self._session.get(SyncStateModel, LAST_HLC)
             self._row = row
             stored = _parse_hlc(row.value) if row is not None else None
+            if row is not None and stored is not None and now_ms is None:
+                now_ms = self._now_ms()
+            if row is not None and (stored is None or not trusted_clock(row.value, now_ms or 0)):
+                LOGGER.warning("Integrity: reset an untrusted device HLC to the wall clock")
+                stored = None
             base = stored or Hlc.zero(self._device_id)
             self._last = Hlc(base.physical_ms, base.counter, self._device_id)
         return self._last
 
     def tick(self, *, after: str = "") -> str:
-        """Next local HLC, strictly greater than the stored one and than `after` (an existing field clock)."""
-        candidate = hlc_tick(self.current(), self._now_ms())
-        floor = _parse_hlc(after) if after else None
+        """Next local HLC, strictly greater than the stored one and than `after` (an existing, trusted field clock)."""
+        now_ms = self._now_ms()
+        candidate = hlc_tick(self.current(now_ms), now_ms)
+        floor = _parse_hlc(after) if after and trusted_clock(after, now_ms) else None
         if floor is not None and candidate.format() <= after:
-            candidate = hlc_receive(candidate, floor, self._now_ms())
+            candidate = hlc_receive(candidate, floor, now_ms)
         return self._store(candidate)
 
     def observe(self, remote: str) -> str:
         parsed = _parse_hlc(remote)
-        if parsed is None:
-            return self.current().format()
-        return self._store(hlc_receive(self.current(), parsed, self._now_ms()))
+        now_ms = self._now_ms()
+        if parsed is None or not trusted_clock(remote, now_ms):
+            return self.current(now_ms).format()
+        return self._store(hlc_receive(self.current(now_ms), parsed, now_ms))
 
     def _store(self, value: Hlc) -> str:
         self._last = value
@@ -130,6 +162,7 @@ class OpWriter:
         self._session = session
         self._config = config
         self._now = now
+        self._now_ms = now_ms
         self.hlc = HlcCursor(session, config.device_id, now_ms=now_ms, now=now)
         self._clocks: dict[tuple[str, str], dict[str, SyncFieldClockModel]] = {}
         self._purged: set[tuple[str, str]] = set()
@@ -137,7 +170,8 @@ class OpWriter:
 
     def emit(self, entity: SyncEntity, entity_id: str, kind: SyncOpKind, fields: dict[str, Any]) -> SyncOperation:
         clocks = self._clock_rows(entity, entity_id)
-        newest = max((row.hlc for row in clocks.values()), default="")
+        now_ms = self._now_ms()
+        newest = max((row.hlc for row in clocks.values() if trusted_clock(row.hlc, now_ms)), default="")
         operation = SyncOperation(
             op_id=str(uuid.uuid4()),
             hlc=self.hlc.tick(after=newest),
@@ -166,6 +200,7 @@ class OpWriter:
                 )
             )
             clocks = self._clock_rows(operation.entity, operation.entity_id)
+            now_ms = self._now_ms()
             if operation.kind == SyncOpKind.UPSERT:
                 for name in operation.fields:
                     row = clocks.get(name)
@@ -175,7 +210,7 @@ class OpWriter:
                         )
                         self._session.add(row)
                         clocks[name] = row
-                    elif row.hlc < operation.hlc:
+                    elif row.hlc < operation.hlc or not trusted_clock(row.hlc, now_ms):
                         row.hlc = operation.hlc
             else:
                 for row in clocks.values():

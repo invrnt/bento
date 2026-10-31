@@ -119,6 +119,9 @@ def test_sync_documents_and_text_are_listed_in_order_with_kinds(tmp_path: Path) 
         assert snapshot.filename.endswith(".bsnap")
         assert await transport.list_sync_messages(layout, after_message_id=header, limit=1) == (listed[2],)
         assert await transport.download_sync_document(layout, batch.message_id) == b"sealed-batch"
+        assert await transport.download_sync_document(layout, batch.message_id, max_bytes=12) == b"sealed-batch"
+        with pytest.raises(ValidationFailedError):
+            await transport.download_sync_document(layout, batch.message_id, max_bytes=11)
         with pytest.raises(ValidationFailedError):
             await transport.post_sync_document(layout, SyncMessageKind.HEADER, b"{}")
 

@@ -55,25 +55,32 @@ Error codes: `telegram_not_available` (no build credentials), `telegram_login_ex
  "vault_id": "vlt_…" | null, "created_at": "ISO" | null,
  "recovery_kit_saved": false, "devices_count": 2,
  "usage": {"files": 1200, "bytes": 52428800000},
- "other_vaults": 0}
+ "other_vaults": 0, "recovery_kit_stale": false, "reason": null}
 ```
 
-`locked` means the account has a vault but this device has no keyring yet (show "aprobar desde otro dispositivo" or "usar kit de recuperación"). `bootstrapping` means the snapshot/ops are being applied (`/sync/status` has progress).
+`locked` means the account has a vault but this device has no keyring yet (show "aprobar desde otro dispositivo" or "usar kit de recuperación"). `reason: "device_removed"` (only with `locked`) means another device removed this one: the keys were dropped, the local library stays, and re-joining (pairing or kit) gives this device a new identity. `recovery_kit_stale: true` (with `recovery_kit_saved: false`) means the pinned header wraps an older key epoch: generate a new kit with `POST /vault/recovery-code`. `bootstrapping` means the snapshot/ops are being applied (`/sync/status` has progress).
 
 ## Sync — owner: sync agent
 
 | Method | Path | Response |
 |---|---|---|
 | GET | `/sync/status` | `{state: "disabled|idle|syncing|bootstrapping|offline|paused|waiting|error", pending_ops, last_push_at, last_pull_at, bootstrap: {done, total} | null, waiting_until: ISO | null, error: Error | null}` |
+| | | A removed device reports `state: "paused"` with `error.code = "device_removed"` until it joins again. |
 | POST | `/sync/now` | `{accepted: true}` |
 
 ## Devices — owner: pairing agent
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| GET | `/devices` | – | `{items: [{id, name, platform, added_at, last_seen_at, current, removed_at}]}` |
-| PATCH | `/devices/{id}` | `{name}` | device |
-| DELETE | `/devices/{id}` | – | `{device, telegram_session_closed: bool, recovery_code}` (mandatory new kit) |
+| GET | `/devices` | `?include_removed` | `{items: [Device]}` |
+| PATCH | `/devices/{id}` | `{name}` | `Device` |
+| GET | `/devices/{id}/removal-preview` | – | `{recipients: [Device]}`: the active devices that would receive the new keys if `{id}` were removed now (this device first). `409 device_is_current`, `404 device_not_found` |
+| DELETE | `/devices/{id}` | optional `{exclude_device_ids: [string]}` (≤ 256) | `{device: Device, telegram_session_closed: bool, recovery_code, recovery_qr: QR, removed_device_ids: [string]}` (mandatory new kit; `removed_device_ids` = `{id}` then every excluded id). Excluded devices are removed too, get no key grant, and keep their Telegram sessions. `400 device_exclusion_invalid` for unknown ids or this device |
+| POST | `/devices/{id}/acknowledge` | – | `Device` with `needs_review: false` (the person reviewed a device first seen through sync) |
+
+`Device`: `{id, name, platform: "linux|macos|windows|other", added_at, last_seen_at, current, removed_at, introduced_by: string|null, first_seen_at: string|null, needs_review: bool}`. `introduced_by` is the device whose sync data introduced this one on this device (null when it was added here, e.g. as pairing host); `needs_review` is true for active devices first seen through sync and not acknowledged yet (they also appear as Activity `new_device` items).
+
+Web flow for removal: fetch the preview, show the recipients, let the person tick unknown ones (`needs_review` ones first), then `DELETE` with `exclude_device_ids`.
 
 ## Pairing — owner: pairing agent
 
@@ -143,8 +150,14 @@ Pairing sessions live in API memory; restarting the API cancels them.
 {"summary": "up_to_date|uploading|downloading|syncing|paused|offline|attention",
  "uploads": {"active": 1, "queued": 11, "bytes_total": 1000, "bytes_done": 400, "eta_seconds": 180},
  "downloads": {"active": 0, "queued": 0, "bytes_total": 0, "bytes_done": 0, "eta_seconds": null},
- "attention": [{"id": "…", "kind": "upload_failed|sync_error|flood_wait|recovery_kit|inbox_failed", "title_key": "i18n key", "params": {}, "action": "retry|open_settings|save_recovery_kit|none"}]}
+ "attention": [{"id": "…", "kind": "upload_failed|sync_error|flood_wait|recovery_kit|inbox_failed|new_device|device_removed", "title_key": "i18n key", "params": {}, "action": "retry|open_settings|save_recovery_kit|open_devices|none"}]}
 ```
+
+Security attention items (Stage 17):
+
+- `new_device` (id `new_device:<device_id>`, `title_key` `activity.attention.new_device`, action `open_devices`, params `{device_id, name, first_seen_at}`): "Se añadió «{name}» a tu nube". Cleared by `POST /devices/{id}/acknowledge` or by removing the device.
+- `device_removed` (id `device_removed`, `title_key` `activity.attention.device_removed`, action `open_settings`): another device removed this one; the vault is `locked` with `reason: "device_removed"` and re-joining goes through pairing (with a fresh device identity) or the recovery code.
+- `recovery_kit` with `params.reason = "stale"`: the pinned header still wraps an older key epoch ("genera un nuevo kit"): `POST /vault/recovery-code` (rotate) fixes it.
 
 ## Trash and cache — owner: backup agent
 

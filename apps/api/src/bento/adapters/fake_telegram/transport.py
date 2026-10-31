@@ -79,9 +79,9 @@ class FakeVaultTransport:
         self._observe(chat, refs[-1].message_id if len(refs) >= limit else None)
         return tuple(refs)
 
-    async def download_sync_document(self, layout: VaultLayout, message_id: int) -> bytes:
+    async def download_sync_document(self, layout: VaultLayout, message_id: int, *, max_bytes: int | None = None) -> bytes:
         path = await self._session.call(self._cloud.document_path, layout.sync_channel_id, message_id)
-        return await self._session.run(_read_bytes, path)
+        return await self._session.run(_read_bytes, path, max_bytes)
 
     async def delete_sync_messages(self, layout: VaultLayout, message_ids: tuple[int, ...]) -> None:
         await self._session.call(self._cloud.delete_messages, layout.sync_channel_id, message_ids)
@@ -204,8 +204,10 @@ def _sync_ref(message: FakeMessage, kind: SyncMessageKind) -> SyncMessageRef:
     )
 
 
-def _read_bytes(path: Path) -> bytes:
+def _read_bytes(path: Path, max_bytes: int | None = None) -> bytes:
     try:
+        if max_bytes is not None and path.stat().st_size > max_bytes:
+            raise ValidationFailedError("Sync document exceeds the size limit", {"max_bytes": max_bytes})
         return path.read_bytes()
     except FileNotFoundError as exc:
         raise missing_remote() from exc

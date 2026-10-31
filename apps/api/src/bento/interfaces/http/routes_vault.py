@@ -32,6 +32,8 @@ class VaultStatusResponse(BaseModel):
     devices_count: int
     usage: VaultUsageResponse
     other_vaults: int
+    recovery_kit_stale: bool = False
+    reason: str | None = None
 
 
 class CreatedVaultResponse(BaseModel):
@@ -125,6 +127,8 @@ def vault_status_response(status: VaultStatus) -> VaultStatusResponse:
         devices_count=status.devices_count,
         usage=VaultUsageResponse(files=status.usage.files, bytes=status.usage.bytes),
         other_vaults=status.other_vaults,
+        recovery_kit_stale=status.recovery_kit_stale,
+        reason=status.reason,
     )
 
 

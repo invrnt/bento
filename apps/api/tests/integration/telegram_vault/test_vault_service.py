@@ -214,7 +214,8 @@ def test_keyring_rotation_then_header_update_uses_the_new_epoch(tmp_path: Path) 
         with pytest.raises(ValidationFailedError):
             await first.vault.update_keyring(replace(rotated, keys={2: rotated.keys[2]}, current_epoch=2))
         await first.vault.update_keyring(rotated)
-        assert await first.vault.read_header() is not None  # still verified with the epoch it declares
+        # The pinned header is one epoch back now: not current (removed devices hold that epoch) until replaced.
+        assert await first.vault.read_header() is None
         code = first.crypto.generate_recovery_code()
         wrap = first.crypto.wrap_for_recovery(rotated, code)
 

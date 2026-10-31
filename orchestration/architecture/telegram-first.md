@@ -53,7 +53,7 @@ Created by `VaultTransportPort.create_vault` with `channels.CreateChannelRequest
 
 - All three channels are added to a chat folder titled `Bento` (`messages.UpdateDialogFilterRequest`).
 - About text also contains a human line: "Creado por Bento. No borres ni edites estos mensajes."
-- Discovery: iterate dialogs, keep channels where the user is creator and the title starts with `Bento`, then read the full channel `about` and match markers. One vault per account in v1; if several exist, pick the one whose header has the newest `created_at` and report the others in status.
+- Discovery: iterate dialogs, keep channels where the user is creator and the title starts with `Bento`, then read the full channel `about` and match markers. One vault per account in v1; if several exist, report the others in status. `created_at` is unauthenticated until the MAC is checked, so it only orders candidates: headers with naive (timezone-less) timestamps are not candidates, a device holding a keyring picks the newest candidate whose MAC its keyring verifies, and a recovery unlock tries every candidate (newest first) and opens the one whose wrap the code unwraps and whose MAC the unwrapped keyring verifies at its own current epoch.
 
 ## Cryptography
 
@@ -88,6 +88,7 @@ segment i (0-based) = AES-256-GCM(file_key, nonce = nonce_prefix || u32 BE(i) ||
 - Ciphertext offset of segment `i` = `36 + i * (segment_size + 16)`. This enables range decryption for video streaming and resumable/partial downloads.
 - Reordering, truncation, and extension are detected by the index and last-flag nonce construction.
 - The plaintext sha256 is stored in the catalog and verified after full decryption.
+- The header carries a random `file_salt`, so `cipher_header_sha256` = b64url SHA-256 of the 36-byte header names one encryption of one file. It is set on upload, synced in the `blob` op, and every remote download and range read compares it (constant time) before decrypting a segment: a ciphertext swapped for another file sealed with the same vault keys fails with `IntegrityError("blob_header")`, also on range reads where the plaintext sha256 is never checked. Refs synced before the field existed (NULL) are not compared.
 - Legacy v1 (`BENTOENC\x01`, single GCM stream) stays decryptable; it is never written again.
 
 ### Recovery code
@@ -117,7 +118,9 @@ The Sync channel's pinned message is a JSON text message (≤ 4096 chars):
 
 - New headers are posted and pinned; older header messages are then deleted (best effort, resumable cursor per device) because they carry the keyring wrapped by superseded recovery codes. The current header and newer ones are never deleted.
 - `recovery.confirmed_at` (optional ISO-8601, MAC-covered, omitted while unset) records that the current recovery code was saved (kit confirmation or an unlock with the code). It is vault-wide: every device reports `recovery_kit_saved` from it, and every new wrap (rotation, device removal) starts without it.
-- Devices with a keyring verify the MAC and ignore headers with invalid MACs. A device that unlocks via recovery code verifies the MAC after unwrapping.
+- Devices with a keyring verify the MAC and ignore headers with invalid MACs. A device that unlocks via recovery code verifies the MAC after unwrapping, at the epoch the wrap opened (`header.current_epoch == keyring.current_epoch`).
+- **Current header**: bootstrap, recovery kit status, and `read_header` accept the pinned header only when it is MACed with this device's current epoch; removed devices keep older epochs and can MAC and pin older headers.
+- `update_header` builds on the pinned header at the current epoch, or one epoch back only when the mutation brings a fresh recovery wrap (the device that rotated, or anyone generating a new kit after an unfinished rotation). It never carries `recovery` forward from an older-epoch header (that wrap holds a keyring without the current key): such an update fails with `IntegrityError("vault_header_stale")`, and status reports `recovery_kit_saved: false, recovery_kit_stale: true` (Activity `recovery_kit` item with `params.reason = "stale"`: "genera un nuevo kit"). An older-epoch base keeps its `snapshot` pointer only when this process verified that header while its epoch was current (the rotating device reads it right before rotating); otherwise the pointer is dropped and new devices replay the Sync channel until the next snapshot.
 
 ## Sync Protocol
 
@@ -129,12 +132,12 @@ The Sync channel's pinned message is a JSON text message (≤ 4096 chars):
 | `asset` | asset id | `kind`, `mode`, `folder_id`, `filename`, `original_filename`, `mime_type`, `size_bytes`, `sha256`, `taken_at`, `exif`, `favorite`, `created_at`, `deleted_at` |
 | `album` | album id | `title`, `created_at`, `deleted_at` |
 | `album_item` | `<album_id>:<asset_id>` | `album_id`, `asset_id`, `created_at`, `removed` |
-| `blob` | blob id | `asset_id`, `kind`, `size_bytes`, `sha256`, `encryption_mode`, `key_epoch`, `format_version`, `parts` (list of `{index, channel_id, message_id, size_bytes}`) |
+| `blob` | blob id | `asset_id`, `kind`, `size_bytes`, `sha256`, `encryption_mode`, `key_epoch`, `format_version`, `cipher_header_sha256`, `parts` (list of `{index, channel_id, message_id, size_bytes}`) |
 | `thumbnail` | thumbnail id | `asset_id`, `blob_id`, `width`, `height` |
 | `asset_index` | asset id | `ocr_text`, `pdf_pages` (list), `language`, `embedding` (`{provider, dimensions, vector_b64_f32}` or null) |
 | `device` | device id | `name`, `platform`, `public_key`, `telegram_auth_hash`, `added_at`, `removed_at` |
 
-`processing_state`, `origin`, jobs, local cache paths, settings, and search index tables are device-local and never synced. Peers create received assets as `indexed`; the uploading device settles each asset to `indexed` (or `failed_partial` after a step failed for good) once no thumbnail/OCR/embedding job is left for it.
+`processing_state`, `origin`, the device rows' `introduced_by`/`first_seen_at`/`reviewed_at`, jobs, local cache paths, settings, and search index tables are device-local and never synced. Peers create received assets as `indexed`; the uploading device settles each asset to `indexed` (or `failed_partial` after a step failed for good) once no thumbnail/OCR/embedding job is left for it.
 
 ### Operations
 
@@ -144,12 +147,15 @@ The Sync channel's pinned message is a JSON text message (≤ 4096 chars):
  "fields": {"filename": "a.jpg", "favorite": true}}
 ```
 
-- **HLC**: `<16-digit zero-padded unix ms>-<6-digit counter>-<device_id>`; string comparison equals causal order with device id tiebreak. Each device persists its last HLC and advances on every local op and on every received op.
+- **HLC**: `<16-digit zero-padded unix ms>-<6-digit counter>-<device_id>`; string comparison equals causal order with device id tiebreak. Each device persists its last HLC and advances on every local op and on every received op. The physical part is at most `9999999999999999`; ticks saturate there instead of overflowing the format.
+- **Bounded remote clocks**: a remote op is skipped (integrity warning, `sync_state.skipped_ops` += 1, the batch and cursor still advance) when its HLC is malformed or its physical time exceeds `min(Sync message date, local wall clock) + 5 min`. Snapshot fields whose clock exceeds `min(snapshot created_at, local clock) + 5 min` (and such purge records) are dropped. One poisoned op can therefore never freeze an entity on every device.
+- **Repair**: a stored field clock or device HLC that is malformed or beyond `local clock + 5 min` (written before the bound existed) counts as absent: the next genuine remote or local op overwrites it, and local ticks clamp the device HLC to the wall clock, so local writes never fail on a bad stored clock. A device whose wall clock jumps back by more than 5 minutes resets its HLC to wall time (peers would reject its old clocks anyway).
 - **Merge**: last-writer-wins per field. A field is applied only if `op.hlc > field_clock(entity, id, field)`. Deletion is the `deleted_at` field (trash), so a concurrent rename and delete both apply; restore sets `deleted_at = null` with a newer HLC.
 - **Purge** is terminal: removes the entity locally, records `(entity, id, hlc)` in `sync_purged`, and ignores any later op for it.
 - **Folder cycles**: applying a `parent_id` that would create a cycle (or points to a purged/missing folder) moves the folder to the root and records a local notice; the op still advances clocks so every device converges identically.
 - **Duplicate content**: two devices uploading the same sha256 concurrently produce two assets; nothing is merged automatically. The UI offers "duplicados" cleanup later.
 - **Missing references** (asset in unknown folder, blob for unknown asset) are applied as-is; readers treat unknown parents as root until the parent arrives.
+- **Device registry** (the trust anchor of key grants, so stricter than LWW): a registered non-empty `public_key` never changes through sync; this device's own row only takes `removed_at` from peers; `device` purges (ops and snapshot tombstones) are ignored; `removed_at = null` is ignored for ids in `sync_state.removed_device_ids`. A row first created on this device by sync data records `introduced_by` (the sending device, or the snapshot's creator), `first_seen_at`, and `reviewed_at` (set immediately for snapshot rows and rows seen while bootstrapping, which predate this device). Active rows with `introduced_by` set and no `reviewed_at` raise an Activity `new_device` item until `POST /devices/{id}/acknowledge`.
 
 ### Change capture
 
@@ -163,13 +169,17 @@ The Sync channel's pinned message is a JSON text message (≤ 4096 chars):
 - The worker's sync loop flushes `sync_outbox` when it holds ≥1 op and the oldest op is ≥3 s old, or ≥256 ops, or ≥512 KiB of JSON.
 - Batch payload: `{"bento": "sync-batch", "v": 1, "batch": "<uuid4>", "device": "<device_id>", "ops": [...]}` → zlib → `seal(purpose=sync, epoch=current)` → uploaded as a document named `<uuid4>.bsync` to the Sync channel. Outbox rows are deleted only after Telegram confirms the message.
 - Pull: list Sync messages with `id > last_applied_message_id` in ascending order, download `.bsync` documents, open, skip batches whose `device` is self (but advance the cursor), apply ops in HLC order inside one `sync_apply` transaction per batch, record `batch` ids in `sync_applied_batches` for idempotency, then advance the cursor.
+- Untrusted input limits: the listed `size_bytes` is checked before downloading (batch 8 MiB, keys 1 MiB, snapshot 512 MiB) and the transport re-checks the fetched message's document size before downloading (a message can be edited). A batch is inflated to at most 16 MiB of JSON. The epoch floor is checked on the envelope's public prefix before decrypting. A message that can never be processed (too large, malformed, unauthenticated, below the floor, rejected grant) is passed over: the cursor advances and `sync_state.skipped_messages` / `last_skipped {message_id, kind, reason, at}` record it; transient transport errors still retry.
+- Own batches: after Telegram confirms a batch, its message id is kept in `sync_state.own_batch_message_ids` until pulled. Own batches are skipped without decrypting; an own batch that lands below the floor is the only below-floor batch that is decrypted, and its ops are queued again under the current epoch.
 - Real time: the worker subscribes to new-message updates for the Sync and Inbox channels; it also polls every 30 s and on network regain.
 
 ### Snapshots
 
 - Created by the worker after 2,000 applied ops or 24 h since the last snapshot, whichever comes first, only if this device has applied everything up to the current tip.
 - Payload: JSON lines of every synced entity's full current fields **plus field clocks** and the purge list, zlib, `seal(purpose=snapshot)`, uploaded as `<uuid4>.bsnap`; then a new header points to it with `covers_through_message_id`.
-- Bootstrap of a new device: read header → unlock keyring → download snapshot → apply with clocks → pull ops after `covers_through_message_id` → enqueue thumbnail downloads lazily. Search indexes rebuild locally from `asset_index` data without re-running OCR/embeddings.
+- Bootstrap of a new device: read header (current epoch only) → unlock keyring → download snapshot → apply with clocks → set the epoch floor to `(snapshot envelope epoch, covers_through_message_id)` → pull ops after `covers_through_message_id` → enqueue thumbnail downloads lazily. Search indexes rebuild locally from `asset_index` data without re-running OCR/embeddings.
+- Floor at bootstrap: a snapshot's creator held its sealing epoch `s` when it had processed everything through `covers` (keys are stored only after their keys message is posted), so batches sealed below `s` and posted after `covers` are not genuine. The sealing epoch, not the keyring's current epoch, is used: when the rotation came after `covers`, older-epoch batches between `covers` and the keys message are genuine, and the pull raises the floor when it reaches that keys message.
+- A snapshot that fails to download within limits, open, or parse is counted as skipped and the device replays the Sync channel from the start instead (never retried in a loop).
 
 ### Rate and size policy
 
@@ -226,12 +236,16 @@ A signed-in device with the recovery code unwraps the keyring from the header. T
 
 - Each device publishes its `device` entity after joining, including `telegram_auth_hash` from `account.GetAuthorizationsRequest` (current session).
 - Removing a device (from any other device):
+  0. `GET /devices/{id}/removal-preview` lists the active devices that would receive the new keys. Any device holding the vault keys can add registry rows through sync, so the person can leave unknown devices out (`exclude_device_ids`): they are marked removed too, listed in `removed_device_ids`, and get no grant; their Telegram sessions are not closed (a forged row may carry another device's session hash or model name).
   1. Mark `removed_at` (op).
   2. `account.ResetAuthorizationRequest(hash)`; if Telegram refuses because this session is too new, show "Podrás cerrarla desde Telegram › Dispositivos" and continue.
   3. Rotate: create `VMK_{e+1}`, post a `keys` message to Sync with `{epoch, grants: {device_id: seal_for_device(pub, keyring_json)}}` for every remaining active device, publish a new header wrapped with a **new recovery code**, and show the new recovery kit immediately (mandatory step).
   4. New data uses the new epoch. Copy explains that files the removed device already downloaded cannot be erased remotely.
+  5. The rotating device records the new code's kit check (`VaultService.remember_recovery_kit`), so the person can confirm that kit with its last group.
 - Devices apply `keys` messages addressed to them and keep all epochs.
 - Removal is final for a device id: a host refuses to pair a guest whose `device_id` is removed in its registry or listed in `sync_state.removed_device_ids` (`pairing_device_removed`), checked before the emojis and again before the grant, and pairing never clears `removed_at`. The guest learns it through `rejected {reason: "device_removed"}` (relay) or `pair_reject {reason: "device_removed"}` (fallback) and must join again with a new identity.
+- **Removed device**: a keys message for a newer epoch, from another active registry device (not removed, not this one), with no grant for this device or listing it in `removed_device_ids`, means this device was removed. Sync stops right before that message (it is read again after re-joining), the vault keyring is dropped from the key store (the local library stays), and `sync_state.device_removed = {device_id, epoch, message_id, by, at}` is set: `/vault` reports `locked` with `reason: "device_removed"`, `/sync/status` reports `paused` with `error.code = "device_removed"`, and Activity shows `device_removed` (action `open_settings`). Such a message cannot be authenticated by a device it leaves out; anyone who can post to the Sync channel can already deny service by deleting it, so a forged removal costs a re-pairing and nothing else.
+- **Re-joining**: a device whose identity is removed (the `device_removed` flag names it, its own row has `removed_at`, or its id is in `removed_device_ids`) and that has no usable vault keys generates a fresh device identity before joining (pairing, recovery code); `install` does the same and clears the flag, so peers see a new device instead of re-activating a removed id.
 
 ## Inbox, Sharing, Import
 
@@ -283,9 +297,9 @@ These rules bind the parallel Stage 15 agents. Shared seams are `ports/vault.py`
 
 - `grant_auth(identity, peer_pub, payload)` = b64url `HMAC-SHA256(HKDF-SHA256(X25519(identity.private, peer_pub), salt = min(pub_sender, pub_recipient) || max(...), info = "bento/v1/keys-grant-auth"), payload)`; verification is constant time.
 - `auth_payload` = canonical JSON `{"bento": "keys-grant", "v": 2, "vault_id", "epoch", "sender_device_id", "recipient_device_id", "removed_device_ids", "sealed"}` (the whole message context plus that recipient's b64url box), so no field of the message can be edited or a box swapped.
-- Writer (`DeviceService`): one grant per remaining active device (itself included); `removed_device_ids` lists the removed device and every device the registry already knows as removed. Device ids are `dev_…`; removed ids never appear as sender or recipient.
-- Apply (sync loop, `application/sync/keys.py`): only `v == 2` (v1 and unknown versions are skipped). The grant addressed to this device is accepted only when the sender is this device or an active device of the local registry, is not in the `sync_state` key `removed_device_ids` (every id listed by an accepted keys message), and `auth` verifies with the sender's registered public key; only then is the box opened and merged (it must agree with every key already held; nothing older is dropped) and persisted via `VaultSessionPort.update_keyring`.
-- An accepted message adds its `removed_device_ids` to `sync_state.removed_device_ids` and sets `removed_at` locally on registry rows not removed yet (a `device` op; already removed rows are left untouched), so grants from those devices stay rejected even when the removal op arrives later or a stale op re-activates the row. Rejected or unaddressed messages change nothing but the epoch floor, which only rises to epochs this device already holds.
+- Writer (`DeviceService`): one grant per remaining active device (itself included) except the ones the person excluded; `removed_device_ids` lists the removed device, every excluded device, and every device the registry already knows as removed. Device ids are `dev_…`; removed ids never appear as sender or recipient.
+- Apply (sync loop, `application/sync/keys.py`): only `v == 2` (v1 and unknown versions are skipped). Epochs move exactly one step: a grant for `current + 1` is merged, one for `current` must agree with the keys already held (nothing new), and anything older (`keys_epoch_stale`) or further ahead (`keys_epoch_gap`) is rejected. The grant addressed to this device is accepted only when the sender is this device or an active device of the local registry, is not in the `sync_state` key `removed_device_ids` (every id listed by an accepted keys message), and `auth` verifies with the sender's registered public key; only then is the box opened and merged (it must agree with every key already held; nothing older is dropped) and persisted via `VaultSessionPort.update_keyring`.
+- An accepted message adds its `removed_device_ids` to `sync_state.removed_device_ids` and sets `removed_at` locally on registry rows not removed yet (a `device` op; already removed rows are left untouched), so grants from those devices stay rejected even when the removal op arrives later or a stale op re-activates the row. Rejected or unaddressed messages change nothing but the epoch floor, which only rises to epochs this device already holds, except that a newer-epoch message from another active device that leaves this device out marks it removed (§ Devices, Removal, Key Rotation).
 
 Pairing (`.bpair`) messages are skipped by the sync loop; the pairing service reads them with its own cursor.
 
@@ -300,6 +314,8 @@ Pairing (`.bpair`) messages are skipped by the sync loop; the pairing service re
 - Pairing envelopes use subkey `info="bento/v1/pairing"`. Base64url is unpadded everywhere; decoding is strict.
 - Blob v2 has `max(1, ceil(P/S))` segments (an exact multiple ends on a full last segment); segment size is capped at 64 MiB; unknown epochs raise `IntegrityError`.
 - Relay pairing frames always carry their type byte; message counters are implicit; any failure poisons the session.
-- Headers are MACed with the keyring's current epoch and `current_epoch` must equal it.
-- After a rotation to epoch `e` observed at Sync message `M`, devices reject batches, snapshots, and headers sealed with an epoch `< e` posted after `M` (a removed device keeps old keys).
+- Headers are MACed with the keyring's current epoch and `current_epoch` must equal it. Readers treat a header as current only at their own current epoch (see § Header).
+- After a rotation to epoch `e` observed at Sync message `M`, devices reject batches, snapshots, and headers sealed with an epoch `< e` posted after `M` (a removed device keeps old keys). Bootstrap starts the floor at `(snapshot sealing epoch, covers_through_message_id)`. Batches are rejected from the envelope prefix, before decryption.
+- `open_json` takes a per-call inflation limit (`max_json_bytes`); batches use 16 MiB, snapshots the adapter default (1 GiB).
+- Header timestamps (`created_at`, `snapshot.created_at`, `recovery.confirmed_at`) must carry a timezone; naive values make the header invalid.
 - Resumed uploads must verify the source's sha256 and size before reusing saved `file_salt`/`nonce_prefix` (nonce reuse otherwise).

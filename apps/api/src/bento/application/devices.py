@@ -9,6 +9,11 @@ Removal (`orchestration/architecture/telegram-first.md` § Devices, Removal, Key
    with grants for every remaining active device, the local keyring update, and a new header wrapped with a
    **new recovery code** returned once.
 
+The registry decides who gets the new keys, and any device holding the vault keys can add rows to it through
+sync. `removal_preview` lists the devices that would receive them, and `remove(..., exclude_device_ids=...)`
+leaves unknown ones out: excluded devices are marked removed and listed in `removed_device_ids` too (their
+Telegram sessions are not closed: a forged row may carry another device's session hash or model).
+
 Removing an already removed device runs steps 2 and 3 again, so a failed rotation can be retried.
 """
 
@@ -17,7 +22,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Callable, Iterable
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 
 from bento.application.pairing import decode_public_key, normalize_device_name
@@ -31,7 +36,7 @@ from bento.domain.vault import VaultHeader
 from bento.ports.pairing import DeviceRepositoryPort
 from bento.ports.security import VaultCryptoPort
 from bento.ports.telegram import TelegramAccountPort, VaultTransportPort
-from bento.ports.vault import VaultContext, VaultSessionPort
+from bento.ports.vault import RecoveryKitRecorderPort, VaultContext, VaultSessionPort
 
 logger = logging.getLogger("bento.devices")
 
@@ -69,6 +74,15 @@ class DeviceIsCurrentError(DomainError):
 class DeviceRemovedError(DomainError):
     def __init__(self, device_id: str) -> None:
         super().__init__("device_removed", "This device was removed", {"device_id": device_id})
+
+
+class DeviceExclusionInvalidError(DomainError):
+    def __init__(self, device_id: str) -> None:
+        super().__init__(
+            "device_exclusion_invalid",
+            "Only other registered devices can be left out of the new keys",
+            {"device_id": device_id},
+        )
 
 
 class DeviceRotationIncompleteError(DomainError):
@@ -125,7 +139,24 @@ class DeviceService:
         await self._devices.save(renamed)
         return replace(renamed, last_seen_at=self._clock()) if renamed.current else renamed
 
-    async def remove(self, device_id: str) -> DeviceRemoval:
+    async def acknowledge(self, device_id: str) -> Device:
+        """The person reviewed a device this one first saw through sync (Activity's new-device item)."""
+        device = await self._require(device_id)
+        if device.reviewed_at is None:
+            device = replace(device, reviewed_at=self._clock())
+            await self._devices.save(device)
+        return replace(device, last_seen_at=self._clock()) if device.current else device
+
+    async def removal_preview(self, device_id: str) -> tuple[Device, ...]:
+        """Active devices that would receive the new keys if `device_id` were removed now (this device first)."""
+        device = await self._require(device_id)
+        context = await self._vault.require()
+        if device.current or context.device.device_id == device_id:
+            raise DeviceIsCurrentError(device_id)
+        plan = await self._plan_grants(context, removed_ids={device_id})
+        return plan.recipients
+
+    async def remove(self, device_id: str, *, exclude_device_ids: Iterable[str] = ()) -> DeviceRemoval:
         async with self._removal_lock:
             device = await self._require(device_id)
             if device.current:
@@ -133,13 +164,34 @@ class DeviceService:
             context = await self._vault.require()
             if context.device.device_id == device_id:
                 raise DeviceIsCurrentError(device_id)
+            excluded = await self._excluded(context, device_id, exclude_device_ids)
+            now = self._clock()
             if device.removed_at is None:
-                device = replace(device, removed_at=self._clock())
+                device = replace(device, removed_at=now)
                 await self._devices.save(device)
-            logger.info("removing device %s", device_id)
+            for index, other in enumerate(excluded):
+                if other.removed_at is None:
+                    excluded[index] = replace(other, removed_at=now)
+                    await self._devices.save(excluded[index])
+            logger.info("removing device %s (%s more left out of the new keys)", device_id, len(excluded))
             closed = await self._close_telegram_session(device)
-            recovery_code = await self._rotate(context, removed_device_id=device_id)
-            return DeviceRemoval(device=device, telegram_session_closed=closed, recovery_code=recovery_code)
+            recovery_code = await self._rotate(
+                context, removed_device_id=device_id, also_removed={other.id for other in excluded}
+            )
+            return DeviceRemoval(
+                device=device, telegram_session_closed=closed, recovery_code=recovery_code, excluded=tuple(excluded)
+            )
+
+    async def _excluded(self, context: VaultContext, device_id: str, device_ids: Iterable[str]) -> list[Device]:
+        excluded: list[Device] = []
+        for other_id in dict.fromkeys(device_ids):
+            if other_id == device_id:
+                continue
+            other = await self._devices.get(other_id)
+            if other is None or other.current or other_id == context.device.device_id:
+                raise DeviceExclusionInvalidError(other_id)
+            excluded.append(other)
+        return excluded
 
     async def _require(self, device_id: str) -> Device:
         device = await self._devices.get(device_id)
@@ -161,9 +213,14 @@ class DeviceService:
             return False
         return True
 
-    async def _rotate(self, context: VaultContext, *, removed_device_id: str) -> str:
+    async def _rotate(
+        self, context: VaultContext, *, removed_device_id: str, also_removed: Iterable[str] = ()
+    ) -> str:
+        removed_device_ids = {removed_device_id, *also_removed}
+        # Verified at the epoch that is still current, so the new header may keep its snapshot pointer.
+        await self._vault.read_header()
         keyring = self._crypto.rotate_keyring(context.keyring)
-        await self._publish_grants(context, keyring, removed_device_id=removed_device_id)
+        await self._publish_grants(context, keyring, removed_ids=removed_device_ids)
         await self._vault.update_keyring(keyring)
         recovery_code = self._crypto.generate_recovery_code()
         wrap = self._crypto.wrap_for_recovery(keyring, recovery_code)
@@ -176,19 +233,25 @@ class DeviceService:
         except DomainError as exc:
             logger.warning("key rotation for removed device %s left the header unchanged: %s", removed_device_id, exc.code)
             raise DeviceRotationIncompleteError(removed_device_id, exc.code) from exc
+        if isinstance(self._vault, RecoveryKitRecorderPort):
+            await self._vault.remember_recovery_kit(recovery_code, wrap)
         logger.info("vault keys rotated to epoch %s", keyring.current_epoch)
         return recovery_code
 
-    async def _publish_grants(self, context: VaultContext, keyring: VaultKeyring, *, removed_device_id: str) -> None:
-        """Grants for every remaining active device, authenticated with this device's identity.
+    async def _plan_grants(self, context: VaultContext, *, removed_ids: set[str]) -> _GrantPlan:
+        """Who gets the new keys: this device and every other active, keyed device not being removed.
 
         Every device this registry knows as removed is listed too, so peers that missed an earlier
         removal still refuse grants from it.
         """
-        recipients: dict[str, bytes] = {context.device.device_id: context.device.public_key}
-        removed = {removed_device_id}
+        keys: dict[str, bytes] = {context.device.device_id: context.device.public_key}
+        recipients: list[Device] = []
+        removed = set(removed_ids)
         for device in await self._devices.list(include_removed=True):
-            if device.id == removed_device_id or device.id in recipients:
+            if device.id in removed_ids:
+                continue
+            if device.id == context.device.device_id:
+                recipients.insert(0, device)
                 continue
             if not is_device_id(device.id):
                 logger.warning("device %s has an invalid id; it is left out of the key grants", device.id)
@@ -197,11 +260,25 @@ class DeviceService:
                 removed.add(device.id)
                 continue
             try:
-                recipients[device.id] = decode_public_key(device.public_key)
+                keys[device.id] = decode_public_key(device.public_key)
             except ValidationFailedError:
                 logger.warning("device %s has no usable public key; it gets no key grant", device.id)
+                continue
+            recipients.append(device)
+        return _GrantPlan(recipients=tuple(recipients), keys=keys, removed=frozenset(removed))
+
+    async def _publish_grants(self, context: VaultContext, keyring: VaultKeyring, *, removed_ids: set[str]) -> None:
+        """Grants for every remaining active device, authenticated with this device's identity."""
+        plan = await self._plan_grants(context, removed_ids=removed_ids)
         await self._transport.post_sync_document(
             context.layout,
             SyncMessageKind.KEYS,
-            build_keys_message(self._crypto, context.device, keyring, recipients, removed_device_ids=removed),
+            build_keys_message(self._crypto, context.device, keyring, plan.keys, removed_device_ids=plan.removed),
         )
+
+
+@dataclass(frozen=True, slots=True)
+class _GrantPlan:
+    recipients: tuple[Device, ...]
+    keys: dict[str, bytes]
+    removed: frozenset[str]

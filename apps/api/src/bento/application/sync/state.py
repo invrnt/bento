@@ -39,6 +39,18 @@ LAST_NOTICE = "last_notice"
 """Latest local merge notice (folder moved to the root after a cycle or a purged parent)."""
 PENDING_INDEX_PREFIX = "pending_index:"
 """Search index writes accepted by an applied batch and not yet written (crash recovery)."""
+SKIPPED_MESSAGES = "skipped_messages"
+"""Count of Sync messages passed over as permanently invalid (too large, malformed, unauthenticated, below floor)."""
+LAST_SKIPPED = "last_skipped"
+"""`{"message_id", "kind", "reason", "at"}` of the latest skipped Sync message."""
+SKIPPED_OPS = "skipped_ops"
+"""Count of remote ops dropped because their clock ran ahead of the message date or the local clock."""
+DEVICE_REMOVED = "device_removed"
+"""`{"device_id", "epoch", "message_id", "by", "at"}` once an authenticated keys message rotated the vault keys
+without this device (or listed it as removed). The vault reports `locked` (`reason: device_removed`), sync is
+paused, and re-joining installs a fresh device identity."""
+OWN_BATCHES = "own_batch_message_ids"
+"""Message ids of batches this device posted and has not pulled yet (re-published if they land below the floor)."""
 
 VAULT_SCOPED_KEYS = (
     INITIAL_PUBLISH,
@@ -51,6 +63,10 @@ VAULT_SCOPED_KEYS = (
     LAST_SNAPSHOT_AT,
     BOOTSTRAP,
     SNAPSHOT_REQUESTED_AT,
+    SKIPPED_MESSAGES,
+    LAST_SKIPPED,
+    SKIPPED_OPS,
+    OWN_BATCHES,
 )
 """Keys reset when this device is attached to a different vault."""
 

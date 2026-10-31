@@ -205,6 +205,7 @@ def blob_ref_from_model(model: BlobRefModel) -> BlobRef:
             tag=model.encryption_tag,
             key_epoch=model.key_epoch,
             format_version=model.format_version if model.format_version is not None else 1,
+            cipher_header_sha256=model.cipher_header_sha256,
         ),
         parts=tuple(
             BlobPart(
@@ -237,6 +238,7 @@ def blob_ref_to_model(blob_ref: BlobRef, *, created_at: datetime) -> BlobRefMode
         encryption_tag=blob_ref.encryption.tag,
         key_epoch=blob_ref.encryption.key_epoch,
         format_version=blob_ref.encryption.format_version,
+        cipher_header_sha256=blob_ref.encryption.cipher_header_sha256,
         created_at=created_at,
         parts=[
             BlobPartModel(
@@ -266,6 +268,9 @@ def device_from_model(model: DeviceModel) -> Device:
         last_seen_at=aware(model.last_seen_at),
         removed_at=aware(model.removed_at),
         current=model.is_current,
+        introduced_by=model.introduced_by,
+        first_seen_at=aware(model.first_seen_at),
+        reviewed_at=aware(model.reviewed_at),
     )
 
 
@@ -280,4 +285,7 @@ def device_to_model(device: Device) -> DeviceModel:
         last_seen_at=device.last_seen_at,
         removed_at=device.removed_at,
         is_current=device.current,
+        introduced_by=device.introduced_by,
+        first_seen_at=device.first_seen_at,
+        reviewed_at=device.reviewed_at,
     )

@@ -143,6 +143,11 @@ def test_sync_documents_and_listing() -> None:
         client.expire_downloads_after = 0
         assert await transport.download_sync_document(layout, batch.message_id) == b"sealed"
         assert len(client.calls_of("download_media")) == 2  # retried with a refreshed message
+        # The size limit is checked on the freshly fetched message, before anything is downloaded.
+        with pytest.raises(ValidationFailedError):
+            await transport.download_sync_document(layout, batch.message_id, max_bytes=5)
+        assert len(client.calls_of("download_media")) == 2
+        assert await transport.download_sync_document(layout, batch.message_id, max_bytes=6) == b"sealed"
         await transport.delete_sync_messages(layout, (batch.message_id,))
         with pytest.raises(StorageUnavailableError):
             await transport.download_sync_document(layout, batch.message_id)

@@ -6,6 +6,7 @@ from bento.application.sync.ports import SyncOutboxStorePort, SyncStateStorePort
 from bento.application.sync.state import (
     BOOTSTRAP,
     CAPTURE,
+    DEVICE_REMOVED,
     LAST_PULL_AT,
     LAST_PUSH_AT,
     LOOP,
@@ -17,6 +18,7 @@ from bento.domain.sync import BootstrapProgress, SyncState, SyncStatus
 from bento.ports.repositories import ClockPort
 
 _BOOTSTRAP_OVERRIDES = frozenset({SyncState.IDLE, SyncState.SYNCING})
+DEVICE_REMOVED_CODE = "device_removed"
 
 
 class SyncStatusService:
@@ -43,6 +45,15 @@ class SyncStatusService:
             state = SyncState.BOOTSTRAPPING
         waiting_until = parse_timestamp(loop.get("waiting_until")) if state == SyncState.WAITING else None
         error = loop.get("error") if isinstance(loop.get("error"), dict) else None
+        if await self._state.get_value(DEVICE_REMOVED) is not None:
+            # Another device rotated the vault keys without this one: nothing syncs until it joins again.
+            return SyncStatus(
+                state=SyncState.PAUSED,
+                pending_ops=(await self._outbox.backlog()).count,
+                last_push_at=await self._values.get_datetime(LAST_PUSH_AT),
+                last_pull_at=await self._values.get_datetime(LAST_PULL_AT),
+                error_code=DEVICE_REMOVED_CODE,
+            )
         return SyncStatus(
             state=state,
             pending_ops=(await self._outbox.backlog()).count,

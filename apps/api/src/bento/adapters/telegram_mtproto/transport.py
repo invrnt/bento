@@ -150,10 +150,12 @@ class MtprotoVaultTransport:
 
         return await self._session.call(scan)
 
-    async def download_sync_document(self, layout: VaultLayout, message_id: int) -> bytes:
+    async def download_sync_document(self, layout: VaultLayout, message_id: int, *, max_bytes: int | None = None) -> bytes:
         async def download(client: Any) -> bytes:
             channel = await self._session.input_peer(client, layout.sync_channel_id)
-            data = await download_message(client, channel, message_id, bytes)
+            data = await download_message(client, channel, message_id, bytes, max_bytes=max_bytes)
+            if max_bytes is not None and len(data) > max_bytes:
+                raise ValidationFailedError("Sync document exceeds the size limit", {"max_bytes": max_bytes})
             return bytes(data)
 
         return await self._session.call(download)
@@ -350,12 +352,19 @@ class MtprotoVaultTransport:
         )
 
 
-async def download_message(client: Any, peer: Any, message_id: int, file: Any) -> Any:
-    """`download_media` of one message, re-fetching it when its file reference expired."""
+async def download_message(client: Any, peer: Any, message_id: int, file: Any, *, max_bytes: int | None = None) -> Any:
+    """`download_media` of one message, re-fetching it when its file reference expired.
+
+    With `max_bytes`, a document the message reports as larger is refused before anything is downloaded.
+    """
     for attempt in range(FILE_REFERENCE_RETRIES + 1):
         message = await client.get_messages(peer, ids=message_id)
         if message is None or message.media is None:
             raise StorageUnavailableError(StorageBackend.TELEGRAM.value)
+        if max_bytes is not None:
+            size = getattr(getattr(message, "file", None), "size", None)
+            if not isinstance(size, int) or size > max_bytes:
+                raise ValidationFailedError("Sync document exceeds the size limit", {"max_bytes": max_bytes})
         try:
             result = await client.download_media(message, file=str(file) if isinstance(file, Path) else file)
         except (errors.FileReferenceExpiredError, errors.FileReferenceInvalidError):

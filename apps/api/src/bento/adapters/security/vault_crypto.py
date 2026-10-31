@@ -171,11 +171,20 @@ class VaultCrypto:
             raise ValidationFailedError("Sealed payload must be JSON serializable") from None
         return self.seal(keyring, purpose, zlib.compress(encoded), aad=aad)
 
-    def open_json(self, keyring: VaultKeyring, purpose: SealPurpose, envelope: bytes, *, aad: bytes = b"") -> Any:
+    def open_json(
+        self,
+        keyring: VaultKeyring,
+        purpose: SealPurpose,
+        envelope: bytes,
+        *,
+        aad: bytes = b"",
+        max_json_bytes: int | None = None,
+    ) -> Any:
         compressed = self.open(keyring, purpose, envelope, aad=aad)
+        limit = self._max_json_bytes if max_json_bytes is None else min(max_json_bytes, self._max_json_bytes)
         decompressor = zlib.decompressobj()
         try:
-            encoded = decompressor.decompress(compressed, self._max_json_bytes)
+            encoded = decompressor.decompress(compressed, limit)
             if decompressor.unconsumed_tail or not decompressor.eof or decompressor.unused_data:
                 raise IntegrityError("envelope_payload")
             return json.loads(encoded.decode("utf-8"))
