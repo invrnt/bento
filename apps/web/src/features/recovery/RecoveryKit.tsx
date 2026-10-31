@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import type { FormEvent } from "react";
 import { Check, Copy, FileDown, Printer, ShieldAlert } from "lucide-react";
 
@@ -6,14 +6,15 @@ import { apiClient } from "../../api/client";
 import type { ApiClient } from "../../api/client";
 import { confirmRecoveryKit } from "../../api/vault";
 import type { VaultStatus } from "../../api/vault";
+import type { QrMatrix } from "../../api/qr";
 import { Button } from "../../components/Button";
 import { Callout } from "../../components/Callout";
 import { Input } from "../../components/Input";
 import { t } from "../../i18n/dictionary";
 import { errorCode } from "../onboarding/apiErrors";
 import { copyText } from "../onboarding/clipboard";
+import { tf } from "../onboarding/format";
 import { canSavePdf, savePageAsPdf } from "../onboarding/desktopHost";
-import { setPendingRecoveryCode } from "./pendingKit";
 import { formatRecoveryCode, lastRecoveryGroup, matchesLastGroup, normalizeRecoveryInput, recoveryGroups } from "./recoveryCode";
 import { RecoveryKitSheet } from "./RecoveryKitSheet";
 
@@ -25,6 +26,8 @@ export type RecoveryKitProps = {
   onConfirmed: (vault: VaultStatus | null) => void;
   /** Offer "Más tarde"; omit when saving the kit is mandatory. */
   onLater?: () => void;
+  /** QR of `bento-recovery:<code>` for the printed kit, when the API provides one. */
+  qr?: QrMatrix | null;
 };
 
 type Notice = "copied" | "copyFailed" | "pdfSaved" | "pdfFailed" | null;
@@ -32,20 +35,17 @@ type Notice = "copied" | "copyFailed" | "pdfSaved" | "pdfFailed" | null;
 const mismatchCodes = new Set(["recovery_code_invalid", "recovery_group_mismatch", "validation_failed"]);
 
 /** Shows a fresh recovery code, lets the person copy/print/save it and confirm by typing the last group. */
-export function RecoveryKit({ accountName, client = apiClient, code, createdAt, onConfirmed, onLater }: RecoveryKitProps) {
+export function RecoveryKit({ accountName, client = apiClient, code, createdAt, onConfirmed, onLater, qr = null }: RecoveryKitProps) {
   const [typed, setTyped] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savedName, setSavedName] = useState<string | null>(null);
   const desktopPdf = canSavePdf();
   const codeLabelId = useId();
   const groups = recoveryGroups(code);
   const expectedLength = lastRecoveryGroup(code).length || 4;
-
-  useEffect(() => {
-    setPendingRecoveryCode(code);
-  }, [code]);
 
   async function copy() {
     setNotice((await copyText(formatRecoveryCode(code))) ? "copied" : "copyFailed");
@@ -59,9 +59,13 @@ export function RecoveryKit({ accountName, client = apiClient, code, createdAt, 
     setSaving(true);
     try {
       const result = await savePageAsPdf(t("recovery.pdfName"));
-      if (result && !result.canceled) setNotice("pdfSaved");
-    } catch {
-      setNotice("pdfFailed");
+      if (result?.saved) {
+        setSavedName(result.fileName ?? null);
+        setNotice("pdfSaved");
+      }
+    } catch (caught) {
+      // A second click while the save dialog is open is not an error worth showing.
+      if (!String(caught instanceof Error ? caught.message : caught).includes("pdf_save_in_progress")) setNotice("pdfFailed");
     } finally {
       setSaving(false);
     }
@@ -77,7 +81,6 @@ export function RecoveryKit({ accountName, client = apiClient, code, createdAt, 
     setError(null);
     try {
       const vault = await confirmRecoveryKit(normalizeRecoveryInput(typed), client);
-      setPendingRecoveryCode(null);
       onConfirmed(vault);
     } catch (caught) {
       setError(mismatchCodes.has(errorCode(caught) ?? "") ? t("recovery.confirm.mismatch") : t("recovery.confirm.failed"));
@@ -115,7 +118,7 @@ export function RecoveryKit({ accountName, client = apiClient, code, createdAt, 
             {desktopPdf ? t("recovery.savePdf") : t("recovery.print")}
           </Button>
           <span aria-live="polite" className="text-sm text-ink-muted" role="status">
-            {notice === "pdfSaved" ? t("recovery.pdfSaved") : null}
+            {notice === "pdfSaved" ? (savedName ? tf("recovery.pdfSavedAs", { name: savedName }) : t("recovery.pdfSaved")) : null}
             {notice === "pdfFailed" ? t("recovery.pdfFailed") : null}
             {notice === "copyFailed" ? t("recovery.copyFailed") : null}
           </span>
@@ -155,7 +158,7 @@ export function RecoveryKit({ accountName, client = apiClient, code, createdAt, 
         </div>
       </form>
 
-      <RecoveryKitSheet accountName={accountName} code={code} createdAt={createdAt} />
+      <RecoveryKitSheet accountName={accountName} code={code} createdAt={createdAt} qr={qr} />
     </div>
   );
 }

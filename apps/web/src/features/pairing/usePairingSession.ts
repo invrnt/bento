@@ -33,7 +33,8 @@ export function usePairingSession(
     async function tick() {
       try {
         const next = await getPairing(id!, client);
-        if (!cancelled) setPairing(next);
+        // A late poll must never undo a local decision (approve/reject/cancel) that already ended it.
+        if (!cancelled) setPairing((current) => (current && current.id === next.id && terminalPairingStates.has(current.state) ? current : next));
       } catch (caught) {
         // Sessions live in API memory; a restart forgets them.
         if (!cancelled && caught instanceof ApiError && caught.status === 404) {

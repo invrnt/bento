@@ -29,6 +29,7 @@ import { BootstrapMeter } from "../onboarding/BootstrapProgress";
 import { ChoiceCard, HeroIcon, SetupFrame } from "../onboarding/SetupFrame";
 import { useBootstrapStatus } from "../onboarding/useBootstrapStatus";
 import { RecoveryCodeForm } from "../recovery/RecoveryCodeForm";
+import { recoveryErrorKey } from "../recovery/recoveryCode";
 import { formatPairingInput, isCompletePairingCode } from "./pairingCode";
 import { pairingProblem, pairingProblemKeys } from "./pairingErrors";
 import type { PairingProblem } from "./pairingErrors";
@@ -137,7 +138,7 @@ export function JoinScreen({
       await unlockVault(recoveryCode, client);
       setStep("bootstrap");
     } catch (caught) {
-      setUnlockError(errorCode(caught) === "recovery_code_invalid" ? t("join.recovery.invalid") : t("join.recovery.failed"));
+      setUnlockError(t(recoveryErrorKey(errorCode(caught), "join.recovery.failed")));
     } finally {
       setUnlocking(false);
     }

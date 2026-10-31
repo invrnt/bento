@@ -7,6 +7,7 @@ import { getAccount } from "../../api/account";
 import type { TelegramAccount } from "../../api/account";
 import { createVault, getVault } from "../../api/vault";
 import type { VaultStatus } from "../../api/vault";
+import type { QrMatrix } from "../../api/qr";
 import { BentoLoader, BrandMark } from "../../components/BrandMark";
 import { Button } from "../../components/Button";
 import { Callout } from "../../components/Callout";
@@ -15,9 +16,10 @@ import { t } from "../../i18n/dictionary";
 import { AccountAvatar } from "../account/AccountAvatar";
 import { TelegramSignIn } from "../account/TelegramSignIn";
 import { RecoveryKit } from "../recovery/RecoveryKit";
+import { recoveryQrFrom } from "../recovery/recoveryCode";
 import { errorCode } from "./apiErrors";
 import { BackupStep } from "./BackupStep";
-import { setDesktopPreferences } from "./desktopHost";
+import { isLaunchAtLoginError, setDesktopPreferences } from "./desktopHost";
 import { tf } from "./format";
 import { chooseLocalMode, forgetLocalMode } from "./localMode";
 import { HeroIcon, SetupFrame } from "./SetupFrame";
@@ -55,6 +57,7 @@ export function FirstRun({
   const [account, setAccount] = useState<TelegramAccount | null>(null);
   const [vault, setVault] = useState<VaultStatus | null>(null);
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
+  const [recoveryQr, setRecoveryQr] = useState<QrMatrix | null>(null);
   const [leaving, setLeaving] = useState(false);
   const steps = numbered[step] ? { current: numbered[step]!, total: totalSteps } : undefined;
 
@@ -65,10 +68,8 @@ export function FirstRun({
     onLocalOnly();
   }
 
-  async function finish() {
+  function finish() {
     forgetLocalMode();
-    // Launch at login is on by default once setup is complete (desktop only).
-    await setDesktopPreferences({ launchAtLogin: true }).catch(() => null);
     onFinish();
   }
 
@@ -107,9 +108,10 @@ export function FirstRun({
       <CreatingStep
         account={account}
         client={client}
-        onCreated={(created, code) => {
+        onCreated={(created, code, qr) => {
           setVault(created);
           setRecoveryCode(code);
+          setRecoveryQr(qr);
           setStep("backup");
         }}
         onExistingVault={onExistingVault}
@@ -132,12 +134,13 @@ export function FirstRun({
           createdAt={vault?.created_at}
           onConfirmed={() => setStep("done")}
           onLater={() => setStep("done")}
+          qr={recoveryQr}
         />
       </SetupFrame>
     );
   }
 
-  return <DoneStep onFinish={() => void finish()} steps={{ current: totalSteps, total: totalSteps }} />;
+  return <DoneStep onFinish={finish} steps={{ current: totalSteps, total: totalSteps }} />;
 }
 
 function WelcomeStep({ leaving, onJoin, onLocalOnly, onStart }: { leaving: boolean; onJoin: () => void; onLocalOnly: () => void; onStart: () => void }) {
@@ -195,7 +198,7 @@ function CreatingStep({
 }: {
   account: TelegramAccount | null;
   client: ApiClient;
-  onCreated: (vault: VaultStatus | null, code: string | null) => void;
+  onCreated: (vault: VaultStatus | null, code: string | null, qr: QrMatrix | null) => void;
   onExistingVault: () => void;
   steps: { current: number; total: number };
 }) {
@@ -222,9 +225,9 @@ function CreatingStep({
       try {
         const current = await getVault(client).catch(() => null);
         if (current?.state === "locked") return callbacks.current.onExistingVault();
-        if (current?.state === "ready" || current?.state === "bootstrapping") return callbacks.current.onCreated(current, null);
+        if (current?.state === "ready" || current?.state === "bootstrapping") return callbacks.current.onCreated(current, null, null);
         const created = await createVault(client);
-        callbacks.current.onCreated(created.vault, created.recovery_code);
+        callbacks.current.onCreated(created.vault, created.recovery_code, recoveryQrFrom(created));
       } catch (caught) {
         if (errorCode(caught) === "vault_already_exists") callbacks.current.onExistingVault();
         else setFailed(true);
@@ -276,6 +279,18 @@ function CreatingStep({
 }
 
 function DoneStep({ onFinish, steps }: { onFinish: () => void; steps: { current: number; total: number } }) {
+  const [loginItemFailed, setLoginItemFailed] = useState(false);
+  const loginItemRequested = useRef(false);
+
+  useEffect(() => {
+    // Reaching "Listo" turns on launch at login (desktop only; changeable in Ajustes › General).
+    if (loginItemRequested.current) return;
+    loginItemRequested.current = true;
+    setDesktopPreferences({ launchAtLogin: true }).catch((caught) => {
+      if (isLaunchAtLoginError(caught)) setLoginItemFailed(true);
+    });
+  }, []);
+
   const apple = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent);
   const tips = [
     { body: t("firstRun.done.tip.inbox.body"), icon: Inbox, title: t("firstRun.done.tip.inbox.title") },
@@ -315,6 +330,11 @@ function DoneStep({ onFinish, steps }: { onFinish: () => void; steps: { current:
           </li>
         ))}
       </ul>
+      {loginItemFailed ? (
+        <Callout className="mt-4" role="status" tone="neutral">
+          {t("firstRun.done.loginItemFailed")}
+        </Callout>
+      ) : null}
     </SetupFrame>
   );
 }

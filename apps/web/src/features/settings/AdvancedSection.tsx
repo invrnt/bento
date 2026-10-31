@@ -7,12 +7,10 @@ import {
   FolderOpen,
   Globe,
   HardDriveDownload,
-  KeyRound,
   LockKeyhole,
   RefreshCw,
   RotateCcw,
   Search,
-  Trash2,
   Upload,
 } from "lucide-react";
 
@@ -32,14 +30,24 @@ import type { MessageKey } from "../../i18n/dictionary";
 import { cx } from "../../lib/cx";
 import type { ApplyMode, FieldIssue, SettingDefinition } from "../../api/settings";
 import { formatBytes } from "../onboarding/format";
+import { secureStorageMode } from "../onboarding/desktopHost";
+import { desktopProbeKinds } from "./useSettingsController";
 import type { SettingsController } from "./useSettingsController";
 
 const groupOrder = ["storage", "backup", "performance", "ai", "telegram", "general", "advanced"];
 
+// Secrets cannot be set from settings any more (sessions and keys live in the backend key store);
+// the Bot API fields are leftovers until the backend registry drops them.
+const legacyKeys = new Set(["telegram_bot_api_url", "telegram_min_interval_seconds", "telegram_max_attempts", "telegram_retry_base_delay_seconds", "encryption_mode", "bento_encryption_key_id"]);
+
+function isEditableHere(field: SettingDefinition): boolean {
+  return !field.secret && !legacyKeys.has(field.key);
+}
+
 /** Ajustes › Avanzado: every registry setting with validation, restart scope and portability tools. */
 export function AdvancedSection({ controller }: { controller: SettingsController }) {
   const [query, setQuery] = useState("");
-  const fields = useMemo(() => controller.schema?.fields ?? [], [controller.schema]);
+  const fields = useMemo(() => (controller.schema?.fields ?? []).filter(isEditableHere), [controller.schema]);
   const groups = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
     const matching = fields.filter((field) => {
@@ -72,7 +80,7 @@ export function AdvancedSection({ controller }: { controller: SettingsController
       <div className="grid gap-3 empty:hidden">
         {controller.desktop?.recoveryMode ? <Notice tone="danger" title={t("settings.recovery.title")} body={t("settings.recovery.body")} /> : null}
         {!controller.desktop ? <Notice tone="info" title={t("settings.headless.title")} body={t("settings.headless.body")} /> : null}
-        {controller.desktop?.secureStorage === "unavailable" ? <Notice tone="warning" title={t("settings.secureStorage.title")} body={t("settings.secureStorage.body")} /> : null}
+        {secureStorageMode(controller.desktop) === "file" ? <Notice tone="warning" title={t("advanced.keyFile.title")} body={t("advanced.keyFile.body")} /> : null}
         {controller.conflict ? (
           <Callout
             action={<Button leadingIcon={<RefreshCw />} onClick={() => void controller.refresh()} size="sm">{t("settings.conflict.reload")}</Button>}
@@ -211,9 +219,9 @@ function SettingField({ controller, field }: { controller: SettingsController; f
         ) : null}
       </div>
       <div className="min-w-0 self-center">
-        {field.secret ? <SecretControl controller={controller} disabled={disabled} field={field} /> : <ValueControl controller={controller} disabled={disabled} field={field} />}
+        <ValueControl controller={controller} disabled={disabled} field={field} />
         {field.key === "data_dir" && JSON.stringify(controller.draft.data_dir) !== JSON.stringify(controller.values?.values.data_dir?.value) ? <DataMigrationChoice controller={controller} /> : null}
-        {field.probe && field.probe !== "storage" && controller.desktop ? (
+        {field.probe && desktopProbeKinds.has(field.probe.replaceAll("_", "-")) && controller.desktop ? (
           <div className="mt-2.5 flex flex-wrap items-center gap-2">
             <Button onClick={() => void controller.probe(field.key, field.probe!)} size="sm">{t("settings.probe.action")}</Button>
             {probe ? (
@@ -277,50 +285,6 @@ function ValueControl({ controller, disabled, field }: { controller: SettingsCon
   );
 }
 
-function SecretControl({ controller, disabled, field }: { controller: SettingsController; disabled: boolean; field: SettingDefinition }) {
-  const current = controller.values?.values[field.key];
-  const edit = controller.secretEdits[field.key];
-  const canEdit = !disabled && Boolean(controller.desktop) && controller.desktop?.secureStorage === "available";
-  return (
-    <div className="grid gap-3 rounded-lg border border-line bg-subtle p-3.5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="inline-flex items-center gap-2 text-base font-medium text-ink">
-          <StatusDot tone={current?.configured ? "success" : "neutral"} />
-          {current?.configured ? t("settings.secret.configured") : t("settings.secret.missing")}
-        </span>
-        {!controller.desktop ? <Badge icon={<LockKeyhole />}>{t("settings.secret.desktopOnly")}</Badge> : null}
-      </div>
-      {edit?.operation === "set" ? (
-        <input
-          aria-label={fieldLabel(field)}
-          autoComplete="new-password"
-          className="field px-3 font-mono text-sm"
-          onBlur={(event) => { if (!event.target.value) controller.setSecret(field.key, null); }}
-          onChange={(event) => controller.setSecret(field.key, { operation: "set", value: event.target.value })}
-          type="password"
-          value={edit.value}
-        />
-      ) : null}
-      <div className="flex flex-wrap gap-2">
-        <Button disabled={!canEdit} leadingIcon={<KeyRound />} onClick={() => controller.setSecret(field.key, { operation: "set", value: "" })} size="sm">
-          {current?.configured ? t("settings.secret.change") : t("settings.secret.add")}
-        </Button>
-        {current?.configured ? (
-          <Button
-            disabled={!canEdit}
-            leadingIcon={<Trash2 />}
-            onClick={() => controller.setSecret(field.key, edit?.operation === "clear" ? null : { operation: "clear" })}
-            size="sm"
-            variant={edit?.operation === "clear" ? "danger" : "danger-ghost"}
-          >
-            {edit?.operation === "clear" ? t("settings.secret.clearPending") : t("settings.secret.clear")}
-          </Button>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
 function DataMigrationChoice({ controller }: { controller: SettingsController }) {
   const options = [
     { body: t("settings.dataMigration.copyHelp"), label: t("settings.dataMigration.copy"), value: "copy" as const },
@@ -353,7 +317,6 @@ function DataMigrationChoice({ controller }: { controller: SettingsController })
 export function SettingsDirtyBar({ controller }: { controller: SettingsController }) {
   const restart = controller.validation?.restart_plan;
   const changedKeys = new Set([
-    ...Object.keys(controller.secretEdits),
     ...Object.entries(controller.draft).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(controller.values?.values[key]?.value)).map(([key]) => key),
   ]);
   const predictedMode = controller.schema?.fields.filter((field) => changedKeys.has(field.key)).map((field) => field.apply_mode).sort((left, right) => applyModeRank(right) - applyModeRank(left))[0] ?? "live";

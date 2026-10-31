@@ -8,8 +8,12 @@ export function tf(key: MessageKey, params: MessageParams = {}): string {
   return t(key).replace(/\{(\w+)\}/g, (match, name: string) => (name in params ? String(params[name]) : match));
 }
 
+// ES2023 `useGrouping: "always"`; the ES2022 lib in tsconfig only types booleans.
+const alwaysGroup = { useGrouping: "always" } as unknown as Intl.NumberFormatOptions;
+
+/** Counts such as "1.240 de 3.000": always grouped, even for 4-digit numbers in Spanish. */
 export function formatNumber(value: number): string {
-  return new Intl.NumberFormat(defaultLocale).format(value);
+  return new Intl.NumberFormat(defaultLocale, alwaysGroup).format(value);
 }
 
 export function formatBytes(bytes: number): string {

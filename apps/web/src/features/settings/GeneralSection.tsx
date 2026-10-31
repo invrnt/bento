@@ -8,7 +8,7 @@ import { ThemeSwitcher } from "../../components/ThemeSwitcher";
 import { defaultLocale, t } from "../../i18n/dictionary";
 import type { Locale } from "../../i18n/dictionary";
 import { setLocale, supportedLocales } from "../../i18n/locale";
-import { getDesktopPreferences, hasDesktopPreferences, setDesktopPreferences } from "../onboarding/desktopHost";
+import { getDesktopPreferences, hasDesktopPreferences, isLaunchAtLoginError, setDesktopPreferences } from "../onboarding/desktopHost";
 import type { DesktopPreferences } from "../onboarding/desktopHost";
 import { SettingsCard, ToggleRow } from "./SettingsCard";
 import { UpdatePanel } from "./UpdatePanel";
@@ -60,7 +60,7 @@ function DesktopPreferencesCard({ desktop }: { desktop: DesktopPlatform | null }
   const supported = hasDesktopPreferences();
   const [preferences, setPreferences] = useState<DesktopPreferences | null>(null);
   const [saving, setSaving] = useState<keyof DesktopPreferences | null>(null);
-  const [status, setStatus] = useState<"saved" | "failed" | null>(null);
+  const [status, setStatus] = useState<"saved" | "failed" | "loginItemFailed" | null>(null);
 
   useEffect(() => {
     if (!supported) return;
@@ -87,9 +87,9 @@ function DesktopPreferencesCard({ desktop }: { desktop: DesktopPlatform | null }
       const next = await setDesktopPreferences({ [key]: value });
       if (next) setPreferences(next);
       setStatus("saved");
-    } catch {
+    } catch (caught) {
       setPreferences((current) => (current ? { ...current, [key]: !value } : current));
-      setStatus("failed");
+      setStatus(isLaunchAtLoginError(caught) ? "loginItemFailed" : "failed");
     } finally {
       setSaving(null);
     }
@@ -108,6 +108,7 @@ function DesktopPreferencesCard({ desktop }: { desktop: DesktopPlatform | null }
         <p aria-live="polite" className="min-h-5 text-xs text-ink-muted" role="status">
           {status === "saved" ? t("prefs.saved") : null}
           {status === "failed" ? t("prefs.failed") : null}
+          {status === "loginItemFailed" ? t("prefs.launchAtLogin.failed") : null}
         </p>
       }
       icon={<AppWindow />}

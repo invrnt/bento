@@ -19,6 +19,7 @@ import { usePolledResource } from "../../lib/usePolledResource";
 import { formatDate, formatRelativeTime, tf } from "../onboarding/format";
 import { AddDeviceDialog } from "../pairing/AddDeviceDialog";
 import { RecoveryKit } from "../recovery/RecoveryKit";
+import { recoveryQrFrom } from "../recovery/recoveryCode";
 import { platformIcon, platformLabel } from "./deviceLabels";
 
 export type DevicesSectionProps = {
@@ -132,6 +133,7 @@ export function DevicesSection({ accountName, client = apiClient, onChanged, onC
               client={client}
               code={removal.recovery_code}
               createdAt={vault?.created_at}
+              qr={recoveryQrFrom(removal)}
               onConfirmed={() => {
                 setRemoval(null);
                 onChanged?.();

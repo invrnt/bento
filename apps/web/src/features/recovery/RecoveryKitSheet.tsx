@@ -1,6 +1,8 @@
 import { createPortal } from "react-dom";
 
+import type { QrMatrix } from "../../api/qr";
 import { BrandMark } from "../../components/BrandMark";
+import { QrCode } from "../../components/QrCode";
 import { t } from "../../i18n/dictionary";
 import { formatDate, tf } from "../onboarding/format";
 import { recoveryGroups } from "./recoveryCode";
@@ -20,10 +22,11 @@ export type RecoveryKitSheetProps = {
   accountName?: string | null;
   code: string;
   createdAt?: string | null;
+  qr?: QrMatrix | null;
 };
 
 /** The printable "Kit de recuperación de Bento" page. Hidden on screen. */
-export function RecoveryKitSheet({ accountName, code, createdAt }: RecoveryKitSheetProps) {
+export function RecoveryKitSheet({ accountName, code, createdAt, qr = null }: RecoveryKitSheetProps) {
   if (typeof document === "undefined") return null;
   const created = formatDate(createdAt);
 
@@ -56,12 +59,19 @@ export function RecoveryKitSheet({ accountName, code, createdAt }: RecoveryKitSh
         </dl>
         <section className="mt-8">
           <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-ink-muted">{t("recovery.code.label")}</h2>
-          <div className="mt-3 grid grid-cols-3 gap-3 rounded-xl border-2 border-ink p-5">
-            {recoveryGroups(code).map((group, index) => (
-              <span className="text-center font-mono text-2xl font-semibold tracking-[0.16em]" key={`${group}-${index}`}>
-                {group}
-              </span>
-            ))}
+          <div className="mt-3 flex items-center gap-6 rounded-xl border-2 border-ink p-5">
+            <div className="grid flex-1 grid-cols-3 gap-3">
+              {recoveryGroups(code).map((group, index) => (
+                <span className="text-center font-mono text-2xl font-semibold tracking-[0.16em]" key={`${group}-${index}`}>
+                  {group}
+                </span>
+              ))}
+            </div>
+            {qr ? (
+              <div className="w-32 shrink-0">
+                <QrCode label={t("recovery.sheet.qr")} matrix={qr} />
+              </div>
+            ) : null}
           </div>
         </section>
         <p className="mt-8 text-md font-medium">{t("recovery.sheet.keep")}</p>

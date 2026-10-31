@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Cloud, EyeOff, LogOut, Send, ShieldCheck } from "lucide-react";
+import { LogOut, Send } from "lucide-react";
 
 import { apiClient } from "../../api/client";
 import type { ApiClient } from "../../api/client";
@@ -12,7 +12,7 @@ import { Callout } from "../../components/Callout";
 import { Card } from "../../components/Card";
 import { Dialog } from "../../components/Dialog";
 import { t } from "../../i18n/dictionary";
-import { formatBytes, formatNumber, tf } from "../onboarding/format";
+import { formatBytes, formatNumber } from "../onboarding/format";
 import { rememberLocalMode } from "../onboarding/localMode";
 import { RecoverySection } from "../recovery/RecoverySection";
 import { AccountAvatar } from "./AccountAvatar";
@@ -25,7 +25,7 @@ export type AccountSectionProps = {
   vault: VaultStatus | null;
 };
 
-/** Ajustes › Cuenta y nube: Telegram account, usage, sign out, recovery kit, what Telegram sees. */
+/** Ajustes › Cuenta y nube: Telegram account, usage, sign out and recovery kit. */
 export function AccountSection({ account, client = apiClient, onChanged, onConnect, vault }: AccountSectionProps) {
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -114,28 +114,6 @@ export function AccountSection({ account, client = apiClient, onChanged, onConne
       ) : null}
 
       {hasCloud ? <RecoverySection accountName={profile?.display_name} client={client} onChanged={onChanged} vault={vault} /> : null}
-
-      <Card as="section" aria-labelledby="privacy-title" padding="md" tone="muted">
-        <h2 className="flex items-center gap-2 text-base font-semibold text-ink" id="privacy-title">
-          <ShieldCheck aria-hidden="true" className="size-[1.125rem] text-accent-ink" strokeWidth={1.75} />
-          {t("account.privacy.title")}
-        </h2>
-        <ul className="mt-3 grid gap-2.5 text-sm text-ink-muted">
-          <li className="flex gap-2.5">
-            <EyeOff aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-            {t("account.privacy.encrypted")}
-          </li>
-          <li className="flex gap-2.5">
-            <Cloud aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-            {t("account.privacy.telegramSees")}
-          </li>
-          <li className="flex gap-2.5">
-            <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-            {t("account.privacy.noServers")}
-          </li>
-        </ul>
-        <p className="mt-3 text-xs text-ink-subtle">{tf("account.privacy.legal", { brand: t("app.brand") })}</p>
-      </Card>
 
       <Dialog
         actions={

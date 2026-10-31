@@ -5,15 +5,17 @@ import { apiClient } from "../../api/client";
 import type { ApiClient } from "../../api/client";
 import { rotateRecoveryCode, verifyRecoveryCode } from "../../api/vault";
 import type { VaultStatus } from "../../api/vault";
+import type { QrMatrix } from "../../api/qr";
 import { Badge } from "../../components/Badge";
 import { Button } from "../../components/Button";
 import { Callout } from "../../components/Callout";
 import { Card } from "../../components/Card";
 import { Dialog } from "../../components/Dialog";
 import { t } from "../../i18n/dictionary";
-import { usePendingRecoveryCode } from "./pendingKit";
 import { RecoveryCodeForm } from "./RecoveryCodeForm";
 import { RecoveryKit } from "./RecoveryKit";
+import { recoveryErrorKey, recoveryQrFrom } from "./recoveryCode";
+import { errorCode } from "../onboarding/apiErrors";
 
 export type RecoverySectionProps = {
   accountName?: string | null;
@@ -24,8 +26,8 @@ export type RecoverySectionProps = {
 
 /** Ajustes › Cuenta y nube › Kit de recuperación: status, new code, verification. */
 export function RecoverySection({ accountName, client = apiClient, onChanged, vault }: RecoverySectionProps) {
-  const pending = usePendingRecoveryCode();
   const [kitCode, setKitCode] = useState<string | null>(null);
+  const [kitQr, setKitQr] = useState<QrMatrix | null>(null);
   const [confirmRotate, setConfirmRotate] = useState(false);
   const [rotating, setRotating] = useState(false);
   const [rotateError, setRotateError] = useState(false);
@@ -39,6 +41,7 @@ export function RecoverySection({ accountName, client = apiClient, onChanged, va
       const result = await rotateRecoveryCode(client);
       setConfirmRotate(false);
       setKitCode(result.recovery_code);
+      setKitQr(recoveryQrFrom(result));
       onChanged?.();
     } catch {
       setRotateError(true);
@@ -68,15 +71,9 @@ export function RecoverySection({ accountName, client = apiClient, onChanged, va
         </div>
       </div>
       <div className="flex flex-wrap gap-2 border-t border-line bg-subtle px-5 py-3.5">
-        {!saved && pending ? (
-          <Button leadingIcon={<KeyRound />} onClick={() => setKitCode(pending)} size="sm" variant="primary">
-            {t("recovery.section.saveKit")}
-          </Button>
-        ) : (
-          <Button leadingIcon={<RefreshCw />} onClick={() => setConfirmRotate(true)} size="sm" variant={saved ? "secondary" : "primary"}>
-            {saved ? t("recovery.section.rotate") : t("recovery.section.create")}
-          </Button>
-        )}
+        <Button leadingIcon={<RefreshCw />} onClick={() => setConfirmRotate(true)} size="sm" variant={saved ? "secondary" : "primary"}>
+          {t("recovery.section.rotate")}
+        </Button>
         <Button leadingIcon={<ScanSearch />} onClick={() => setVerifyOpen(true)} size="sm" variant="ghost">
           {t("recovery.section.verify")}
         </Button>
@@ -122,6 +119,7 @@ export function RecoverySection({ accountName, client = apiClient, onChanged, va
                 onChanged?.();
               }}
               onLater={() => setKitCode(null)}
+              qr={kitQr}
             />
           </div>
         ) : null}
@@ -134,7 +132,7 @@ export function RecoverySection({ accountName, client = apiClient, onChanged, va
 
 function VerifyDialog({ client, onOpenChange, open }: { client: ApiClient; onOpenChange: (open: boolean) => void; open: boolean }) {
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<"valid" | "invalid" | "failed" | null>(null);
+  const [result, setResult] = useState<"valid" | "invalid" | "checksum" | "failed" | null>(null);
 
   async function verify(code: string) {
     setBusy(true);
@@ -142,8 +140,8 @@ function VerifyDialog({ client, onOpenChange, open }: { client: ApiClient; onOpe
     try {
       const response = await verifyRecoveryCode(code, client);
       setResult(response.valid ? "valid" : "invalid");
-    } catch {
-      setResult("failed");
+    } catch (caught) {
+      setResult(recoveryErrorKey(errorCode(caught), "recovery.verify.failed") === "recovery.error.checksum" ? "checksum" : "failed");
     } finally {
       setBusy(false);
     }
@@ -171,6 +169,11 @@ function VerifyDialog({ client, onOpenChange, open }: { client: ApiClient; onOpe
           {result === "invalid" ? (
             <Callout role="status" tone="danger">
               {t("recovery.verify.invalid")}
+            </Callout>
+          ) : null}
+          {result === "checksum" ? (
+            <Callout role="status" tone="warning">
+              {t("recovery.error.checksum")}
             </Callout>
           ) : null}
           {result === "failed" ? (

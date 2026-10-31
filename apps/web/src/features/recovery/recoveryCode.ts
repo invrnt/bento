@@ -1,3 +1,6 @@
+import type { QrMatrix } from "../../api/qr";
+import type { MessageKey } from "../../i18n/dictionary";
+
 /** Recovery codes: 36 Crockford Base32 characters shown as 9 groups of 4. */
 
 export const recoveryCodeLength = 36;
@@ -39,4 +42,21 @@ export function lastRecoveryGroup(code: string): string {
 export function matchesLastGroup(code: string, typed: string): boolean {
   const expected = lastRecoveryGroup(code);
   return expected.length > 0 && normalizeRecoveryInput(typed) === expected;
+}
+
+/**
+ * Optional `recovery_qr` matrix next to a freshly returned recovery code
+ * (requested from the API; absent today, so the printed kit shows no QR).
+ */
+export function recoveryQrFrom(response: unknown): QrMatrix | null {
+  const qr = (response as { recovery_qr?: unknown } | null)?.recovery_qr as QrMatrix | undefined;
+  return qr && typeof qr.size === "number" && Array.isArray(qr.rows) ? qr : null;
+}
+
+/** "Revisa el código" for typos caught by the checksum; "no abre esta nube" for a valid code of another vault. */
+export function recoveryErrorKey(code: string | null, fallback: MessageKey): MessageKey {
+  const value = code ?? "";
+  if (/checksum|format|malformed|validation_failed/.test(value)) return "recovery.error.checksum";
+  if (value === "recovery_code_invalid") return "join.recovery.invalid";
+  return fallback;
 }

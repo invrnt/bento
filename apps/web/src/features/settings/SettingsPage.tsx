@@ -12,6 +12,7 @@ import { cx } from "../../lib/cx";
 import { usePolledResource } from "../../lib/usePolledResource";
 import { AccountSection } from "../account/AccountSection";
 import { DevicesSection } from "../devices/DevicesSection";
+import { AboutSection } from "./AboutSection";
 import { AdvancedSection, SettingsApplyStatus, SettingsDirtyBar } from "./AdvancedSection";
 import { BackupSection } from "./BackupSection";
 import { GeneralSection } from "./GeneralSection";
@@ -32,7 +33,7 @@ export type SettingsPageProps = {
   section: SettingsSection;
 };
 
-/** Ajustes: General, Cuenta y nube, Dispositivos, Respaldo, Búsqueda inteligente, Avanzado. */
+/** Ajustes: General, Cuenta y nube, Dispositivos, Respaldo, Búsqueda inteligente, Avanzado, Acerca de. */
 export function SettingsPage({
   client = apiClient,
   controller,
@@ -123,6 +124,7 @@ export function SettingsPage({
           {section === "backup" ? <BackupSection client={client} pollIntervalMs={pollIntervalMs} vault={vault.data} /> : null}
           {section === "smart-search" ? <SmartSearchSection controller={controller} /> : null}
           {section === "advanced" ? <AdvancedSection controller={controller} /> : null}
+          {section === "about" ? <AboutSection controller={controller} /> : null}
           {section === "smart-search" || section === "advanced" ? <SettingsApplyStatus controller={controller} /> : null}
         </section>
       </div>
