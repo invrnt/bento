@@ -1,5 +1,9 @@
+import { enBase } from "./en/base";
+import { enEveryday } from "./en/everyday";
+import { enOnboarding } from "./en/onboarding";
 import { esEveryday } from "./es/everyday";
 import { esOnboarding } from "./es/onboarding";
+import { detectLocale } from "./locale";
 
 const esBase = {
   "app.brand": "Bento",
@@ -620,23 +624,26 @@ const esBase = {
 
 export const es = { ...esBase, ...esOnboarding, ...esEveryday } as const;
 
-export const dictionaries = {
-  es,
-} as const;
-
-export type Locale = keyof typeof dictionaries;
 export type MessageKey = keyof typeof es;
+export type Locale = "es" | "en";
 
-export const defaultLocale: Locale = "es";
+export const en: Partial<Record<MessageKey, string>> = { ...enBase, ...enOnboarding, ...enEveryday };
+
+export const dictionaries: Record<Locale, Partial<Record<MessageKey, string>>> = {
+  en,
+  es,
+};
+
+export const defaultLocale: Locale = detectLocale();
 
 export function t(key: MessageKey, locale: Locale = defaultLocale): string {
-  return dictionaries[locale][key];
+  return dictionaries[locale][key] ?? es[key];
 }
 
-export function hasMessage(key: string, locale: Locale = defaultLocale): key is MessageKey {
-  return Object.prototype.hasOwnProperty.call(dictionaries[locale], key);
+export function hasMessage(key: string): key is MessageKey {
+  return Object.prototype.hasOwnProperty.call(es, key);
 }
 
-export function messageKeys(locale: Locale = defaultLocale): MessageKey[] {
-  return Object.keys(dictionaries[locale]) as MessageKey[];
+export function messageKeys(): MessageKey[] {
+  return Object.keys(es) as MessageKey[];
 }
