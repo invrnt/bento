@@ -10,11 +10,12 @@ from bento.adapters.security import VaultCrypto
 from bento.application.devices import (
     DeviceRotationIncompleteError,
     DeviceService,
-    keys_message,
     match_authorizations,
     telegram_device_model,
 )
 from bento.application.pairing import b64url_encode
+from bento.application.sync.codec import b64url_decode
+from bento.application.sync.keys import grant_auth_payload, parse_keys_message
 from bento.domain.account import TelegramAuthorization
 from bento.domain.devices import Device, DevicePlatform
 from bento.domain.errors import StorageUnavailableError, TelegramAccountError
@@ -64,13 +65,6 @@ def _with_hash(value: int) -> Device:
         added_at=DEVICE.added_at,
         telegram_auth_hash=value,
     )
-
-
-def test_keys_message_is_canonical_json() -> None:
-    payload = keys_message("vlt_x", 3, {"dev_b": "g2", "dev_a": "g1"})
-    assert payload == b'{"bento":"keys","epoch":3,"grants":{"dev_a":"g1","dev_b":"g2"},"v":1,"vault_id":"vlt_x"}'
-    assert SyncMessageKind.from_filename("x" + SyncMessageKind.KEYS.suffix) is SyncMessageKind.KEYS
-    assert json.loads(payload)["grants"]["dev_a"] == "g1"
 
 
 class _FailingHeaderVault(MemoryVault):
@@ -135,6 +129,9 @@ def test_rotation_reports_an_incomplete_header_update_and_can_be_retried() -> No
         assert vault.keyring is not None and vault.keyring.current_epoch == 2
         [keys] = [transport.documents[ref.message_id] for ref in transport.messages if ref.kind is SyncMessageKind.KEYS]
         assert set(json.loads(keys)["grants"]) == {vault.identity.device_id}, "no grant for the removed or keyless device"
+        message = parse_keys_message(keys)
+        assert message.sender_device_id == vault.identity.device_id
+        assert message.removed_device_ids == (other.device_id,)
 
         working = MemoryVault(crypto, keyring=vault.keyring)
         working.identity = vault.identity
@@ -172,5 +169,38 @@ def test_telegram_errors_do_not_block_removal_until_rotation() -> None:
         with pytest.raises(DeviceRotationIncompleteError):
             await _service(vault, account, devices, MemoryTransport()).remove(DEVICE.id)
         assert devices.items[DEVICE.id].removed_at == NOW
+
+    asyncio.run(scenario())
+
+
+def test_rotation_grants_are_sender_authenticated_and_list_every_removed_device() -> None:
+    async def scenario() -> None:
+        crypto = VaultCrypto()
+        vault = _FailingHeaderVault(crypto, keyring=crypto.generate_keyring(LAYOUT.vault_id))
+        kept, removed, earlier = (crypto.generate_device_identity() for _ in range(3))
+        devices = MemoryDevices()
+        for identity, removed_at in ((kept, None), (removed, None), (earlier, NOW)):
+            await devices.save(
+                Device(id=identity.device_id, name="Equipo", platform=DevicePlatform.LINUX,
+                       public_key=b64url_encode(identity.public_key), added_at=NOW, removed_at=removed_at)
+            )
+        transport = MemoryTransport()
+        with pytest.raises(DeviceRotationIncompleteError):
+            await _service(vault, _TerminatingAccount(()), devices, transport).remove(removed.device_id)
+
+        [ref] = [ref for ref in transport.messages if ref.kind is SyncMessageKind.KEYS]
+        raw = transport.documents[ref.message_id]
+        message = parse_keys_message(raw)
+        assert json.loads(raw)["v"] == 2
+        assert message.vault_id == LAYOUT.vault_id and message.epoch == 2
+        assert message.sender_device_id == vault.identity.device_id
+        assert message.removed_device_ids == tuple(sorted((removed.device_id, earlier.device_id)))
+        assert set(message.grants) == {vault.identity.device_id, kept.device_id}
+        grant = message.grants[kept.device_id]
+        payload = grant_auth_payload(message, recipient_device_id=kept.device_id, sealed=grant.sealed)
+        assert crypto.verify_grant_auth(kept, vault.identity.public_key, payload, grant.auth)
+        assert not crypto.verify_grant_auth(kept, removed.public_key, payload, grant.auth)
+        opened = crypto.open_sealed(kept, b64url_decode(grant.sealed), aad=LAYOUT.vault_id.encode())
+        assert crypto.keyring_from_bytes(opened) == vault.keyring
 
     asyncio.run(scenario())

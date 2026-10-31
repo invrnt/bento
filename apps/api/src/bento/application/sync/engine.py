@@ -22,9 +22,8 @@ from bento.application.sync.batching import (
     plan_flush,
     released_asset_id,
 )
-from bento.application.sync.codec import b64url_decode
 from bento.application.sync.envelope import envelope_epoch
-from bento.application.sync.keys import merge_granted_keyring, parse_keys_message
+from bento.application.sync.keys import KeysGrantApplier, parse_keys_message
 from bento.application.sync.ports import (
     AssetHoldState,
     FullStatePublisherPort,
@@ -52,6 +51,7 @@ from bento.domain.errors import IntegrityError, ValidationFailedError
 from bento.domain.security import SealPurpose, VaultKeyring
 from bento.domain.sync import SyncBatch, SyncMessageKind, SyncMessageRef
 from bento.domain.vault import SnapshotPointer, VaultHeader
+from bento.ports.pairing import DeviceRepositoryPort
 from bento.ports.repositories import ClockPort
 from bento.ports.security import VaultCryptoPort
 from bento.ports.sync import EntityState, HlcSourcePort, OutboxEntry, SnapshotSourcePort
@@ -103,6 +103,7 @@ class SyncEngine:
         hlc: HlcSourcePort,
         holds: HoldStatePort,
         publisher: FullStatePublisherPort,
+        devices: DeviceRepositoryPort,
         clock: ClockPort,
         policy: SyncPolicy | None = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
@@ -119,6 +120,7 @@ class SyncEngine:
         self._hlc = hlc
         self._holds = holds
         self._publisher = publisher
+        self._keys = KeysGrantApplier(crypto=crypto, devices=devices, values=self._values, clock=clock)
         self._clock = clock
         self._policy = policy or SyncPolicy()
         self._sleep = sleep
@@ -390,23 +392,20 @@ class SyncEngine:
         try:
             message = parse_keys_message(await self._transport.download_sync_document(context.layout, ref.message_id))
         except ValidationFailedError:
-            LOGGER.warning("Integrity: skipped malformed keys message %s", ref.message_id)
+            LOGGER.warning("Integrity: skipped malformed or unsupported keys message %s", ref.message_id)
             return context, floor
         if message.vault_id != context.layout.vault_id:
             return context, floor
-        grant = message.grants.get(context.device.device_id)
-        if grant is not None:
-            try:
-                sealed = b64url_decode(grant)
-                opened = self._crypto.open_sealed(context.device, sealed, aad=context.layout.vault_id.encode("utf-8"))
-                merged = merge_granted_keyring(context.keyring, self._crypto.keyring_from_bytes(opened), epoch=message.epoch)
-            except (IntegrityError, ValidationFailedError):
-                LOGGER.warning("Integrity: rejected keys grant in message %s", ref.message_id)
-                merged = None
-            if merged is not None:
-                await self._vault.update_keyring(merged)
-                context = replace(context, keyring=merged)
-                LOGGER.info("Applied vault key epoch %s", merged.current_epoch)
+        try:
+            merged = await self._keys.apply(message, context)
+        except IntegrityError as exc:
+            LOGGER.warning("Integrity: rejected keys grant in message %s (%s)", ref.message_id, exc.details.get("what"))
+            merged = None
+        if merged is not None:
+            await self._vault.update_keyring(merged)
+            context = replace(context, keyring=merged)
+            LOGGER.info("Applied vault key epoch %s", merged.current_epoch)
+        # Only an epoch this device already holds raises the floor, so even a rejected message cannot strand it.
         if message.epoch in context.keyring.keys:
             floor = await self._raise_floor(floor, message.epoch, ref.message_id)
         return context, floor

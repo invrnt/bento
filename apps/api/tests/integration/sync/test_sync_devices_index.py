@@ -19,12 +19,11 @@ from bento.application.drive import CreateFolderCommand
 from bento.application.indexing import OCRIndexingService
 from bento.application.indexing.embedding import EmbeddingIndexingService
 from bento.application.sync import AssetIndexRecorder
-from bento.application.sync.codec import b64url_encode
+from bento.application.sync.keys import build_keys_message
 from bento.domain.devices import Device, DevicePlatform
 from bento.domain.search import SearchQuery
 from bento.domain.storage import BlobKind, BlobRef, StorageBackend
 from bento.domain.sync import SyncMessageKind
-from bento.domain.vault import canonical_json
 from bento.infrastructure.db.engine import session_scope
 from bento.infrastructure.db.models import DeviceModel, OCRBlockModel
 from bento.infrastructure.settings import Settings
@@ -118,20 +117,17 @@ def test_own_batch_sealed_with_an_old_epoch_after_rotation_is_published_again(pa
     first, second = pair
 
     async def scenario() -> None:
+        await first.register()
+        await first.push()
+        await second.pull()
         stale_context = await first.context()
         rotated = CRYPTO.rotate_keyring(stale_context.keyring)
-        vault_id = stale_context.layout.vault_id
-        grants = {
-            device.device_id: b64url_encode(
-                CRYPTO.seal_for_device(device.vault.identity.public_key, CRYPTO.keyring_to_bytes(rotated), aad=vault_id.encode())
-            )
-            for device in (first, second)
-        }
+        recipients = {device.device_id: device.vault.identity.public_key for device in (first, second)}
         # Another process of the laptop rotates the keys while its sync loop still holds the old keyring.
         await first.runtime.transport.post_sync_document(
             stale_context.layout,
             SyncMessageKind.KEYS,
-            canonical_json({"bento": "keys", "v": 1, "vault_id": vault_id, "epoch": 2, "grants": grants}),
+            build_keys_message(CRYPTO, first.vault.identity, rotated, recipients),
         )
         folder = await first.drive.create_folder(CreateFolderCommand(name="Durante la rotación"))
         await first.engine.flush(stale_context, force=True)  # vault session still answers epoch 1

@@ -21,6 +21,8 @@ CURSOR = "last_applied_message_id"
 """Highest Sync channel message id processed (applied, skipped, or rejected)."""
 EPOCH_FLOOR = "epoch_floor"
 """`{"epoch", "message_id"}`: envelopes sealed below `epoch` and posted after `message_id` are rejected."""
+REMOVED_DEVICES = "removed_device_ids"
+"""Sorted device ids listed as removed by an accepted keys message; their grants are rejected from then on."""
 LAST_PUSH_AT = "last_push_at"
 LAST_PULL_AT = "last_pull_at"
 OPS_SINCE_SNAPSHOT = "ops_since_snapshot"
@@ -42,6 +44,7 @@ VAULT_SCOPED_KEYS = (
     INITIAL_PUBLISH,
     CURSOR,
     EPOCH_FLOOR,
+    REMOVED_DEVICES,
     LAST_PUSH_AT,
     LAST_PULL_AT,
     OPS_SINCE_SNAPSHOT,

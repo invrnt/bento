@@ -344,6 +344,42 @@ def test_sealed_box_rejects_invalid_keys() -> None:
         crypto.open_sealed(recipient, low_order)
 
 
+# Keys grant authentication
+
+
+def test_grant_auth_binds_sender_recipient_and_payload() -> None:
+    sender, recipient, stranger = (crypto.generate_device_identity() for _ in range(3))
+    tag = crypto.grant_auth(sender, recipient.public_key, b"grant payload")
+    assert re.fullmatch(r"[A-Za-z0-9_-]{43}", tag)
+    assert crypto.grant_auth(sender, recipient.public_key, b"grant payload") == tag, "deterministic"
+    assert crypto.verify_grant_auth(recipient, sender.public_key, b"grant payload", tag)
+    # The static-static key is symmetric, so the sender can check its own tag too.
+    assert crypto.verify_grant_auth(sender, recipient.public_key, b"grant payload", tag)
+
+    assert not crypto.verify_grant_auth(recipient, sender.public_key, b"grant payloaD", tag)
+    assert not crypto.verify_grant_auth(recipient, stranger.public_key, b"grant payload", tag)
+    assert not crypto.verify_grant_auth(stranger, sender.public_key, b"grant payload", tag)
+    forged = crypto.grant_auth(stranger, recipient.public_key, b"grant payload")
+    assert not crypto.verify_grant_auth(recipient, sender.public_key, b"grant payload", forged)
+    raw = base64.urlsafe_b64decode(tag + "=")
+    for bit in range(len(raw) * 8):
+        flipped = b64url_encode(flip_bit(raw, bit))
+        assert not crypto.verify_grant_auth(recipient, sender.public_key, b"grant payload", flipped)
+    for bad in ("", tag + "=", tag[:-1], "ñ" * 43, None, 7):
+        assert not crypto.verify_grant_auth(recipient, sender.public_key, b"grant payload", bad)  # type: ignore[arg-type]
+
+
+def test_grant_auth_rejects_invalid_keys() -> None:
+    sender, recipient = crypto.generate_device_identity(), crypto.generate_device_identity()
+    with pytest.raises(ValidationFailedError):
+        crypto.grant_auth(sender, b"short", b"x")
+    with pytest.raises(ValidationFailedError):
+        crypto.grant_auth(sender, bytes(32), b"x")
+    tag = crypto.grant_auth(sender, recipient.public_key, b"x")
+    assert not crypto.verify_grant_auth(recipient, bytes(32), b"x", tag)
+    assert not crypto.verify_grant_auth(recipient, b"short", b"x", tag)
+
+
 def test_reprs_and_errors_hide_secrets() -> None:
     keyring = _keyring()
     identity = crypto.generate_device_identity()

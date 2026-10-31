@@ -260,13 +260,22 @@ These rules bind the parallel Stage 15 agents. Shared seams are `ports/vault.py`
 
 ### Keys messages
 
-`.bkeys` documents in the Sync channel contain canonical JSON (not sealed as a whole):
+`.bkeys` documents in the Sync channel contain canonical JSON (not sealed as a whole). Sealed boxes are anonymous and every device of the account (including a removed one whose Telegram session is still alive) can post to Sync, so each grant is also authenticated by its sender's static device key:
 
 ```json
-{"bento": "keys", "v": 1, "vault_id": "vlt_…", "epoch": 2, "grants": {"dev_ab12": "<b64url seal_for_device(public_key, keyring_bytes, aad=vault_id)>"}}
+{"bento": "keys", "v": 2, "vault_id": "vlt_…", "epoch": 2, "sender_device_id": "dev_a1",
+ "removed_device_ids": ["dev_c3"],
+ "grants": {"dev_b2": {"sealed": "<b64url seal_for_device(pub_b2, keyring_bytes, aad=vault_id)>",
+                       "auth": "<grant_auth(sender identity, pub_b2, auth_payload)>"}}}
 ```
 
-The sync loop applies grants addressed to this device via `VaultSessionPort.update_keyring` and ignores others. Pairing (`.bpair`) messages are skipped by the sync loop; the pairing service reads them with its own cursor.
+- `grant_auth(identity, peer_pub, payload)` = b64url `HMAC-SHA256(HKDF-SHA256(X25519(identity.private, peer_pub), salt = min(pub_sender, pub_recipient) || max(...), info = "bento/v1/keys-grant-auth"), payload)`; verification is constant time.
+- `auth_payload` = canonical JSON `{"bento": "keys-grant", "v": 2, "vault_id", "epoch", "sender_device_id", "recipient_device_id", "removed_device_ids", "sealed"}` (the whole message context plus that recipient's b64url box), so no field of the message can be edited or a box swapped.
+- Writer (`DeviceService`): one grant per remaining active device (itself included); `removed_device_ids` lists the removed device and every device the registry already knows as removed. Device ids are `dev_…`; removed ids never appear as sender or recipient.
+- Apply (sync loop, `application/sync/keys.py`): only `v == 2` (v1 and unknown versions are skipped). The grant addressed to this device is accepted only when the sender is this device or an active device of the local registry, is not in the `sync_state` key `removed_device_ids` (every id listed by an accepted keys message), and `auth` verifies with the sender's registered public key; only then is the box opened and merged (it must agree with every key already held; nothing older is dropped) and persisted via `VaultSessionPort.update_keyring`.
+- An accepted message adds its `removed_device_ids` to `sync_state.removed_device_ids` and sets `removed_at` locally on registry rows not removed yet (a `device` op; already removed rows are left untouched), so grants from those devices stay rejected even when the removal op arrives later or a stale op re-activates the row. Rejected or unaddressed messages change nothing but the epoch floor, which only rises to epochs this device already holds.
+
+Pairing (`.bpair`) messages are skipped by the sync loop; the pairing service reads them with its own cursor.
 
 ### Device registration
 
@@ -275,6 +284,7 @@ The sync loop applies grants addressed to this device via `VaultSessionPort.upda
 ### Crypto format decisions (Stage 14)
 
 - Envelope AAD is the full 22-byte prefix plus caller AAD; sealed boxes (`BBOX` v1) use the 49-byte prefix plus caller AAD.
+- Keys grants (`.bkeys` v2) are sender-authenticated with `grant_auth` (static X25519 → HKDF `bento/v1/keys-grant-auth` → HMAC-SHA256 over the canonical grant context); v1 anonymous grants are rejected.
 - Pairing envelopes use subkey `info="bento/v1/pairing"`. Base64url is unpadded everywhere; decoding is strict.
 - Blob v2 has `max(1, ceil(P/S))` segments (an exact multiple ends on a full last segment); segment size is capped at 64 MiB; unknown epochs raise `IntegrityError`.
 - Relay pairing frames always carry their type byte; message counters are implicit; any failure poisons the session.

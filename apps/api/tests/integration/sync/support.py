@@ -16,13 +16,17 @@ from sqlalchemy.orm import Session, sessionmaker
 from bento.adapters.fake_telegram import FakeTelegramOptions
 from bento.adapters.media.catalog import SQLiteBlobRefCatalog
 from bento.adapters.repositories import SQLiteAlbumRepository, SQLiteAssetRepository, SQLiteFolderRepository
+from bento.adapters.repositories.devices import SQLiteDeviceRepository
 from bento.adapters.security import InMemoryKeyStore, VaultCrypto
 from bento.adapters.sync import SQLiteSyncAdapters, install_change_capture
+from bento.application.devices import DeviceService
 from bento.application.drive import DriveUseCases
+from bento.application.pairing import b64url_encode
 from bento.application.photos import PhotosUseCases
 from bento.application.sync import SyncEngine, SyncPolicy
 from bento.domain.account import TelegramAccount
 from bento.domain.assets import Asset, AssetKind, AssetMetadata, AssetMode, ProcessingState
+from bento.domain.devices import Device, DevicePlatform
 from bento.domain.security import DeviceIdentity, EncryptionMetadata, EncryptionMode, VaultKeyring
 from bento.domain.storage import BlobKind, BlobPart, BlobRef, StorageBackend
 from bento.domain.vault import VaultHeader, VaultLayout, VaultState, VaultStatus
@@ -111,7 +115,11 @@ class FakeVaultSession:
         if text is None:
             return None
         header = VaultHeader.from_json(text)
-        if not CRYPTO.verify_header_mac(self.keyring, header.canonical_unsigned_bytes(), header.mac):
+        # A header is MACed with the epoch it declares; after a local rotation that is older than ours.
+        if header.current_epoch not in self.keyring.keys:
+            return None
+        at_epoch = replace(self.keyring, current_epoch=header.current_epoch)
+        if not CRYPTO.verify_header_mac(at_epoch, header.canonical_unsigned_bytes(), header.mac):
             return None
         return header
 
@@ -158,6 +166,34 @@ class SyncDevice:
     @property
     def albums(self) -> SQLiteAlbumRepository:
         return SQLiteAlbumRepository(self.factory)
+
+    @property
+    def devices(self) -> SQLiteDeviceRepository:
+        return SQLiteDeviceRepository(self.factory)
+
+    @property
+    def device_service(self) -> DeviceService:
+        return DeviceService(
+            devices=self.devices,
+            vault=self.vault,
+            account=self.runtime.account,
+            transport=self.runtime.transport,
+            crypto=CRYPTO,
+            clock=self.clock.now,
+        )
+
+    async def register(self) -> None:
+        """What `VaultSessionPort` does on create/unlock/install: record this device in its own registry."""
+        await self.devices.save(
+            Device(
+                id=self.device_id,
+                name=f"{self.name} · Linux",
+                platform=DevicePlatform.LINUX,
+                public_key=b64url_encode(self.vault.identity.public_key),
+                added_at=self.clock.now(),
+                current=True,
+            )
+        )
 
     async def context(self) -> VaultContext:
         return await self.vault.require()
@@ -259,6 +295,7 @@ def make_cloud_device(
         hlc=adapters.hlc,
         holds=adapters.holds,
         publisher=adapters.publisher,
+        devices=SQLiteDeviceRepository(factory),
         clock=clock,
         policy=policy or SyncPolicy(post_interval_seconds=0),
     )

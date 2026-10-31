@@ -11,7 +11,14 @@ import pytest
 from bento.application.sync.batching import plan_flush, split_batches
 from bento.application.sync.codec import b64url_decode, b64url_encode, decode_vector, encode_vector
 from bento.application.sync.envelope import envelope_epoch
-from bento.application.sync.keys import merge_granted_keyring, parse_keys_message
+from bento.adapters.security import VaultCrypto
+from bento.application.sync.keys import (
+    KeysGrant,
+    build_keys_message,
+    grant_auth_payload,
+    merge_granted_keyring,
+    parse_keys_message,
+)
 from bento.application.sync.merge import cycle_breaker, find_folder_cycle
 from bento.application.sync.ports import AssetHoldState
 from bento.application.sync.snapshot import parse_snapshot, snapshot_payload
@@ -74,14 +81,71 @@ def test_batches_split_by_op_count_and_json_size() -> None:
     assert seqs(split_batches(big)) == [[1], [2], [3]]
 
 
+def _keys(**overrides: object) -> bytes:
+    message: dict[str, object] = {
+        "bento": "keys", "v": 2, "vault_id": "vlt_1", "epoch": 2, "sender_device_id": "dev_a",
+        "removed_device_ids": ["dev_c"], "grants": {"dev_b": {"sealed": "c2VhbGVk", "auth": "YXV0aA"}},
+    }
+    message.update(overrides)
+    return json.dumps(message).encode()
+
+
 def test_keys_messages_parse_strictly() -> None:
-    message = parse_keys_message(json.dumps({"bento": "keys", "v": 1, "vault_id": "vlt_1", "epoch": 2, "grants": {"dev_a": "xyz"}}).encode())
-    assert (message.vault_id, message.epoch, dict(message.grants)) == ("vlt_1", 2, {"dev_a": "xyz"})
-    for bad in (b"not json", b"[]", json.dumps({"bento": "keys", "v": 2}).encode(),
-                json.dumps({"bento": "keys", "v": 1, "vault_id": "v", "epoch": True, "grants": {}}).encode(),
-                json.dumps({"bento": "keys", "v": 1, "vault_id": "v", "epoch": 2, "grants": {"dev_a": 3}}).encode()):
+    message = parse_keys_message(_keys())
+    assert (message.vault_id, message.epoch, message.sender_device_id) == ("vlt_1", 2, "dev_a")
+    assert message.removed_device_ids == ("dev_c",)
+    assert dict(message.grants) == {"dev_b": KeysGrant(sealed="c2VhbGVk", auth="YXV0aA")}
+    assert parse_keys_message(_keys(removed_device_ids=[], grants={})).grants == {}
+    v1 = {"bento": "keys", "v": 1, "vault_id": "vlt_1", "epoch": 2, "grants": {"dev_b": "c2VhbGVk"}}
+    for bad in (
+        b"not json", b"[]", json.dumps(v1).encode(), _keys(v=2.0), _keys(v=True), _keys(v=3), _keys(bento="vault-header"),
+        _keys(epoch=True), _keys(epoch=0), _keys(epoch="2"), _keys(vault_id=""), _keys(extra=1),
+        _keys(sender_device_id="laptop"), _keys(sender_device_id="dev_"), _keys(removed_device_ids="dev_c"),
+        _keys(removed_device_ids=["dev_c", "dev_c"]), _keys(removed_device_ids=[3]),
+        _keys(grants={"dev_b": "c2VhbGVk"}), _keys(grants={"dev_b": {"sealed": "c2VhbGVk"}}),
+        _keys(grants={"dev_b": {"sealed": "c2VhbGVk", "auth": ""}}),
+        _keys(grants={"dev_b": {"sealed": "c2VhbGVk", "auth": "YXV0aA", "extra": "x"}}),
+        _keys(grants={"bob": {"sealed": "c2VhbGVk", "auth": "YXV0aA"}}),
+        _keys(removed_device_ids=["dev_a"]), _keys(removed_device_ids=["dev_b"]),
+    ):
         with pytest.raises(ValidationFailedError):
             parse_keys_message(bad)
+
+
+def test_grant_auth_payload_covers_the_whole_message_context() -> None:
+    message = parse_keys_message(_keys())
+    payload = grant_auth_payload(message, recipient_device_id="dev_b", sealed="c2VhbGVk")
+    assert payload == (
+        b'{"bento":"keys-grant","epoch":2,"recipient_device_id":"dev_b","removed_device_ids":["dev_c"],'
+        b'"sealed":"c2VhbGVk","sender_device_id":"dev_a","v":2,"vault_id":"vlt_1"}'
+    )
+    variants = {
+        grant_auth_payload(parse_keys_message(_keys(**change)), recipient_device_id="dev_b", sealed="c2VhbGVk")
+        for change in ({"vault_id": "vlt_2"}, {"epoch": 3}, {"sender_device_id": "dev_d"}, {"removed_device_ids": []})
+    }
+    variants |= {grant_auth_payload(message, recipient_device_id="dev_d", sealed="c2VhbGVk"),
+                 grant_auth_payload(message, recipient_device_id="dev_b", sealed="b3RoZXI")}
+    assert payload not in variants and len(variants) == 6
+
+
+def test_built_keys_messages_are_canonical_and_parse() -> None:
+    crypto = VaultCrypto()
+    sender, recipient = crypto.generate_device_identity(), crypto.generate_device_identity()
+    keyring = VaultKeyring(vault_id="vlt_1", current_epoch=2, keys={1: KEY_A, 2: KEY_B})
+    raw = build_keys_message(
+        crypto, sender, keyring, {recipient.device_id: recipient.public_key}, removed_device_ids=["dev_z", "dev_c", "dev_z"]
+    )
+    data = json.loads(raw)
+    assert raw == json.dumps(data, sort_keys=True, separators=(",", ":")).encode()
+    message = parse_keys_message(raw)
+    assert message.removed_device_ids == ("dev_c", "dev_z") and message.sender_device_id == sender.device_id
+    grant = message.grants[recipient.device_id]
+    assert crypto.verify_grant_auth(
+        recipient, sender.public_key, grant_auth_payload(message, recipient_device_id=recipient.device_id, sealed=grant.sealed), grant.auth
+    )
+    for removed, recipients in ((["dev_c"], {"dev_c": recipient.public_key}), ([sender.device_id], {}), (["evil"], {})):
+        with pytest.raises(ValidationFailedError):
+            build_keys_message(crypto, sender, keyring, recipients, removed_device_ids=removed)
 
 
 def test_granted_keyrings_must_extend_the_local_one() -> None:

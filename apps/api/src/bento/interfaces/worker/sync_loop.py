@@ -8,6 +8,7 @@ import logging
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from bento.adapters.repositories.devices import SQLiteDeviceRepository
 from bento.adapters.sync import SQLiteHlcSource, SQLiteSyncAdapters, SQLiteSyncOutbox, SQLiteSyncStateStore
 from bento.application.sync import AssetIndexRecorder, SyncEngine, SyncLoop
 from bento.application.sync.state import SNAPSHOT_REQUESTED_AT, format_timestamp
@@ -51,6 +52,7 @@ def create_sync_loop(settings: Settings) -> SyncLoop | None:
         hlc=adapters.hlc,
         holds=adapters.holds,
         publisher=adapters.publisher,
+        devices=SQLiteDeviceRepository(session_factory),
         clock=clock,
     )
     return SyncLoop(engine=engine, vault=vault, transport=runtime.transport, state=adapters.state, clock=clock)
