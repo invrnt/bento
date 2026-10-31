@@ -1,11 +1,26 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
+
+
+SessionFactoryHook = Callable[[sessionmaker[Session]], None]
+_session_factory_hooks: list[SessionFactoryHook] = []
+
+
+def add_session_factory_hook(hook: SessionFactoryHook) -> None:
+    """Run `hook` on every session factory created afterwards in this process (sync change capture)."""
+    if hook not in _session_factory_hooks:
+        _session_factory_hooks.append(hook)
+
+
+def remove_session_factory_hook(hook: SessionFactoryHook) -> None:
+    if hook in _session_factory_hooks:
+        _session_factory_hooks.remove(hook)
 
 
 def sqlite_url(path: Path | str) -> str:
@@ -25,7 +40,10 @@ def create_sqlite_engine(database_url: str, *, echo: bool = False) -> Engine:
 
 def create_session_factory(database_url: str, *, echo: bool = False) -> sessionmaker[Session]:
     engine = create_sqlite_engine(database_url, echo=echo)
-    return sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    for hook in tuple(_session_factory_hooks):
+        hook(factory)
+    return factory
 
 
 @contextmanager
