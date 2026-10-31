@@ -4,11 +4,15 @@ import asyncio
 import base64
 import os
 import tempfile
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
+from typing import BinaryIO
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
+from bento.adapters.security.primitives import b64url_encode as _encode
 from bento.domain.errors import ValidationFailedError
 from bento.domain.security import EncryptionMetadata, EncryptionMode
 
@@ -16,6 +20,49 @@ _MAGIC = b"BENTOENC\x01"
 _NONCE_BYTES = 12
 _TAG_BYTES = 16
 _CHUNK_BYTES = 1024 * 1024
+
+LEGACY_V1_MAGIC = _MAGIC
+
+
+@dataclass(frozen=True, slots=True)
+class LegacyEnvelope:
+    """Parsed v1 envelope: `BENTOENC\\x01 | key_id_len u8 | key_id | nonce 12B | ciphertext | tag 16B`."""
+
+    header: bytes
+    key_id: str
+    nonce: bytes
+    tag: bytes
+    ciphertext_bytes: int
+
+
+def read_legacy_envelope(source: BinaryIO) -> LegacyEnvelope:
+    """Parse a v1 envelope and leave `source` positioned at the first ciphertext byte."""
+    header, key_id, nonce = _read_header(source)
+    tag = _read_tag(source)
+    ciphertext_bytes = source.seek(0, os.SEEK_END) - len(header) - _TAG_BYTES
+    if ciphertext_bytes < 0:
+        raise ValidationFailedError("Encrypted blob is truncated")
+    source.seek(len(header))
+    return LegacyEnvelope(header=header, key_id=key_id, nonce=nonce, tag=tag, ciphertext_bytes=ciphertext_bytes)
+
+
+def decrypt_legacy_body(
+    source: BinaryIO, envelope: LegacyEnvelope, key: bytes, write: Callable[[bytes], object]
+) -> None:
+    """Stream-decrypt a v1 body into `write`; raises `InvalidTag` after the last chunk if tampered.
+
+    Plaintext is emitted before the tag is verified, so callers must discard it on failure.
+    """
+    decryptor = Cipher(algorithms.AES(key), modes.GCM(envelope.nonce, envelope.tag)).decryptor()
+    decryptor.authenticate_additional_data(envelope.header)
+    remaining = envelope.ciphertext_bytes
+    while remaining:
+        chunk = source.read(min(_CHUNK_BYTES, remaining))
+        if not chunk:
+            raise ValidationFailedError("Encrypted blob is truncated")
+        remaining -= len(chunk)
+        write(decryptor.update(chunk))
+    write(decryptor.finalize())
 
 
 class LocalAesGcmEncryptionAdapter:
@@ -71,27 +118,13 @@ class LocalAesGcmEncryptionAdapter:
         output_path = _temporary_path(self._temp_dir, ".plain")
         try:
             with source_path.open("rb") as source:
-                header, key_id, nonce = _read_header(source)
-                if key_id != self._key_id or metadata.key_id != self._key_id:
+                envelope = read_legacy_envelope(source)
+                if envelope.key_id != self._key_id or metadata.key_id != self._key_id:
                     raise ValidationFailedError("Required Bento encryption key is not available")
-                tag = _read_tag(source)
-                if metadata.nonce != _encode(nonce) or metadata.tag != _encode(tag):
+                if metadata.nonce != _encode(envelope.nonce) or metadata.tag != _encode(envelope.tag):
                     raise ValidationFailedError("Encrypted blob metadata does not match its envelope")
-                ciphertext_bytes = source.seek(0, os.SEEK_END) - len(header) - _TAG_BYTES
-                if ciphertext_bytes < 0:
-                    raise ValidationFailedError("Encrypted blob is truncated")
-                source.seek(len(header))
-                decryptor = Cipher(algorithms.AES(self._key), modes.GCM(nonce, tag)).decryptor()
-                decryptor.authenticate_additional_data(header)
                 with output_path.open("wb") as target:
-                    remaining = ciphertext_bytes
-                    while remaining:
-                        chunk = source.read(min(_CHUNK_BYTES, remaining))
-                        if not chunk:
-                            raise ValidationFailedError("Encrypted blob is truncated")
-                        remaining -= len(chunk)
-                        target.write(decryptor.update(chunk))
-                    target.write(decryptor.finalize())
+                    decrypt_legacy_body(source, envelope, self._key, target.write)
             return str(output_path)
         except InvalidTag as exc:
             output_path.unlink(missing_ok=True)
@@ -108,7 +141,7 @@ def decode_encryption_key(value: str) -> bytes:
         raise ValidationFailedError("Bento encryption key must be URL-safe base64") from exc
 
 
-def _read_header(source) -> tuple[bytes, str, bytes]:
+def _read_header(source: BinaryIO) -> tuple[bytes, str, bytes]:
     prefix = source.read(len(_MAGIC) + 1)
     if len(prefix) != len(_MAGIC) + 1 or not prefix.startswith(_MAGIC):
         raise ValidationFailedError("Encrypted blob has an invalid Bento envelope")
@@ -124,7 +157,7 @@ def _read_header(source) -> tuple[bytes, str, bytes]:
     return prefix + key_id_bytes + nonce, key_id, nonce
 
 
-def _read_tag(source) -> bytes:
+def _read_tag(source: BinaryIO) -> bytes:
     if source.seek(0, os.SEEK_END) < _TAG_BYTES:
         raise ValidationFailedError("Encrypted blob is truncated")
     source.seek(-_TAG_BYTES, os.SEEK_END)
@@ -137,7 +170,3 @@ def _read_tag(source) -> bytes:
 def _temporary_path(directory: Path, suffix: str) -> Path:
     with tempfile.NamedTemporaryFile(prefix="bento-crypto-", suffix=suffix, dir=directory, delete=False) as handle:
         return Path(handle.name)
-
-
-def _encode(value: bytes) -> str:
-    return base64.urlsafe_b64encode(value).decode("ascii").rstrip("=")
