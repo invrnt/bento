@@ -24,7 +24,7 @@ from datetime import datetime
 from typing import Protocol
 
 from bento.application.pairing import b64url_encode
-from bento.application.sync.state import CURSOR, DEVICE_REMOVED, REMOVED_DEVICES
+from bento.application.sync.state import DEVICE_REMOVED, REMOVED_DEVICES
 from bento.domain.account import AccountStatus, TelegramAccount
 from bento.domain.devices import Device, DevicePlatform
 from bento.domain.errors import (
@@ -229,7 +229,7 @@ class VaultService:
         self._context: _CachedContext | None = None
         self._kit: _CachedKit | None = None
         self._current_header: VaultHeader | None = None
-        """Last header this process verified while its epoch was this device's current one."""
+        """Last header `read_header` verified at this device's current epoch, or that this process published."""
 
     # VaultSessionPort
 
@@ -377,7 +377,10 @@ class VaultService:
             return None
         local = await self._local(account.account)
         if local is not None:
-            return await self._verified_header(ports, *local)
+            header = await self._verified_header(ports, *local)
+            # Remembered for a rotation that follows (`update_header` may keep this header's snapshot pointer).
+            self._current_header = header
+            return header
         discovery = await self._discover(ports)
         return discovery.header
 
@@ -655,7 +658,6 @@ class VaultService:
         header = await self._pinned_header(ports, layout, keyring)
         if header is None or header.current_epoch != keyring.current_epoch:
             return None
-        self._current_header = header
         return header
 
     async def _pinned_header(
@@ -783,7 +785,6 @@ class VaultService:
             saved = await self._state.get_value(RECOVERY_KIT_SAVED_KEY) == "1"
             self._kit = _CachedKit(vault_id=layout.vault_id, saved=saved, at=self._monotonic())
             return self._kit
-        self._current_header = header
         await self._mirror_kit(header)
         assert self._kit is not None
         return self._kit
