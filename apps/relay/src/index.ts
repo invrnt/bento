@@ -1,4 +1,5 @@
 import { version } from "../package.json";
+import { rateLimitSubject } from "./client-address";
 import { logEvent } from "./log";
 import { NAMEPLATE_PATTERN, isRole } from "./protocol";
 
@@ -48,10 +49,13 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
-/** Salted SHA-256 of the client IP. Used only as the rate-limit key; never stored or logged. */
+/**
+ * Salted SHA-256 of the client's rate-limit subject (IPv4 address or IPv6 /64). Used only as the
+ * rate-limit key; never stored or logged.
+ */
 async function clientKey(request: Request): Promise<string> {
-  const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
-  const digest = await crypto.subtle.digest("SHA-256", textEncoder.encode(RATE_LIMIT_SALT + ip));
+  const subject = rateLimitSubject(request.headers.get("CF-Connecting-IP"));
+  const digest = await crypto.subtle.digest("SHA-256", textEncoder.encode(RATE_LIMIT_SALT + subject));
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
