@@ -233,3 +233,37 @@ A signed-in device with the recovery code unwraps the keyring from the header. T
 - `ports/`: `telegram.py` (account, vault transport, chats), `sync.py`, `pairing.py`, `backup.py`, `trash.py` (contracts); `security.py`, `key_store.py` (crypto); `blob_store.py` (contracts extends).
 - `adapters/security/` (crypto), `adapters/fake_telegram/` (platform), `adapters/telegram_mtproto/` + `infrastructure/mtproto/` (mtproto), `adapters/sync/` + `application/sync/` (sync), `adapters/pairing/` + `application/pairing.py` + `application/devices.py` + `application/recovery.py` (pairing), `adapters/backup/` + `application/backup.py` + `application/trash.py` (backup), `application/account.py` + `application/vault.py` + `application/sharing.py` + `application/telegram_import.py` + `application/inbox.py` (mtproto).
 - See `execution/telegram-first-program.md` for stage ownership of shared files.
+
+## Integration Rules (Stage 15)
+
+These rules bind the parallel Stage 15 agents. Shared seams are `ports/vault.py` (`VaultSessionPort`), `ports/content.py` (`AssetContentPort`), `ports/sync.py` (`SyncStatusProviderPort`), and the factories in `infrastructure/services.py`; each factory is implemented by its owner and every other agent depends only on the port.
+
+### Storage pipeline (local-first)
+
+- Ingestion (web upload, Send-to, inbox, import, folder backup) always writes the plaintext original to the local blob store first and responds immediately. When the vault is ready, the storage-pipeline (backup) agent enqueues `remote_upload` for the original and later for thumbnails/previews.
+- `remote_upload` uses `RemoteBlobStorePort.store` (mtproto agent): v2-encrypt with the current epoch, split into parts, upload, persist `upload_sessions` progress for resume, then update the blob ref to `backend=telegram` with `parts`, `key_epoch`, `format_version=2`. The local plaintext file becomes a cache entry (`cache_entries`) eligible for LRU eviction.
+- Small blobs (thumbnails/previews) are uploaded in albums of up to 10 documents per request (`RemotePartStorePort` batch helper) to reduce message count.
+- Downloads (`/download`, `/content`, thumbnails on other devices, sharing) go through `AssetContentPort`, which serves the local cache or fetches from Telegram (full or by range) and records cache access.
+- Bandwidth limiting (`backup_bandwidth_limit_kbps`) is a token bucket inside the MTProto transfer layer. `Pausar respaldo` pauses folder-backup scanning and `backup_upload` jobs only; manual uploads continue.
+- When a vault becomes ready on a device that already has local data, the pipeline enqueues `remote_upload` for every local-only blob and the sync engine publishes full-state upserts for every entity (initial publish).
+
+### Sync capture details
+
+- Tracked models: `FolderModel`, `AssetModel`, `AlbumModel`, `AlbumAssetModel`, `BlobRefModel` (only rows with `backend == "telegram"`), `BlobPartModel` (folded into the parent `blob` op's `parts` field), `ThumbnailModel`, `DeviceModel` (synced columns only; `is_current` and `last_seen_at` stay local).
+- Hold rule: the flush withholds `asset`, `thumbnail`, `album_item`, and `asset_index` ops whose asset has no remote original yet, and releases them right after that asset's `blob` op, so peers never see assets they cannot download.
+- Deleting an `AssetModel`/`FolderModel` row (trash purge) produces a `purge` op.
+- Applying `asset_index` updates `asset_text`/FTS and the vector index through the existing search adapters. Receiving devices never run OCR/embeddings for remote assets.
+
+### Keys messages
+
+`.bkeys` documents in the Sync channel contain canonical JSON (not sealed as a whole):
+
+```json
+{"bento": "keys", "v": 1, "vault_id": "vlt_…", "epoch": 2, "grants": {"dev_ab12": "<b64url seal_for_device(public_key, keyring_bytes, aad=vault_id)>"}}
+```
+
+The sync loop applies grants addressed to this device via `VaultSessionPort.update_keyring` and ignores others. Pairing (`.bpair`) messages are skipped by the sync loop; the pairing service reads them with its own cursor.
+
+### Device registration
+
+`VaultSessionPort` (mtproto agent) registers the current device (`devices` row with `is_current=True`, name defaulting to `<hostname> · <OS>`, X25519 public key, current Telegram authorization hash) whenever a vault is created, unlocked with a recovery code, or installed from a pairing grant. Listing, renaming, removal, and key rotation belong to the pairing agent.

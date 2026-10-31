@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Protocol
 
-from bento.domain.sync import SyncEntity, SyncOperation
+from bento.domain.sync import SyncEntity, SyncOperation, SyncStatus
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,3 +70,11 @@ class HlcSourcePort(Protocol):
     async def next(self) -> str: ...
 
     async def observe(self, remote_hlc: str) -> None: ...
+
+
+class SyncStatusProviderPort(Protocol):
+    async def status(self) -> SyncStatus: ...
+
+    async def request_sync(self) -> None:
+        """Ask the worker's sync loop to run now (cross-process signal)."""
+        ...
