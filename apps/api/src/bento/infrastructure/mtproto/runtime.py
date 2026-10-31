@@ -16,7 +16,8 @@ from bento.adapters.telegram_mtproto.parts import MtprotoRemotePartStore
 from bento.adapters.telegram_mtproto.session import MtprotoSession
 from bento.adapters.telegram_mtproto.transport import MtprotoVaultTransport
 from bento.adapters.telegram_mtproto.vault_state import SQLiteVaultState
-from bento.application.account import FLOOD_WAIT_UNTIL_KEY, telegram_device_model
+from bento.application.account import FLOOD_WAIT_UNTIL_KEY
+from bento.application.devices import telegram_device_model
 from bento.application.vault import DeviceIdentityStore
 from bento.domain.settings import SettingSource
 from bento.infrastructure.db.clock import SystemClock

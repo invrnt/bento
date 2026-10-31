@@ -8,33 +8,14 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 
-from bento.domain.account import AccountStatus, LoginStep, TelegramAuthorization
+from bento.domain.account import AccountStatus, LoginStep
 from bento.domain.errors import TelegramNotAvailableError
 from bento.domain.jobs import JobPriority, JobType
 from bento.ports.jobs import JobQueuePort
 from bento.ports.telegram import TelegramAccountPort
 
-DEVICE_MODEL_PREFIX = "Bento"
-_DEVICE_SUFFIX_CHARS = 6
-
 AccountResolver = Callable[[], TelegramAccountPort | None]
 ChangeListener = Callable[[], Awaitable[None]]
-
-
-def telegram_device_model(device_id: str) -> str:
-    """The device name Telegram shows for this Bento device: `Bento (<last 6 chars of device_id>)`.
-
-    A session cannot learn its own authorization hash, so other devices match authorizations by this name.
-    """
-    return f"{DEVICE_MODEL_PREFIX} ({device_id[-_DEVICE_SUFFIX_CHARS:]})"
-
-
-def authorization_for_device(
-    authorizations: tuple[TelegramAuthorization, ...], device_id: str
-) -> TelegramAuthorization | None:
-    """The authorization another device announced with `telegram_device_model(device_id)`, if listed."""
-    expected = telegram_device_model(device_id)
-    return next((item for item in authorizations if not item.current and item.device_model == expected), None)
 
 
 class AccountService:

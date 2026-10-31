@@ -214,7 +214,7 @@ def test_unavailable_relay_answers_503(tmp_path: Path) -> None:
 
 
 def test_local_only_mode_has_no_pairing(tmp_path: Path) -> None:
-    with TestClient(create_app(Settings(data_dir=str(tmp_path)))) as client:
+    with TestClient(create_app(Settings(data_dir=str(tmp_path), storage_backend="local"))) as client:
         for method, path in (("POST", "/api/pairing/host"), ("GET", "/api/pairing/requests"), ("GET", "/api/devices")):
             response = client.request(method, path)
             assert response.status_code == 503, response.text

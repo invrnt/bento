@@ -108,7 +108,7 @@ def _create_runtime(settings: Settings, key_store: KeyStorePort) -> TelegramRunt
 def bento_device_model(key_store: KeyStorePort) -> Callable[[], Awaitable[str]]:
     """`Bento (<last 6 chars of device_id>)` for this device, creating its identity on first use."""
     from bento.adapters.security import VaultCrypto
-    from bento.application.account import telegram_device_model
+    from bento.application.devices import telegram_device_model
     from bento.application.vault import DeviceIdentityStore
 
     identities = DeviceIdentityStore(key_store, VaultCrypto())

@@ -8,7 +8,6 @@ the account is cached briefly.
 
 from __future__ import annotations
 
-import base64
 import hashlib
 import json
 import secrets
@@ -18,6 +17,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Protocol
 
+from bento.application.pairing import b64url_encode
 from bento.domain.account import AccountStatus, TelegramAccount
 from bento.domain.devices import Device, DevicePlatform
 from bento.domain.errors import (
@@ -453,10 +453,9 @@ class VaultService:
         header = _parse_header(await ports.transport.read_header_text(layout))
         if header is None or header.vault_id != layout.vault_id or header.layout != layout:
             return None
-        # A removed device keeps old keys: never trust a header below this device's epoch.
-        if header.current_epoch < keyring.current_epoch or not self._verify(keyring, header):
-            return None
-        return header
+        # Verified with the key of the epoch it declares: a rotation stores the new keyring before the new header
+        # is published. The sync engine applies the epoch floor by Sync message position.
+        return header if self._verify(keyring, header) else None
 
     def _verify(self, keyring: VaultKeyring, header: VaultHeader) -> bool:
         if header.current_epoch not in keyring.keys:
@@ -482,7 +481,7 @@ class VaultService:
                 id=identity.device_id,
                 name=existing.name if existing is not None else self._device.name,
                 platform=existing.platform if existing is not None else self._device.platform,
-                public_key=_b64url(identity.public_key),
+                public_key=b64url_encode(identity.public_key),
                 added_at=existing.added_at if existing is not None else now,
                 telegram_auth_hash=existing.telegram_auth_hash if existing is not None else None,
                 last_seen_at=now,
@@ -557,7 +556,3 @@ def _layout_from_json(raw: str) -> tuple[VaultLayout, int | None]:
 def _kit_check(vault_id: str, last_group: str) -> str:
     normalized = "".join(last_group.split()).replace("-", "").upper().translate(_CROCKFORD_ALIASES)
     return hashlib.sha256(f"bento/v1/recovery-kit-check:{vault_id}:{normalized}".encode()).hexdigest()
-
-
-def _b64url(value: bytes) -> str:
-    return base64.urlsafe_b64encode(value).rstrip(b"=").decode("ascii")
