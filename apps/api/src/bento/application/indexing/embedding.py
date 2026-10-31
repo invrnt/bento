@@ -64,6 +64,11 @@ class EmbeddingIndexingService:
         asset = await self._assets.get(asset_id)
         if asset is None:
             raise AssetNotFoundError(asset_id)
+        if not asset.ai_indexing_allowed:
+            LOGGER.info(
+                "Skipped embedding of asset %s (origin %s): only this device's own files are indexed", asset.id, asset.origin
+            )
+            return None
 
         pending_asset = await self._mark_embedding_pending(asset)
         try:

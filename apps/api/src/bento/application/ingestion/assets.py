@@ -7,7 +7,7 @@ from typing import Protocol
 
 from bento.application.ingestion.metadata import ExtractedUploadMetadata
 from bento.application.upload import UploadAssetCommand, UploadAssetResult, UploadAssetUseCase
-from bento.domain.assets import Asset, AssetMode
+from bento.domain.assets import Asset, AssetMode, AssetOrigin
 from bento.domain.errors import AssetNotFoundError, UnsupportedMediaTypeError
 from bento.domain.manifest import ManifestEntityType, ManifestEventType
 from bento.domain.storage import BlobKind, BlobRef
@@ -46,6 +46,7 @@ class UploadedAssetFile:
     mode: AssetMode | None = None
     allow_duplicate: bool = True
     folder_resolver: Callable[[AssetMode], Awaitable[str | None]] | None = None
+    origin: AssetOrigin = AssetOrigin.DEVICE
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,6 +90,7 @@ class AssetIngestionService:
                 ocr_enabled=False,
                 embeddings_enabled=False,
                 folder_resolver=file.folder_resolver,
+                origin=file.origin,
             )
         )
         if result.blob_ref is not None:

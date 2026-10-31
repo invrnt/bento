@@ -14,6 +14,7 @@ from pathlib import Path
 
 from bento.application.inbox import IngestionPort
 from bento.application.ingestion import UploadedAssetFile
+from bento.domain.assets import AssetOrigin
 from bento.domain.errors import DomainError, StorageUnavailableError, TelegramFloodWaitError, ValidationFailedError
 from bento.domain.jobs import Job, JobPriority, JobType
 from bento.domain.telegram import TelegramChat, TelegramMediaItem
@@ -121,6 +122,7 @@ class TelegramImportService:
                         source_path=temp_path,
                         original_filename=str(item.get("filename") or f"telegram-{message_id}"),
                         declared_mime_type=item.get("mime_type") or None,
+                        origin=AssetOrigin.TELEGRAM_IMPORT,
                     )
                 )
             except TelegramFloodWaitError:

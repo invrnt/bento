@@ -22,6 +22,7 @@ from typing import Protocol
 from bento.application.ingestion import UploadedAssetFile
 from bento.application.upload import UploadAssetResult
 from bento.application.vault import VaultStatePort
+from bento.domain.assets import AssetOrigin
 from bento.domain.errors import (
     DomainError,
     StorageUnavailableError,
@@ -158,6 +159,7 @@ class InboxService:
                     source_path=temp_path,
                     original_filename=str(job.payload.get("filename") or f"telegram-{message_id}"),
                     declared_mime_type=_optional_str(job.payload.get("mime_type")),
+                    origin=AssetOrigin.TELEGRAM_INBOX,
                 )
             )
         except Exception as exc:

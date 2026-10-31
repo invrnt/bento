@@ -19,7 +19,8 @@ from bento.adapters.repositories import SQLiteAssetRepository
 from bento.adapters.search.sqlite_fts import SQLiteFTSSearchIndex
 from bento.adapters.search.sqlite_vec import SQLiteVecSearchIndex
 from bento.application.indexing.embedding import EmbeddingIndexingService
-from bento.application.media import MediaProcessingService
+from bento.application.indexing.reindex import ReindexService
+from bento.application.media import MediaProcessingService, ProcessingCompletionService
 from bento.application.indexing import OCRIndexingService
 from bento.infrastructure.db.clock import SystemClock
 from bento.infrastructure.db.engine import create_app_session_factory
@@ -132,6 +133,14 @@ def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> Work
         telegram=TelegramJobHandlers(settings),
         storage_pipeline=StoragePipelineJobHandler(pipeline),
         sync_snapshot=SyncSnapshotJobHandler(session_factory),
+        processing=ProcessingCompletionService(assets=assets, jobs=jobs, clock=clock),
+        reindex=ReindexService(
+            assets=assets,
+            jobs=jobs,
+            active=jobs,
+            ocr_enabled=settings.ocr_provider != "disabled",
+            embeddings_enabled=settings.embeddings_provider != "disabled",
+        ),
     )
 
 

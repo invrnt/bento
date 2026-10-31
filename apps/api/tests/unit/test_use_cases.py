@@ -65,6 +65,49 @@ def test_upload_orchestration_creates_asset_blob_manifest_and_jobs() -> None:
     asyncio.run(scenario())
 
 
+def test_upload_from_telegram_never_queues_ocr_or_embeddings() -> None:
+    from bento.domain.assets import AssetOrigin
+
+    async def scenario() -> None:
+        jobs = FakeJobs()
+        use_case = UploadAssetUseCase(
+            assets=FakeAssets(),
+            folders=FakeFolders(),
+            blob_store=FakeBlobStore(),
+            jobs=jobs,
+            manifest=FakeManifest(),
+            clock=FakeClock(),
+        )
+
+        result = await use_case.execute(
+            UploadAssetCommand(
+                source_ref="tmp-upload-1",
+                original_filename="scan.pdf",
+                mime_type="application/pdf",
+                size_bytes=100,
+                sha256=SHA,
+                origin=AssetOrigin.TELEGRAM_IMPORT,
+            )
+        )
+        note = await use_case.execute(
+            UploadAssetCommand(
+                source_ref="tmp-upload-2",
+                original_filename="nota.txt",
+                mime_type="text/plain",
+                size_bytes=10,
+                sha256="e" * 64,
+                origin=AssetOrigin.TELEGRAM_INBOX,
+            )
+        )
+
+        assert result.asset.origin == AssetOrigin.TELEGRAM_IMPORT
+        assert [job.type for job in jobs.items] == [JobType.THUMBNAIL]
+        # Nothing at all is left for the text file, so it is ready immediately.
+        assert note.asset.processing_state == ProcessingState.INDEXED
+
+    asyncio.run(scenario())
+
+
 def test_upload_duplicate_returns_existing_by_default_and_can_conflict() -> None:
     async def scenario() -> None:
         assets = FakeAssets()

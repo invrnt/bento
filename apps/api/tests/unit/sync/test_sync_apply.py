@@ -238,3 +238,17 @@ def test_hlc_source_is_monotonic_across_restarts_and_clock_regressions(factory: 
     assert issued == sorted(issued) and len(set(issued)) == len(issued)
     assert issued[-1] > hlc(8_000, 7)
     assert issued[0].startswith("0000000000005000-000000")
+
+
+def test_assets_from_peers_have_unknown_provenance_and_are_never_indexed_here(factory: sessionmaker[Session]) -> None:
+    from bento.adapters.repositories.mappers import asset_from_model
+    from bento.domain.errors import ValidationFailedError
+
+    with pytest.raises(ValidationFailedError):  # `origin` is device-local: it is not a field on the wire
+        op(SyncEntity.ASSET, "asset_1", hlc(10), {**ASSET_FIELDS, "origin": "device"})
+    apply(factory, op(SyncEntity.ASSET, "asset_1", hlc(10), ASSET_FIELDS))
+
+    row = asset(factory)
+    assert row is not None and row.origin is None
+    remote = asset_from_model(row)
+    assert remote.origin is None and not remote.ai_indexing_allowed
