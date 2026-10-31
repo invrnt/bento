@@ -70,7 +70,8 @@ def test_device_ops_keep_local_columns_and_stamp_the_sender_last_seen(pair: tupl
                 Device(id=first.device_id, name="Portátil", platform=DevicePlatform.LINUX, public_key="a2V5",
                        added_at=now, current=device is first, last_seen_at=now)
             )
-        # The laptop records the desktop too (as a pairing host does) and renames it.
+        # The laptop records the desktop too (as a pairing host does) and renames it; a device's own row only
+        # takes `removed_at` from peers, so the desktop keeps its own name while every other device sees the new one.
         await SQLiteDeviceRepository(first.factory).save(
             Device(id=second.device_id, name="Escritorio · Linux", platform=DevicePlatform.LINUX, public_key="cHVi",
                    added_at=now, current=False, last_seen_at=None)
@@ -82,7 +83,7 @@ def test_device_ops_keep_local_columns_and_stamp_the_sender_last_seen(pair: tupl
             desktop = session.get(DeviceModel, second.device_id)
             laptop = session.get(DeviceModel, first.device_id)
         assert desktop is not None and laptop is not None
-        assert desktop.name == "Escritorio · Linux"
+        assert desktop.name == "Escritorio" and desktop.public_key == "cHVi"
         assert desktop.is_current is True and desktop.last_seen_at is not None
         assert desktop.last_seen_at.replace(tzinfo=UTC) == now - timedelta(days=3)
         assert laptop.is_current is False

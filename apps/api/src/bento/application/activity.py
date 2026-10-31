@@ -19,7 +19,7 @@ from bento.domain.activity import (
 )
 from bento.domain.backup import BackupPolicy
 from bento.domain.sync import SyncState, SyncStatus
-from bento.domain.vault import VaultState, VaultStatus
+from bento.domain.vault import DEVICE_REMOVED_REASON, VaultState, VaultStatus
 from bento.ports.backup import BackupPolicyRepositoryPort
 from bento.ports.repositories import ClockPort
 
@@ -52,6 +52,16 @@ class FailedInboxItem:
 
 
 @dataclass(frozen=True, slots=True)
+class NewDevice:
+    """A device this one first learned about through sync, not yet acknowledged by the person."""
+
+    device_id: str
+    name: str
+    first_seen_at: datetime | None
+    introduced_by: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class ActivitySnapshot:
     """Raw counters read from the local database."""
 
@@ -71,6 +81,7 @@ class ActivitySnapshot:
     failed_uploads: tuple[FailedUpload, ...] = ()
     failed_backups: tuple[FailedBackupSource, ...] = ()
     failed_inbox: tuple[FailedInboxItem, ...] = ()
+    new_devices: tuple[NewDevice, ...] = ()
 
 
 class ActivitySourcePort(Protocol):
@@ -211,7 +222,23 @@ def _attention(inputs: ActivityInputs) -> list[AttentionItem]:
         )
     vault = inputs.vault
     if vault is not None and vault.state == VaultState.READY and not vault.recovery_kit_saved:
-        items.append(_item("recovery_kit", AttentionKind.RECOVERY_KIT, AttentionAction.SAVE_RECOVERY_KIT))
+        # `stale`: the kit wraps an older key epoch ("genera un nuevo kit").
+        reason = "stale" if vault.recovery_kit_stale else None
+        items.append(_item("recovery_kit", AttentionKind.RECOVERY_KIT, AttentionAction.SAVE_RECOVERY_KIT, reason=reason))
+    if vault is not None and vault.reason == DEVICE_REMOVED_REASON:
+        items.append(_item("device_removed", AttentionKind.DEVICE_REMOVED, AttentionAction.OPEN_SETTINGS))
+    for device in snapshot.new_devices[:MAX_ATTENTION_PER_KIND]:
+        # "Se añadió «name» a tu nube": a device can only appear here through another device's sync data.
+        items.append(
+            _item(
+                f"new_device:{device.device_id}",
+                AttentionKind.NEW_DEVICE,
+                AttentionAction.OPEN_DEVICES,
+                device_id=device.device_id,
+                name=device.name,
+                first_seen_at=device.first_seen_at.isoformat() if device.first_seen_at is not None else None,
+            )
+        )
     for inbox in snapshot.failed_inbox[:MAX_ATTENTION_PER_KIND]:
         items.append(
             _item(

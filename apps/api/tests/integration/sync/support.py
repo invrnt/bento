@@ -109,6 +109,10 @@ class FakeVaultSession:
         self.keyring = keyring
         self.keyring_updates.append(keyring)
 
+    async def forget_keys_after_removal(self) -> None:
+        """`DeviceRemovalPort`: what `VaultService` does once sync learns this device was removed."""
+        self.keyring = None
+
     async def read_header(self) -> VaultHeader | None:
         assert self.layout is not None and self.keyring is not None
         text = await self.runtime.transport.read_header_text(self.layout)
@@ -276,7 +280,8 @@ def make_cloud_device(
 ) -> SyncDevice:
     directory = root / name
     directory.mkdir(parents=True, exist_ok=True)
-    factory = migrated_session_factory(directory)
+    # Captured clocks must follow the shared test clock, whatever capture hook an earlier app installed.
+    factory = migrated_session_factory(directory, session_hooks=False)
     install_change_capture(factory, now_ms=clock.now_ms, now=clock.now)
     adapters = SQLiteSyncAdapters.create(factory, clock, vector_dimensions=8, now_ms=clock.now_ms, now=clock.now)
     runtime = create_fake_telegram_runtime(

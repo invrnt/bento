@@ -9,12 +9,17 @@ segment i = AES-256-GCM(file_key, nonce = nonce_prefix || u32 BE(i) || u8(last),
 A plaintext of `P` bytes has `max(1, ceil(P / segment_size))` segments: a plaintext that is an exact
 multiple of the segment size ends with a full final segment (no trailing empty segment); only the
 empty plaintext produces a single empty segment.
+
+The header carries a random `file_salt`, so its SHA-256 (`cipher_header_sha256` of the synced blob ref) names
+one encryption of one file: reads that expect a digest reject any other ciphertext, even one sealed with the
+same vault keys, before decrypting a segment.
 """
 
 from __future__ import annotations
 
 import asyncio
 import hashlib
+import hmac
 import os
 import struct
 import tempfile
@@ -33,6 +38,7 @@ from bento.adapters.security.primitives import (
     TAG_BYTES,
     U32_MAX,
     RandomBytes,
+    b64url_encode,
     hkdf_sha256,
     vault_subkey,
 )
@@ -83,6 +89,11 @@ def encode_blob_header(params: BlobCipherParams) -> bytes:
     )
 
 
+def blob_header_digest(header: bytes) -> str:
+    """b64url SHA-256 of a raw v2 header."""
+    return b64url_encode(hashlib.sha256(header).digest())
+
+
 def blob_file_key(keyring: VaultKeyring, epoch: int, file_salt: bytes) -> bytes:
     blob_key = vault_subkey(keyring, KeyPurpose.BLOB.value, epoch)
     return hkdf_sha256(blob_key, salt=file_salt, info=_FILE_KEY_INFO, length=KEY_BYTES)
@@ -125,6 +136,9 @@ class StreamingBlobCipher:
             segment_size=self._segment_size,
         )
 
+    def header_digest(self, params: BlobCipherParams) -> str:
+        return blob_header_digest(encode_blob_header(params))
+
     def ciphertext_size(self, plaintext_size: int, segment_size: int = DEFAULT_SEGMENT_SIZE) -> int:
         if plaintext_size < 0:
             raise ValidationFailedError("Plaintext size cannot be negative")
@@ -137,11 +151,22 @@ class StreamingBlobCipher:
     ) -> BlobCipherResult:
         return await asyncio.to_thread(self._encrypt_file, Path(source), Path(destination), keyring, params)
 
-    async def decrypt_file(self, source: Path, destination: Path, *, keyring: VaultKeyring) -> str:
-        return await asyncio.to_thread(self._decrypt_file, Path(source), Path(destination), keyring)
+    async def decrypt_file(
+        self, source: Path, destination: Path, *, keyring: VaultKeyring, expected_header_sha256: str | None = None
+    ) -> str:
+        return await asyncio.to_thread(
+            self._decrypt_file, Path(source), Path(destination), keyring, expected_header_sha256
+        )
 
     async def decrypt_range(
-        self, read: ReadCiphertext, *, ciphertext_size: int, start: int, length: int, keyring: VaultKeyring
+        self,
+        read: ReadCiphertext,
+        *,
+        ciphertext_size: int,
+        start: int,
+        length: int,
+        keyring: VaultKeyring,
+        expected_header_sha256: str | None = None,
     ) -> bytes:
         if start < 0 or length < 0:
             raise ValidationFailedError("Invalid blob range")
@@ -149,6 +174,7 @@ class StreamingBlobCipher:
         if raw[: len(LEGACY_V1_MAGIC)] == LEGACY_V1_MAGIC:
             raise ValidationFailedError("Range decryption requires blob format v2")
         header = _parse_header(raw)
+        _check_header_digest(header, expected_header_sha256)
         layout = _layout(ciphertext_size, header.segment_size)
         if start + length > layout.plaintext_size:
             raise ValidationFailedError("Blob range is outside the plaintext")
@@ -208,19 +234,24 @@ class StreamingBlobCipher:
             plaintext_sha256=digest.hexdigest(),
         )
 
-    def _decrypt_file(self, source: Path, destination: Path, keyring: VaultKeyring) -> str:
+    def _decrypt_file(
+        self, source: Path, destination: Path, keyring: VaultKeyring, expected_header_sha256: str | None
+    ) -> str:
         with source.open("rb") as reader:
             magic = reader.read(len(LEGACY_V1_MAGIC))
             reader.seek(0)
             if magic[: len(BLOB_V2_MAGIC)] == BLOB_V2_MAGIC:
-                return self._decrypt_v2(reader, destination, keyring)
-            if magic == LEGACY_V1_MAGIC:
+                return self._decrypt_v2(reader, destination, keyring, expected_header_sha256)
+            if magic == LEGACY_V1_MAGIC and expected_header_sha256 is None:
                 return self._decrypt_v1(reader, destination)
         raise IntegrityError("blob")
 
-    def _decrypt_v2(self, reader: BinaryIO, destination: Path, keyring: VaultKeyring) -> str:
+    def _decrypt_v2(
+        self, reader: BinaryIO, destination: Path, keyring: VaultKeyring, expected_header_sha256: str | None
+    ) -> str:
         ciphertext_size = os.fstat(reader.fileno()).st_size
         header = _parse_header(_read_up_to(reader, HEADER_SIZE))
+        _check_header_digest(header, expected_header_sha256)
         layout = _layout(ciphertext_size, header.segment_size)
         aead = _decrypt_aead(keyring, header)
         stride = header.segment_size + TAG_BYTES
@@ -272,6 +303,13 @@ def _parse_header(raw: bytes) -> _Header:
     return _Header(
         raw=bytes(raw), epoch=epoch, file_salt=file_salt, segment_size=segment_size, nonce_prefix=nonce_prefix
     )
+
+
+def _check_header_digest(header: _Header, expected: str | None) -> None:
+    if expected is not None and not hmac.compare_digest(
+        blob_header_digest(header.raw).encode("ascii"), str(expected).encode("utf-8")
+    ):
+        raise IntegrityError("blob_header")
 
 
 def _layout(ciphertext_size: int, segment_size: int) -> _Layout:

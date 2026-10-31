@@ -140,8 +140,11 @@ def test_removal_rotation_reaches_the_remaining_devices_end_to_end(trio: Trio) -
         assert synced_state(laptop.factory) == synced_state(desktop.factory)
         assert {from_laptop.id, from_desktop.id} <= set(synced_state(desktop.factory)["folders"])
 
+        # The phone sees a rotation without a grant for it: it stops syncing and forgets the vault keys.
         await phone.pull()
-        assert epochs(phone) == (1, {1})
+        assert phone.vault.keyring is None
+        flag = json.loads(await phone.adapters.state.get_value("device_removed") or "{}")
+        assert flag["device_id"] == phone.device_id and flag["epoch"] == 2 and flag["by"] == laptop.device_id
         assert not {from_laptop.id, from_desktop.id} & set(synced_state(phone.factory)["folders"])
 
     asyncio.run(scenario())

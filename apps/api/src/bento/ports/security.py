@@ -38,14 +38,30 @@ class BlobCipherPort(Protocol):
         """Deterministic for identical inputs so resumed uploads produce identical ciphertext."""
         ...
 
-    async def decrypt_file(self, source: Path, destination: Path, *, keyring: VaultKeyring) -> str:
-        """Decrypt a full v2 (or legacy v1) file; returns the plaintext sha256."""
+    def header_digest(self, params: BlobCipherParams) -> str:
+        """b64url SHA-256 of the v2 header these params produce (`cipher_header_sha256` of the blob ref)."""
+        ...
+
+    async def decrypt_file(
+        self, source: Path, destination: Path, *, keyring: VaultKeyring, expected_header_sha256: str | None = None
+    ) -> str:
+        """Decrypt a full v2 (or legacy v1) file; returns the plaintext sha256.
+
+        With `expected_header_sha256`, a v2 header with another digest raises `IntegrityError` before decrypting.
+        """
         ...
 
     async def decrypt_range(
-        self, read: ReadCiphertext, *, ciphertext_size: int, start: int, length: int, keyring: VaultKeyring
+        self,
+        read: ReadCiphertext,
+        *,
+        ciphertext_size: int,
+        start: int,
+        length: int,
+        keyring: VaultKeyring,
+        expected_header_sha256: str | None = None,
     ) -> bytes:
-        """Decrypt plaintext bytes [start, start+length) fetching only the needed segments."""
+        """Decrypt plaintext bytes [start, start+length) fetching only the needed segments (header digest as above)."""
         ...
 
 
@@ -68,7 +84,17 @@ class VaultCryptoPort(Protocol):
         """zlib-compressed canonical JSON, then `seal`."""
         ...
 
-    def open_json(self, keyring: VaultKeyring, purpose: SealPurpose, envelope: bytes, *, aad: bytes = b"") -> Any: ...
+    def open_json(
+        self,
+        keyring: VaultKeyring,
+        purpose: SealPurpose,
+        envelope: bytes,
+        *,
+        aad: bytes = b"",
+        max_json_bytes: int | None = None,
+    ) -> Any:
+        """`open`, then inflate at most `max_json_bytes` (default: the adapter's limit); larger payloads fail closed."""
+        ...
 
     def header_mac(self, keyring: VaultKeyring, canonical_unsigned: bytes) -> str: ...
 

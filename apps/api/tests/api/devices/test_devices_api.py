@@ -62,7 +62,19 @@ def test_list_and_rename_devices(tmp_path: Path) -> None:
         items = listed.json()["items"]
         assert [item["id"] for item in items] == [laptop.device_id, host.device_id]
         for item in items:
-            assert set(item) == {"id", "name", "platform", "added_at", "last_seen_at", "current", "removed_at"}
+            assert set(item) == {
+                "id",
+                "name",
+                "platform",
+                "added_at",
+                "last_seen_at",
+                "current",
+                "removed_at",
+                "introduced_by",
+                "first_seen_at",
+                "needs_review",
+            }
+            assert item["needs_review"] is False and item["introduced_by"] is None
         current = [item for item in items if item["current"]]
         assert [item["id"] for item in current] == [host.device_id] and current[0]["last_seen_at"]
         assert items[0]["removed_at"] is None and items[0]["platform"] == "linux"
@@ -90,7 +102,8 @@ def test_remove_device_returns_a_new_recovery_kit_once(tmp_path: Path) -> None:
         removed = client.delete(f"/api/devices/{laptop.device_id}")
         assert removed.status_code == 200, removed.text
         body = removed.json()
-        assert set(body) == {"device", "telegram_session_closed", "recovery_code", "recovery_qr"}
+        assert set(body) == {"device", "telegram_session_closed", "recovery_code", "recovery_qr", "removed_device_ids"}
+        assert body["removed_device_ids"] == [laptop.device_id]
         assert body["device"]["id"] == laptop.device_id and body["device"]["removed_at"]
         assert body["telegram_session_closed"] is True
         assert RECOVERY_CODE.match(body["recovery_code"]) and body["recovery_code"] != old_code

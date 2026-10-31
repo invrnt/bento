@@ -191,11 +191,12 @@ def test_tampered_grants_are_rejected_before_anything_is_recorded() -> None:
         replace(message, grants={**message.grants, w.me.device_id: message.grants[w.laptop.device_id]}),
         replace(message, removed_device_ids=(w.phone.device_id, "dev_victim")),
         replace(message, removed_device_ids=()),
-        replace(message, epoch=3),
         replace(message, sender_device_id=w.phone.device_id),
     ]
     for item in tampered:
         rejected(w, item, "keys_grant_auth")
+    # Epochs move one step at a time: a skipped epoch is refused before any tag is checked.
+    rejected(w, replace(message, epoch=3), "keys_epoch_gap")
     assert w.devices.saves == [] and REMOVED_DEVICES not in w.state.values
     assert asyncio.run(w.applier.apply(message, w.context())) == rotated
 

@@ -4,7 +4,7 @@ import json
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
@@ -48,7 +48,17 @@ SYNCED_FIELDS: Mapping[SyncEntity, frozenset[str]] = {
     SyncEntity.ALBUM: frozenset({"title", "created_at", "deleted_at"}),
     SyncEntity.ALBUM_ITEM: frozenset({"album_id", "asset_id", "created_at", "removed"}),
     SyncEntity.BLOB: frozenset(
-        {"asset_id", "kind", "size_bytes", "sha256", "encryption_mode", "key_epoch", "format_version", "parts"}
+        {
+            "asset_id",
+            "kind",
+            "size_bytes",
+            "sha256",
+            "encryption_mode",
+            "key_epoch",
+            "format_version",
+            "cipher_header_sha256",
+            "parts",
+        }
     ),
     SyncEntity.THUMBNAIL: frozenset({"asset_id", "blob_id", "width", "height"}),
     SyncEntity.ASSET_INDEX: frozenset({"ocr_text", "pdf_pages", "language", "embedding"}),
@@ -101,6 +111,10 @@ _SUFFIXES = {
 
 _HLC_PATTERN = re.compile(r"^(\d{16})-(\d{6})-(dev_[0-9a-zA-Z_]+)$")
 _MAX_COUNTER = 999_999
+MAX_HLC_PHYSICAL_MS = 10**16 - 1
+"""Largest physical time the 16-digit wire format can carry; clocks saturate there instead of overflowing."""
+MAX_CLOCK_SKEW_MS = 5 * 60 * 1000
+"""Remote clocks may run at most this far ahead of the Sync message date and of the local wall clock."""
 
 
 @dataclass(frozen=True, slots=True, order=True)
@@ -112,7 +126,7 @@ class Hlc:
     device_id: str
 
     def __post_init__(self) -> None:
-        if self.physical_ms < 0 or not 0 <= self.counter <= _MAX_COUNTER:
+        if not 0 <= self.physical_ms <= MAX_HLC_PHYSICAL_MS or not 0 <= self.counter <= _MAX_COUNTER:
             raise ValidationFailedError("Invalid HLC components")
         if not self.device_id.startswith("dev_"):
             raise ValidationFailedError("HLC device id must start with dev_")
@@ -134,14 +148,15 @@ class Hlc:
 
 def hlc_tick(last: Hlc, now_ms: int) -> Hlc:
     """Next local HLC after `last` given the wall clock."""
+    now_ms = _clamp_ms(now_ms)
     if now_ms > last.physical_ms:
         return Hlc(now_ms, 0, last.device_id)
     return _bump(last.physical_ms, last.counter, last.device_id)
 
 
 def hlc_receive(last: Hlc, remote: Hlc, now_ms: int) -> Hlc:
-    """Local HLC after observing a remote HLC; always greater than both."""
-    physical = max(last.physical_ms, remote.physical_ms, now_ms)
+    """Local HLC after observing a remote HLC; greater than both unless the format is saturated."""
+    physical = max(last.physical_ms, remote.physical_ms, _clamp_ms(now_ms))
     if physical == last.physical_ms == remote.physical_ms:
         return _bump(physical, max(last.counter, remote.counter), last.device_id)
     if physical == last.physical_ms:
@@ -152,9 +167,34 @@ def hlc_receive(last: Hlc, remote: Hlc, now_ms: int) -> Hlc:
 
 
 def _bump(physical_ms: int, counter: int, device_id: str) -> Hlc:
-    if counter >= _MAX_COUNTER:
+    if counter < _MAX_COUNTER:
+        return Hlc(physical_ms, counter + 1, device_id)
+    if physical_ms < MAX_HLC_PHYSICAL_MS:
         return Hlc(physical_ms + 1, 0, device_id)
-    return Hlc(physical_ms, counter + 1, device_id)
+    # Saturated: only reachable from a poisoned clock, which the receive rules reject; never overflow the format.
+    return Hlc(MAX_HLC_PHYSICAL_MS, _MAX_COUNTER, device_id)
+
+
+def _clamp_ms(value: int) -> int:
+    return min(max(value, 0), MAX_HLC_PHYSICAL_MS)
+
+
+def hlc_limit_ms(now_ms: int, *references_ms: int | None) -> int:
+    """Largest physical time accepted from a peer: the earliest of the local clock and the references, plus skew."""
+    return min([now_ms, *(value for value in references_ms if value is not None)]) + MAX_CLOCK_SKEW_MS
+
+
+def hlc_within(value: str, limit_ms: int) -> bool:
+    """`value` is a well-formed HLC whose physical time does not exceed `limit_ms`."""
+    match = _HLC_PATTERN.match(value) if isinstance(value, str) else None
+    return match is not None and int(match.group(1)) <= limit_ms
+
+
+def datetime_ms(value: datetime) -> int:
+    """Unix milliseconds of a timestamp (naive values are UTC)."""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return int(value.timestamp() * 1000)
 
 
 @dataclass(frozen=True, slots=True)

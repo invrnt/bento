@@ -11,6 +11,10 @@ Sealed boxes alone are anonymous: anyone holding a recipient's public key (every
 including a removed one whose Telegram session is still alive) can make one. A grant is accepted only from
 an active device of the local registry, never from a device removed by an applied keys message, and only
 when its `auth` tag (static X25519 between sender and recipient) covers the whole message context.
+
+Epochs move exactly one step: a grant for `current + 1` is merged, a grant for `current` must agree with
+the keys already held, and anything else is rejected. A newer epoch from another active device that has no
+grant for this device (or lists it as removed) means this device was removed (`removes_this_device`).
 """
 
 from __future__ import annotations
@@ -189,6 +193,11 @@ class KeysGrantApplier:
         grant = message.grants.get(identity.device_id)
         if grant is None or message.vault_id != context.layout.vault_id:
             return None
+        current = context.keyring.current_epoch
+        if message.epoch > current + 1:
+            raise IntegrityError("keys_epoch_gap")
+        if message.epoch < current:
+            raise IntegrityError("keys_epoch_stale")
         removed = await self.removed_device_ids()
         sender_key = await self._sender_public_key(message.sender_device_id, identity, removed)
         auth_payload = grant_auth_payload(message, recipient_device_id=identity.device_id, sealed=grant.sealed)
@@ -203,6 +212,26 @@ class KeysGrantApplier:
         merged = merge_granted_keyring(context.keyring, granted, epoch=message.epoch)
         await self._record_removals(message.removed_device_ids, removed)
         return merged
+
+    async def removes_this_device(self, message: KeysMessage, context: VaultContext) -> bool:
+        """A rotation past this device's epoch, by another active registry device, that leaves this device out.
+
+        No tag in such a message is addressed to this device, so only the sender rules can be checked; anyone
+        able to post to the Sync channel can already deny service by deleting it, so a forged removal costs
+        nothing more than a re-pairing.
+        """
+        identity = context.device
+        if message.vault_id != context.layout.vault_id or message.sender_device_id == identity.device_id:
+            return False
+        if message.epoch <= context.keyring.current_epoch:
+            return False
+        if identity.device_id in message.grants and identity.device_id not in message.removed_device_ids:
+            return False
+        try:
+            await self._sender_public_key(message.sender_device_id, identity, await self.removed_device_ids())
+        except IntegrityError:
+            return False
+        return True
 
     async def _sender_public_key(self, sender_id: str, identity: DeviceIdentity, removed: frozenset[str]) -> bytes:
         if sender_id in removed:

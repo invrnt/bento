@@ -4,6 +4,15 @@ Every batch is applied in one `sync_apply` transaction (never captured). Foreign
 connection so ops referencing entities this device does not have yet are applied as-is (readers treat
 unknown parents as root); purges therefore mirror the schema's `ON DELETE` actions explicitly. Search index
 writes for `asset_index` ops run after the commit and are journaled in `sync_state` for crash recovery.
+
+Remote clocks are bounded (architecture § Operations): ops and snapshot clocks that are malformed or ahead of
+the local clock by more than the allowed skew are skipped (the engine applies the stricter Sync message date
+bound first), and stored clocks beyond that bound are treated as absent and overwritten.
+
+The device registry is the trust anchor of key grants (architecture § Devices): a registered `public_key`
+never changes, this device's own row only takes `removed_at` from peers, devices are never purged remotely,
+a device removed by an accepted keys message is never re-activated, and rows first seen through sync are
+flagged for review (`introduced_by`, `first_seen_at`, `reviewed_at` are device-local).
 """
 
 from __future__ import annotations
@@ -31,9 +40,18 @@ from bento.adapters.sync.mapping import (
     parts_from_wire,
     split_album_item_key,
 )
-from bento.adapters.sync.records import HlcCursor, Now, NowMs, load_capture_config, put_state, system_now, system_now_ms
+from bento.adapters.sync.records import (
+    HlcCursor,
+    Now,
+    NowMs,
+    load_capture_config,
+    put_state,
+    system_now,
+    system_now_ms,
+    trusted_clock,
+)
 from bento.application.sync.merge import cycle_breaker, find_folder_cycle
-from bento.application.sync.state import LAST_NOTICE, PENDING_INDEX_PREFIX
+from bento.application.sync.state import BOOTSTRAP, LAST_NOTICE, PENDING_INDEX_PREFIX, REMOVED_DEVICES
 from bento.domain.assets import AssetKind, AssetMode, ProcessingState
 from bento.domain.devices import DevicePlatform
 from bento.domain.sync import SyncEntity, SyncOperation, SyncOpKind
@@ -62,6 +80,8 @@ from bento.ports.sync import EntityState
 LOGGER = logging.getLogger("bento.sync.apply")
 
 UNNAMED = "Sin nombre"
+UNKNOWN_SOURCE = "sync"
+"""`introduced_by` of device rows created from data whose sending device is unknown."""
 _SNAPSHOT_CHUNK = 500
 _ASSET_SCOPED = frozenset({SyncEntity.ASSET_INDEX, SyncEntity.THUMBNAIL, SyncEntity.ALBUM_ITEM})
 
@@ -93,7 +113,7 @@ class SQLiteSyncApplier:
         with self._apply_session() as session:
             if session.get(SyncAppliedBatchModel, batch_id) is not None:
                 return 0
-            context = _ApplyContext(session, now_ms=self._now_ms, now=self._now)
+            context = _ApplyContext(session, now_ms=self._now_ms, now=self._now, source=sender)
             applied = 0
             for operation in sorted(operations, key=lambda item: item.hlc):
                 applied += context.apply_op(operation)
@@ -104,12 +124,14 @@ class SQLiteSyncApplier:
         await self._write_index(f"{PENDING_INDEX_PREFIX}{batch_id}", context.index_work, context.purged_assets)
         return applied
 
-    async def apply_snapshot(self, states: AsyncIterator[EntityState], purged: tuple[tuple[str, str, str], ...]) -> int:
+    async def apply_snapshot(
+        self, states: AsyncIterator[EntityState], purged: tuple[tuple[str, str, str], ...], *, source: str | None = None
+    ) -> int:
         await self.recover_pending_index()
         with self._apply_session() as session:
-            context = _ApplyContext(session, now_ms=self._now_ms, now=self._now)
+            context = _ApplyContext(session, now_ms=self._now_ms, now=self._now, source=source, reviewed=True)
             for entity, entity_id, hlc in purged:
-                context.purge(SyncEntity(entity), entity_id, hlc)
+                context.apply_tombstone(SyncEntity(entity), entity_id, hlc)
             context.finish(journal_key=f"{PENDING_INDEX_PREFIX}snapshot-purged")
         await self._write_index(f"{PENDING_INDEX_PREFIX}snapshot-purged", context.index_work, context.purged_assets)
 
@@ -118,16 +140,16 @@ class SQLiteSyncApplier:
         async for state in states:
             chunk.append(state)
             if len(chunk) >= _SNAPSHOT_CHUNK:
-                applied += await self._apply_states(chunk)
+                applied += await self._apply_states(chunk, source)
                 chunk = []
         if chunk:
-            applied += await self._apply_states(chunk)
+            applied += await self._apply_states(chunk, source)
         return applied
 
-    async def _apply_states(self, states: list[EntityState]) -> int:
+    async def _apply_states(self, states: list[EntityState], source: str | None) -> int:
         journal = f"{PENDING_INDEX_PREFIX}snapshot"
         with self._apply_session() as session:
-            context = _ApplyContext(session, now_ms=self._now_ms, now=self._now)
+            context = _ApplyContext(session, now_ms=self._now_ms, now=self._now, source=source, reviewed=True)
             applied = sum(context.apply_state(state) for state in states)
             context.finish(journal_key=journal)
         await self._write_index(journal, context.index_work, context.purged_assets)
@@ -180,13 +202,21 @@ class SQLiteSyncApplier:
 class _ApplyContext:
     """State of one apply transaction."""
 
-    def __init__(self, session: Session, *, now_ms: NowMs, now: Now) -> None:
+    def __init__(
+        self, session: Session, *, now_ms: NowMs, now: Now, source: str | None = None, reviewed: bool = False
+    ) -> None:
         self.session = session
         self.now: datetime = now()
         self._now = now
         self._now_ms = now_ms
+        self._at_ms = now_ms()
         config = load_capture_config(session)
+        self._device_id = config.device_id if config is not None else None
         self._hlc = HlcCursor(session, config.device_id, now_ms=now_ms, now=now) if config is not None else None
+        self._source = source
+        # Devices first seen in a snapshot or while bootstrapping predate this device: nothing to review.
+        self._reviewed = reviewed or session.get(SyncStateModel, BOOTSTRAP) is not None
+        self._removed_devices: frozenset[str] | None = None
         self._clocks: dict[tuple[str, str], dict[str, SyncFieldClockModel]] = {}
         self._purged: dict[tuple[str, str], bool] = {}
         self._max_hlc = ""
@@ -198,16 +228,20 @@ class _ApplyContext:
     # Ops
 
     def apply_op(self, operation: SyncOperation) -> int:
+        if not self._trusted(operation.hlc):
+            LOGGER.warning("Integrity: skipped a %s op whose clock runs ahead of this device", operation.entity.value)
+            return 0
         self._observe(operation.hlc)
         if self.is_purged(operation.entity, operation.entity_id):
             return 0
         if operation.kind == SyncOpKind.PURGE:
+            if operation.entity == SyncEntity.DEVICE:
+                LOGGER.warning("Integrity: ignored a remote purge of a registered device")
+                return 0
             return self.purge(operation.entity, operation.entity_id, operation.hlc)
         clocks = self._clock_rows(operation.entity, operation.entity_id)
         accepted = {
-            name: value
-            for name, value in operation.fields.items()
-            if (clocks[name].hlc if name in clocks else "") < operation.hlc
+            name: value for name, value in operation.fields.items() if self._local_clock(clocks, name) < operation.hlc
         }
         if not accepted:
             return 0
@@ -217,7 +251,10 @@ class _ApplyContext:
         return len(written)
 
     def apply_state(self, state: EntityState) -> int:
-        for clock in state.clocks.values():
+        snapshot_clocks = {name: clock for name, clock in state.clocks.items() if self._trusted(clock)}
+        if len(snapshot_clocks) != len(state.clocks):
+            LOGGER.warning("Integrity: skipped snapshot fields of a %s with untrusted clocks", state.entity.value)
+        for clock in snapshot_clocks.values():
             self._observe(clock)
         if self.is_purged(state.entity, state.entity_id):
             return 0
@@ -225,9 +262,10 @@ class _ApplyContext:
         fresh = not clocks and not self._exists(state.entity, state.entity_id)
         accepted: dict[str, Any] = {}
         for name, value in state.fields.items():
-            snapshot_clock = state.clocks.get(name)
-            local_clock = clocks[name].hlc if name in clocks else None
-            if snapshot_clock is not None and snapshot_clock > (local_clock or ""):
+            if name in state.clocks and name not in snapshot_clocks:
+                continue
+            snapshot_clock = snapshot_clocks.get(name)
+            if snapshot_clock is not None and snapshot_clock > self._local_clock(clocks, name):
                 accepted[name] = value
             elif snapshot_clock is None and fresh:
                 accepted[name] = value
@@ -235,9 +273,19 @@ class _ApplyContext:
             return 0
         written = self._write(state.entity, state.entity_id, accepted)
         for name in written:
-            if name in state.clocks:
-                self._set_clock(state.entity, state.entity_id, name, state.clocks[name])
+            if name in snapshot_clocks:
+                self._set_clock(state.entity, state.entity_id, name, snapshot_clocks[name])
         return len(written)
+
+    def apply_tombstone(self, entity: SyncEntity, entity_id: str, hlc: str) -> int:
+        """A snapshot's purge record: same rules as a remote purge op."""
+        if not self._trusted(hlc):
+            LOGGER.warning("Integrity: skipped a snapshot tombstone with an untrusted clock")
+            return 0
+        if entity == SyncEntity.DEVICE:
+            LOGGER.warning("Integrity: ignored a snapshot tombstone of a registered device")
+            return 0
+        return self.purge(entity, entity_id, hlc)
 
     def mark_seen(self, device_id: str, at: datetime) -> None:
         """`last_seen_at` is device-local: only the time this device last received a batch from that peer."""
@@ -358,6 +406,8 @@ class _ApplyContext:
                 parts = parts_from_wire(entity_id, fields[PARTS_FIELD])
             except (KeyError, TypeError, ValueError):
                 LOGGER.warning("Skipped malformed blob parts")
+        if entity == SyncEntity.DEVICE:
+            values = self._device_values(entity_id, values)
         if not values and parts is None:
             return set()
         if entity in _ASSET_SCOPED and self.is_purged(SyncEntity.ASSET, str(values.get("asset_id") or "")):
@@ -366,6 +416,10 @@ class _ApplyContext:
         created = row is None
         if row is None:
             row = _CREATORS[entity](entity_id, self.now)
+            if isinstance(row, DeviceModel):
+                row.introduced_by = self._source or UNKNOWN_SOURCE
+                row.first_seen_at = self.now
+                row.reviewed_at = self.now if self._reviewed else None
             self.session.add(row)
         for name, value in values.items():
             setattr(row, tracked.columns[name], value)
@@ -412,6 +466,34 @@ class _ApplyContext:
             row.created_at = created_at
         return written
 
+    def _device_values(self, device_id: str, values: dict[str, Any]) -> dict[str, Any]:
+        """Registry rules for remote device data; dropped fields keep their local clocks."""
+        row = self.session.get(DeviceModel, device_id)
+        if device_id == self._device_id or (row is not None and row.is_current):
+            # Peers may tell this device it was removed; nothing else about it is theirs to change.
+            allowed = {name: value for name, value in values.items() if name == "removed_at"} if row is not None else {}
+            if set(values) - set(allowed):
+                LOGGER.warning("Integrity: ignored remote changes to this device's own registry row")
+            return allowed
+        kept = dict(values)
+        if row is not None and row.public_key and "public_key" in kept and kept["public_key"] != row.public_key:
+            LOGGER.warning("Integrity: ignored a remote change of a registered device public key")
+            kept.pop("public_key")
+        if "removed_at" in kept and kept["removed_at"] is None and device_id in self._removed_device_ids():
+            LOGGER.warning("Integrity: ignored a remote re-activation of a removed device")
+            kept.pop("removed_at")
+        return kept
+
+    def _removed_device_ids(self) -> frozenset[str]:
+        if self._removed_devices is None:
+            row = self.session.get(SyncStateModel, REMOVED_DEVICES)
+            try:
+                stored = json.loads(row.value) if row is not None else []
+            except ValueError:
+                stored = []
+            self._removed_devices = frozenset(item for item in stored if isinstance(item, str)) if isinstance(stored, list) else frozenset()
+        return self._removed_devices
+
     def _exists(self, entity: SyncEntity, entity_id: str) -> bool:
         if entity == SyncEntity.ASSET_INDEX:
             return False
@@ -446,11 +528,19 @@ class _ApplyContext:
             row = SyncFieldClockModel(entity=entity.value, entity_id=entity_id, field=name, hlc=hlc)
             self.session.add(row)
             clocks[name] = row
-        elif row.hlc < hlc:
+        elif row.hlc < hlc or not self._trusted(row.hlc):
             row.hlc = hlc
 
+    def _local_clock(self, clocks: Mapping[str, SyncFieldClockModel], name: str) -> str:
+        """The stored clock of a field; an untrusted (poisoned) one counts as absent so newer ops repair it."""
+        row = clocks.get(name)
+        return row.hlc if row is not None and self._trusted(row.hlc) else ""
+
+    def _trusted(self, hlc: str) -> bool:
+        return trusted_clock(hlc, self._at_ms)
+
     def _observe(self, hlc: str) -> None:
-        if hlc > self._max_hlc:
+        if hlc > self._max_hlc and self._trusted(hlc):
             self._max_hlc = hlc
 
     # Folder cycles

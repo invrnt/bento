@@ -21,6 +21,8 @@ class EncryptionMetadata:
     tag: str | None = None
     key_epoch: int | None = None
     format_version: int = 1
+    cipher_header_sha256: str | None = None
+    """Blob v2 only: b64url SHA-256 of the 36-byte ciphertext header, verified on every remote read."""
 
 
 class SealPurpose(IntEnum):

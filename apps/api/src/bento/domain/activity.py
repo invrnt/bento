@@ -21,12 +21,15 @@ class AttentionKind(StrEnum):
     FLOOD_WAIT = "flood_wait"
     RECOVERY_KIT = "recovery_kit"
     INBOX_FAILED = "inbox_failed"
+    NEW_DEVICE = "new_device"
+    DEVICE_REMOVED = "device_removed"
 
 
 class AttentionAction(StrEnum):
     RETRY = "retry"
     OPEN_SETTINGS = "open_settings"
     SAVE_RECOVERY_KIT = "save_recovery_kit"
+    OPEN_DEVICES = "open_devices"
     NONE = "none"
 
 

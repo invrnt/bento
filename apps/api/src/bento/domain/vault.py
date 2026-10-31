@@ -166,7 +166,7 @@ class VaultHeader:
             vault_id = str(payload["vault_id"])
             return cls(
                 vault_id=vault_id,
-                created_at=datetime.fromisoformat(payload["created_at"]),
+                created_at=_aware(payload["created_at"]),
                 layout=VaultLayout(
                     vault_id=vault_id,
                     files_channel_id=int(layout["files"]),
@@ -185,7 +185,7 @@ class VaultHeader:
                 else SnapshotPointer(
                     message_id=int(snapshot["message_id"]),
                     covers_through_message_id=int(snapshot["covers_through_message_id"]),
-                    created_at=datetime.fromisoformat(snapshot["created_at"]),
+                    created_at=_aware(snapshot["created_at"]),
                 ),
                 mac=payload.get("mac"),
             )
@@ -208,6 +208,13 @@ class VaultStatus:
     devices_count: int = 0
     usage: VaultUsage = VaultUsage()
     other_vaults: int = 0
+    recovery_kit_stale: bool = False
+    """The pinned header carries a recovery wrap of an older key epoch: a new kit must be generated."""
+    reason: str | None = None
+    """Why the vault is `locked` on this device, e.g. `device_removed`."""
+
+
+DEVICE_REMOVED_REASON = "device_removed"
 
 
 def _recovery_payload(recovery: RecoveryWrap) -> dict[str, Any]:
@@ -225,9 +232,17 @@ def _recovery_payload(recovery: RecoveryWrap) -> dict[str, Any]:
 def _optional_datetime(value: Any) -> datetime | None:
     if value is None:
         return None
+    return _aware(value)
+
+
+def _aware(value: Any) -> datetime:
+    """Header timestamps are unauthenticated until the MAC is checked: only timezone-aware ISO-8601 is accepted."""
     if not isinstance(value, str):
         raise ValueError("expected an ISO-8601 string")
-    return datetime.fromisoformat(value)
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("header timestamps must carry a timezone")
+    return parsed
 
 
 def canonical_json(payload: Any) -> bytes:

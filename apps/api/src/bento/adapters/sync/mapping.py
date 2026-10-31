@@ -89,6 +89,7 @@ BLOB = TrackedModel(
         "encryption_mode": "encryption_mode",
         "key_epoch": "key_epoch",
         "format_version": "format_version",
+        "cipher_header_sha256": "cipher_header_sha256",
     },
     identity_fields=frozenset({"asset_id", "kind"}),
 )

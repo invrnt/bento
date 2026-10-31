@@ -108,6 +108,8 @@ class BlobRefModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     key_epoch: Mapped[int | None] = mapped_column(Integer)
     format_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default=text("1"))
+    cipher_header_sha256: Mapped[str | None] = mapped_column(String(64))
+    """b64url SHA-256 of the 36-byte blob v2 header; binds the remote ciphertext to this ref."""
     remote_deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     parts: Mapped[list[BlobPartModel]] = relationship(
         order_by="BlobPartModel.part_index",
@@ -317,6 +319,11 @@ class DeviceModel(Base):
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     is_current: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("0"))
+    introduced_by: Mapped[str | None] = mapped_column(String(64))
+    """Device-local: id of the device whose sync data first created this row here; NULL when created locally."""
+    first_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    """Device-local: when the person acknowledged a device first seen through sync (or it predates this device)."""
 
 
 class BackupSourceModel(Base):

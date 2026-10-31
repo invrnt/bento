@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from bento.adapters.backup.pipeline import job_payload_value
-from bento.adapters.repositories.mappers import require_aware
+from bento.adapters.repositories.mappers import aware, require_aware
 from bento.application.account import FLOOD_WAIT_UNTIL_KEY
 from bento.application.activity import (
     MAX_ATTENTION_PER_KIND,
@@ -17,6 +17,7 @@ from bento.application.activity import (
     FailedBackupSource,
     FailedInboxItem,
     FailedUpload,
+    NewDevice,
 )
 from bento.domain.backup import BackupFileState
 from bento.domain.jobs import JobStatus, JobType
@@ -26,6 +27,7 @@ from bento.infrastructure.db.models import (
     BackupFileModel,
     BackupSourceModel,
     BlobRefModel,
+    DeviceModel,
     InboxItemModel,
     JobModel,
     SyncStateModel,
@@ -97,6 +99,7 @@ class SQLiteActivitySource:
                 failed_uploads=self._failed_uploads(session),
                 failed_backups=self._failed_backups(session),
                 failed_inbox=self._failed_inbox(session),
+                new_devices=self._new_devices(session),
             )
 
     def _progress(self, session: Session, job: JobModel) -> int:
@@ -177,6 +180,28 @@ class SQLiteActivitySource:
             FailedBackupSource(job_id=jobs[source_id], source_id=source_id, label=labels.get(source_id, ""), failed_files=int(count))
             for source_id, count in sorted(failed_counts.items())
             if source_id in jobs and source_id in labels
+        )
+
+    def _new_devices(self, session: Session) -> tuple[NewDevice, ...]:
+        rows = session.scalars(
+            select(DeviceModel)
+            .where(
+                DeviceModel.introduced_by.is_not(None),
+                DeviceModel.reviewed_at.is_(None),
+                DeviceModel.removed_at.is_(None),
+                DeviceModel.is_current.is_(False),
+            )
+            .order_by(DeviceModel.first_seen_at.desc(), DeviceModel.id)
+            .limit(MAX_ATTENTION_PER_KIND)
+        )
+        return tuple(
+            NewDevice(
+                device_id=row.id,
+                name=row.name,
+                first_seen_at=aware(row.first_seen_at),
+                introduced_by=row.introduced_by,
+            )
+            for row in rows
         )
 
     def _failed_inbox(self, session: Session) -> tuple[FailedInboxItem, ...]:
