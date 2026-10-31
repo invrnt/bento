@@ -42,7 +42,7 @@ from bento.adapters.storage.local_blob_store import LocalBlobStoreAdapter
 from bento.adapters.storage.maintenance import LocalEphemeralCache, SQLiteStorageInventory
 from bento.application.activity import ActivityService
 from bento.application.backup import BackupService
-from bento.application.content import AssetContentService
+from bento.application.content import FULL_FETCH_THRESHOLD_BYTES, AssetContentService
 from bento.application.drive import DriveUseCases
 from bento.application.ingestion import AssetFileQueryService, AssetIngestionService
 from bento.application.storage_maintenance import StorageMaintenanceService
@@ -70,6 +70,8 @@ class StoragePipelineComponents:
     session_factory: sessionmaker[Session]
     clock: SystemClock
     jobs: SQLiteJobQueue
+    assets: SQLiteAssetRepository
+    manifest: SQLiteManifestJournal
     blob_refs: SQLiteBlobRefCatalog
     local_store: LocalBlobStoreAdapter
     local_resolver: LocalBlobPathResolver
@@ -136,6 +138,8 @@ def build_storage_pipeline(
     *,
     remote: RemoteStoreProvider | None = None,
     session_factory: sessionmaker[Session] | None = None,
+    full_fetch_threshold: int = FULL_FETCH_THRESHOLD_BYTES,
+    cache_grace_seconds: int = 600,
 ) -> StoragePipelineComponents:
     data_dir = Path(settings.data_dir)
     factory = session_factory or create_session_factory(sqlite_url(data_dir / "db" / "bento.sqlite3"))
@@ -148,7 +152,7 @@ def build_storage_pipeline(
     manifest = SQLiteManifestJournal(factory, clock, data_dir / "journal")
     local_store = LocalBlobStoreAdapter(data_dir / "uploads")
     local_resolver = LocalBlobPathResolver(data_dir / "uploads")
-    cache = SQLiteBlobCache(factory, clock, data_dir=data_dir)
+    cache = SQLiteBlobCache(factory, clock, data_dir=data_dir, recent_grace_seconds=cache_grace_seconds)
     sources = SQLiteBackupSourceLocator(factory)
     backup_jobs = SQLiteBackupJobs(factory)
     cache_max_bytes = int(settings.cache_max_gb * GIB)
@@ -174,6 +178,7 @@ def build_storage_pipeline(
         remote=remote,
         sources=sources,
         on_cache_growth=on_cache_growth,
+        full_fetch_threshold=full_fetch_threshold,
     )
     resolver = CachedBlobPathResolver(local=local_resolver, cache=cache, sources=sources)
     ingestion = AssetIngestionService(
@@ -240,6 +245,8 @@ def build_storage_pipeline(
         session_factory=factory,
         clock=clock,
         jobs=jobs,
+        assets=assets,
+        manifest=manifest,
         blob_refs=blob_refs,
         local_store=local_store,
         local_resolver=local_resolver,
