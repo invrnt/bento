@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 const electron = vi.hoisted(() => ({ netFetch: vi.fn() }));
 vi.mock("electron", () => ({ net: { fetch: electron.netFetch } }));
 
-import { CSP, isAllowedNavigation, registerBentoProtocol } from "../src/main/protocol";
+import { API_CSP, CSP, isAllowedNavigation, registerBentoProtocol } from "../src/main/protocol";
 
 function setup() {
   let handler: ((request: Request) => Promise<Response>) | undefined;
@@ -57,6 +57,44 @@ describe("bento protocol", () => {
     expect(headers.get("cookie")).toBeNull();
     expect(headers.get("origin")).toBeNull();
     expect(headers.get("x-safe-header")).toBe("kept");
+  });
+
+  it("pins nosniff and a restrictive CSP on proxied API responses", async () => {
+    const { api, handler } = setup();
+    api.apiFetch.mockResolvedValueOnce(new Response("<script>alert(1)</script>", {
+      status: 200,
+      headers: { "content-type": "text/html", "content-security-policy": "default-src *", "set-cookie": "a=b", refresh: "0;url=https://x" },
+    }));
+    const response = await handler(new Request("bento://app/api/assets/1/content"));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(response.headers.get("content-security-policy")).toBe(API_CSP);
+    expect(API_CSP).toContain("default-src 'none'");
+    expect(API_CSP).toContain("sandbox");
+    expect(response.headers.get("set-cookie")).toBeNull();
+    expect(response.headers.get("refresh")).toBeNull();
+    expect(response.headers.get("content-type")).toBe("text/html");
+    expect(await response.text()).toBe("<script>alert(1)</script>");
+
+    api.apiFetch.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await expect(handler(new Request("bento://app/api/x", { method: "DELETE" }))).resolves.toMatchObject({ status: 204 });
+  });
+
+  it("never hands a redirect to the renderer", async () => {
+    const { api, handler } = setup();
+    for (const status of [301, 302, 303, 307, 308]) {
+      api.apiFetch.mockResolvedValueOnce(new Response(null, { status, headers: { location: "https://attacker.example/" } }));
+      const response = await handler(new Request("bento://app/api/redirect"));
+      expect(response.status).toBe(502);
+      expect(response.headers.get("location")).toBeNull();
+      expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+      expect(await response.json()).toEqual({ detail: { code: "desktop_api_redirect_blocked", message: "Request rejected" } });
+    }
+    // The loopback client refuses to follow redirects (`redirect: "error"`); that failure is a 503.
+    api.apiFetch.mockRejectedValueOnce(new TypeError("fetch failed: unexpected redirect"));
+    const failed = await handler(new Request("bento://app/api/redirect"));
+    expect(failed.status).toBe(503);
+    expect(failed.headers.get("content-security-policy")).toBe(API_CSP);
   });
 
   it("serves renderer files with strict response security headers", async () => {

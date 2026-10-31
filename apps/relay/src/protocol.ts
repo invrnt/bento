@@ -3,6 +3,9 @@
 export const NAMEPLATE_PATTERN = /^[0-9A-HJKMNP-TV-Z]{4}$/;
 
 export const ROOM_TTL_MS = 10 * 60 * 1000;
+/** Connection attempts (host or guest) one nameplate accepts per window, across all clients. */
+export const NAMEPLATE_ATTEMPT_LIMIT = 10;
+export const NAMEPLATE_ATTEMPT_WINDOW_MS = 10 * 60 * 1000;
 export const MAX_FRAME_BYTES = 64 * 1024;
 export const MAX_FRAMES_PER_SIDE = 128;
 

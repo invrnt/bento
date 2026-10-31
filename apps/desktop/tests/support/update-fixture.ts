@@ -1,10 +1,11 @@
-import { createHash } from "node:crypto";
+import { createHash, KeyObject } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { vi } from "vitest";
 import { UpdateController } from "../../src/main/updater";
+import { encodeUpdateSignature, signUpdateManifest } from "../../src/main/update-signature";
 
 // Shared release/manifest fixture for the controlled updater and its background scheduler.
 const roots: string[] = [];
@@ -39,6 +40,12 @@ export interface FixtureOptions {
   includeSquirrel?: boolean;
   networkTimeoutMs?: number;
   inactivityTimeoutMs?: number;
+  /** Ed25519 keys that sign the manifest; a `<manifest>.sig` asset is published when given. */
+  signWith?: KeyObject[];
+  /** Replaces the published signature bytes (its GitHub digest still matches). */
+  signatureBytes?: Buffer;
+  corruptSignatureDigest?: boolean;
+  updatePublicKey?: string | null;
 }
 
 export async function setup(options: FixtureOptions = {}) {
@@ -71,6 +78,11 @@ export async function setup(options: FixtureOptions = {}) {
   const manifestBytes = Buffer.from(JSON.stringify(manifest));
   const targetManifestName = `bento-update-${platform}-x64.json`;
   const targetManifestUrl = `https://github.com/invrnt/bento/releases/download/v${version}/${targetManifestName}`;
+  const signatureBytes = options.signatureBytes ?? (options.signWith ? Buffer.from(encodeUpdateSignature(signUpdateManifest(manifestBytes, options.signWith))) : null);
+  const signatureUrl = `${targetManifestUrl}.sig`;
+  const signatureAssets = signatureBytes
+    ? [{ name: `${targetManifestName}.sig`, state: "uploaded", size: signatureBytes.length, digest: `sha256:${options.corruptSignatureDigest ? "0".repeat(64) : createHash("sha256").update(signatureBytes).digest("hex")}`, browser_download_url: signatureUrl }]
+    : [];
   const release = {
     tag_name: `v${version}`,
     name: `Bento ${version}`,
@@ -81,6 +93,7 @@ export async function setup(options: FixtureOptions = {}) {
     html_url: `https://github.com/invrnt/bento/releases/tag/v${version}`,
     assets: [
       { name: targetManifestName, state: "uploaded", size: manifestBytes.length, digest: `sha256:${options.corruptManifestDigest ? "0".repeat(64) : createHash("sha256").update(manifestBytes).digest("hex")}`, browser_download_url: targetManifestUrl },
+      ...signatureAssets,
       ...assets.map((asset) => ({ name: asset.filename, state: "uploaded", size: asset.size, digest: options.omitArtifactDigest ? null : `sha256:${asset.sha256}`, browser_download_url: asset.url })),
     ],
   };
@@ -88,6 +101,7 @@ export async function setup(options: FixtureOptions = {}) {
     const url = String(input);
     if (url.includes("api.github.com")) return response(JSON.stringify(release));
     if (url === targetManifestUrl) return response(manifestBytes);
+    if (signatureBytes && url === signatureUrl) return response(signatureBytes);
     if (url === primaryUrl) return response(artifactBytes);
     throw new Error("unexpected request");
   });
@@ -97,10 +111,11 @@ export async function setup(options: FixtureOptions = {}) {
   const recoverAfterInstallFailure = vi.fn(async () => undefined);
   const watchdogs: Array<() => void> = [];
   const scheduleInstallWatchdog = vi.fn((callback: () => void) => { watchdogs.push(callback); return vi.fn(); });
-  const controllerOptions = { currentVersion: options.currentVersion ?? "0.1.0", platform, arch: "x64", isPackaged: options.isPackaged ?? true, stagingRoot: root, autoUpdater, openPath, beforeInstall, recoverAfterInstallFailure, fetch: fetch as typeof globalThis.fetch, networkTimeoutMs: options.networkTimeoutMs, inactivityTimeoutMs: options.inactivityTimeoutMs, scheduleInstallWatchdog };
+  const warn = vi.fn();
+  const controllerOptions = { currentVersion: options.currentVersion ?? "0.1.0", platform, arch: "x64", isPackaged: options.isPackaged ?? true, stagingRoot: root, autoUpdater, openPath, beforeInstall, recoverAfterInstallFailure, fetch: fetch as typeof globalThis.fetch, networkTimeoutMs: options.networkTimeoutMs, inactivityTimeoutMs: options.inactivityTimeoutMs, scheduleInstallWatchdog, updatePublicKey: options.updatePublicKey, warn };
   const createController = () => new UpdateController(controllerOptions);
   const controller = createController();
-  return { root, controller, createController, fetch, autoUpdater, openPath, beforeInstall, recoverAfterInstallFailure, scheduleInstallWatchdog, watchdogs };
+  return { root, controller, createController, fetch, autoUpdater, openPath, beforeInstall, recoverAfterInstallFailure, scheduleInstallWatchdog, watchdogs, warn, signatureUrl, manifestBytes };
 }
 
 function response(body: string | Uint8Array): Response {

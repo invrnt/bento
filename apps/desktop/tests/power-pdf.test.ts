@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -127,6 +127,25 @@ describe("recovery kit PDF saving", () => {
     expect(pdfFileName("Kit.PDF", "x")).toBe("Kit.PDF");
   });
 
+  it("never replaces an existing file the dialog did not confirm after appending .pdf", async () => {
+    const { root, saver, trusted } = await fixture((defaultPath) => ({ canceled: false, filePath: defaultPath.replace(/\.pdf$/u, "") }));
+    await writeFile(path.join(root, "Mi kit.pdf"), "existing kit");
+    await writeFile(path.join(root, "Mi kit (2).pdf"), "second kit");
+    await expect(saver.save(trusted, { suggestedName: "Mi kit" })).resolves.toEqual({ saved: true, fileName: "Mi kit (3).pdf" });
+    expect(await readFile(path.join(root, "Mi kit.pdf"), "utf8")).toBe("existing kit");
+    expect(await readFile(path.join(root, "Mi kit (2).pdf"), "utf8")).toBe("second kit");
+    expect(await readFile(path.join(root, "Mi kit (3).pdf"), "utf8")).toBe("%PDF-1.7 recovery kit");
+    if (process.platform !== "win32") expect((await stat(path.join(root, "Mi kit (3).pdf"))).mode & 0o777).toBe(0o600);
+    expect((await readdir(root)).filter((name) => name.endsWith(".tmp"))).toEqual([]);
+  });
+
+  it("still replaces a .pdf path the dialog confirmed", async () => {
+    const { root, saver, trusted } = await fixture((defaultPath) => ({ canceled: false, filePath: defaultPath }));
+    await writeFile(path.join(root, "Kit de recuperación de Bento.pdf"), "old kit");
+    await expect(saver.save(trusted, {})).resolves.toEqual({ saved: true, fileName: "Kit de recuperación de Bento.pdf" });
+    expect(await readFile(path.join(root, "Kit de recuperación de Bento.pdf"), "utf8")).toBe("%PDF-1.7 recovery kit");
+  });
+
   it("writes nothing when the dialog is canceled", async () => {
     const { root, saver, trusted } = await fixture(() => ({ canceled: true }));
     await expect(saver.save(trusted, {})).resolves.toEqual({ saved: false });
@@ -162,6 +181,16 @@ describe("recovery kit PDF saving", () => {
     finish({ canceled: false, filePath: "relative/kit.pdf" });
     await expect(first).rejects.toThrow(TypeError);
     await expect(saver.save(trusted, {})).resolves.toEqual({ saved: false });
+  });
+
+  it("refuses to replace an existing file in exclusive mode", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "bento-pdf-exclusive-"));
+    roots.push(root);
+    const target = path.join(root, "kit.pdf");
+    await writeFileAtomic(target, Buffer.from("old"), { exclusive: true });
+    await expect(writeFileAtomic(target, Buffer.from("new"), { exclusive: true })).rejects.toMatchObject({ code: "EEXIST" });
+    expect(await readFile(target, "utf8")).toBe("old");
+    expect(await readdir(root)).toEqual(["kit.pdf"]);
   });
 
   it("replaces an existing file through a same-directory temporary file", async () => {

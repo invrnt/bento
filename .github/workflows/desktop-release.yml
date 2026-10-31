@@ -27,6 +27,8 @@ jobs:
       HAS_WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD != '' }}
       HAS_TELEGRAM_API_ID: ${{ secrets.BENTO_TELEGRAM_API_ID != '' }}
       HAS_TELEGRAM_API_HASH: ${{ secrets.BENTO_TELEGRAM_API_HASH != '' }}
+      HAS_UPDATE_SIGNING_KEY: ${{ secrets.BENTO_UPDATE_SIGNING_KEY != '' }}
+      HAS_UPDATE_PUBLIC_KEY: ${{ vars.BENTO_UPDATE_PUBLIC_KEY != '' }}
     steps:
       - name: Check out source for version gate
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -59,6 +61,16 @@ jobs:
           if [ "$HAS_TELEGRAM_API_ID" != "true" ] || [ "$HAS_TELEGRAM_API_HASH" != "true" ]; then
             echo "Production release blocked: BENTO_TELEGRAM_API_ID and BENTO_TELEGRAM_API_HASH secrets are required."
             exit 1
+          fi
+          # Builds that embed BENTO_UPDATE_PUBLIC_KEY reject unsigned manifests, so the key must sign this release.
+          if [ "$HAS_UPDATE_PUBLIC_KEY" = "true" ] && [ "$HAS_UPDATE_SIGNING_KEY" != "true" ]; then
+            echo "Production release blocked: BENTO_UPDATE_PUBLIC_KEY is set but the BENTO_UPDATE_SIGNING_KEY secret is missing."
+            exit 1
+          fi
+          if [ "$HAS_UPDATE_SIGNING_KEY" != "true" ]; then
+            echo "::warning::Updater manifests will be unsigned; Windows and Linux updates rely on GitHub digests only."
+          elif [ "$HAS_UPDATE_PUBLIC_KEY" != "true" ]; then
+            echo "::warning::Manifests are signed but BENTO_UPDATE_PUBLIC_KEY is not set, so these builds will not verify future signatures."
           fi
 
   native-release:
@@ -139,6 +151,7 @@ jobs:
           BENTO_TELEGRAM_API_HASH: ${{ secrets.BENTO_TELEGRAM_API_HASH }}
           BENTO_RELAY_URL: ${{ vars.BENTO_RELAY_URL }}
           BENTO_PUBLIC_SITE_URL: ${{ vars.BENTO_PUBLIC_SITE_URL }}
+          BENTO_UPDATE_PUBLIC_KEY: ${{ vars.BENTO_UPDATE_PUBLIC_KEY }}
         run: node apps/desktop/scripts/write-build-config.mjs --require-telegram
       - name: Import Apple Developer ID certificate
         if: runner.os == 'macOS'
@@ -233,9 +246,15 @@ jobs:
       contents: write
       id-token: write
       attestations: write
+    env:
+      HAS_UPDATE_SIGNING_KEY: ${{ secrets.BENTO_UPDATE_SIGNING_KEY != '' }}
     steps:
       - name: Check out release scripts
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Set up Node.js 24 for release scripts
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
       - name: Download verified artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
@@ -243,6 +262,22 @@ jobs:
           path: release-artifacts
       - name: Collect unique flat release assets
         run: node apps/desktop/scripts/collect-release-assets.mjs release-artifacts release-assets
+      - name: Sign updater manifests
+        # Signed here, in a job that installs no dependencies, so the key never meets build tooling.
+        # The script never prints key material and checks BENTO_UPDATE_PUBLIC_KEY matches a signing key.
+        if: env.HAS_UPDATE_SIGNING_KEY == 'true'
+        shell: bash
+        env:
+          BENTO_UPDATE_SIGNING_KEY: ${{ secrets.BENTO_UPDATE_SIGNING_KEY }}
+          BENTO_UPDATE_PUBLIC_KEY: ${{ vars.BENTO_UPDATE_PUBLIC_KEY }}
+        run: |
+          shopt -s nullglob
+          manifests=(release-assets/bento-update-*.json)
+          if [ "${#manifests[@]}" -eq 0 ]; then
+            echo "No updater manifests found to sign."
+            exit 1
+          fi
+          node apps/desktop/scripts/sign-update-manifest.mjs "${manifests[@]}"
       - name: Attest release provenance
         uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
         with:

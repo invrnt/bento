@@ -55,6 +55,6 @@ Point local Bento instances at it with `BENTO_RELAY_URL=ws://127.0.0.1:8787` (pl
 ## Operating it
 
 - Rooms expire 10 minutes after the host connects; nothing persists after the Durable Object alarm.
-- Limits: 64 KiB per frame, 128 frames per side, 20 room connections per minute per client IP.
+- Limits: 64 KiB per frame, 128 frames per side, 20 room connections per minute per client (IPv4 address or IPv6 `/64`), and 10 connection attempts per nameplate per 10 minutes.
 - Redeploying is safe at any time; in-flight pairings fail and users simply create a new code.
 - To retire the relay, remove `BENTO_RELAY_URL` from builds; new builds fall back to Telegram-channel pairing.

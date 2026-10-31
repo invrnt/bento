@@ -11,10 +11,10 @@ The binding contract is [`orchestration/api/pairing-relay-contract.md`](../../or
 | The **nameplate** (the first 4-character group of the pairing code). It only picks the room; it is not the SPAKE2 password. | The two secret groups of the pairing code. |
 | Each connection's role (`host`/`guest`), connect and disconnect times. | Any plaintext. SPAKE2, key confirmation and AES-256-GCM all run end to end between the devices. |
 | How many binary frames each side sends and how big they are. | Keys, keyrings, Telegram login tokens and device names. All of them travel inside encrypted `0x03` frames. |
-| The client IP while a request is being handled. It is hashed (salted SHA-256) and used only as the rate-limit key. | |
+| The client IP while a request is being handled. Its rate-limit subject (the IPv4 address, or the IPv6 `/64` prefix) is hashed (salted SHA-256) and used only as the rate-limit key. | |
 
 - The relay cannot decrypt or forge frames. If it dropped, reordered or replayed a frame, the devices would notice: key confirmation would fail or the GCM counters would not match, and the pairing would abort.
-- **Persisted:** only the minimal room state (`created_at`, `expires_at`, `burned`, `guest_joined`, frame counters) in the room's private Durable Object storage. The expiry alarm deletes all of it, together with the alarm itself, 10 minutes after the host connected.
+- **Persisted:** only the minimal room state (`created_at`, `expires_at`, `burned`, `guest_joined`, frame counters) and the nameplate's attempt counter (`started_at`, `count`) in the room's private Durable Object storage. The expiry alarm deletes the room state 10 minutes after the host connected; the counter, and the alarm itself, are deleted 10 minutes after the counter's window started.
 - **Logged:** only structured events, such as `{event, role, code, room_age_ms, host_frames, guest_frames}`. The relay never logs frame contents, nameplates, IPs (raw or hashed) or headers.
 - **Invocation logs and traces are disabled** in `wrangler.jsonc`, because Cloudflare would otherwise record request URLs (which contain the nameplate), user agents and geo data.
 
@@ -30,21 +30,24 @@ The binding contract is [`orchestration/api/pairing-relay-contract.md`](../../or
   | `426` | `upgrade_required` | A room request without a WebSocket upgrade. |
   | `400` | `invalid_role` | `role` is missing, unknown or repeated. |
   | `405` | `method_not_allowed` | Any method other than `GET` on `/v1/health`. |
-  | `429` | `rate_limited` | More than 20 room connections per minute from one client IP (per Cloudflare location). Includes `Retry-After: 60`. |
+  | `429` | `rate_limited` | More than 20 room connections per minute from one client (per Cloudflare location). IPv4 clients are counted per address and IPv6 clients per `/64` prefix, since one subscriber usually holds a whole `/64`. IPv4-mapped IPv6 addresses count as IPv4. Includes `Retry-After: 60`. |
 
 - **Room errors** are sent as an `{"type":"error","code":...}` frame, followed by close code `4001` (the close reason is the error code):
 
   | Code | When |
   | --- | --- |
-  | `nameplate_taken` | A host connects to a room that already exists (live or burned). |
+  | `nameplate_taken` | A host connects to a room that already exists (live or burned), or to a nameplate that has used up its connection budget (see below). |
   | `room_not_found` | A guest connects to a room that does not exist, or that burned before any guest joined. |
   | `room_full` | A guest connects after a guest has already joined, even if the room has since burned. |
   | `expired` | A guest connects after the expiry time but before the alarm ran. |
   | `message_too_large` | A frame larger than 64 KiB. |
   | `protocol` | Binary before the peer joined, the 129th binary frame from one side, or any text frame other than `{"type":"close"}`. |
+  | `rate_limited` | A guest connects to a nameplate that has used up its connection budget. |
+
+- **Per-nameplate budget:** each nameplate accepts at most 10 connection attempts (host or guest, from any clients, accepted or rejected) in a 10-minute window that starts with its first attempt. The counter lives in the room's Durable Object and survives room expiry and burning, so squatting a nameplate or burning a room cannot simply be repeated at once, and spreading attempts across many IPs does not help. Further attempts are not counted: hosts get `nameplate_taken` (Bento then picks a fresh nameplate) and guests `rate_limited`.
 
 - **Burning:** a room burns when either side sends `{"type":"close"}`, disconnects, or is closed for an error. Every remaining side receives `peer_left` (unless it sent the close itself), then `{"type":"closed","reason":"burned"}`, and is closed with code `1000`. The nameplate stays blocked until the expiry alarm.
-- **Expiry:** 10 minutes after the host connects, both sockets receive `{"type":"closed","reason":"expired"}` and are closed with code `4000`. All state is then deleted. If the alarm fires late, expiry is applied the next time the room is touched.
+- **Expiry:** 10 minutes after the host connects, both sockets receive `{"type":"closed","reason":"expired"}` and are closed with code `4000`. The room state is then deleted; the attempt counter follows when its window ends. If the alarm fires late, expiry is applied the next time the room is touched.
 - **Hibernation:** sockets are accepted through the WebSocket Hibernation API. Each socket's role and room session are stored with `serializeAttachment`, and all other room state lives in Durable Object storage, so an evicted room resumes correctly. Idle rooms are not billed for duration.
 
 ## Requirements
@@ -81,7 +84,7 @@ The suites cover:
 - Binary relay in both directions, the size limit and the frame-count limit.
 - Text protocol errors.
 - Alarm expiry with code `4000`, state cleanup, and late-alarm handling.
-- Rate limiting (`429`).
+- Rate limiting (`429`, IPv4 per address, IPv6 per `/64`) and the per-nameplate connection budget.
 - Hibernation (eviction keeps roles, peers and counters).
 - Log privacy.
 

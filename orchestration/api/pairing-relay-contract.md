@@ -11,11 +11,11 @@
 
 ## Room lifecycle
 
-1. The host must connect first. If a host is already present or the room was used in the last 10 minutes → `nameplate_taken`.
+1. The host must connect first. If a host is already present, the room was used in the last 10 minutes, or the nameplate's connection budget is spent (§ Limits and abuse) → `nameplate_taken`.
 2. A guest connecting to a room without a host → `room_not_found`. A third connection → `room_full`.
 3. The room expires 10 minutes after the host connects (Durable Object alarm). Expiry sends `{"type":"closed","reason":"expired"}` and closes both sockets with code `4000`.
 4. When either side sends `{"type":"close"}` or disconnects after the peer joined, the other side receives `{"type":"peer_left"}` and the room is burned (cannot be reused until expiry).
-5. Room state is cleared after expiry/burn; nothing persists beyond the alarm.
+5. Room state is cleared after expiry/burn. The nameplate's attempt counter (`{started_at, count}`, no client data) stays until its 10-minute window ends, when the alarm deletes it and nothing persists.
 
 ## Frames
 
@@ -36,7 +36,8 @@ Client → server:
 ## Limits and abuse
 
 - Use the WebSocket Hibernation API (`ctx.acceptWebSocket`, `serializeAttachment`) so idle rooms are not billed for duration.
-- Rate limit per client IP (hashed, never stored raw): 20 room connections per minute using the Workers rate limiting binding; excess returns `429` before upgrade.
+- Rate limit per client (hashed, never stored raw): 20 room connections per minute using the Workers rate limiting binding; excess returns `429` before upgrade. The key is the IPv4 address, or the IPv6 `/64` prefix (one subscriber usually controls a whole `/64`); IPv4-mapped IPv6 counts as IPv4, malformed values share one bucket.
+- Per-nameplate budget, tracked in the room's Durable Object: at most 10 connection attempts (host or guest, any client, accepted or rejected) per nameplate in a fixed 10-minute window starting at the first attempt. It survives room expiry and burning, so squatting or burning cannot simply be repeated and spreading attempts over many IPs does not help. Over budget (not counted further): hosts get `nameplate_taken` (clients retry with a fresh nameplate), guests get `rate_limited`, both as an error frame followed by close `4001`.
 - No authentication: security comes from SPAKE2 at the endpoints. The relay cannot decrypt or forge frames.
 - Logs contain only event names, room age, frame counts, and error codes.
 

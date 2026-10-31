@@ -8,6 +8,8 @@ import {
   type ErrorCode,
   MAX_FRAME_BYTES,
   MAX_FRAMES_PER_SIDE,
+  NAMEPLATE_ATTEMPT_LIMIT,
+  NAMEPLATE_ATTEMPT_WINDOW_MS,
   ROLES,
   ROOM_TTL_MS,
   type Role,
@@ -34,6 +36,16 @@ export interface RoomState {
   guest_frames: number;
 }
 
+/**
+ * Connection attempts against this nameplate in a fixed window that starts with the first attempt.
+ * Kept apart from the room so squatting or burning cannot be repeated by simply waiting for expiry;
+ * it is deleted once the window is over.
+ */
+export interface AttemptWindow {
+  started_at: number;
+  count: number;
+}
+
 /** Per-socket state kept with `serializeAttachment` (survives hibernation). */
 export interface SocketAttachment {
   session: string;
@@ -41,6 +53,7 @@ export interface SocketAttachment {
 }
 
 export const ROOM_STATE_KEY = "room";
+export const ATTEMPTS_KEY = "attempts";
 
 const FRAME_COUNTER: Record<Role, "host_frames" | "guest_frames"> = {
   host: "host_frames",
@@ -62,7 +75,17 @@ export class PairingRoom extends DurableObject<Env> {
     }
 
     const { 0: client, 1: server } = new WebSocketPair();
-    const rejection = role === "host" ? await this.admitHost(server) : await this.admitGuest(server);
+    let rejection: ErrorCode | null;
+    if (!this.countAttempt(Date.now())) {
+      // A host simply picks another nameplate; a guest has to wait.
+      rejection = role === "host" ? "nameplate_taken" : "rate_limited";
+    } else {
+      rejection = role === "host" ? await this.admitHost(server) : await this.admitGuest(server);
+    }
+    if (this.readState() === undefined) {
+      // No room alarm is pending; make sure the attempt counter is still cleaned up.
+      await this.releaseStorage();
+    }
     if (rejection !== null) {
       // Rejected sockets are not hibernatable participants: send the error and close.
       server.accept();
@@ -138,7 +161,7 @@ export class PairingRoom extends DurableObject<Env> {
   override async alarm(): Promise<void> {
     const state = this.readState();
     if (state === undefined) {
-      await this.ctx.storage.deleteAll();
+      await this.releaseStorage();
       return;
     }
     await this.expire(state);
@@ -253,7 +276,7 @@ export class PairingRoom extends DurableObject<Env> {
     logEvent("room_burned", frameStats(state));
   }
 
-  /** Expiry: notify and close every open socket with 4000, then drop all state (and the alarm). */
+  /** Expiry: notify and close every open socket with 4000, then drop the room state. */
   private async expire(state: RoomState): Promise<void> {
     for (const ws of this.ctx.getWebSockets()) {
       if (ws.readyState !== WebSocket.READY_STATE_OPEN) {
@@ -263,7 +286,35 @@ export class PairingRoom extends DurableObject<Env> {
       closeSocket(ws, CLOSE_EXPIRED, "expired");
     }
     logEvent("room_expired", frameStats(state));
-    await this.ctx.storage.deleteAll();
+    this.ctx.storage.kv.delete(ROOM_STATE_KEY);
+    await this.releaseStorage();
+  }
+
+  /**
+   * With no room left: delete everything (and the alarm) once the attempt window is over, otherwise
+   * keep only the counter and wake up when its window ends.
+   */
+  private async releaseStorage(): Promise<void> {
+    const attempts = this.readAttempts();
+    if (attempts === undefined || Date.now() >= attempts.started_at + NAMEPLATE_ATTEMPT_WINDOW_MS) {
+      await this.ctx.storage.deleteAll();
+      return;
+    }
+    await this.ctx.storage.setAlarm(attempts.started_at + NAMEPLATE_ATTEMPT_WINDOW_MS);
+  }
+
+  /** Counts one connection attempt; false once this window's budget is spent (not counted then). */
+  private countAttempt(now: number): boolean {
+    const current = this.readAttempts();
+    const window = current !== undefined && now < current.started_at + NAMEPLATE_ATTEMPT_WINDOW_MS
+      ? current
+      : { started_at: now, count: 0 };
+    if (window.count >= NAMEPLATE_ATTEMPT_LIMIT) {
+      return false;
+    }
+    const next: AttemptWindow = { started_at: window.started_at, count: window.count + 1 };
+    this.ctx.storage.kv.put(ATTEMPTS_KEY, next);
+    return true;
   }
 
   private accept(server: WebSocket, state: RoomState, role: Role): void {
@@ -287,6 +338,11 @@ export class PairingRoom extends DurableObject<Env> {
 
   private readState(): RoomState | undefined {
     return this.ctx.storage.kv.get<RoomState>(ROOM_STATE_KEY);
+  }
+
+  private readAttempts(): AttemptWindow | undefined {
+    const value = this.ctx.storage.kv.get<AttemptWindow>(ATTEMPTS_KEY);
+    return typeof value?.started_at === "number" && typeof value.count === "number" ? value : undefined;
   }
 
   private writeState(state: RoomState): void {

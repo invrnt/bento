@@ -45,8 +45,9 @@
     }
   ],
 
-  // 20 room connections per minute per hashed client IP (per Cloudflare
-  // location). namespace_id must be unique within the Cloudflare account.
+  // 20 room connections per minute per hashed client IPv4 address or IPv6 /64
+  // (per Cloudflare location). namespace_id must be unique within the Cloudflare
+  // account. The per-nameplate budget lives in the PairingRoom Durable Object.
   "ratelimits": [
     {
       "name": "ROOM_CONNECT_LIMITER",

@@ -79,6 +79,7 @@ jobs:
         env:
           BENTO_RELAY_URL: ${{ vars.BENTO_RELAY_URL }}
           BENTO_PUBLIC_SITE_URL: ${{ vars.BENTO_PUBLIC_SITE_URL }}
+          BENTO_UPDATE_PUBLIC_KEY: ${{ vars.BENTO_UPDATE_PUBLIC_KEY }}
         run: node apps/desktop/scripts/write-build-config.mjs
       - name: Build native sidecar and makers
         run: npm --prefix apps/desktop run make

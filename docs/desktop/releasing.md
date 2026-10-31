@@ -49,6 +49,7 @@ Secrets requeridos:
 - `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` para `notarytool`.
 - `WINDOWS_CERTIFICATE_BASE64`: PFX de firma de código en base64.
 - `WINDOWS_CERTIFICATE_PASSWORD`.
+- `BENTO_UPDATE_SIGNING_KEY`: clave privada Ed25519 que firma los manifiestos del updater. Es obligatoria en cuanto exista la variable `BENTO_UPDATE_PUBLIC_KEY` (ver [Firma de manifiestos del updater](#firma-de-manifiestos-del-updater)); sin ninguna de las dos, el release sale con un aviso y los manifiestos sin firma.
 
 Los certificados se decodifican únicamente en el directorio temporal efímero del runner, nunca se suben como artefacto. macOS verifica `codesign`, Gatekeeper y el ticket grapado; Windows exige estado Authenticode `Valid`. La publicación recibe permisos de escritura solo después de que todas las filas terminen, adjunta procedencia de GitHub y crea primero un draft desde el tag ya existente. Los reintentos reutilizan únicamente ese draft, vuelven a subir los assets y comparan inventario y SHA-256 remoto antes de publicarlo; un release ya publicado solo se acepta si coincide exactamente y nunca se muta silenciosamente.
 
@@ -64,8 +65,9 @@ Además de la firma, cada build empaquetado lleva la configuración que conecta 
 | `BENTO_TELEGRAM_API_HASH` | secret | Igual que el anterior. |
 | `BENTO_RELAY_URL` | variable | El emparejamiento usa el canal Sync de Telegram. |
 | `BENTO_PUBLIC_SITE_URL` | variable | El diálogo de emparejamiento no ofrece enlace web. |
+| `BENTO_UPDATE_PUBLIC_KEY` | variable | El build no verifica la firma de los manifiestos del updater (solo hashes de GitHub) y lo registra una vez en el log. Se escribe como `updatePublicKey`. |
 
-Cómo obtener cada valor: [credenciales de Telegram](../dev/telegram-credentials.md), [relay](../dev/relay.md) y [sitio público](../dev/site.md). Un release de producción debe llevar los cuatro.
+Cómo obtener cada valor: [credenciales de Telegram](../dev/telegram-credentials.md), [relay](../dev/relay.md), [sitio público](../dev/site.md) y [clave del updater](#firma-de-manifiestos-del-updater). Un release de producción debe llevar los cinco.
 
 ### Después de publicar
 
@@ -85,7 +87,49 @@ El renderer nunca descarga binarios. El proceso principal consulta únicamente e
 
 `publishedAt` usa el timestamp del commit etiquetado para que el manifiesto sea determinista antes de crear el GitHub Release. `commit` enlaza el metadata con el SHA completo validado en `main`. El propio manifiesto queda incluido en el `SHA256SUMS-<destino>` y en la atestación de procedencia. Nunca se publica un manifiesto apuntando a un archivo ausente: la publicación ocurre en un único job después de reunir las cuatro matrices.
 
+Con `BENTO_UPDATE_PUBLIC_KEY` configurada, cada manifiesto viaja con su firma `bento-update-<destino>.json.sig` y el runtime la verifica antes de leer el manifiesto (ver la sección siguiente).
+
 No hay actualización silenciosa ni downgrade automático. Una descarga terminada persiste con metadata privada, sobrevive al relanzamiento y vuelve a validar ruta, destino, tamaño y hashes antes de ofrecer instalación; el staging conserva solo ese candidato válido y purga parciales/versiones antiguas. Los requests y streams inactivos abortan con un error reintentable. macOS requiere aplicación firmada para `autoUpdater`; Windows requiere la cadena Squirrel firmada. Si la firma, el hash, el tamaño, el feed local o la instalación fallan, Bento conserva la versión y datos actuales, recupera los sidecars y muestra recuperación manual. Linux entrega instalador/archivo verificado, sin prometer reemplazo transaccional por el updater.
+
+## Firma de manifiestos del updater
+
+Los hashes publicados por GitHub solo prueban que un archivo no cambió dentro del release; quien controle el repositorio o el release podría publicar otro manifiesto con otros hashes. En Windows (Squirrel) y Linux no hay otra comprobación de origen dentro de la app, así que el manifiesto de cada destino se firma con Ed25519 y cada build lleva la clave pública en `resources/build-config.json` (`updatePublicKey`, base64 de los 32 bytes de la clave).
+
+- Firma: `bento-update-<destino>.json.sig`, JSON `{"schemaVersion":1,"algorithm":"ed25519","signatures":[{"keyId","signature"}]}` sobre `"bento-update-manifest:v1" || 0x00 || bytes exactos del manifiesto`. `keyId` son los primeros 16 hex de SHA-256 de la clave pública. Admite hasta cuatro firmas para rotar claves.
+- Con clave pública embebida, falta de `.sig`, firma inválida, firma de otra clave o clave embebida inválida fallan cerrado (`updates_signature_missing`, `updates_signature_invalid`, `updates_signature_key_invalid`); no se descarga nada.
+- Sin clave embebida se conserva la verificación por hash y el log registra una advertencia una sola vez.
+- El workflow firma en el job `publish`, que no instala dependencias, justo antes de la atestación; la clave privada nunca llega a los runners que compilan. `npm --prefix apps/desktop run release:manifest` también firma si `BENTO_UPDATE_SIGNING_KEY` está en el entorno. El script nunca imprime material privado y se niega a firmar si `BENTO_UPDATE_PUBLIC_KEY` no corresponde a ninguna de las claves.
+
+### Generar la clave (una vez)
+
+En una máquina de confianza, fuera del repositorio:
+
+```sh
+npm --prefix apps/desktop run release:sign-manifest -- --generate-key ~/bento-update-signing.pem
+# Imprime BENTO_UPDATE_PUBLIC_KEY=<base64>; el archivo queda con permisos 0600 y nunca se sobrescribe.
+```
+
+Equivalente con OpenSSL 3:
+
+```sh
+openssl genpkey -algorithm ed25519 -out bento-update-signing.pem
+openssl pkey -in bento-update-signing.pem -pubout -outform DER | tail -c 32 | base64
+```
+
+1. Guarda el contenido completo del PEM (PKCS#8) como secret `BENTO_UPDATE_SIGNING_KEY` del repositorio (o del entorno de releases) y la clave pública como variable `BENTO_UPDATE_PUBLIC_KEY`.
+2. Guarda una copia cifrada del PEM fuera de GitHub (gestor de contraseñas o almacenamiento offline). Perderla obliga a rotar con reinstalación manual (ver abajo).
+3. Comprueba localmente sin exponerla: `BENTO_UPDATE_SIGNING_KEY="$(cat ~/bento-update-signing.pem)" npm --prefix apps/desktop run release:sign-manifest -- --public-key` debe imprimir el mismo valor que la variable.
+
+El primer release con la variable firma ya sus manifiestos; las versiones anteriores, sin clave embebida, lo aceptan por hash. A partir de ahí todo release debe ir firmado: el gate bloquea el tag si existe la variable y falta el secret.
+
+### Rotación
+
+1. Genera la clave nueva como arriba.
+2. Pon en `BENTO_UPDATE_SIGNING_KEY` los dos PEM seguidos (la antigua y la nueva) y cambia `BENTO_UPDATE_PUBLIC_KEY` a la clave pública nueva. Los manifiestos salen con dos firmas: los builds antiguos validan la suya y el nuevo build embebe la clave nueva.
+3. Mantén la doble firma mientras haya versiones con la clave antigua en uso (como mínimo varios releases o seis meses). Después quita el PEM antiguo del secret y destruye sus copias.
+4. Un build que solo conoce una clave retirada falla cerrado con `updates_signature_invalid`; esos usuarios deben reinstalar desde el sitio o la página del release.
+
+Si la clave privada se filtra: publica en cuanto sea posible un release con doble firma que embeba una clave nueva, retira la filtrada del secret en el siguiente release y avisa a los usuarios. Mientras un build confíe en la clave filtrada, un atacante que además controle los releases podría ofrecerle un manifiesto; la firma de código de macOS/Windows sigue siendo una barrera adicional.
 
 ## Ejecución local
 

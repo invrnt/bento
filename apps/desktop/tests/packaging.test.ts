@@ -171,4 +171,21 @@ describe("native packaging scaffold", () => {
     expect(writer).not.toMatch(/console\.(?:log|error)\([^)]*config\[/u);
     expect(writer).not.toMatch(/console\.(?:log|error)\([^)]*JSON\.stringify/u);
   });
+  it("signs updater manifests only in the dependency-free publish job and embeds the public key", async () => {
+    const repositoryRoot = path.resolve(desktopRoot, "../..");
+    const release = await readFile(path.join(repositoryRoot, ".github", "workflows", "desktop-release.yml"), "utf8");
+    const native = await readFile(path.join(repositoryRoot, ".github", "workflows", "desktop-native.yml"), "utf8");
+    const packageJson = JSON.parse(await readFile(path.join(desktopRoot, "package.json"), "utf8")) as { scripts: Record<string, string> };
+    for (const workflow of [release, native]) expect(workflow).toContain("BENTO_UPDATE_PUBLIC_KEY: ${{ vars.BENTO_UPDATE_PUBLIC_KEY }}");
+    expect(native).not.toContain("BENTO_UPDATE_SIGNING_KEY");
+    const publish = release.slice(release.indexOf("\n  publish:"));
+    const signingKeyUses = [...release.matchAll(/BENTO_UPDATE_SIGNING_KEY: \$\{\{ secrets\.BENTO_UPDATE_SIGNING_KEY \}\}/gu)];
+    expect(signingKeyUses).toHaveLength(1);
+    expect(publish).toContain("BENTO_UPDATE_SIGNING_KEY: ${{ secrets.BENTO_UPDATE_SIGNING_KEY }}");
+    expect(publish).not.toMatch(/npm (?:ci|install)/u);
+    expect(publish).toContain("sign-update-manifest.mjs");
+    expect(publish.indexOf("Sign updater manifests")).toBeLessThan(publish.indexOf("Attest release provenance"));
+    expect(release).toContain("BENTO_UPDATE_PUBLIC_KEY is set but the BENTO_UPDATE_SIGNING_KEY secret is missing");
+    expect(packageJson.scripts["release:sign-manifest"]).toBe("node scripts/sign-update-manifest.mjs");
+  });
 });

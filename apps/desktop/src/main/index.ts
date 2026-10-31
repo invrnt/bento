@@ -21,7 +21,8 @@ import {
 import { ActivityMonitor } from "./activity";
 import { WindowLifecycle } from "./background";
 import { BootstrapStore } from "./bootstrap";
-import { buildConfigRedactions, loadBuildConfig, sidecarRuntimeEnvironment } from "./build-config";
+import { buildConfigRedactions, loadBuildConfig, sidecarRuntimeEnvironment, UPDATE_PUBLIC_KEY_FIELD } from "./build-config";
+import { applicationMenuTemplate, debuggingSwitches } from "./debugging";
 import { argumentsFromAdditionalData, DEEP_LINK_SCHEME, userArguments } from "./deep-links";
 import { provisionDeviceWrappingKey } from "./device-key";
 import { createStrings, MainStrings } from "./i18n";
@@ -53,6 +54,9 @@ protocol.registerSchemesAsPrivileged([{
 
 const smoke = process.env.BENTO_DESKTOP_SMOKE === "1";
 const defaultApp = Boolean(process.defaultApp);
+// Packaged builds never expose a debugging endpoint (Chromium remote debugging has no fuse).
+const refusedSwitches = app.isPackaged ? debuggingSwitches(process.argv, (name) => app.commandLine.hasSwitch(name)) : [];
+const devTools = !app.isPackaged;
 const launchArguments = userArguments(process.argv, defaultApp);
 const squirrel = squirrelEvent(process.argv, process.platform);
 const squirrelInstalled = process.platform === "win32" && app.isPackaged && existsSync(squirrelUpdateExecutable(process.execPath));
@@ -67,7 +71,11 @@ let windowLifecycle: WindowLifecycle | null = null;
 let quitting = false;
 let startHidden = false;
 
-if (squirrel && squirrel !== "firstrun") {
+if (refusedSwitches.length) {
+  for (const name of refusedSwitches) app.commandLine.removeSwitch(name);
+  console.error(`Bento refuses to start with debugging switches: ${refusedSwitches.join(", ")}`);
+  app.exit(1);
+} else if (squirrel && squirrel !== "firstrun") {
   // Squirrel install/update/uninstall launches only adjust shortcuts and registrations, then quit.
   void app.whenReady()
     .then(() => handleSquirrelEvent(squirrel, {
@@ -125,7 +133,11 @@ async function startDesktop(): Promise<void> {
   const logPath = path.join(app.getPath("logs"), "desktop.jsonl");
   await prepareLog(logPath);
   const knownSecrets: string[] = [];
-  const log = new RedactingLog((line) => { void appendFile(logPath, `${line}\n`, { encoding: "utf8", mode: 0o600 }); }, () => knownSecrets);
+  // The per-launch API tokens are redacted too, even though only main and the API ever hold them.
+  const log = new RedactingLog(
+    (line) => { void appendFile(logPath, `${line}\n`, { encoding: "utf8", mode: 0o600 }); },
+    () => [...knownSecrets, ...(supervisor?.redactionValues() ?? [])],
+  );
   const state = new DesktopStateStore(path.join(desktopData, "preferences.json"));
   if ((await state.load()).recovered) log.write("warn", "desktop preferences were reset to defaults");
   const bootstrapStore = new BootstrapStore(path.join(desktopData, "bootstrap.json"), path.join(userData, "bento-data"));
@@ -154,6 +166,8 @@ async function startDesktop(): Promise<void> {
   const sidecars = supervisor;
   registerBentoProtocol(protocol, path.join(app.getAppPath(), "dist", "renderer"), sidecars);
   lockDownSession();
+  // Development keeps Electron's default menu (reload, developer tools).
+  if (app.isPackaged) Menu.setApplicationMenu(Menu.buildFromTemplate(applicationMenuTemplate(process.platform, strings.appMenu)));
   await sidecars.start();
   const transaction = new SettingsTransaction(sidecars, secretStore, bootstrapStore, bootstrap);
   const updates = new UpdateController({
@@ -162,6 +176,9 @@ async function startDesktop(): Promise<void> {
     arch: process.arch,
     isPackaged: app.isPackaged,
     stagingRoot: path.join(desktopData, "updates"),
+    // An invalid key (or an unreadable build configuration) is `null`: every update check fails closed.
+    updatePublicKey: buildConfig.rejected.some((key) => key === UPDATE_PUBLIC_KEY_FIELD || key === "_document") ? null : buildConfig.updatePublicKey,
+    warn: (message) => log.write("warn", message),
     autoUpdater,
     openPath: (filePath) => shell.openPath(filePath),
     beforeInstall: () => prepareForUpdateInstall(() => { quitting = true; }, () => sidecars.stop()),
@@ -305,7 +322,7 @@ async function startDesktop(): Promise<void> {
     savePageAsPdf: (event, request) => pdf.save(event, request),
   });
 
-  mainWindow = createMainWindow({ showOnReady: !startHidden });
+  mainWindow = createMainWindow({ showOnReady: !startHidden, devTools });
   attachMainWindow(mainWindow);
   if (startHidden && process.platform === "darwin") app.dock?.hide();
 
@@ -362,7 +379,7 @@ function attachMainWindow(window: BrowserWindow): void {
 function showMainWindow(): void {
   if (!mainWindow || mainWindow.isDestroyed()) {
     if (!supervisor || !windowLifecycle) return;
-    mainWindow = createMainWindow();
+    mainWindow = createMainWindow({ devTools });
     attachMainWindow(mainWindow);
   }
   windowLifecycle?.show(mainWindow);
@@ -409,7 +426,7 @@ async function showRecovery(error: unknown): Promise<void> {
       width: 720,
       height: 480,
       title: "Bento — Recuperación",
-      webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false, webSecurity: true },
+      webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false, webSecurity: true, devTools },
     });
     mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
     await mainWindow.loadURL(`${BENTO_ORIGIN}/recovery`);

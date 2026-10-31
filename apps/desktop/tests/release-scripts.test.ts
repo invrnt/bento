@@ -1,10 +1,11 @@
-import { createHash } from "node:crypto";
+import { createHash, createPrivateKey, createPublicKey } from "node:crypto";
 import { execFile } from "node:child_process";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
+import { encodeUpdatePublicKey, parseUpdatePublicKey, verifyUpdateManifestSignature } from "../src/main/update-signature";
 
 const run = promisify(execFile);
 const desktopRoot = path.resolve(import.meta.dirname, "..");
@@ -166,6 +167,60 @@ describe("release metadata scripts", () => {
         expect(asset.sha256).toMatch(/^[a-f0-9]{64}$/u);
         expect(asset.size).toBeGreaterThan(0);
       }
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("generates a signing key and signs manifests without printing private key material", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "bento-sign-manifest-"));
+    const script = path.join(desktopRoot, "scripts", "sign-update-manifest.mjs");
+    try {
+      const keyPath = path.join(root, "signing.pem");
+      const generated = await run(process.execPath, [script, "--generate-key", keyPath]);
+      const pem = await readFile(keyPath, "utf8");
+      const publicKey = /BENTO_UPDATE_PUBLIC_KEY=(\S+)/u.exec(generated.stdout)?.[1];
+      expect(publicKey && parseUpdatePublicKey(publicKey)).toBeTruthy();
+      expect(encodeUpdatePublicKey(createPublicKey(createPrivateKey(pem)))).toBe(publicKey);
+      if (process.platform !== "win32") expect((await stat(keyPath)).mode & 0o777).toBe(0o600);
+      await expect(run(process.execPath, [script, "--generate-key", keyPath])).rejects.toThrow();
+      expect(await readFile(keyPath, "utf8")).toBe(pem);
+
+      const manifest = path.join(root, "bento-update-linux-x64.json");
+      await writeFile(manifest, '{"schemaVersion":1}\n');
+      const environment = { ...process.env, BENTO_UPDATE_SIGNING_KEY: pem, BENTO_UPDATE_PUBLIC_KEY: publicKey };
+      const signed = await run(process.execPath, [script, manifest], { env: environment });
+      const signature = await readFile(`${manifest}.sig`);
+      expect(verifyUpdateManifestSignature(await readFile(manifest), signature, parseUpdatePublicKey(publicKey!)!)).toBe(true);
+      const keyBody = pem.split("\n")[1]!;
+      for (const output of [generated.stdout, generated.stderr, signed.stdout, signed.stderr]) expect(output).not.toContain(keyBody);
+
+      // A build key that the release is not signed with would brick updates; refuse it.
+      const other = path.join(root, "other.pem");
+      const otherKey = /BENTO_UPDATE_PUBLIC_KEY=(\S+)/u.exec((await run(process.execPath, [script, "--generate-key", other])).stdout)![1]!;
+      const mismatch = run(process.execPath, [script, manifest], { env: { ...environment, BENTO_UPDATE_PUBLIC_KEY: otherKey } });
+      await expect(mismatch).rejects.toMatchObject({ stderr: expect.stringContaining("does not belong") });
+      await expect(run(process.execPath, [script, manifest], { env: { ...process.env, BENTO_UPDATE_SIGNING_KEY: "garbage" } }))
+        .rejects.toMatchObject({ stderr: expect.not.stringContaining("garbage") });
+      await expect(run(process.execPath, [script, path.join(root, "notes.json")], { env: environment })).rejects.toThrow();
+
+      // Rotation: both keys sign; builds embedding either key accept the release.
+      const rotation = { ...process.env, BENTO_UPDATE_SIGNING_KEY: `${pem}\n${await readFile(other, "utf8")}`, BENTO_UPDATE_PUBLIC_KEY: otherKey };
+      await run(process.execPath, [script, manifest], { env: rotation });
+      const dual = await readFile(`${manifest}.sig`);
+      for (const key of [publicKey!, otherKey]) expect(verifyUpdateManifestSignature(await readFile(manifest), dual, parseUpdatePublicKey(key)!)).toBe(true);
+
+      // `release:manifest` signs automatically when the signing secret is present.
+      await writeFile(path.join(root, "bento_0.1.0_amd64.deb"), "deb");
+      await writeFile(path.join(root, "Bento-linux-x64-0.1.0.zip"), "zip");
+      await rm(manifest);
+      await rm(`${manifest}.sig`);
+      await run(process.execPath, [
+        path.join(desktopRoot, "scripts", "generate-update-manifest.mjs"),
+        "--stage", root, "--platform", "linux", "--arch", "x64", "--tag", "v0.1.0",
+        "--published-at", "2026-08-25T12:00:00.000Z", "--commit", "a".repeat(40),
+      ], { env: environment });
+      expect(verifyUpdateManifestSignature(await readFile(manifest), await readFile(`${manifest}.sig`), parseUpdatePublicKey(publicKey!)!)).toBe(true);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

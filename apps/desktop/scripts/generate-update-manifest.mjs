@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { readFile, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { signManifestFiles } from "./sign-update-manifest.mjs";
 
 const options = parseOptions(process.argv.slice(2));
 const platform = requiredChoice(options, "platform", ["darwin", "linux", "win32"]);
@@ -53,6 +54,14 @@ const manifest = {
 const output = path.join(stage, `bento-update-${platform}-${arch}.json`);
 await writeFile(output, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 console.log(output);
+// Signed whenever the signing secret is available (the release workflow signs in its publish job).
+if (process.env.BENTO_UPDATE_SIGNING_KEY?.trim()) {
+  const [signed] = await signManifestFiles([output], {
+    signingKeyText: process.env.BENTO_UPDATE_SIGNING_KEY,
+    expectedPublicKey: process.env.BENTO_UPDATE_PUBLIC_KEY?.trim() || undefined,
+  });
+  console.log(`${output}.sig (key ids: ${signed.keyIds.join(", ")})`);
+}
 
 function selectAssets(targetPlatform, filenames) {
   const rules = targetPlatform === "win32"

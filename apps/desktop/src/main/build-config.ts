@@ -1,5 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+// Explicit extension: scripts/write-build-config.mjs loads this file through Node type stripping.
+import { parseUpdatePublicKey } from "./update-signature.ts";
 
 export const BUILD_CONFIG_FILE = "build-config.json";
 export const BUILD_CONFIG_KEYS = [
@@ -12,8 +14,14 @@ export const BUILD_CONFIG_KEYS = [
 export type BuildConfigKey = typeof BUILD_CONFIG_KEYS[number];
 export type BuildConfig = Partial<Record<BuildConfigKey, string>>;
 
+/** Desktop-main-only field (never forwarded to sidecars): base64 of the raw Ed25519 update key. */
+export const UPDATE_PUBLIC_KEY_FIELD = "updatePublicKey";
+export const UPDATE_PUBLIC_KEY_ENV = "BENTO_UPDATE_PUBLIC_KEY";
+
 export interface BuildConfigResult {
   config: BuildConfig;
+  /** Present only when valid; an invalid value is listed in `rejected` instead. */
+  updatePublicKey?: string;
   /** Keys present but invalid; never contains values. */
   rejected: string[];
   source: "packaged" | "environment";
@@ -34,10 +42,16 @@ interface ParseOptions {
 export function parseBuildConfig(value: unknown, options: ParseOptions): Omit<BuildConfigResult, "source"> {
   const config: BuildConfig = {};
   const rejected: string[] = [];
+  let updatePublicKey: string | undefined;
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     return { config, rejected: ["_document"] };
   }
   for (const [key, candidate] of Object.entries(value as Record<string, unknown>)) {
+    if (key === UPDATE_PUBLIC_KEY_FIELD) {
+      if (typeof candidate === "string" && parseUpdatePublicKey(candidate)) updatePublicKey = candidate;
+      else if (candidate !== undefined && candidate !== "") rejected.push(UPDATE_PUBLIC_KEY_FIELD);
+      continue;
+    }
     if (!(BUILD_CONFIG_KEYS as readonly string[]).includes(key)) {
       rejected.push(/^[A-Z][A-Z0-9_]{0,63}$/u.test(key) ? key : "_unknown");
       continue;
@@ -50,7 +64,7 @@ export function parseBuildConfig(value: unknown, options: ParseOptions): Omit<Bu
     if (validBuildValue(typedKey, candidate, options)) config[typedKey] = candidate;
     else rejected.push(typedKey);
   }
-  return { config, rejected };
+  return updatePublicKey ? { config, rejected, updatePublicKey } : { config, rejected };
 }
 
 export function validBuildValue(key: BuildConfigKey, value: string, options: ParseOptions): boolean {
@@ -89,10 +103,12 @@ export interface LoadBuildConfigOptions {
 /** Packaged builds read only the generated resource file; development reads the parent environment. */
 export async function loadBuildConfig(options: LoadBuildConfigOptions): Promise<BuildConfigResult> {
   if (!options.packaged) {
-    const candidate = Object.fromEntries(BUILD_CONFIG_KEYS.flatMap((key) => {
+    const candidate: Record<string, string> = Object.fromEntries(BUILD_CONFIG_KEYS.flatMap((key) => {
       const value = options.environment[key];
       return value === undefined ? [] : [[key, value]];
     }));
+    const updateKey = options.environment[UPDATE_PUBLIC_KEY_ENV];
+    if (updateKey !== undefined) candidate[UPDATE_PUBLIC_KEY_FIELD] = updateKey;
     return { ...parseBuildConfig(candidate, { allowLoopbackInsecure: true }), source: "environment" };
   }
   const read = options.read ?? ((filePath: string) => readFile(filePath, "utf8"));
