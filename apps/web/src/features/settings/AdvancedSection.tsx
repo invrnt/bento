@@ -1,17 +1,10 @@
 import { useMemo, useState } from "react";
-import type { ReactNode } from "react";
 import {
   AppWindow,
-  Bot,
-  ChevronRight,
   CircleAlert,
   CircleCheck,
-  Cloud,
-  Cpu,
-  Database,
   Download,
   FolderOpen,
-  Gauge,
   Globe,
   HardDriveDownload,
   KeyRound,
@@ -19,8 +12,6 @@ import {
   RefreshCw,
   RotateCcw,
   Search,
-  Settings2,
-  ShieldCheck,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -33,7 +24,6 @@ import { Card } from "../../components/Card";
 import { Checkbox } from "../../components/Checkbox";
 import { Dialog } from "../../components/Dialog";
 import { Input } from "../../components/Input";
-import { PageHeader } from "../../components/PageHeader";
 import { Select } from "../../components/Select";
 import { Spinner } from "../../components/Spinner";
 import { ErrorState, LoadingState } from "../../components/States";
@@ -41,74 +31,45 @@ import { hasMessage, t } from "../../i18n/dictionary";
 import type { MessageKey } from "../../i18n/dictionary";
 import { cx } from "../../lib/cx";
 import type { ApplyMode, FieldIssue, SettingDefinition } from "../../api/settings";
+import { formatBytes } from "../onboarding/format";
 import type { SettingsController } from "./useSettingsController";
-import { OnboardingWizard } from "../onboarding/OnboardingWizard";
-import { UpdatePanel } from "./UpdatePanel";
 
-type Category = "overview" | "general" | "storage" | "telegram" | "ai" | "performance" | "advanced";
+const groupOrder = ["storage", "backup", "performance", "ai", "telegram", "general", "advanced"];
 
-const categories: { icon: typeof Settings2; key: Category; label: MessageKey }[] = [
-  { icon: ShieldCheck, key: "overview", label: "settings.category.overview" },
-  { icon: Settings2, key: "general", label: "settings.category.general" },
-  { icon: Database, key: "storage", label: "settings.category.storage" },
-  { icon: Bot, key: "telegram", label: "settings.category.telegram" },
-  { icon: Cpu, key: "ai", label: "settings.category.ai" },
-  { icon: Gauge, key: "performance", label: "settings.category.performance" },
-  { icon: KeyRound, key: "advanced", label: "settings.category.advanced" },
-];
-
-const searchInputId = "settings-search";
-
-export function EditableSettingsPage({ controller }: { controller: SettingsController }) {
-  const [category, setCategory] = useState<Category>("overview");
+/** Ajustes › Avanzado: every registry setting with validation, restart scope and portability tools. */
+export function AdvancedSection({ controller }: { controller: SettingsController }) {
   const [query, setQuery] = useState("");
-  const [onboardingComplete, setOnboardingComplete] = useState(() => {
-    try { return window.localStorage.getItem("bento:onboarding-complete") === "1"; } catch { return false; }
-  });
-  const fields = controller.schema?.fields ?? [];
-  const visibleFields = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase("es");
-    return fields.filter((field) => {
-      if (category !== "overview" && field.group !== category) return false;
+  const fields = useMemo(() => controller.schema?.fields ?? [], [controller.schema]);
+  const groups = useMemo(() => {
+    const normalized = query.trim().toLocaleLowerCase();
+    const matching = fields.filter((field) => {
       if (!normalized) return true;
-      return `${fieldLabel(field)} ${fieldHelp(field)} ${field.env_aliases.join(" ")}`.toLocaleLowerCase("es").includes(normalized);
+      return `${fieldLabel(field)} ${fieldHelp(field)} ${field.key} ${field.env_aliases.join(" ")}`.toLocaleLowerCase().includes(normalized);
     });
-  }, [category, fields, query]);
+    const names = [...new Set(matching.map((field) => field.group))].sort((left, right) => groupRank(left) - groupRank(right));
+    return names.map((name) => ({ fields: matching.filter((field) => field.group === name), name }));
+  }, [fields, query]);
 
-  if (controller.isLoading) return <PageState><LoadingState /></PageState>;
-  if (controller.error && !controller.schema) return <PageState><ErrorState body={t("settings.settingsError.body")} onRetry={() => void controller.refresh()} /></PageState>;
-
-  function completeOnboarding() {
-    try { window.localStorage.setItem("bento:onboarding-complete", "1"); } catch { /* A private browser can deny storage. */ }
-    setOnboardingComplete(true);
-  }
-
-  const activeCategory = categories.find((item) => item.key === category);
+  if (controller.isLoading && !controller.schema) return <LoadingState />;
+  if (controller.error && !controller.schema) return <ErrorState body={t("settings.settingsError.body")} onRetry={() => void controller.refresh()} />;
 
   return (
-    <div className="mx-auto w-full max-w-6xl pb-28">
-      {controller.desktop && !onboardingComplete ? <OnboardingWizard controller={controller} onComplete={completeOnboarding} /> : null}
-      <PageHeader
-        actions={
-          <Input
-            hideLabel
-            id={searchInputId}
-            label={t("settings.search.label")}
-            leadingIcon={<Search />}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t("settings.search.placeholder")}
-            type="search"
-            value={query}
-            wrapperClassName="w-full lg:w-80"
-          />
-        }
-        className="mb-6"
-        description={t("settings.editable.subtitle")}
-        eyebrow={t("settings.eyebrow")}
-        title={t("settings.header.title")}
-      />
+    <div className="grid gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <p className="max-w-xl text-base text-ink-muted">{t("advanced.body")}</p>
+        <Input
+          hideLabel
+          label={t("settings.search.label")}
+          leadingIcon={<Search />}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={t("settings.search.placeholder")}
+          type="search"
+          value={query}
+          wrapperClassName="w-full sm:w-72"
+        />
+      </div>
 
-      <div className="mb-6 grid gap-3 empty:hidden">
+      <div className="grid gap-3 empty:hidden">
         {controller.desktop?.recoveryMode ? <Notice tone="danger" title={t("settings.recovery.title")} body={t("settings.recovery.body")} /> : null}
         {!controller.desktop ? <Notice tone="info" title={t("settings.headless.title")} body={t("settings.headless.body")} /> : null}
         {controller.desktop?.secureStorage === "unavailable" ? <Notice tone="warning" title={t("settings.secureStorage.title")} body={t("settings.secureStorage.body")} /> : null}
@@ -124,118 +85,58 @@ export function EditableSettingsPage({ controller }: { controller: SettingsContr
         ) : null}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[13.5rem_minmax(0,1fr)]">
-        <nav aria-label={t("settings.categories.label")} className="-mx-1 lg:sticky lg:top-0 lg:mx-0 lg:self-start">
-          <div className="flex gap-1 overflow-x-auto px-1 pb-1 lg:grid lg:gap-0.5 lg:overflow-visible lg:p-0">
-            {categories.map((item) => {
-              const Icon = item.icon;
-              const active = category === item.key;
-              return (
-                <button
-                  aria-current={active ? "page" : undefined}
-                  className={cx(
-                    "focus-ring group/category flex h-9 min-w-max items-center gap-3 rounded-md px-2.5 text-left text-base font-medium transition-[background-color,color,box-shadow] duration-150",
-                    active ? "bg-raised text-ink shadow-sm ring-1 ring-line" : "text-ink-muted hover:bg-hover hover:text-ink",
-                  )}
-                  key={item.key}
-                  onClick={() => { setCategory(item.key); if (query) document.getElementById(searchInputId)?.focus(); }}
-                  type="button"
-                >
-                  <Icon
-                    aria-hidden="true"
-                    className={cx("size-[1.125rem] shrink-0 transition-colors", active ? "text-accent-ink" : "text-ink-subtle group-hover/category:text-ink-muted")}
-                    strokeWidth={1.75}
-                  />
-                  {t(item.label)}
-                </button>
-              );
-            })}
-          </div>
-        </nav>
+      {!query ? <SpaceOverview controller={controller} /> : null}
 
-        <div aria-live="polite" className="grid min-w-0 content-start gap-4">
-          {category === "overview" && !query ? <HealthOverview controller={controller} onOpen={setCategory} /> : (
-            <Card aria-labelledby="settings-section-title" as="section" className="overflow-hidden" padding="none">
+      <div aria-live="polite" className="grid min-w-0 content-start gap-4">
+        {groups.length ? (
+          groups.map((group) => (
+            <Card aria-labelledby={`settings-group-${group.name}`} as="section" className="overflow-hidden" key={group.name} padding="none">
               <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line px-5 py-4">
                 <div className="min-w-0">
-                  <h2 className="text-lg font-semibold text-ink" id="settings-section-title">{t(activeCategory?.label ?? "settings.header.title")}</h2>
-                  <p className="mt-0.5 text-base text-ink-muted">{query ? t("settings.search.results") : categoryHelp(category)}</p>
+                  <h2 className="text-lg font-semibold text-ink" id={`settings-group-${group.name}`}>{groupLabel(group.name)}</h2>
+                  <p className="mt-0.5 text-sm text-ink-muted">{groupHelp(group.name)}</p>
                 </div>
-                {category !== "overview" ? (
-                  <Button leadingIcon={<RotateCcw />} onClick={() => controller.resetGroup(category)} size="sm" variant="ghost">
-                    {t("settings.reset.section")}
-                  </Button>
-                ) : null}
+                <Button leadingIcon={<RotateCcw />} onClick={() => controller.resetGroup(group.name)} size="sm" variant="ghost">
+                  {t("settings.reset.section")}
+                </Button>
               </div>
-              {category === "general" && controller.desktop ? <UpdatePanel desktop={controller.desktop} /> : null}
               <div className="divide-y divide-line">
-                {visibleFields.length ? visibleFields.map((field) => <SettingField controller={controller} field={field} key={field.key} />) : (
-                  <p className="px-5 py-10 text-center text-base text-ink-muted">{t("settings.search.empty")}</p>
-                )}
+                {group.fields.map((field) => <SettingField controller={controller} field={field} key={field.key} />)}
               </div>
-              {category === "advanced" ? <AdvancedTools controller={controller} /> : null}
             </Card>
-          )}
-
-          {controller.validation ? <ValidationSummary controller={controller} /> : null}
-          {controller.applyProgress.length ? <ApplyProgressList controller={controller} /> : null}
-          {controller.applyOutcome?.rolledBack ? <Notice tone="danger" title={t("settings.rollback.title")} body={t("settings.rollback.body")} /> : null}
-          {controller.applyOutcome && !controller.applyOutcome.rolledBack ? <Notice tone="success" title={t("settings.saved.title")} body={t("settings.saved.body")} /> : null}
-        </div>
+          ))
+        ) : (
+          <p className="rounded-lg border border-dashed border-line-strong px-5 py-10 text-center text-base text-ink-muted">{t("settings.search.empty")}</p>
+        )}
+        {!query ? <Card padding="none"><AdvancedTools controller={controller} /></Card> : null}
       </div>
-
-      {controller.dirty ? <DirtyBar controller={controller} /> : null}
     </div>
   );
 }
 
-function HealthOverview({ controller, onOpen }: { controller: SettingsController; onOpen: (category: Category) => void }) {
-  const [confirmReclaim, setConfirmReclaim] = useState(false);
-  const publicSettings = controller.publicSettings;
-  const maintenance = publicSettings?.storage_maintenance;
-  const cards = [
-    { category: "storage" as const, good: publicSettings?.storage_backend === "local" || Boolean(publicSettings?.telegram_configured), icon: Database, label: t("settings.health.storage"), value: publicSettings?.storage_backend === "telegram" ? t("settings.storage.telegram") : t("settings.storage.local") },
-    { category: "telegram" as const, good: Boolean(publicSettings?.telegram_configured), icon: Bot, label: t("settings.health.telegram"), value: publicSettings?.telegram_configured ? t("settings.telegram.configured") : t("settings.telegram.notConfigured") },
-    { category: "ai" as const, good: publicSettings?.ocr_state !== "error" && publicSettings?.embeddings_state !== "error", icon: Cpu, label: t("settings.health.indexing"), value: publicSettings?.embeddings_state === "ready" || publicSettings?.ocr_state === "ready" ? t("settings.provider.ready") : t("settings.provider.disabled") },
-    { category: "performance" as const, good: publicSettings?.worker_status !== "degraded", icon: Gauge, label: t("settings.health.worker"), value: publicSettings?.worker_status === "running" ? t("settings.worker.running") : t("settings.worker.stopped") },
-  ];
+/** Validation, apply progress and outcome, shown under any section that edits settings. */
+export function SettingsApplyStatus({ controller }: { controller: SettingsController }) {
   return (
-    <section aria-labelledby="health-title" className="grid gap-4">
-      <div>
-        <h2 className="text-lg font-semibold text-ink" id="health-title">{t("settings.health.title")}</h2>
-        <p className="mt-0.5 text-base text-ink-muted">{t("settings.health.body")}</p>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {cards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <button
-              className="focus-ring group flex min-h-36 flex-col justify-between gap-4 rounded-lg border border-line bg-raised p-4 text-left shadow-xs transition-[border-color,box-shadow] duration-150 hover:border-line-strong hover:shadow-md"
-              key={card.category}
-              onClick={() => onOpen(card.category)}
-              type="button"
-            >
-              <span className="flex items-start justify-between gap-3">
-                <span aria-hidden="true" className={cx("grid size-9 place-items-center rounded-md", card.good ? "bg-success-soft text-success-ink" : "bg-warning-soft text-warning-ink")}>
-                  <Icon className="size-[1.125rem]" strokeWidth={1.75} />
-                </span>
-                <ChevronRight aria-hidden="true" className="size-4 text-ink-subtle transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-ink-muted" />
-              </span>
-              <span className="grid gap-1">
-                <span className="text-sm text-ink-muted">{card.label}</span>
-                <span className="font-semibold text-ink">{card.value}</span>
-                <Badge className="mt-1 w-fit" dot tone={card.good ? "success" : "warning"}>{card.good ? t("settings.health.ok") : t("settings.health.attention")}</Badge>
-              </span>
-            </button>
-          );
-        })}
-      </div>
+    <div className="grid gap-4 empty:hidden">
+      {controller.validation ? <ValidationSummary controller={controller} /> : null}
+      {controller.applyProgress.length ? <ApplyProgressList controller={controller} /> : null}
+      {controller.applyOutcome?.rolledBack ? <Notice tone="danger" title={t("settings.rollback.title")} body={t("settings.rollback.body")} /> : null}
+      {controller.applyOutcome && !controller.applyOutcome.rolledBack ? <Notice tone="success" title={t("settings.saved.title")} body={t("settings.saved.body")} /> : null}
+    </div>
+  );
+}
+
+function SpaceOverview({ controller }: { controller: SettingsController }) {
+  const [confirmReclaim, setConfirmReclaim] = useState(false);
+  const maintenance = controller.publicSettings?.storage_maintenance;
+  return (
+    <section aria-label={t("advanced.space.label")} className="grid gap-3">
       <div className="grid gap-3 lg:grid-cols-2">
         {maintenance ? (
           <Card className="flex flex-col gap-4" padding="md">
             <div className="flex items-start gap-3">
               <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-md bg-accent-soft text-accent-ink">
-                <Cloud className="size-[1.125rem]" strokeWidth={1.75} />
+                <HardDriveDownload className="size-[1.125rem]" strokeWidth={1.75} />
               </span>
               <div className="min-w-0">
                 <h3 className="font-semibold text-ink">{t("settings.space.title")}</h3>
@@ -449,7 +350,7 @@ function DataMigrationChoice({ controller }: { controller: SettingsController })
   );
 }
 
-function DirtyBar({ controller }: { controller: SettingsController }) {
+export function SettingsDirtyBar({ controller }: { controller: SettingsController }) {
   const restart = controller.validation?.restart_plan;
   const changedKeys = new Set([
     ...Object.keys(controller.secretEdits),
@@ -526,7 +427,7 @@ function ApplyProgressList({ controller }: { controller: SettingsController }) {
 function AdvancedTools({ controller }: { controller: SettingsController }) {
   const unknown = controller.importPreview?.unknown_keys ?? controller.importPreview?.unknown;
   return (
-    <div className="border-t border-line bg-subtle px-5 py-5">
+    <div className="px-5 py-5">
       <h3 className="font-semibold text-ink">{t("settings.portability.title")}</h3>
       <p className="mt-0.5 text-sm text-ink-muted">{t("settings.portability.body")}</p>
       <div className="mt-3 flex flex-wrap gap-2">
@@ -562,15 +463,6 @@ function Notice({ body, title, tone }: { body: string; title: string; tone: Extr
   return <Callout role={tone === "danger" ? "alert" : "status"} title={title} tone={tone}>{body}</Callout>;
 }
 
-function PageState({ children }: { children: ReactNode }) {
-  return (
-    <div className="mx-auto grid w-full max-w-6xl gap-6">
-      <PageHeader description={t("settings.editable.subtitle")} eyebrow={t("settings.eyebrow")} title={t("settings.header.title")} />
-      {children}
-    </div>
-  );
-}
-
 function fieldLabel(field: SettingDefinition) { return hasMessage(field.label_key) ? t(field.label_key) : field.key.replaceAll("_", " "); }
 function fieldHelp(field: SettingDefinition) { return hasMessage(field.help_key) ? t(field.help_key) : t("settings.field.defaultHelp"); }
 function sourceLabel(source: string) { const key = `settings.source.${source}`; return hasMessage(key) ? t(key) : t("common.unknown"); }
@@ -579,6 +471,7 @@ function restartDescription(mode: ApplyMode) { return mode === "live" ? t("setti
 function issueMessage(issue: FieldIssue) { const key = `settings.error.${issue.code}`; return hasMessage(key) ? t(key) : t("settings.error.generic"); }
 function progressLabel(phase: string) { const key = `settings.progress.${phase}`; return hasMessage(key) ? t(key) : t("settings.progress.working"); }
 function choiceLabel(field: string, choice: string) { const key = `settings.choice.${field}.${choice}`; return hasMessage(key) ? t(key) : choice; }
-function categoryHelp(category: Category) { const key = `settings.category.${category}.help`; return hasMessage(key) ? t(key) : t("settings.field.defaultHelp"); }
+function groupRank(group: string) { const index = groupOrder.indexOf(group); return index < 0 ? groupOrder.length : index; }
+function groupLabel(group: string) { const key = `advanced.group.${group}`; return hasMessage(key) ? t(key) : group; }
+function groupHelp(group: string) { const key = `advanced.group.${group}.help`; return hasMessage(key) ? t(key) : t("settings.field.defaultHelp"); }
 function applyModeRank(mode: ApplyMode) { return { live: 0, restart_worker: 1, restart_services: 2, restart_app: 3 }[mode]; }
-function formatBytes(bytes: number) { if (bytes < 1024) return `${bytes} B`; const units = ["KB", "MB", "GB", "TB"]; const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length); return `${new Intl.NumberFormat("es", { maximumFractionDigits: 1 }).format(bytes / 1024 ** exponent)} ${units[exponent - 1]}`; }

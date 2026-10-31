@@ -35,7 +35,8 @@ export const routeDefinitions: RouteDefinition[] = [
   },
   { bodyKey: "route.documents.body", pattern: /^\/documents\/?$/, titleKey: "route.documents.title" },
   { bodyKey: "route.jobs.body", pattern: /^\/jobs\/?$/, titleKey: "route.jobs.title" },
-  { bodyKey: "route.settings.body", pattern: /^\/settings\/?$/, titleKey: "route.settings.title" },
+  { bodyKey: "route.settings.body", pattern: /^\/settings(?:\/[a-z-]+)?\/?$/, titleKey: "route.settings.title" },
+  { bodyKey: "route.join.body", pattern: /^\/join\/?$/, titleKey: "route.join.title" },
 ];
 
 export function resolveRoute(pathname: string): RouteDefinition {
