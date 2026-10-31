@@ -70,6 +70,9 @@ class PhotosUseCases:
     async def list_albums(self, *, cursor: str | None = None, limit: int = 50) -> tuple[tuple[Album, ...], str | None]:
         return await self._albums.list(cursor=cursor, limit=limit)
 
+    async def get_album(self, album_id: str) -> Album:
+        return await self._require_album(album_id)
+
     async def add_asset_to_album(self, command: AddAlbumAssetCommand) -> Album:
         album = await self._require_album(command.album_id)
         if await self._assets.get(command.asset_id) is None:

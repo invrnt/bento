@@ -449,6 +449,25 @@ async def create_album(request: Request, body: AlbumCreateRequest) -> AlbumRespo
         return _domain_error_response(request, exc)
 
 
+@router.get("/photos/albums/{album_id}", response_model=AlbumResponse)
+async def album_detail(album_id: str, request: Request) -> AlbumResponse | JSONResponse:
+    try:
+        return _album_response(await _product_dependencies(request).photos.get_album(album_id))
+    except DomainError as exc:
+        return _domain_error_response(request, exc)
+
+
+@router.delete("/photos/albums/{album_id}/items/{asset_id}", response_model=AlbumResponse)
+async def remove_album_item(album_id: str, asset_id: str, request: Request) -> AlbumResponse | JSONResponse:
+    try:
+        album = await _product_dependencies(request).photos.remove_asset_from_album(
+            AddAlbumAssetCommand(album_id=album_id, asset_id=asset_id)
+        )
+        return _album_response(album)
+    except DomainError as exc:
+        return _domain_error_response(request, exc)
+
+
 @router.post("/photos/albums/{album_id}/items", response_model=AlbumResponse)
 async def add_album_item(album_id: str, request: Request, body: AlbumItemRequest) -> AlbumResponse | JSONResponse:
     try:

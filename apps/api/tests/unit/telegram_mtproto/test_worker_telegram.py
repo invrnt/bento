@@ -65,3 +65,30 @@ def test_inbox_loop_is_off_in_local_mode_and_survives_failures(tmp_path: Path, m
         return inbox.scans
 
     assert asyncio.run(scenario()) == 3
+
+
+def test_waiting_for_inbox_activity_ends_quietly_when_the_worker_stops(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from types import SimpleNamespace
+
+    from bento.infrastructure.mtproto import wiring
+
+    class Session:
+        async def current(self) -> object:
+            return SimpleNamespace(layout="layout")
+
+    class Transport:
+        async def wait_for_activity(self, layout: object, timeout_seconds: float) -> bool:
+            await asyncio.sleep(timeout_seconds)
+            return False
+
+    monkeypatch.setattr(wiring, "vault_session", lambda settings: Session())
+    monkeypatch.setattr(wiring, "telegram_runtime", lambda settings: SimpleNamespace(transport=Transport()))
+
+    async def scenario() -> None:
+        stop = asyncio.Event()
+        asyncio.get_running_loop().call_later(0.05, stop.set)
+        await asyncio.wait_for(
+            worker_telegram._wait_for_activity(Settings(data_dir=str(tmp_path), storage_backend="fake"), stop), 5
+        )
+
+    asyncio.run(scenario())

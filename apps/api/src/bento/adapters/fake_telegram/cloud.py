@@ -40,6 +40,7 @@ MAX_DOCUMENT_BYTES = 2000 * 1024 * 1024
 _CHANNEL_ID_BASE = 1_001_000_000_000
 _LOGIN_TOKEN_GRACE = timedelta(minutes=5)
 _SEED_DATE = datetime(2026, 9, 1, 10, 0, tzinfo=UTC)
+FAULT_KINDS = frozenset({"flood_wait", "network"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -418,11 +419,40 @@ class FakeTelegramCloud:
                     return
         raise missing_remote()
 
+    # Fault injection (tests and manual UI checks)
+
+    def inject_fault(self, kind: str, *, seconds: float) -> None:
+        """Make every authorized call of every instance fail for `seconds`.
+
+        `flood_wait` raises `TelegramFloodWaitError` with the remaining seconds; `network` raises
+        `TelegramAccountError("telegram_network")`, like an unreachable Telegram.
+        """
+        if kind not in FAULT_KINDS:
+            raise ValueError(f"Unknown fault kind: {kind}")
+        self.ensure_ready()
+        store.write_json(self._faults_path, {"kind": kind, "until": self._clock() + max(0.0, seconds)})
+
+    def clear_fault(self) -> None:
+        self._faults_path.unlink(missing_ok=True)
+
+    def active_fault(self) -> tuple[str, float] | None:
+        """`(kind, remaining_seconds)` while an injected fault lasts."""
+        payload = store.read_json(self._faults_path)
+        if payload is None:
+            return None
+        remaining = float(payload.get("until", 0)) - self._clock()
+        kind = str(payload.get("kind", ""))
+        return (kind, remaining) if remaining > 0 and kind in FAULT_KINDS else None
+
     # Internals
 
     @property
     def _cloud_path(self) -> Path:
         return self.root / "cloud.json"
+
+    @property
+    def _faults_path(self) -> Path:
+        return self.root / "faults.json"
 
     def _chat_dir(self, chat_id: int) -> Path:
         return self.root / "chats" / str(chat_id)

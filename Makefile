@@ -1,4 +1,4 @@
-.PHONY: dev up watch down logs doctor seed test setup backend-install frontend-install desktop-install backend-test frontend-test desktop-test desktop-build desktop-package desktop-make desktop-smoke desktop-verify desktop-release-artifacts smoke pre-commit-install pre-commit pre-push
+.PHONY: dev up watch down logs doctor seed test setup backend-install frontend-install desktop-install backend-test frontend-test desktop-test desktop-build desktop-package desktop-make desktop-smoke desktop-verify desktop-release-artifacts smoke e2e two-devices pre-commit-install pre-commit pre-push
 
 dev: up
 
@@ -67,6 +67,12 @@ desktop-release-artifacts: desktop-make
 
 smoke: backend-install
 	cd apps/api && uv run pytest tests/smoke
+
+e2e: backend-install
+	cd apps/api && uv run pytest -m e2e
+
+two-devices: backend-install
+	uv run --project apps/api python scripts/smoke/two_devices.py
 
 pre-commit-install: backend-install
 	uv run --project apps/api pre-commit install --install-hooks
