@@ -23,10 +23,10 @@ Exit: backend suite green, migration upgrades/downgrades, crypto test vectors an
 
 | Agent | Prompt | Owns |
 |---|---|---|
-| mtproto | `23-telegram-mtproto-agent.md` | `infrastructure/mtproto/**`, `adapters/telegram_mtproto/**`, `application/{account,vault,sharing,telegram_import,inbox}.py`, `interfaces/http/routes_{account,vault,telegram}.py`, inbox worker loop, removal of Bot API code/settings/compose service, storage factory, `domain/settings_registry.py` (legacy removals only) |
+| mtproto | `23-telegram-mtproto-agent.md` | `infrastructure/mtproto/**`, `adapters/telegram_mtproto/**`, `adapters/storage/telegram_vault_blob_store.py`, `application/{account,vault,sharing,telegram_import,inbox}.py`, `interfaces/http/routes_{account,vault,telegram}.py` (vault includes recovery), inbox worker loop, removal of Bot API code/settings/compose service, storage factory, doctor, `domain/settings_registry.py` (legacy removals only) |
 | sync | `24-sync-engine-agent.md` | `application/sync/**`, `adapters/sync/**`, change-capture wiring, OCR/embedding `asset_index` emission, `interfaces/http/routes_sync.py`, sync worker loop |
-| pairing | `25-pairing-devices-agent.md` | `adapters/pairing/**`, `application/{pairing,devices,recovery}.py`, `interfaces/http/routes_{pairing,devices,recovery}.py` |
-| backup | `26-backup-automation-agent.md` | `adapters/backup/**`, `application/{backup,trash,activity,content}.py`, `interfaces/http/routes_{backup,trash,activity,content}.py`, purge/cache jobs, fix of remote blob deletion |
+| pairing | `25-pairing-devices-agent.md` | `adapters/pairing/**`, `application/{pairing,devices}.py`, `interfaces/http/routes_{pairing,devices}.py` |
+| storage-pipeline/backup | `26-backup-automation-agent.md` | `adapters/backup/**`, `adapters/storage/cache.py`, `application/{backup,trash,activity,storage_pipeline,content,upload,storage_maintenance}.py`, `application/ingestion/**`, `application/media/service.py`, `interfaces/http/routes_{backup,trash,activity,content}.py`, asset download/delete handlers, remote upload/purge/cache jobs |
 | desktop | `27-desktop-experience-agent.md` | `apps/desktop/**` |
 | site-docs | `30-site-docs-agent.md` | `apps/site/**`, `docs/user/**`, `docs/legal/**`, `docs/dev/**` |
 
@@ -35,7 +35,9 @@ Shared-file rules for Stage 15:
 - `interfaces/http/routes.py`: each agent adds only its own `router.include_router(...)` line.
 - `interfaces/worker/main.py` / `dispatch.py`: each agent adds only its own loop/handler registration lines.
 - `domain/jobs.py` `JobType`: mtproto adds `account_reload`, `inbox_import`; sync adds `sync_snapshot`; backup adds `backup_scan`, `backup_upload`, `trash_purge`, `cache_evict`. Append only.
-- `interfaces/http/routes.py` asset delete/download handlers: backup agent only.
+- `interfaces/http/routes.py` asset delete/download handlers: storage-pipeline/backup agent only.
+- `infrastructure/services.py`: each owner replaces only its own factory bodies.
+- `apps/desktop/**` and the site/docs run in Stage 15 too (`27`, `30`).
 - `adapters/media/**`, `application/indexing/**`: sync agent only for `asset_index` emission; no other behavior changes.
 
 Exit: full backend suite green, two-process fake-cloud sync journey passes, pairing over a local relay double passes, desktop tests green, site builds.
