@@ -10,7 +10,7 @@ The fake is rejected when `ENVIRONMENT=production` and is never selectable in pa
 - QR sign-in approves itself after about 2 seconds. Set `BENTO_FAKE_TELEGRAM_MANUAL_LOGIN=1` to approve by hand instead:
 
   ```sh
-  curl -X POST http://127.0.0.1:8000/api/dev/fake-telegram/approve-login
+  curl -X POST -H 'X-Bento-Client: web' http://127.0.0.1:8000/api/dev/fake-telegram/approve-login
   ```
 
 - Phone sign-in accepts the code `12345`. With `BENTO_FAKE_TELEGRAM_2FA=1` the account also asks for the password `bento-demo`.
