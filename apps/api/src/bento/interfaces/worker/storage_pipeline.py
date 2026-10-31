@@ -119,7 +119,7 @@ class StoragePipelineLoop:
     debouncer: ScanDebouncer = field(default_factory=ScanDebouncer)
     clock: Callable[[], float] = time.monotonic
     tick_seconds: float = 0.5
-    sources_interval: float = 30.0
+    sources_interval: float = 2.0
     backfill_interval: float = 120.0
     full_scan_interval: float = 6 * 3600.0
     retention_interval: float = 3600.0
@@ -204,6 +204,8 @@ class StoragePipelineLoop:
                 continue
             self._watch_failures.discard(source.id)
             self._watched[source.id] = source.path
+            # Files created between the source's first scan and this watch would otherwise wait for the full scan.
+            await self.components.backup.enqueue_scan(source.id)
 
     def _due(self, name: str, interval: float) -> bool:
         now = self.clock()

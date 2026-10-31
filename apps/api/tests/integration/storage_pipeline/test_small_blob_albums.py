@@ -107,7 +107,7 @@ def test_a_failed_album_falls_back_to_one_upload_per_blob(tmp_path: Path) -> Non
     async def scenario() -> None:
         store, components, _ = await _library(tmp_path, 2)
         await JobRunner(components).run_all(types={"remote_upload"}, max_jobs=2)  # the originals
-        store.album_failures.append(StorageUnavailableError("telegram"))
+        store.album_failures.append(RuntimeError("album rejected"))
         store.failures.extend([None, ConnectionError("network vanished")])  # the first companion fails on its own
 
         assert await JobRunner(components).run_all(max_jobs=1) == 1

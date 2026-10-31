@@ -160,7 +160,7 @@ def test_failures_retry_with_backoff_and_exhausted_uploads_stay_retryable(tmp_pa
         store = await vault_remote_store(tmp_path)
         components = pipeline_for(migrated_data_dir(tmp_path), RemoteSwitch(store))
         result = await _ingest(components, tmp_path, "a.txt", b"alpha")
-        store.failures.extend([StorageUnavailableError("telegram")] * 2)
+        store.failures.extend([RuntimeError("upload rejected")] * 2)
 
         await JobRunner(components).run_all()
         [job] = _jobs(components)
@@ -188,6 +188,29 @@ def test_failures_retry_with_backoff_and_exhausted_uploads_stay_retryable(tmp_pa
         ref = await components.blob_refs.latest_for_asset(result.asset.id, BlobKind.ORIGINAL)
         assert ref.backend == StorageBackend.TELEGRAM
         assert (await components.activity.current()).attention == ()
+
+    run(scenario())
+
+
+def test_offline_uploads_wait_for_the_network_without_consuming_attempts(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        store = await vault_remote_store(tmp_path)
+        components = pipeline_for(migrated_data_dir(tmp_path), RemoteSwitch(store))
+        result = await _ingest(components, tmp_path, "a.txt", b"alpha")
+        store.failures.extend([StorageUnavailableError("telegram")] * 3)
+
+        for _ in range(3):
+            await JobRunner(components).run_all()
+            waiting = [job for job in _jobs(components) if job.status in {JobStatus.QUEUED.value, JobStatus.RETRYING.value}]
+            assert waiting and all(job.attempts == 0 for job in waiting)
+            assert all(job.run_after is not None for job in waiting)
+            for job in waiting:
+                await components.jobs.save(replace(await components.jobs.get(job.id), run_after=None))
+        assert not [job for job in _jobs(components) if job.status == JobStatus.FAILED.value]
+
+        await JobRunner(components).run_all()
+        ref = await components.blob_refs.latest_for_asset(result.asset.id, BlobKind.ORIGINAL)
+        assert ref.backend == StorageBackend.TELEGRAM
 
     run(scenario())
 

@@ -24,6 +24,7 @@ bento-sidecar = "bento.interfaces.desktop.launcher:main"
 [project.optional-dependencies]
 dev = [
   "httpx>=0.28,<0.29",
+  "pillow>=11,<12",
   "pre-commit>=4,<5",
   "pytest>=8.3,<9",
 ]

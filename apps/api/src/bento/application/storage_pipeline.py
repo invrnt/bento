@@ -21,6 +21,7 @@ from typing import Protocol
 from bento.domain.assets import AssetMetadata
 from bento.domain.errors import (
     DomainError,
+    StorageUnavailableError,
     TelegramAccountError,
     TelegramFloodWaitError,
     ValidationFailedError,
@@ -39,6 +40,8 @@ LOGGER = logging.getLogger("bento.storage_pipeline")
 REMOTE_UPLOAD_PRIORITY_ORIGINAL = 2
 REMOTE_UPLOAD_PRIORITY_DERIVED = 3
 REMOTE_UPLOAD_MAX_ATTEMPTS = 8
+# Offline uploads wait for the network without consuming attempts; short so they resume promptly.
+OFFLINE_RETRY_SECONDS = 15
 UPLOADABLE_KINDS = frozenset({BlobKind.ORIGINAL, BlobKind.THUMBNAIL, BlobKind.PREVIEW})
 SMALL_BLOB_KINDS = frozenset({BlobKind.THUMBNAIL, BlobKind.PREVIEW})
 """Derived blobs: small, so several pending ones share one album request."""
@@ -186,9 +189,13 @@ class StoragePipelineService:
             return await self._reschedule(blob_ref, exc)
         except (VaultLockedError, VaultNotFoundError):
             return RemoteUploadResult(UploadOutcome.NOT_READY)
+        except StorageUnavailableError:
+            return await self._reschedule_offline(blob_ref)
         except TelegramAccountError as exc:
             if exc.code == "telegram_not_authorized":
                 return RemoteUploadResult(UploadOutcome.NOT_READY)
+            if exc.code == "telegram_network":
+                return await self._reschedule_offline(blob_ref)
             raise
         return await self._finish(prepared, remote_ref)
 
@@ -254,6 +261,10 @@ class StoragePipelineService:
             results.update((item.blob_ref.id, RemoteUploadResult(UploadOutcome.NOT_READY)) for item in pending)
             return []
         except Exception as exc:  # noqa: BLE001 - fall back to one upload per blob
+            if _is_offline(exc):
+                for item in pending:
+                    results[item.blob_ref.id] = await self._reschedule_offline(item.blob_ref)
+                return []
             if isinstance(exc, TelegramAccountError) and exc.code == "telegram_not_authorized":
                 results.update((item.blob_ref.id, RemoteUploadResult(UploadOutcome.NOT_READY)) for item in pending)
                 return []
@@ -295,6 +306,10 @@ class StoragePipelineService:
         await self._enqueue(blob_ref, flood_wait_seconds=exc.retry_after_seconds)
         return RemoteUploadResult(UploadOutcome.RESCHEDULED, retry_after_seconds=exc.retry_after_seconds)
 
+    async def _reschedule_offline(self, blob_ref: BlobRef) -> RemoteUploadResult:
+        await self._enqueue(blob_ref, delay_seconds=OFFLINE_RETRY_SECONDS)
+        return RemoteUploadResult(UploadOutcome.RESCHEDULED, retry_after_seconds=OFFLINE_RETRY_SECONDS)
+
     async def _finish(self, prepared: _PreparedUpload, remote_ref: BlobRef) -> RemoteUploadResult:
         blob_ref, path, store = prepared.blob_ref, prepared.path, prepared.store
         if remote_ref.backend != StorageBackend.TELEGRAM or not remote_ref.parts:
@@ -325,7 +340,9 @@ class StoragePipelineService:
         await self._jobs.save(parked)
         return parked
 
-    async def _enqueue(self, blob_ref: BlobRef, *, flood_wait_seconds: int | None = None) -> Job:
+    async def _enqueue(
+        self, blob_ref: BlobRef, *, flood_wait_seconds: int | None = None, delay_seconds: int | None = None
+    ) -> Job:
         payload: dict[str, object] = {
             "blob_id": blob_ref.id,
             "kind": blob_ref.kind.value,
@@ -336,6 +353,8 @@ class StoragePipelineService:
             run_after = self._clock.now() + timedelta(seconds=max(flood_wait_seconds, 0) + self._jitter())
             payload["flood_wait_until"] = run_after.isoformat()
             payload["retry_after_seconds"] = flood_wait_seconds
+        elif delay_seconds is not None:
+            run_after = self._clock.now() + timedelta(seconds=delay_seconds)
         job = await self._jobs.enqueue(
             type=JobType.REMOTE_UPLOAD,
             priority=REMOTE_UPLOAD_PRIORITY_ORIGINAL if blob_ref.kind == BlobKind.ORIGINAL else REMOTE_UPLOAD_PRIORITY_DERIVED,
@@ -378,3 +397,9 @@ def _sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _is_offline(exc: Exception) -> bool:
+    return isinstance(exc, StorageUnavailableError) or (
+        isinstance(exc, TelegramAccountError) and exc.code == "telegram_network"
+    )

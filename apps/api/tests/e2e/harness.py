@@ -221,7 +221,8 @@ class Device:
     @property
     def http(self) -> httpx.Client:
         if self._client is None:
-            self._client = httpx.Client(base_url=self.base_url, timeout=30.0)
+            # Headless request guard: loopback Host plus the web client header on state-changing requests.
+            self._client = httpx.Client(base_url=self.base_url, timeout=30.0, headers={"X-Bento-Client": "web"})
         return self._client
 
     def request(self, method: str, path: str, *, expect: int | tuple[int, ...] = 200, **kwargs: Any) -> httpx.Response:

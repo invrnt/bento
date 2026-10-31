@@ -199,10 +199,6 @@ class TestTelegramFirstJourneys:
         existing = wait_for_named_asset(a, "existente.txt")
         wait_for_remote_upload(a, existing)
 
-        # Workaround: the worker loop only starts watching new sources every 30 s and never rescans what
-        # changed in between (see test_26b). A restart watches (and fully scans) every source right away.
-        a.stop_worker()
-        a.start_worker()
         write_settled(source_dir / "nueva.txt", unique_bytes("nueva"))
         added = wait_for_named_asset(a, "nueva.txt")
         wait_for_named_asset(b, "nueva.txt")
@@ -358,7 +354,6 @@ class TestTelegramFirstJourneys:
         )
         wait_until(lambda: sync_state(a, "idle"), timeout=15, message="A sync idle again")
 
-    @pytest.mark.xfail(reason="worker watches new backup sources only every 30 s and misses files added meanwhile")
     def test_26b_new_backup_source_is_watched_without_a_worker_restart(self, world: World) -> None:
         a = world.devices["a"]
         source_dir = world.root / "a-documents"

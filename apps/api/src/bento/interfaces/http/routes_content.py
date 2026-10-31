@@ -88,7 +88,8 @@ def _status_code(error: DomainError) -> int:
     return 400
 
 
-@router.api_route("/assets/{asset_id}/content", methods=["GET", "HEAD"], response_model=None)
+@router.head("/assets/{asset_id}/content", response_model=None, include_in_schema=False)
+@router.get("/assets/{asset_id}/content", response_model=None)
 async def asset_content(asset_id: str, request: Request) -> Response:
     try:
         content = pipeline(request).content

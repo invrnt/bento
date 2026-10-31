@@ -30,6 +30,9 @@ if TYPE_CHECKING:
 # Desktop main reads the API port only from this single stdout line (`BENTO_API_READY {"port":N}`),
 # written once the server accepts connections on the loopback socket it bound itself.
 READY_PREFIX = "BENTO_API_READY "
+
+# Same layout `make setup` creates (see scripts/doctor), so `make doctor` accepts launcher-created data directories.
+DATA_DIR_LAYOUT = ("db", "cache", "uploads", "models", "journal", "config")
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1"})
 _LISTEN_BACKLOG = 2048
 
@@ -155,6 +158,8 @@ def _run_migrations() -> int:
     settings = get_settings()
     database_path = settings_database_path(settings)
     database_path.parent.mkdir(parents=True, exist_ok=True)
+    for child in DATA_DIR_LAYOUT:
+        (Path(settings.data_dir) / child).mkdir(parents=True, exist_ok=True)
     config = Config(str(_bundle_root() / "alembic.ini"))
     config.set_main_option("script_location", str(_bundle_root() / "migrations"))
     config.set_main_option(

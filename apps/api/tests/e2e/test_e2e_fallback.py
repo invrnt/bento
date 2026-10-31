@@ -55,6 +55,8 @@ def test_22_relay_unavailable_pairs_through_the_sync_channel(world: World) -> No
     guest_view = wait_for_pairing(b, asked["id"], {"awaiting_approval"})
     assert guest_view["sas"] == reviewed["sas"]
 
+    # Both sides confirm the emojis: the guest only opens a grant bound to the offer it confirmed.
+    b.post(f"/pairing/{asked['id']}/confirm")
     a.post(f"/pairing/requests/{request['id']}/approve")
     wait_for_pairing(a, reviewed["id"], {"completed"}, timeout=40)
     wait_for_pairing(b, asked["id"], {"completed"}, timeout=40)
