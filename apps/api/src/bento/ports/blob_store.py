@@ -26,3 +26,13 @@ class BlobStorePort(Protocol):
     async def download(self, blob_ref: BlobRef, destination_path: Path | str) -> Path: ...
 
     async def delete(self, blob_id: str) -> None: ...
+
+
+class RemoteBlobStorePort(BlobStorePort, Protocol):
+    """Blob stores whose refs are self-describing (Telegram parts). Deletion and range reads take the ref itself."""
+
+    async def delete_ref(self, blob_ref: BlobRef) -> None: ...
+
+    async def read_range(self, blob_ref: BlobRef, start: int, length: int) -> bytes:
+        """Decrypted plaintext bytes [start, start+length)."""
+        ...

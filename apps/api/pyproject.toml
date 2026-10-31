@@ -9,8 +9,13 @@ dependencies = [
   "fastapi>=0.115,<0.116",
   "pydantic-settings>=2.7,<3",
   "python-multipart>=0.0.20,<0.1",
+  "segno>=1.6,<2",
+  "spake2>=0.9,<0.10",
   "sqlalchemy>=2.0,<3",
+  "telethon>=1.45,<2",
   "uvicorn[standard]>=0.34,<0.35",
+  "watchdog>=6,<7",
+  "websockets>=15,<18",
 ]
 
 [project.scripts]
