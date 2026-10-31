@@ -1,4 +1,4 @@
-import type { Activity, ActivitySummary, AttentionItem, AttentionKind, TransferStats } from "../../api/activity";
+import type { Activity, ActivitySummary, AttentionAction, AttentionItem, AttentionKind, TransferStats } from "../../api/activity";
 import type { StatusTone } from "../../components/StatusIndicator";
 import { hasMessage, t } from "../../i18n/dictionary";
 import type { MessageKey } from "../../i18n/dictionary";
@@ -6,7 +6,9 @@ import { formatBytes, formatDuration, formatMessage, formatPlural, interpolate }
 
 /** In-app destinations used by status, attention actions and desktop notifications. */
 export const appRoutes = {
+  account: "/settings/account",
   activity: "/activity",
+  devices: "/settings/devices",
   jobs: "/jobs",
   recoveryKit: "/settings?section=recovery",
   settings: "/settings",
@@ -26,6 +28,7 @@ export type ActivityStatusKind =
   | "paused"
   | "offline"
   | "waiting"
+  | "removed"
   | "attention";
 
 export type ActivityStatus = {
@@ -104,6 +107,11 @@ export function describeActivity(activity: Activity | null, error: Error | null 
       : status("loading", "idle", t("activity.status.loading"), t("activity.status.loadingDetail"));
   }
 
+  // Nothing syncs until this device joins again, so that outranks every other state.
+  if (activity.attention.some((item) => item.kind === "device_removed")) {
+    return status("removed", "warning", t("activity.status.removed"), t("activity.status.removedDetail"));
+  }
+
   if (activity.summary === "offline") {
     return status("offline", "warning", t("activity.status.offline"), t("activity.status.offlineDetail"));
   }
@@ -175,19 +183,51 @@ function transferStatus(
   return status(kind, "active", count > 0 && eta ? `${base} · ${eta}` : base, detail);
 }
 
-const attentionKinds: readonly AttentionKind[] = ["upload_failed", "sync_error", "flood_wait", "recovery_kit", "inbox_failed"];
+const attentionKinds: readonly AttentionKind[] = [
+  "upload_failed",
+  "sync_error",
+  "flood_wait",
+  "recovery_kit",
+  "inbox_failed",
+  "new_device",
+  "device_removed",
+];
+
+/** A kit saved before the cloud's keys changed (`params.reason = "stale"`) no longer opens it. */
+export function isStaleKitItem(item: AttentionItem): boolean {
+  return item.kind === "recovery_kit" && item.params.reason === "stale";
+}
 
 /** Uses the backend's `title_key` when the dictionary knows it, else a sentence for the kind. */
 export function attentionTitle(item: AttentionItem): string {
-  if (hasMessage(item.title_key)) {
-    return interpolate(t(item.title_key), stringParams(item.params));
-  }
+  return interpolate(t(attentionTitleKey(item)), stringParams(item.params));
+}
 
-  return t(attentionKinds.includes(item.kind) ? (`activity.attention.${item.kind}` as MessageKey) : "activity.attention.generic");
+function attentionTitleKey(item: AttentionItem): MessageKey {
+  if (isStaleKitItem(item)) return "activity.attention.recovery_kit.stale";
+  if (item.kind === "new_device" && !nonEmptyString(item.params.name)) return "activity.attention.new_device.unnamed";
+  if (hasMessage(item.title_key)) return item.title_key;
+  return attentionKinds.includes(item.kind) ? (`activity.attention.${item.kind}` as MessageKey) : "activity.attention.generic";
 }
 
 export function attentionBody(item: AttentionItem): string {
+  if (isStaleKitItem(item)) return t("activity.attention.recovery_kit.stale.body");
   return t(attentionKinds.includes(item.kind) ? (`activity.attention.${item.kind}.body` as MessageKey) : "activity.attention.generic.body");
+}
+
+/** Where a navigation action leads; null for actions handled in place (`retry`) or none. */
+export function attentionHref(item: AttentionItem): string | null {
+  switch (item.action) {
+    case "open_devices":
+      return appRoutes.devices;
+    case "save_recovery_kit":
+      return appRoutes.recoveryKit;
+    case "open_settings":
+      // A removed device is re-joined from Cuenta y nube.
+      return item.kind === "device_removed" ? appRoutes.account : appRoutes.settings;
+    default:
+      return null;
+  }
 }
 
 /** Jobs to retry for `retry` actions: `params.job_id` when present, else the item id. */
@@ -224,7 +264,7 @@ function normalizeStats(raw: unknown): TransferStats {
   };
 }
 
-const attentionActions: readonly AttentionItem["action"][] = ["retry", "open_settings", "save_recovery_kit", "none"];
+const attentionActions: readonly AttentionAction[] = ["retry", "open_settings", "save_recovery_kit", "open_devices", "none"];
 
 function normalizeAttention(raw: unknown): AttentionItem[] {
   if (!isRecord(raw) || typeof raw.id !== "string" || typeof raw.kind !== "string") {
@@ -241,6 +281,10 @@ function normalizeAttention(raw: unknown): AttentionItem[] {
       title_key: typeof raw.title_key === "string" ? raw.title_key : "",
     },
   ];
+}
+
+function nonEmptyString(value: unknown): boolean {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 function finiteOr(value: unknown, fallback: number): number {

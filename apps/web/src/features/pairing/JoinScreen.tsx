@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Timer,
   TriangleAlert,
+  Unplug,
   Users,
 } from "lucide-react";
 
@@ -45,14 +46,15 @@ import { PairingVaultSummary } from "./PairingVaultSummary";
 import { SasEmojis } from "./SasEmojis";
 import { usePairingSession } from "./usePairingSession";
 
-export type JoinStep = "code" | "pairing" | "signin" | "choose" | "recovery" | "no-vault" | "bootstrap" | "already";
+export type JoinStep = "code" | "pairing" | "signin" | "choose" | "recovery" | "no-vault" | "bootstrap" | "already" | "removed";
 
 export type JoinScreenProps = {
   /** This device is already part of a vault (e.g. a join link opened on a set-up device). */
   alreadyMember?: boolean;
   client?: ApiClient;
   initialCode?: string;
-  initialStep?: Extract<JoinStep, "code" | "choose">;
+  /** `removed`: another device removed this one; explain it calmly before joining again. */
+  initialStep?: Extract<JoinStep, "code" | "choose" | "removed">;
   loginPollIntervalMs?: number;
   onBack?: () => void;
   onCreateVault?: () => void;
@@ -89,6 +91,7 @@ export function JoinScreen({
   const [confirming, setConfirming] = useState(false);
   const [confirmFailed, setConfirmFailed] = useState(false);
   const [mismatch, setMismatch] = useState(false);
+  const [recoveryReturn, setRecoveryReturn] = useState<JoinStep>("choose");
   const session = usePairingSession(started, { client, pollIntervalMs });
   const pairing = session.pairing;
 
@@ -154,6 +157,11 @@ export function JoinScreen({
     } finally {
       setUnlocking(false);
     }
+  }
+
+  function openRecovery(from: JoinStep) {
+    setRecoveryReturn(from);
+    setStep("recovery");
   }
 
   function leavePairing(next: JoinStep) {
@@ -256,7 +264,7 @@ export function JoinScreen({
             onClick={() => void requestAccess()}
             title={t("join.choose.request.title")}
           />
-          <ChoiceCard body={t("join.choose.recovery.body")} icon={<LifeBuoy />} onClick={() => setStep("recovery")} title={t("join.choose.recovery.title")} />
+          <ChoiceCard body={t("join.choose.recovery.body")} icon={<LifeBuoy />} onClick={() => openRecovery("choose")} title={t("join.choose.recovery.title")} />
           {requestProblem ? <ProblemCallout problem={requestProblem} /> : null}
         </div>
       </SetupFrame>
@@ -268,7 +276,7 @@ export function JoinScreen({
       <SetupFrame
         description={t("join.recovery.body")}
         footer={
-          <Button leadingIcon={<ArrowLeft />} onClick={() => setStep("choose")} variant="ghost">
+          <Button leadingIcon={<ArrowLeft />} onClick={() => setStep(recoveryReturn)} variant="ghost">
             {t("setup.back")}
           </Button>
         }
@@ -278,6 +286,41 @@ export function JoinScreen({
       >
         <RecoveryCodeForm busy={unlocking} error={unlockError} onChange={() => setUnlockError(null)} onSubmit={(value) => void unlock(value)} submitLabel={t("join.recovery.submit")} />
       </SetupFrame>
+    );
+  }
+
+  if (step === "removed") {
+    return (
+      <SetupFrame
+        description={
+          <>
+            <p>{t("join.removed.body")}</p>
+            <p className="mt-2">{t("join.removed.next")}</p>
+          </>
+        }
+        footer={
+          <>
+            {onLocalOnly ? (
+              <Button onClick={onLocalOnly} variant="ghost">
+                {t("firstRun.welcome.localOnly")}
+              </Button>
+            ) : (
+              <span />
+            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button leadingIcon={<LifeBuoy />} onClick={() => openRecovery("removed")} variant="secondary">
+                {t("join.choose.recovery.title")}
+              </Button>
+              <Button onClick={() => setStep("code")} variant="primary">
+                {t("join.removed.rejoin")}
+              </Button>
+            </div>
+          </>
+        }
+        hero={<HeroIcon><Unplug /></HeroIcon>}
+        stepKey="removed"
+        title={t("join.removed.title")}
+      />
     );
   }
 
@@ -326,14 +369,16 @@ export function JoinScreen({
   }
 
   const fieldError = joinProblem === "wrongCode" || joinProblem === "notFound" ? t(pairingProblemKeys[joinProblem]) : undefined;
+  // Arriving from the "removed" explanation, going back returns there.
+  const codeBack = initialStep === "removed" ? () => setStep("removed") : onBack;
 
   return (
     <SetupFrame
       description={t("join.code.body")}
       footer={
         <>
-          {onBack ? (
-            <Button leadingIcon={<ArrowLeft />} onClick={onBack} variant="ghost">
+          {codeBack ? (
+            <Button leadingIcon={<ArrowLeft />} onClick={codeBack} variant="ghost">
               {t("setup.back")}
             </Button>
           ) : (

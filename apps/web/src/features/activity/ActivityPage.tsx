@@ -14,12 +14,14 @@ import {
   Hourglass,
   Inbox,
   KeyRound,
+  MonitorSmartphone,
   Pause,
   Play,
   RefreshCw,
   RotateCw,
   Settings2,
   TriangleAlert,
+  Unplug,
   Upload,
 } from "lucide-react";
 
@@ -44,9 +46,11 @@ import {
   actionableAttention,
   appRoutes,
   attentionBody,
+  attentionHref,
   attentionJobId,
   attentionTitle,
   describeActivity,
+  isStaleKitItem,
   transferCount,
   transferPercent,
 } from "./activityModel";
@@ -82,6 +86,7 @@ const heroStyles: Record<ActivityStatusKind, { icon: ReactNode; tile: string }> 
   loading: { icon: <RefreshCw />, tile: "bg-sunken text-ink-muted" },
   offline: { icon: <CloudOff />, tile: "bg-warning-soft text-warning-ink" },
   paused: { icon: <CirclePause />, tile: "bg-sunken text-ink-muted" },
+  removed: { icon: <Unplug />, tile: "bg-warning-soft text-warning-ink" },
   syncing: { icon: <RefreshCw />, tile: "bg-accent-soft text-accent-ink" },
   unavailable: { icon: <CloudAlert />, tile: "bg-sunken text-ink-muted" },
   up_to_date: { icon: <CircleCheck />, tile: "bg-success-soft text-success-ink" },
@@ -124,13 +129,9 @@ export function ActivityPage({
   }
 
   async function runAttention(item: AttentionItem) {
-    if (item.action === "open_settings") {
-      onNavigate(appRoutes.settings);
-      return;
-    }
-
-    if (item.action === "save_recovery_kit") {
-      onNavigate(appRoutes.recoveryKit);
+    const href = attentionHref(item);
+    if (href) {
+      onNavigate(href);
       return;
     }
 
@@ -306,13 +307,16 @@ function TransferCard({
 }
 
 const attentionIcons: Record<string, ReactNode> = {
+  device_removed: <Unplug />,
   inbox_failed: <Inbox />,
+  new_device: <MonitorSmartphone />,
   recovery_kit: <KeyRound />,
   sync_error: <RefreshCw />,
   upload_failed: <CloudUpload />,
 };
 
 const actionContent: Record<Exclude<AttentionItem["action"], "none">, { icon: ReactNode; key: MessageKey }> = {
+  open_devices: { icon: <MonitorSmartphone />, key: "activity.action.openDevices" },
   open_settings: { icon: <Settings2 />, key: "activity.action.openSettings" },
   retry: { icon: <RotateCw />, key: "activity.action.retry" },
   save_recovery_kit: { icon: <KeyRound />, key: "activity.action.saveKit" },
@@ -330,7 +334,9 @@ function AttentionRow({
   pending: boolean;
 }) {
   const action = item.action === "none" ? null : actionContent[item.action];
-  const isKit = item.kind === "recovery_kit";
+  const actionKey: MessageKey | null = isStaleKitItem(item) ? "activity.action.renewKit" : (action?.key ?? null);
+  // A kit to save is routine; a stale kit, a new device or a removal deserve a closer look.
+  const isKit = item.kind === "recovery_kit" && !isStaleKitItem(item);
   const rowRef = useRef<HTMLLIElement | null>(null);
 
   // Arriving from a desktop notification: bring that item into view and move focus to it once.
@@ -367,9 +373,9 @@ function AttentionRow({
           <p className="text-sm text-ink-muted">{attentionBody(item)}</p>
         </div>
       </div>
-      {action ? (
+      {action && actionKey ? (
         <Button className="self-start sm:self-center" leadingIcon={action.icon} loading={pending} onClick={onRun} size="sm">
-          {t(action.key)}
+          {t(actionKey)}
         </Button>
       ) : null}
     </li>

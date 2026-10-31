@@ -11,6 +11,7 @@ import type { Locale } from "../../i18n/dictionary";
 import { cx } from "../../lib/cx";
 import { usePolledResource } from "../../lib/usePolledResource";
 import { AccountSection } from "../account/AccountSection";
+import { activityStore } from "../activity/activityStore";
 import { DevicesSection } from "../devices/DevicesSection";
 import { AboutSection } from "./AboutSection";
 import { AdvancedSection, SettingsApplyStatus, SettingsDirtyBar } from "./AdvancedSection";
@@ -60,6 +61,8 @@ export function SettingsPage({
   function refreshCloud() {
     void vault.refresh();
     void account.refresh();
+    // Reviews, removals and new kits clear Activity items: update the status pill now.
+    void activityStore.refresh();
   }
 
   function go(event: MouseEvent<HTMLAnchorElement>, href: string) {

@@ -140,7 +140,9 @@ export function App() {
   }
 
   if (gate.kind === "locked") {
-    return <JoinScreen initialStep="choose" onDone={() => void enterLibrary()} onLocalOnly={() => void keepLocal()} />;
+    return (
+      <JoinScreen initialStep={gate.removed ? "removed" : "choose"} onDone={() => void enterLibrary()} onLocalOnly={() => void keepLocal()} />
+    );
   }
 
   const vaultState = gate.vault?.state;

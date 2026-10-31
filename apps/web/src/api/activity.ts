@@ -11,10 +11,19 @@ export type TransferStats = {
   queued: number;
 };
 
-export type AttentionKind = "upload_failed" | "sync_error" | "flood_wait" | "recovery_kit" | "inbox_failed";
+export type AttentionKind =
+  | "upload_failed"
+  | "sync_error"
+  | "flood_wait"
+  | "recovery_kit"
+  | "inbox_failed"
+  | "new_device"
+  | "device_removed";
+
+export type AttentionAction = "retry" | "open_settings" | "save_recovery_kit" | "open_devices" | "none";
 
 export type AttentionItem = {
-  action: "retry" | "open_settings" | "save_recovery_kit" | "none";
+  action: AttentionAction;
   id: string;
   kind: AttentionKind;
   params: Record<string, unknown>;

@@ -13,7 +13,7 @@ import { installBridge, recoveryCode, removeBridge } from "./testkit";
 afterEach(removeBridge);
 
 const vault = (state: VaultStatus["state"]): VaultStatus => ({
-  created_at: null, devices_count: 1, other_vaults: 0, recovery_kit_saved: false, state, usage: { bytes: 0, files: 0 }, vault_id: null,
+  created_at: null, devices_count: 1, other_vaults: 0, reason: null, recovery_kit_saved: false, recovery_kit_stale: false, state, usage: { bytes: 0, files: 0 }, vault_id: null,
 });
 
 describe("pairing codes", () => {
@@ -92,6 +92,9 @@ describe("first-run gate", () => {
     expect(decideGate(vault("no_vault"), false)).toEqual({ kind: "first-run" });
     expect(decideGate(vault("signed_out"), true).kind).toBe("app");
     expect(decideGate(vault("locked"), false)).toEqual({ kind: "locked" });
+    // Removed by another device: the gate explains it before offering to join again.
+    expect(decideGate({ ...vault("locked"), reason: "device_removed" }, true)).toEqual({ kind: "locked", removed: true });
+    expect(decideGate({ ...vault("locked"), reason: "something_new" }, false)).toEqual({ kind: "locked" });
     expect(decideGate(vault("ready"), false).kind).toBe("app");
     expect(decideGate(vault("bootstrapping"), false).kind).toBe("app");
     expect(decideGate(vault("local_only"), false).kind).toBe("app");

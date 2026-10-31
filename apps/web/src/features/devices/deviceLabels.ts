@@ -32,3 +32,19 @@ export function deviceDisplayName(name: string, platform: string | null | undefi
   if (!trimmed) return label;
   return trimmed.toLocaleLowerCase().endsWith(label.toLocaleLowerCase()) ? trimmed : `${trimmed} · ${label}`;
 }
+
+function nameKey(name: string): string {
+  return name.trim().toLocaleLowerCase();
+}
+
+/**
+ * Tells whether a name is shared by several devices (two "laptop · Linux"), so their rows can
+ * also show when each one was added. Devices are counted once per id.
+ */
+export function sharedNames(devices: ReadonlyArray<{ id: string; name: string }>): (name: string) => boolean {
+  const byId = new Map<string, string>();
+  for (const device of devices) byId.set(device.id, nameKey(device.name));
+  const counts = new Map<string, number>();
+  for (const key of byId.values()) counts.set(key, (counts.get(key) ?? 0) + 1);
+  return (name) => (counts.get(nameKey(name)) ?? 0) > 1;
+}

@@ -20,7 +20,7 @@ const authorized: AccountStatus = {
   error: null, password_hint: null, qr: null, qr_expires_at: null, qr_url: null, step: "authorized",
 };
 const vault = (state: VaultStatus["state"]): VaultStatus => ({
-  created_at: null, devices_count: 2, other_vaults: 0, recovery_kit_saved: true, state, usage: { bytes: 0, files: 0 }, vault_id: "vlt_1",
+  created_at: null, devices_count: 2, other_vaults: 0, reason: null, recovery_kit_saved: true, recovery_kit_stale: false, state, usage: { bytes: 0, files: 0 }, vault_id: "vlt_1",
 });
 
 afterEach(cleanup);
@@ -229,6 +229,42 @@ describe("joining from a new device", () => {
     fireEvent.click(screen.getByRole("button", { name: "No tengo el otro dispositivo" }));
     fireEvent.click(await screen.findByRole("button", { name: "Crear mi nube" }));
     expect(onCreateVault).toHaveBeenCalledOnce();
+  });
+
+  it("explains a removal and offers to join again or to use the recovery kit", () => {
+    const onLocalOnly = vi.fn();
+    renderJoin({}, { initialStep: "removed", onLocalOnly });
+    expect(screen.getByRole("heading", { name: "Este equipo se quitó de tu nube" })).toBeInTheDocument();
+    expect(screen.getByText(/no se borró nada/)).toBeInTheDocument();
+    expect(screen.getByText(/Bento lo añadirá como un dispositivo nuevo/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Volver a unir este equipo" }));
+    expect(screen.getByRole("heading", { name: "Conecta este equipo a tu nube" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Atrás" }));
+    expect(screen.getByRole("heading", { name: "Este equipo se quitó de tu nube" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Usar mi kit de recuperación" }));
+    expect(screen.getByRole("heading", { name: "Escribe tu código de recuperación" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Atrás" }));
+    expect(screen.getByRole("heading", { name: "Este equipo se quitó de tu nube" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Usar solo en este equipo" }));
+    expect(onLocalOnly).toHaveBeenCalledOnce();
+  });
+
+  it("unlocks a removed device with the recovery kit", async () => {
+    const { api } = renderJoin(
+      {
+        "GET /sync/status": { bootstrap: null, error: null, last_pull_at: null, last_push_at: null, pending_ops: 0, state: "idle", waiting_until: null },
+        "POST /vault/unlock": vault("bootstrapping"),
+      },
+      { initialStep: "removed" },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Usar mi kit de recuperación" }));
+    fireEvent.change(screen.getByLabelText("Código de recuperación"), { target: { value: recoveryCode } });
+    fireEvent.click(screen.getByRole("button", { name: "Desbloquear" }));
+    expect(await screen.findByRole("heading", { name: "Tu biblioteca está lista" })).toBeInTheDocument();
+    expect(api.callsTo("POST /vault/unlock")[0].body).toEqual({ recovery_code: recoveryCode });
   });
 
   it("calmly explains when this device is already part of the cloud", () => {

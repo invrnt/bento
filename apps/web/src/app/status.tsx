@@ -156,9 +156,11 @@ export function ConnectedSidebarStatus({
   const account = usePolledResource(api.getAccount, 300_000);
   const vault = usePolledResource(api.getVault, 60_000);
   const signedIn = account.data?.step === "authorized" ? account.data.account : null;
-  const usage: SidebarUsage | null = vault.data
-    ? { bytes: vault.data.usage.bytes, scope: signedIn && vault.data.state !== "local_only" ? "cloud" : "device" }
-    : null;
+  // A locked vault (e.g. this device was removed) reports no usage: say nothing rather than "0 B".
+  const usage: SidebarUsage | null =
+    vault.data && vault.data.state !== "locked"
+      ? { bytes: vault.data.usage.bytes, scope: signedIn && vault.data.state !== "local_only" ? "cloud" : "device" }
+      : null;
 
   return (
     <SidebarStatus
@@ -177,9 +179,15 @@ export function ConnectedSidebarStatus({
 
 const desktopTargets: Record<string, string> = {
   activity: appRoutes.activity,
+  devices: appRoutes.devices,
   drive: "/drive",
   "recovery-kit": appRoutes.recoveryKit,
   settings: appRoutes.settings,
+};
+
+/** Settings notifications that have a better home than the General section. */
+const settingsAttentionTargets: Record<string, string> = {
+  device_removed: appRoutes.account,
 };
 
 /**
@@ -193,8 +201,14 @@ export function desktopNavigationHref(request: unknown): string | null {
 
   const href = Object.prototype.hasOwnProperty.call(desktopTargets, request.target) ? desktopTargets[request.target] : appRoutes.activity;
   const attentionId = request.attentionId;
-  if (href === appRoutes.activity && typeof attentionId === "string" && attentionId.length > 0 && attentionId.length <= 200) {
+  if (typeof attentionId !== "string" || attentionId.length === 0 || attentionId.length > 200) {
+    return href;
+  }
+  if (href === appRoutes.activity) {
     return `${appRoutes.activity}?attention=${encodeURIComponent(attentionId)}`;
+  }
+  if (href === appRoutes.settings && Object.prototype.hasOwnProperty.call(settingsAttentionTargets, attentionId)) {
+    return settingsAttentionTargets[attentionId];
   }
 
   return href;

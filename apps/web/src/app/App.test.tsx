@@ -7,7 +7,7 @@ import { fakeApi, installBridge, installMemoryStorage, removeBridge } from "../t
 import { App } from "./App";
 
 const vault = (state: VaultStatus["state"]): VaultStatus => ({
-  created_at: null, devices_count: 1, other_vaults: 0, recovery_kit_saved: true, state, usage: { bytes: 0, files: 0 }, vault_id: "vlt_1",
+  created_at: null, devices_count: 1, other_vaults: 0, reason: null, recovery_kit_saved: true, recovery_kit_stale: false, state, usage: { bytes: 0, files: 0 }, vault_id: "vlt_1",
 });
 
 /** Routes every typed client call through an in-memory API (the default client captured `fetch` at import). */
@@ -97,6 +97,17 @@ describe("first-run gate", () => {
     window.history.pushState({}, "", "/photos");
     render(<App />);
     expect(await screen.findByRole("heading", { name: "Tu nube ya existe en esta cuenta" })).toBeInTheDocument();
+  });
+
+  it("explains calmly when another device removed this one", async () => {
+    routeApi({ "GET /vault": { ...vault("locked"), reason: "device_removed" } });
+    window.history.pushState({}, "", "/photos");
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "Este equipo se quitó de tu nube" })).toBeInTheDocument();
+    expect(screen.getByText(/Tu biblioteca local sigue en este equipo/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Volver a unir este equipo" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Usar mi kit de recuperación" })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Navegación principal" })).not.toBeInTheDocument();
   });
 
   it("goes from the welcome to the join screen", async () => {

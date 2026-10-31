@@ -33,6 +33,8 @@ export function RecoverySection({ accountName, client = apiClient, onChanged, va
   const [rotateError, setRotateError] = useState(false);
   const [verifyOpen, setVerifyOpen] = useState(false);
   const saved = Boolean(vault?.recovery_kit_saved);
+  // A kit saved before the cloud's keys changed no longer opens it.
+  const stale = !saved && Boolean(vault?.recovery_kit_stale);
 
   async function rotate() {
     setRotating(true);
@@ -63,17 +65,35 @@ export function RecoverySection({ accountName, client = apiClient, onChanged, va
                 {t("recovery.section.title")}
               </h2>
               <Badge dot tone={saved ? "success" : "warning"}>
-                {saved ? t("recovery.status.saved") : t("recovery.status.notSaved")}
+                {saved ? t("recovery.status.saved") : stale ? t("recovery.status.stale") : t("recovery.status.notSaved")}
               </Badge>
             </div>
             <p className="mt-1 text-base text-ink-muted">{t("recovery.section.body")}</p>
           </div>
         </div>
       </div>
+      {stale ? (
+        <div className="px-5 pb-5">
+          <Callout
+            action={
+              <Button leadingIcon={<RefreshCw />} onClick={() => setConfirmRotate(true)} size="sm" variant="primary">
+                {t("recovery.section.rotate")}
+              </Button>
+            }
+            role="status"
+            title={t("recovery.stale.title")}
+            tone="warning"
+          >
+            {t("recovery.stale.body")}
+          </Callout>
+        </div>
+      ) : null}
       <div className="flex flex-wrap gap-2 border-t border-line bg-subtle px-5 py-3.5">
-        <Button leadingIcon={<RefreshCw />} onClick={() => setConfirmRotate(true)} size="sm" variant={saved ? "secondary" : "primary"}>
-          {t("recovery.section.rotate")}
-        </Button>
+        {stale ? null : (
+          <Button leadingIcon={<RefreshCw />} onClick={() => setConfirmRotate(true)} size="sm" variant={saved ? "secondary" : "primary"}>
+            {t("recovery.section.rotate")}
+          </Button>
+        )}
         <Button leadingIcon={<ScanSearch />} onClick={() => setVerifyOpen(true)} size="sm" variant="ghost">
           {t("recovery.section.verify")}
         </Button>

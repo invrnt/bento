@@ -14,7 +14,7 @@ const status = (overrides: Partial<AccountStatus> = {}): AccountStatus => ({
 });
 const authorized = status({ account, step: "authorized" });
 const vault = (overrides: Partial<VaultStatus> = {}): VaultStatus => ({
-  created_at: "2026-10-31T10:00:00Z", devices_count: 1, other_vaults: 0, recovery_kit_saved: false, state: "ready", usage: { bytes: 0, files: 0 }, vault_id: "vlt_1", ...overrides,
+  created_at: "2026-10-31T10:00:00Z", devices_count: 1, other_vaults: 0, reason: null, recovery_kit_saved: false, recovery_kit_stale: false, state: "ready", usage: { bytes: 0, files: 0 }, vault_id: "vlt_1", ...overrides,
 });
 const source = (path: string, label: string) => ({
   bytes_pending: 0, enabled: true, error: null, files_done: 0, files_pending: 0, files_total: 0, id: `src_${label}`, label, last_scan_at: null, path, state: "scanning",

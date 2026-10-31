@@ -138,6 +138,65 @@ describe("ActivityPage", () => {
     expect(within(list).getByText("Con él puedes recuperar todo aunque pierdas tus dispositivos.")).toBeInTheDocument();
   });
 
+  it("sends security items where they can be handled", async () => {
+    const { onNavigate } = setup(
+      activity({
+        attention: [
+          attention({
+            action: "open_devices",
+            id: "new_device:dev_9",
+            kind: "new_device",
+            params: { device_id: "dev_9", first_seen_at: "2026-10-30T10:00:00Z", name: "Portátil de Ana" },
+            title_key: "activity.attention.new_device",
+          }),
+          attention({ action: "open_settings", id: "device_removed", kind: "device_removed", title_key: "activity.attention.device_removed" }),
+          attention({
+            action: "save_recovery_kit",
+            id: "recovery_kit",
+            kind: "recovery_kit",
+            params: { reason: "stale" },
+            title_key: "activity.attention.recovery_kit",
+          }),
+        ],
+        summary: "attention",
+      }),
+    );
+
+    // A removed device outranks everything else in the status.
+    expect(await screen.findByRole("heading", { name: "Este equipo se quitó de tu nube" })).toBeInTheDocument();
+    const list = await screen.findByRole("list", { name: "Avisos" });
+    const rows = within(list).getAllByRole("listitem");
+
+    expect(within(rows[0]).getByText("Se añadió «Portátil de Ana» a tu nube")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("Si no lo reconoces, quítalo desde Dispositivos.")).toBeInTheDocument();
+    fireEvent.click(within(rows[0]).getByRole("button", { name: "Revisar dispositivos" }));
+    expect(onNavigate).toHaveBeenLastCalledWith("/settings/devices");
+
+    expect(within(rows[1]).getByText("Este equipo se quitó de tu nube")).toBeInTheDocument();
+    expect(within(rows[1]).getByText(/Tu biblioteca local sigue aquí/)).toBeInTheDocument();
+    fireEvent.click(within(rows[1]).getByRole("button", { name: "Abrir ajustes" }));
+    expect(onNavigate).toHaveBeenLastCalledWith("/settings/account");
+
+    expect(within(rows[2]).getByText("Tu kit de recuperación ya no sirve: genera uno nuevo")).toBeInTheDocument();
+    expect(within(rows[2]).getByText(/el código que guardaste ya no la abre/)).toBeInTheDocument();
+    fireEvent.click(within(rows[2]).getByRole("button", { name: "Generar kit nuevo" }));
+    expect(onNavigate).toHaveBeenLastCalledWith("/settings?section=recovery");
+  });
+
+  it("highlights a new device a notification points to", async () => {
+    setup(
+      activity({
+        attention: [attention({ action: "open_devices", id: "new_device:dev_9", kind: "new_device", params: { name: "Torre" }, title_key: "activity.attention.new_device" })],
+        summary: "attention",
+      }),
+      {},
+      "new_device:dev_9",
+    );
+
+    const list = await screen.findByRole("list", { name: "Avisos" });
+    await waitFor(() => expect(list.querySelector('[data-attention-id="new_device:dev_9"]')).toHaveFocus());
+  });
+
   it("reports a failed retry calmly", async () => {
     setup(activity({ attention: [attention({ action: "retry", id: "job_1" })], summary: "attention" }), {
       retryJob: vi.fn(async () => Promise.reject(new Error("nope"))),

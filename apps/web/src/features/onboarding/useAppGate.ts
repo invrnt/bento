@@ -2,14 +2,15 @@ import { useCallback, useEffect, useState } from "react";
 
 import { apiClient } from "../../api/client";
 import type { ApiClient } from "../../api/client";
-import { getVault } from "../../api/vault";
+import { getVault, isRemovedDevice } from "../../api/vault";
 import type { VaultStatus } from "../../api/vault";
 import { hasChosenLocalMode } from "./localMode";
 
 export type Gate =
   | { kind: "loading" }
   | { kind: "first-run" }
-  | { kind: "locked" }
+  /** `removed`: another device removed this one; it can join again with a new identity. */
+  | { kind: "locked"; removed?: true }
   | { kind: "app"; vault: VaultStatus | null };
 
 const cacheKey = "bento:gate";
@@ -21,7 +22,7 @@ export function decideGate(vault: VaultStatus | null, localChosen: boolean): Gat
     case "no_vault":
       return localChosen ? { kind: "app", vault } : { kind: "first-run" };
     case "locked":
-      return { kind: "locked" };
+      return isRemovedDevice(vault) ? { kind: "locked", removed: true } : { kind: "locked" };
     case "local_only":
     case "bootstrapping":
     case "ready":

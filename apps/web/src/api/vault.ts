@@ -8,11 +8,20 @@ export type VaultStatus = {
   created_at: string | null;
   devices_count: number;
   other_vaults: number;
+  /** Only with `locked`: `device_removed` means another device removed this one (the local library stays). */
+  reason: string | null;
   recovery_kit_saved: boolean;
+  /** The saved kit wraps an older key epoch and no longer opens the cloud: generate a new one. */
+  recovery_kit_stale: boolean;
   state: VaultState;
   usage: { bytes: number; files: number };
   vault_id: string | null;
 };
+
+/** Another device removed this one from the cloud: show the calm "join again" screen. */
+export function isRemovedDevice(vault: Pick<VaultStatus, "reason" | "state"> | null | undefined): boolean {
+  return vault?.state === "locked" && vault.reason === "device_removed";
+}
 
 export type CreatedVault = { recovery_code: string; recovery_qr?: QrMatrix; vault: VaultStatus };
 

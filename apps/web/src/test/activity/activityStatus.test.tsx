@@ -11,7 +11,7 @@ import {
   SidebarStatus,
   subscribeDesktopNavigation,
 } from "../../app/status";
-import { activityPollInterval, describeActivity, normalizeActivity } from "../../features/activity/activityModel";
+import { activityPollInterval, attentionHref, attentionTitle, describeActivity, normalizeActivity } from "../../features/activity/activityModel";
 import { createActivityStore } from "../../features/activity/activityStore";
 
 const idleStats = { active: 0, bytes_done: 0, bytes_total: 0, eta_seconds: null, queued: 0 };
@@ -48,6 +48,46 @@ describe("describeActivity", () => {
     ],
   ])("maps %# to a calm sentence", (input, label, tone) => {
     expect(describeActivity(input)).toMatchObject({ label, tone });
+  });
+
+  it("says calmly that this device was removed, ahead of transfers", () => {
+    const removed = attention({ action: "open_settings", id: "device_removed", kind: "device_removed", title_key: "activity.attention.device_removed" });
+    expect(describeActivity(activity({ attention: [removed], summary: "attention" }))).toMatchObject({
+      detail: "Tu biblioteca local sigue aquí. Vuelve a unirlo para sincronizar.",
+      kind: "removed",
+      label: "Este equipo se quitó de tu nube",
+      tone: "warning",
+    });
+    expect(describeActivity(activity({ attention: [removed], summary: "uploading", uploads: { ...idleStats, active: 1 } })).kind).toBe("removed");
+  });
+
+  it("names a new device and a stale kit in the status detail", () => {
+    const newDevice = attention({
+      action: "open_devices", id: "new_device:dev_9", kind: "new_device", params: { device_id: "dev_9", name: "Portátil de Ana" }, title_key: "activity.attention.new_device",
+    });
+    expect(describeActivity(activity({ attention: [newDevice], summary: "attention" }))).toMatchObject({
+      detail: "Se añadió «Portátil de Ana» a tu nube",
+      label: "Necesita tu atención",
+    });
+    expect(attentionTitle({ ...newDevice, params: {} })).toBe("Se añadió un dispositivo a tu nube");
+    expect(attentionTitle({ ...newDevice, title_key: "" })).toBe("Se añadió «Portátil de Ana» a tu nube");
+
+    const stale = attention({ action: "save_recovery_kit", id: "recovery_kit", kind: "recovery_kit", params: { reason: "stale" }, title_key: "activity.attention.recovery_kit" });
+    expect(describeActivity(activity({ attention: [stale], summary: "attention" })).detail).toBe("Tu kit de recuperación ya no sirve: genera uno nuevo");
+  });
+
+  it("keeps the new actions and maps each one to a route", () => {
+    const normalized = normalizeActivity({
+      attention: [
+        { action: "open_devices", id: "new_device:dev_9", kind: "new_device", params: { name: "Torre" }, title_key: "activity.attention.new_device" },
+        { action: "open_settings", id: "device_removed", kind: "device_removed", params: {}, title_key: "activity.attention.device_removed" },
+        { action: "open_settings", id: "inbox", kind: "inbox_failed", params: {}, title_key: "" },
+        { action: "retry", id: "upload", kind: "upload_failed", params: {}, title_key: "" },
+      ],
+      summary: "attention",
+    });
+    expect(normalized.attention.map((item) => item.action)).toEqual(["open_devices", "open_settings", "open_settings", "retry"]);
+    expect(normalized.attention.map(attentionHref)).toEqual(["/settings/devices", "/settings/account", "/settings", null]);
   });
 
   it("describes loading and unreachable states", () => {
@@ -184,7 +224,9 @@ describe("status surfaces", () => {
       created_at: null,
       devices_count: 2,
       other_vaults: 0,
+      reason: null,
       recovery_kit_saved: true,
+      recovery_kit_stale: false,
       state: "ready",
       usage: { bytes: 52428800000, files: 1200 },
       vault_id: "vlt_1",
@@ -199,6 +241,26 @@ describe("status surfaces", () => {
     await waitFor(() => expect(link).toHaveTextContent("48,8 GB en tu nube"));
     await waitFor(() => expect(link).toHaveTextContent("Subiendo 2 archivos · 1 min"));
     expect(link.querySelector("img")).toHaveAttribute("src", "/api/account/avatar");
+  });
+
+  it("tells a removed device apart and hides the empty usage of a locked vault", async () => {
+    const account: AccountStatus = {
+      account: { display_name: "Ana", phone_masked: null, premium: false, user_id: 1, username: null },
+      error: null, password_hint: null, qr: null, qr_expires_at: null, qr_url: null, step: "authorized",
+    };
+    const vault: VaultStatus = {
+      created_at: null, devices_count: 0, other_vaults: 0, reason: "device_removed", recovery_kit_saved: false, recovery_kit_stale: false,
+      state: "locked", usage: { bytes: 0, files: 0 }, vault_id: "vlt_1",
+    };
+    const store = createActivityStore(async () =>
+      activity({ attention: [attention({ action: "open_settings", id: "device_removed", kind: "device_removed" })], summary: "attention" }),
+    );
+
+    render(<ConnectedSidebarStatus api={{ getAccount: async () => account, getVault: async () => vault }} store={store} />);
+
+    const link = await screen.findByRole("link", { name: /Ana/ });
+    await waitFor(() => expect(link).toHaveTextContent("Este equipo se quitó de tu nube"));
+    expect(link).not.toHaveTextContent("0 B");
   });
 
   it("speaks of this device when there is no Telegram account", () => {
@@ -216,6 +278,11 @@ describe("desktop navigation adapter", () => {
     expect(desktopNavigationHref({ target: "settings" })).toBe("/settings");
     expect(desktopNavigationHref({ target: "drive" })).toBe("/drive");
     expect(desktopNavigationHref({ attentionId: "x", target: "something-new" })).toBe("/activity?attention=x");
+    // Security notifications: a new device opens its Activity item, a removal opens Cuenta y nube.
+    expect(desktopNavigationHref({ attentionId: "new_device:dev_9", target: "activity" })).toBe("/activity?attention=new_device%3Adev_9");
+    expect(desktopNavigationHref({ attentionId: "device_removed", target: "settings" })).toBe("/settings/account");
+    expect(desktopNavigationHref({ attentionId: "inbox_failed:1", target: "settings" })).toBe("/settings");
+    expect(desktopNavigationHref({ target: "devices" })).toBe("/settings/devices");
     expect(desktopNavigationHref("https://example.com")).toBeNull();
     expect(desktopNavigationHref(null)).toBeNull();
   });

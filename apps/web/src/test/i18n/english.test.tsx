@@ -153,7 +153,7 @@ function responseFor(url: string): unknown {
   if (url.includes("/drive/items")) return { breadcrumbs: [], items: [], next_cursor: null };
   if (url.includes("/activity")) return { attention: [], downloads: {}, summary: "up_to_date", uploads: {} };
   if (url.includes("/account")) return { account: null, error: null, password_hint: null, qr: null, qr_expires_at: null, qr_url: null, step: "signed_out" };
-  if (url.includes("/vault")) return { created_at: null, devices_count: 1, other_vaults: 0, recovery_kit_saved: false, state: "local_only", usage: { bytes: 0, files: 0 }, vault_id: null };
+  if (url.includes("/vault")) return { created_at: null, devices_count: 1, other_vaults: 0, reason: null, recovery_kit_saved: false, recovery_kit_stale: false, state: "local_only", usage: { bytes: 0, files: 0 }, vault_id: null };
   if (url.includes("/drive/folders")) return { items: [] };
   return {};
 }

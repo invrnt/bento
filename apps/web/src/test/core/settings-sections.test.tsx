@@ -49,7 +49,7 @@ function controller(overrides: Partial<SettingsController> = {}): SettingsContro
 }
 
 const vault = (overrides: Partial<VaultStatus> = {}): VaultStatus => ({
-  created_at: "2026-10-01T10:00:00Z", devices_count: 2, other_vaults: 0, recovery_kit_saved: true, state: "ready",
+  created_at: "2026-10-01T10:00:00Z", devices_count: 2, other_vaults: 0, reason: null, recovery_kit_saved: true, recovery_kit_stale: false, state: "ready",
   usage: { bytes: 52_428_800_000, files: 1200 }, vault_id: "vlt_1", ...overrides,
 });
 const signedIn = {
@@ -188,6 +188,40 @@ describe("Cuenta y nube", () => {
     expect(within(kit).getByText("R2KD")).toBeInTheDocument();
     expect(within(kit).getByRole("button", { name: "Imprimir" })).toBeInTheDocument();
     expect(api.callsTo("POST /vault/recovery-code")).toHaveLength(1);
+  });
+
+  it("asks for a new kit when the saved one no longer opens the cloud", async () => {
+    const { api } = renderSettings("account", {
+      "GET /vault": vault({ recovery_kit_saved: false, recovery_kit_stale: true }),
+      "POST /vault/recovery-code": { recovery_code: recoveryCode },
+    });
+    const card = await screen.findByRole("region", { name: /Kit de recuperación/ });
+    expect(within(card).getByText("Ya no sirve")).toBeInTheDocument();
+    const warning = within(card).getByRole("status");
+    expect(warning).toHaveTextContent("Tu kit de recuperación ya no sirve. Genera uno nuevo.");
+    // One way to act: the callout's button, not a second one in the footer.
+    expect(within(card).getAllByRole("button", { name: "Generar nuevo código" })).toHaveLength(1);
+
+    fireEvent.click(within(warning).getByRole("button", { name: "Generar nuevo código" }));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "¿Generar un nuevo código?" })).getByRole("button", { name: "Generar código" }));
+    expect(await screen.findByRole("dialog", { name: "Guarda tu kit de recuperación" })).toBeInTheDocument();
+    expect(api.callsTo("POST /vault/recovery-code")).toHaveLength(1);
+  });
+
+  it("does not warn about a kit that is simply not saved yet", async () => {
+    renderSettings("account", { "GET /vault": vault({ recovery_kit_saved: false }) });
+    const card = await screen.findByRole("region", { name: /Kit de recuperación/ });
+    expect(within(card).getByText("Sin guardar")).toBeInTheDocument();
+    expect(within(card).queryByText(/ya no sirve/)).not.toBeInTheDocument();
+  });
+
+  it("offers to join again when another device removed this one", async () => {
+    const { onStartSetup } = renderSettings("account", { "GET /vault": vault({ reason: "device_removed", state: "locked" }) });
+    expect(await screen.findByText("Este equipo se quitó de tu nube")).toBeInTheDocument();
+    expect(screen.getByText(/Tu biblioteca local sigue aquí/)).toBeInTheDocument();
+    expect(screen.queryByText("Este equipo todavía no tiene acceso a tu nube")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Volver a unir este equipo" }));
+    expect(onStartSetup).toHaveBeenCalledOnce();
   });
 
   it("saves the kit as PDF through the desktop bridge", async () => {

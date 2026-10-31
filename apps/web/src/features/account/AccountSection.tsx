@@ -5,6 +5,7 @@ import { apiClient } from "../../api/client";
 import type { ApiClient } from "../../api/client";
 import { logout } from "../../api/account";
 import type { AccountStatus } from "../../api/account";
+import { isRemovedDevice } from "../../api/vault";
 import type { VaultStatus } from "../../api/vault";
 import { Badge } from "../../components/Badge";
 import { Button } from "../../components/Button";
@@ -32,6 +33,7 @@ export function AccountSection({ account, client = apiClient, onChanged, onConne
   const [signOutFailed, setSignOutFailed] = useState(false);
   const profile = account?.step === "authorized" ? account.account : null;
   const hasCloud = vault?.state === "ready" || vault?.state === "bootstrapping";
+  const removed = isRemovedDevice(vault);
 
   async function signOut() {
     setSigningOut(true);
@@ -101,15 +103,15 @@ export function AccountSection({ account, client = apiClient, onChanged, onConne
           action={
             onConnect ? (
               <Button onClick={onConnect} size="sm" variant="primary">
-                {t("account.locked.action")}
+                {removed ? t("join.removed.rejoin") : t("account.locked.action")}
               </Button>
             ) : undefined
           }
           role="status"
-          title={t("account.locked.title")}
+          title={removed ? t("join.removed.title") : t("account.locked.title")}
           tone="warning"
         >
-          {t("account.locked.body")}
+          {removed ? t("account.removed.body") : t("account.locked.body")}
         </Callout>
       ) : null}
 
