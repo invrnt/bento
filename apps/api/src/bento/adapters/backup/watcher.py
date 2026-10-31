@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import os
 import threading
 from collections.abc import Callable
@@ -12,7 +11,6 @@ from watchdog.events import FileSystemEventHandler
 
 from bento.adapters.backup.scanner import is_ignored_name
 
-LOGGER = logging.getLogger("bento.backup.watcher")
 _IGNORED_EVENT_TYPES = frozenset({"opened", "closed_no_write"})
 
 
@@ -46,12 +44,9 @@ class WatchdogFolderWatcher:
             observer = self._ensure_observer()
             if current is not None:
                 observer.unschedule(current[1])
-            try:
-                watch = observer.schedule(_SourceEventHandler(source_id, on_change), path, recursive=True)
-            except OSError as exc:
-                LOGGER.warning("Cannot watch backup folder %s: %s", source_id, exc.__class__.__name__)
-                self._watches.pop(source_id, None)
-                return
+            self._watches.pop(source_id, None)
+            # OSError (missing folder, inotify limits) propagates so the caller retries later.
+            watch = observer.schedule(_SourceEventHandler(source_id, on_change), path, recursive=True)
             self._watches[source_id] = (path, watch)
 
     def unwatch(self, source_id: str) -> None:

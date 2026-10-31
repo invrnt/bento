@@ -169,12 +169,15 @@ class AssetContentService:
         if path is not None:
             return path
         lock = self._locks.setdefault(blob_ref.id, asyncio.Lock())
-        async with lock:
-            path = await self.local_path(blob_ref)
-            if path is not None:
-                return path
-            path = await self._download(blob_ref)
-        self._locks.pop(blob_ref.id, None)
+        try:
+            async with lock:
+                path = await self.local_path(blob_ref)
+                if path is not None:
+                    return path
+                path = await self._download(blob_ref)
+        finally:
+            if not lock.locked():
+                self._locks.pop(blob_ref.id, None)
         if self._on_cache_growth is not None:
             await self._on_cache_growth()
         return path

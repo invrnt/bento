@@ -361,3 +361,44 @@ def test_watchdog_handler_filters_ignored_paths(tmp_path: Path) -> None:
     handler.dispatch(Event("moved", str(tmp_path / "x.part"), str(tmp_path / "x.mp4")))
     assert seen == [("s1", str(tmp_path / "a.jpg")), ("s1", str(tmp_path / "x.mp4"))]
     watcher.stop()
+
+
+def test_unwatchable_folders_are_retried_and_errored_sources_rescanned(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        components = _components(tmp_path)
+        root = tmp_path / "USB"
+        root.mkdir()
+        source = await components.backup.add_source(str(root))
+        await JobRunner(components).run_all()
+
+        class FlakyWatcher(FakeWatcher):
+            calls = 0
+
+            def watch(self, source_id, path, on_change):  # type: ignore[no-untyped-def]
+                FlakyWatcher.calls += 1
+                if FlakyWatcher.calls == 1:
+                    raise OSError("inotify watch limit reached")
+                super().watch(source_id, path, on_change)
+
+        now = [0.0]
+        watcher = FlakyWatcher()
+        loop = StoragePipelineLoop(components, watcher=watcher, clock=lambda: now[0])
+        await loop.tick()
+        assert watcher.watches == {}
+        now[0] += 31
+        await loop.tick()
+        assert source.id in watcher.watches
+        await JobRunner(components).run_all()  # the startup full scan
+
+        root.rename(tmp_path / "USB-unplugged")
+        await components.backup.scan_source(source.id)
+        assert (await components.backup.get_source(source.id)).state == BackupSourceState.ERROR
+        (tmp_path / "USB-unplugged").rename(root)
+        scans = _job_count(components, JobType.BACKUP_SCAN)
+        now[0] += 301
+        await loop.tick()
+        assert _job_count(components, JobType.BACKUP_SCAN) == scans + 1
+        await JobRunner(components).run_all()
+        assert (await components.backup.get_source(source.id)).state == BackupSourceState.IDLE
+
+    run(scenario())

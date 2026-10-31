@@ -86,8 +86,11 @@ class StoragePipelineLoop:
     full_scan_interval: float = 6 * 3600.0
     retention_interval: float = 3600.0
     cache_interval: float = 600.0
+    ready_interval: float = 5.0
+    errored_rescan_interval: float = 300.0
     _last: dict[str, float] = field(default_factory=dict)
     _watched: dict[str, str] = field(default_factory=dict)
+    _watch_failures: set[str] = field(default_factory=set)
     _remote_ready: bool = False
     _paused: bool | None = None
 
@@ -118,7 +121,9 @@ class StoragePipelineLoop:
                 await backup.enqueue_scans_for_all()
             self._paused = paused
 
-        ready = self.components.pipeline.remote_available()
+        ready = self._remote_ready
+        if self._due("ready", self.ready_interval):
+            ready = self.components.pipeline.remote_available()
         became_ready = ready and not self._remote_ready
         self._remote_ready = ready
         if became_ready or (ready and self._due("backfill", self.backfill_interval)):
@@ -130,6 +135,10 @@ class StoragePipelineLoop:
 
         if self._due("full_scan", self.full_scan_interval):
             await backup.enqueue_scans_for_all()
+        elif self._due("errored", self.errored_rescan_interval):
+            for source in await backup.list_sources():
+                if source.enabled and source.error_code:
+                    await backup.enqueue_scan(source.id)
         if self._due("retention", self.retention_interval):
             if not await self.components.backup_jobs.has_waiting(JobType.TRASH_PURGE):
                 await self.components.jobs.enqueue(type=JobType.TRASH_PURGE, priority=7, payload={"expired": True})
@@ -145,9 +154,17 @@ class StoragePipelineLoop:
             self._watched.pop(source_id, None)
             self.debouncer.discard(source_id)
         for source in sources.values():
-            if self._watched.get(source.id) != source.path:
+            if self._watched.get(source.id) == source.path:
+                continue
+            try:
                 await asyncio.to_thread(self.watcher.watch, source.id, source.path, self.debouncer.add)
-                self._watched[source.id] = source.path
+            except OSError as exc:
+                if source.id not in self._watch_failures:
+                    LOGGER.warning("Cannot watch backup folder %s: %s", source.id, exc.__class__.__name__)
+                self._watch_failures.add(source.id)
+                continue
+            self._watch_failures.discard(source.id)
+            self._watched[source.id] = source.path
 
     def _due(self, name: str, interval: float) -> bool:
         now = self.clock()
