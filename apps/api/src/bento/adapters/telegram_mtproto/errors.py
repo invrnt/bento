@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 
 from telethon import errors
 
@@ -46,6 +47,27 @@ def map_telethon_error(exc: BaseException) -> DomainError | None:
     if isinstance(exc, errors.RPCError):
         error = StorageUnavailableError(StorageBackend.TELEGRAM.value)
         # RPC error names (e.g. CHANNEL_INVALID) are safe to expose; their request payloads are not.
-        error.details["reason"] = str(getattr(exc, "message", "") or type(exc).__name__)
+        error.details["reason"] = rpc_error_name(exc)
         return error
     return None
+
+
+def rpc_error_name(exc: BaseException) -> str:
+    """`CHANNEL_PRIVATE` for `ChannelPrivateError`; the raw message for errors Telethon does not know."""
+    name = type(exc).__name__
+    if name in _GENERIC_RPC_ERRORS or not name.endswith("Error"):
+        return str(getattr(exc, "message", "") or name)
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", name[: -len("Error")]).upper()
+
+
+_GENERIC_RPC_ERRORS = {
+    "RPCError",
+    "BadRequestError",
+    "UnauthorizedError",
+    "ForbiddenError",
+    "NotFoundError",
+    "AuthKeyError",
+    "FloodError",
+    "ServerError",
+    "TimedOutError",
+}

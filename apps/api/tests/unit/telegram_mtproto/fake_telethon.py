@@ -225,7 +225,7 @@ class FakeTelethonClient:
             self.add_channel(entity, request.about)
             return types.Updates(updates=[], users=[], chats=[entity], date=NOW, seq=0)
         if isinstance(request, functions.channels.GetFullChannelRequest):
-            channel = self.channel(utils.get_peer_id(request.channel))
+            channel = self.channel(_peer_id(request.channel))
             return _Full(_FullChat(about=channel.about, pinned_msg_id=channel.pinned))
         if isinstance(request, functions.messages.GetDialogFiltersRequest):
             return types.messages.DialogFilters(filters=list(self.filters))
@@ -236,7 +236,7 @@ class FakeTelethonClient:
             emoji = request.reaction[0].emoticon
             if self.allowed_reactions is not None and emoji not in self.allowed_reactions:
                 raise errors.ReactionInvalidError(request=request)
-            message = self.message(utils.get_peer_id(request.peer), request.msg_id)
+            message = self.message(_peer_id(request.peer), request.msg_id)
             message.reactions = types.MessageReactions(
                 results=[types.ReactionCount(reaction=types.ReactionEmoji(emoticon=emoji), count=1, chosen_order=1)]
             )
@@ -260,11 +260,11 @@ class FakeTelethonClient:
     async def send_message(self, entity: Any, text: str, **kwargs: Any) -> FakeMessage:
         self._fail("send_message")
         self.calls.append(("send_message", {"text": text, **kwargs}))
-        return self.post(utils.get_peer_id(entity), message=text)
+        return self.post(_peer_id(entity), message=text)
 
     async def send_file(self, entity: Any, file: Any, **kwargs: Any) -> Any:
         self._fail("send_file")
-        peer_id = utils.get_peer_id(entity)
+        peer_id = _peer_id(entity)
         self.calls.append(("send_file", {"file": file, **kwargs}))
         callback = kwargs.get("progress_callback")
         if isinstance(file, list):
@@ -288,10 +288,10 @@ class FakeTelethonClient:
         return self.post(peer_id, data=data, filename=name, mime_type=kwargs.get("mime_type") or "application/octet-stream", message=kwargs.get("caption") or "")
 
     async def pin_message(self, entity: Any, message: int, notify: bool = False) -> Any:
-        channel = self.channel(utils.get_peer_id(entity))
+        channel = self.channel(_peer_id(entity))
         channel.pinned = message
         self.calls.append(("pin_message", {"id": message, "notify": notify}))
-        return self.post(utils.get_peer_id(entity), action=types.MessageActionPinMessage())
+        return self.post(_peer_id(entity), action=types.MessageActionPinMessage())
 
     async def unpin_message(self, entity: Any, message: int) -> None:
         self.calls.append(("unpin_message", {"id": message}))
@@ -300,18 +300,18 @@ class FakeTelethonClient:
         self._fail("get_messages")
         self.calls.append(("get_messages", {"ids": ids}))
         try:
-            return self.message(utils.get_peer_id(entity), ids)
+            return self.message(_peer_id(entity), ids)
         except KeyError:
             return None
 
     async def delete_messages(self, entity: Any, ids: list[int]) -> None:
         self.calls.append(("delete_messages", {"ids": list(ids)}))
-        channel = self.channel(utils.get_peer_id(entity))
+        channel = self.channel(_peer_id(entity))
         channel.messages = [item for item in channel.messages if item.id not in set(ids)]
 
     async def iter_messages(self, entity: Any, *, min_id: int = 0, reverse: bool = False, offset_id: int = 0, filter: Any = None, limit: Any = None) -> AsyncIterator[FakeMessage]:
         self.calls.append(("iter_messages", {"min_id": min_id, "reverse": reverse, "offset_id": offset_id, "filter": filter, "limit": limit}))
-        messages = sorted(self.channel(utils.get_peer_id(entity)).messages, key=lambda item: item.id, reverse=not reverse)
+        messages = sorted(self.channel(_peer_id(entity)).messages, key=lambda item: item.id, reverse=not reverse)
         yielded = 0
         for message in messages:
             if message.id <= min_id or (offset_id and not reverse and message.id >= offset_id):
@@ -357,7 +357,7 @@ class FakeTelethonClient:
     # Test helpers
 
     def add_channel(self, entity: types.Channel, about: str) -> FakeChannel:
-        peer_id = utils.get_peer_id(entity)
+        peer_id = _peer_id(entity)
         channel = FakeChannel(entity=entity, about=about)
         self.channels[peer_id] = channel
         self.dialogs.append(FakeDialog(peer_id, entity, utils.get_input_peer(entity), entity.title))
@@ -420,6 +420,12 @@ class _Full:
 @dataclass
 class _Password:
     hint: str
+
+
+def _peer_id(peer: Any) -> int:
+    if isinstance(peer, types.InputPeerSelf):
+        return ME.id
+    return utils.get_peer_id(peer)
 
 
 def fail_on(operation: str, error: BaseException) -> BaseException:
