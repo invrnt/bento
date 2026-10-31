@@ -30,6 +30,7 @@ from spake2 import SPAKE2_A, SPAKE2_B
 
 from bento.adapters.security.primitives import (
     KEY_BYTES,
+    NONCE_BYTES,
     TAG_BYTES,
     RandomBytes,
     b64url_encode,
@@ -121,6 +122,9 @@ _CONFIRM_LABELS = {PairingRole.HOST: b"host-confirm", PairingRole.GUEST: b"guest
 _DIRECTION_INFO = {PairingRole.HOST: b"bento/v1/pairing/h2g", PairingRole.GUEST: b"bento/v1/pairing/g2h"}
 _SAS_INFO = b"bento/v1/pairing/sas"
 _FALLBACK_SAS_INFO = b"bento/v1/pairing/fallback-sas"
+_FALLBACK_GRANT_INFO = b"bento/v1/pairing/fallback-grant"
+MAX_FALLBACK_GRANT_BYTES = MAX_FRAME_BYTES
+"""Largest sealed keyring a fallback grant may carry."""
 _COMMIT_PREFIX = b"bento/v1/pair-commit"
 _COUNTER_LIMIT = 1 << 64
 _NONCE_PAD = bytes(4)
@@ -308,13 +312,18 @@ class FallbackPairingKeys:
     commitment = b64url(SHA-256("bento/v1/pair-commit" || eph_guest_pub || guest_device_public_key || request_id))
     salt       = SHA-256(request_id || guest_device_public_key || eph_guest_pub || eph_host_pub)
     SAS        = 4 x 6 bits of HKDF-SHA256(X25519(own, peer), salt, info="bento/v1/pairing/fallback-sas", length=3)
+    grant_key  = HKDF-SHA256(X25519(own, peer), salt, info="bento/v1/pairing/fallback-grant", length=32)
+    grant      = nonce 12B || AES-256-GCM(grant_key, nonce, sealed_keyring, aad=request_id)
     ```
 
     `request_id` is UTF-8 encoded. The guest publishes only `commitment(...)` until it has seen the
     host's ephemeral key; the host must check `verify_commitment` on the reveal before showing a SAS.
+    The grant key comes from the same exchange as the SAS, so only the host whose emojis the user
+    compared can produce a grant the guest accepts.
     """
 
     def __init__(self, *, random_bytes: RandomBytes = os.urandom) -> None:
+        self._random = random_bytes
         self._private = X25519PrivateKey.from_private_bytes(random_bytes(KEY_BYTES))
         self._public = self._private.public_key().public_bytes_raw()
 
@@ -336,6 +345,85 @@ class FallbackPairingKeys:
         guest_ephemeral_public_key: bytes,
         host_ephemeral_public_key: bytes,
     ) -> tuple[str, str, str, str]:
+        shared, salt = self._transcript(
+            peer_public_key, request_id, guest_device_public_key, guest_ephemeral_public_key, host_ephemeral_public_key
+        )
+        return sas_from_bits(hkdf_sha256(shared, salt=salt, info=_FALLBACK_SAS_INFO, length=3))
+
+    def grant_key_with(
+        self,
+        peer_public_key: bytes,
+        *,
+        request_id: str,
+        guest_device_public_key: bytes,
+        guest_ephemeral_public_key: bytes,
+        host_ephemeral_public_key: bytes,
+    ) -> bytes:
+        """32-byte key authenticating the fallback grant; same transcript checks as `sas_with`."""
+        shared, salt = self._transcript(
+            peer_public_key, request_id, guest_device_public_key, guest_ephemeral_public_key, host_ephemeral_public_key
+        )
+        return hkdf_sha256(shared, salt=salt, info=_FALLBACK_GRANT_INFO, length=KEY_BYTES)
+
+    def seal_grant(
+        self,
+        peer_public_key: bytes,
+        sealed_keyring: bytes,
+        *,
+        request_id: str,
+        guest_device_public_key: bytes,
+        guest_ephemeral_public_key: bytes,
+        host_ephemeral_public_key: bytes,
+    ) -> bytes:
+        """Host side: `nonce || AES-256-GCM(grant_key, nonce, sealed_keyring, aad=request_id)`."""
+        payload = bytes(sealed_keyring)
+        if not payload or len(payload) > MAX_FALLBACK_GRANT_BYTES:
+            raise ValidationFailedError("Sealed keyring size is out of range")
+        key = self.grant_key_with(
+            peer_public_key,
+            request_id=request_id,
+            guest_device_public_key=guest_device_public_key,
+            guest_ephemeral_public_key=guest_ephemeral_public_key,
+            host_ephemeral_public_key=host_ephemeral_public_key,
+        )
+        nonce = self._random(NONCE_BYTES)
+        return nonce + AESGCM(key).encrypt(nonce, payload, request_id.encode("utf-8"))
+
+    def open_grant(
+        self,
+        peer_public_key: bytes,
+        grant: bytes,
+        *,
+        request_id: str,
+        guest_device_public_key: bytes,
+        guest_ephemeral_public_key: bytes,
+        host_ephemeral_public_key: bytes,
+    ) -> bytes:
+        """Guest side: the sealed keyring inside a grant. Raises `IntegrityError` for anything else."""
+        data = bytes(grant)
+        if len(data) < NONCE_BYTES + TAG_BYTES + 1 or len(data) > NONCE_BYTES + MAX_FALLBACK_GRANT_BYTES + TAG_BYTES:
+            raise IntegrityError("pairing_grant")
+        key = self.grant_key_with(
+            peer_public_key,
+            request_id=request_id,
+            guest_device_public_key=guest_device_public_key,
+            guest_ephemeral_public_key=guest_ephemeral_public_key,
+            host_ephemeral_public_key=host_ephemeral_public_key,
+        )
+        try:
+            return AESGCM(key).decrypt(data[:NONCE_BYTES], data[NONCE_BYTES:], request_id.encode("utf-8"))
+        except InvalidTag:
+            raise IntegrityError("pairing_grant") from None
+
+    def _transcript(
+        self,
+        peer_public_key: bytes,
+        request_id: str,
+        guest_device_public_key: bytes,
+        guest_ephemeral_public_key: bytes,
+        host_ephemeral_public_key: bytes,
+    ) -> tuple[bytes, bytes]:
+        """Checked X25519 shared secret and transcript salt; raises `IntegrityError` on inconsistent inputs."""
         peer = bytes(peer_public_key)
         device = bytes(guest_device_public_key)
         guest_eph = bytes(guest_ephemeral_public_key)
@@ -353,7 +441,7 @@ class FallbackPairingKeys:
         except ValueError:
             raise IntegrityError("pairing") from None
         salt = hashlib.sha256(request_id.encode("utf-8") + device + guest_eph + host_eph).digest()
-        return sas_from_bits(hkdf_sha256(shared, salt=salt, info=_FALLBACK_SAS_INFO, length=3))
+        return shared, salt
 
 
 class PairingCryptoFactory:

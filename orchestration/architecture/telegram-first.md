@@ -205,7 +205,7 @@ Commit-then-reveal prevents anyone with channel access (including Telegram) from
 2. Online devices show a non-blocking prompt. On "Revisar", the host posts `pair_offer {request_id, eph_pub: eph_host_pub}`.
 3. The guest posts `pair_reveal {request_id, eph_pub: eph_guest_pub}`; the host verifies the commitment and rejects mismatches.
 4. Both compute the SAS with `HKDF(X25519(eph_host, eph_guest), salt = SHA-256(request_id || public_key || eph_guest_pub || eph_host_pub), info = "bento/v1/pairing/fallback-sas")` and display the emojis.
-5. After the user confirms the emojis match, the host posts `pair_grant {request_id, sealed_keyring}` (sealed to `public_key`, aad `request_id`). Requests expire after 15 minutes; the guest deletes its own pairing messages after completion.
+5. After the user confirms the emojis match, the host posts `pair_grant {request_id, grant}` with `grant = b64url(nonce 12B || AES-256-GCM(grant_key, nonce, sealed_keyring, aad = request_id))`, where `grant_key = HKDF(X25519(eph_host, eph_guest), salt = the SAS transcript hash of step 4, info = "bento/v1/pairing/fallback-grant", length = 32)` and `sealed_keyring = seal_for_device(public_key, keyring_json, aad = request_id)` (defence in depth). The grant is therefore bound to the exchange whose SAS the user verified, not only to the public device key: the guest ignores grants that fail to decrypt (anyone with channel access can post one), then still checks that the granted keyring verifies the pinned header MAC before installing it. Requests expire after 15 minutes; the guest deletes its own pairing messages after completion.
 
 ### Recovery
 
