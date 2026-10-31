@@ -118,4 +118,56 @@ describe("native packaging scaffold", () => {
     expect(bump).toContain("Reusing open pull request");
     expect(bump).toContain("desktop-version-bump");
   });
+
+  it("registers bento:// deep links and Send-to file handling in every package format", async () => {
+    const forgeSource = await readFile(path.join(desktopRoot, "forge.config.cjs"), "utf8");
+    const packageJson = JSON.parse(await readFile(path.join(desktopRoot, "package.json"), "utf8")) as { desktopName: string };
+    expect(forgeSource).toContain('protocols: [{ name: "Bento", schemes: ["bento"] }]');
+    expect(forgeSource).toContain("CFBundleDocumentTypes");
+    expect(forgeSource).toContain('LSHandlerRank: "Alternate"');
+    expect(forgeSource).toContain('LSItemContentTypes: ["public.data"]');
+    expect(forgeSource).toContain('"x-scheme-handler/bento"');
+    expect(forgeSource).toContain("mimeType: linuxMimeTypes");
+    for (const mime of ["image/jpeg", "video/mp4", "application/pdf"]) expect(forgeSource).toContain(`"${mime}"`);
+    // The deb desktop entry is named after the package; Electron must use the same name on Linux.
+    expect(packageJson.desktopName).toBe("bento-desktop.desktop");
+  });
+
+  it("packages build configuration and tray icons as extra resources, generated before packaging", async () => {
+    const forgeSource = await readFile(path.join(desktopRoot, "forge.config.cjs"), "utf8");
+    const packageJson = JSON.parse(await readFile(path.join(desktopRoot, "package.json"), "utf8")) as { scripts: Record<string, string> };
+    expect(forgeSource).toContain('"resources", "build-config.json"');
+    expect(forgeSource).toContain('"resources", "tray"');
+    expect(forgeSource).toMatch(/extraResource: \[path\.join\(sidecarBundle, "bento-sidecar"\), buildConfig, trayIcons\]/u);
+    expect(packageJson.scripts["build:config"]).toBe("node scripts/write-build-config.mjs --keep-existing");
+    for (const script of ["package", "make"]) expect(packageJson.scripts[script]).toMatch(/npm run build:config && electron-forge/u);
+    const gitignore = await readFile(path.join(desktopRoot, ".gitignore"), "utf8");
+    expect(gitignore).toContain("resources/build-config.json");
+    const verify = await readFile(path.join(desktopRoot, "scripts", "verify-artifacts.mjs"), "utf8");
+    expect(verify).toContain("build-config");
+    expect(verify).toContain("tray icon is missing");
+  });
+
+  it("writes build configuration from repository secrets/vars without echoing values", async () => {
+    const repositoryRoot = path.resolve(desktopRoot, "../..");
+    const native = await readFile(path.join(repositoryRoot, ".github", "workflows", "desktop-native.yml"), "utf8");
+    const release = await readFile(path.join(repositoryRoot, ".github", "workflows", "desktop-release.yml"), "utf8");
+    const writer = await readFile(path.join(desktopRoot, "scripts", "write-build-config.mjs"), "utf8");
+    expect(native).toContain("vars.BENTO_RELAY_URL");
+    expect(native).toContain("vars.BENTO_PUBLIC_SITE_URL");
+    expect(native).not.toContain("BENTO_TELEGRAM_API");
+    expect(release).toContain("BENTO_TELEGRAM_API_ID: ${{ secrets.BENTO_TELEGRAM_API_ID }}");
+    expect(release).toContain("BENTO_TELEGRAM_API_HASH: ${{ secrets.BENTO_TELEGRAM_API_HASH }}");
+    expect(release).toContain("write-build-config.mjs --require-telegram");
+    expect(release).toContain("HAS_TELEGRAM_API_ID");
+    expect(release.indexOf("Write desktop build configuration")).toBeLessThan(release.indexOf("Build signed and notarized macOS makers"));
+    for (const workflow of [native, release]) {
+      expect(workflow).not.toMatch(/echo[^\n]*\$\{?\{?\s*(?:secrets|env)\.?BENTO_TELEGRAM/u);
+      expect(workflow).not.toMatch(/echo[^\n]*\$BENTO_TELEGRAM/u);
+    }
+    // The writer reports key names only and reuses the runtime validator.
+    expect(writer).toContain("../src/main/build-config.ts");
+    expect(writer).not.toMatch(/console\.(?:log|error)\([^)]*config\[/u);
+    expect(writer).not.toMatch(/console\.(?:log|error)\([^)]*JSON\.stringify/u);
+  });
 });
