@@ -1,15 +1,17 @@
 import type { PhotoAsset, PhotoTimelineGroup } from "../../api/photos";
+import type { MenuItem } from "../../components/Menu";
 import { t } from "../../i18n/dictionary";
 import { formatTimelineDate, groupTimelineByMonth } from "./dateGrouping";
 import { PhotoGrid } from "./PhotoGrid";
 
 export type PhotoTimelineProps = {
   groups: PhotoTimelineGroup[];
+  menuFor?: (asset: PhotoAsset) => MenuItem[];
   onOpen: (asset: PhotoAsset) => void;
   showFavoriteMarkers?: boolean;
 };
 
-export function PhotoTimeline({ groups, onOpen, showFavoriteMarkers = true }: PhotoTimelineProps) {
+export function PhotoTimeline({ groups, menuFor, onOpen, showFavoriteMarkers = true }: PhotoTimelineProps) {
   const months = groupTimelineByMonth(groups);
 
   return (
@@ -26,7 +28,7 @@ export function PhotoTimeline({ groups, onOpen, showFavoriteMarkers = true }: Ph
                     {day.assets.length} {day.assets.length === 1 ? t("photos.item") : t("photos.items")}
                   </span>
                 </div>
-                <PhotoGrid assets={day.assets} onOpen={onOpen} showFavoriteMarkers={showFavoriteMarkers} />
+                <PhotoGrid assets={day.assets} menuFor={menuFor} onOpen={onOpen} showFavoriteMarkers={showFavoriteMarkers} />
               </section>
             ))}
           </div>
