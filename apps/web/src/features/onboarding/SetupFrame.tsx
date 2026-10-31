@@ -40,14 +40,12 @@ export function SetupFrame({
 }: SetupFrameProps) {
   const titleId = useId();
   const titleRef = useRef<HTMLHeadingElement | null>(null);
-  const firstRender = useRef(true);
+  const mainRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    if (firstRender.current) {
-      firstRender.current = false;
-      return;
-    }
-    titleRef.current?.focus();
+    // Each step replaces the card: move focus to its title (screen readers announce the step)
+    // unless a field inside it already took focus with autoFocus.
+    if (!mainRef.current?.contains(document.activeElement)) titleRef.current?.focus({ preventScroll: true });
   }, [stepKey]);
 
   return (
@@ -60,6 +58,7 @@ export function SetupFrame({
             width === "md" ? "max-w-lg" : "max-w-2xl",
           )}
           key={stepKey}
+          ref={mainRef}
         >
           {showLogo || steps ? (
             <div className="flex items-center justify-between gap-3 px-6 pt-6 sm:px-8 sm:pt-7">

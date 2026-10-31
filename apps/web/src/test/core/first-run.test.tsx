@@ -63,7 +63,7 @@ describe("first run", () => {
     expect(screen.getByText(/no está afiliado a Telegram/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Empezar" }));
 
-    expect(screen.getByRole("heading", { name: "Conecta tu Telegram" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Conecta tu Telegram" })).toHaveFocus();
     expect(await screen.findByRole("img", { name: "Código QR para vincular tu cuenta de Telegram" })).toBeInTheDocument();
     expect(screen.getByText("Ve a Ajustes › Dispositivos › Vincular dispositivo de escritorio.")).toBeInTheDocument();
 
