@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -29,6 +30,8 @@ class UploadAssetCommand:
     ocr_enabled: bool = True
     embeddings_enabled: bool = True
     max_size_bytes: int | None = None
+    folder_resolver: Callable[[AssetMode], Awaitable[str | None]] | None = None
+    """Chooses the folder from the inferred mode (folder backup); called only for new, non-duplicate assets."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,13 +69,16 @@ class UploadAssetUseCase:
                 return UploadAssetResult(asset=existing, blob_ref=None, duplicate=True)
             raise DuplicateAssetError(command.sha256)
 
-        if command.folder_id is not None and await self._folders.get(command.folder_id) is None:
-            raise FolderNotFoundError(command.folder_id)
+        kind = infer_asset_kind(command.mime_type)
+        mode = command.mode or infer_asset_mode(kind)
+        folder_id = command.folder_id
+        if command.folder_resolver is not None:
+            folder_id = await command.folder_resolver(mode)
+        if folder_id is not None and await self._folders.get(folder_id) is None:
+            raise FolderNotFoundError(folder_id)
 
         now = self._clock.now()
         asset_id = await self._assets.next_id()
-        kind = infer_asset_kind(command.mime_type)
-        mode = command.mode or infer_asset_mode(kind)
         metadata = AssetMetadata(
             original_filename=command.original_filename,
             mime_type=command.mime_type,
@@ -92,7 +98,7 @@ class UploadAssetUseCase:
             id=asset_id,
             kind=kind,
             mode=mode,
-            folder_id=command.folder_id,
+            folder_id=folder_id,
             filename=command.original_filename,
             metadata=metadata,
             processing_state=ProcessingState.BLOB_STORED,
