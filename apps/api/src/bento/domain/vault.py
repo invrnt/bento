@@ -132,11 +132,7 @@ class VaultHeader:
                 "inbox": self.layout.inbox_channel_id,
             },
             "current_epoch": self.current_epoch,
-            "recovery": {
-                "alg": self.recovery.alg,
-                "nonce": self.recovery.nonce,
-                "wrapped_keyring": self.recovery.wrapped_keyring,
-            },
+            "recovery": _recovery_payload(self.recovery),
             "snapshot": None
             if self.snapshot is None
             else {
@@ -182,6 +178,7 @@ class VaultHeader:
                     alg=str(recovery["alg"]),
                     nonce=str(recovery["nonce"]),
                     wrapped_keyring=str(recovery["wrapped_keyring"]),
+                    confirmed_at=_optional_datetime(recovery.get("confirmed_at")),
                 ),
                 snapshot=None
                 if snapshot is None
@@ -211,6 +208,26 @@ class VaultStatus:
     devices_count: int = 0
     usage: VaultUsage = VaultUsage()
     other_vaults: int = 0
+
+
+def _recovery_payload(recovery: RecoveryWrap) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "alg": recovery.alg,
+        "nonce": recovery.nonce,
+        "wrapped_keyring": recovery.wrapped_keyring,
+    }
+    # Omitted until confirmed, so headers written before the field existed keep their MAC.
+    if recovery.confirmed_at is not None:
+        payload["confirmed_at"] = recovery.confirmed_at.isoformat()
+    return payload
+
+
+def _optional_datetime(value: Any) -> datetime | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("expected an ISO-8601 string")
+    return datetime.fromisoformat(value)
 
 
 def canonical_json(payload: Any) -> bytes:

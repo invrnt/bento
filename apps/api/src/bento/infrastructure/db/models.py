@@ -62,6 +62,8 @@ class AssetModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    origin: Mapped[str | None] = mapped_column(String(32))
+    """Device-local provenance (`AssetOrigin`), not synced; NULL for assets that arrived from another device."""
 
 
 class AlbumModel(Base):

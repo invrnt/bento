@@ -55,6 +55,35 @@ def test_processing_state_transition_allows_progressive_pipeline() -> None:
     assert pending.processing_state == ProcessingState.THUMBNAIL_PENDING
 
 
+def test_only_files_from_this_device_may_feed_ai_indexing() -> None:
+    from dataclasses import replace
+
+    from bento.domain.assets import AssetOrigin
+
+    asset = _asset()
+    assert asset.origin == AssetOrigin.DEVICE and asset.ai_indexing_allowed
+    for origin in (AssetOrigin.TELEGRAM_INBOX, AssetOrigin.TELEGRAM_IMPORT):
+        assert origin.from_telegram and not replace(asset, origin=origin).ai_indexing_allowed
+    assert not AssetOrigin.DEVICE.from_telegram
+    assert not replace(asset, origin=None).ai_indexing_allowed  # arrived from another device
+
+
+def test_finish_processing_reaches_a_terminal_state() -> None:
+    stored = _asset().transition_to(ProcessingState.BLOB_STORED, NOW)
+    pending = stored.transition_to(ProcessingState.THUMBNAIL_PENDING, NOW)
+    ready = pending.transition_to(ProcessingState.THUMBNAIL_READY, NOW)
+
+    assert stored.finish_processing(NOW).processing_state == ProcessingState.INDEXED
+    assert pending.finish_processing(NOW).processing_state == ProcessingState.INDEXED
+    assert ready.finish_processing(NOW).processing_state == ProcessingState.INDEXED
+    assert pending.finish_processing(NOW, failed=True).processing_state == ProcessingState.FAILED_PARTIAL
+    partial = pending.transition_to(ProcessingState.FAILED_PARTIAL, NOW)
+    assert partial.finish_processing(NOW) == partial
+    indexed = ready.transition_to(ProcessingState.INDEXED, NOW)
+    assert indexed.finish_processing(NOW, failed=True) == indexed
+    assert _asset().finish_processing(NOW) == _asset()  # nothing stored yet: stays `created`
+
+
 def test_job_retry_eligibility_requires_failed_with_attempts_remaining() -> None:
     failed = Job(
         id="job-1",

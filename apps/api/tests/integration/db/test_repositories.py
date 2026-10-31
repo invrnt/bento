@@ -112,3 +112,32 @@ def test_album_repository_crud_and_membership(tmp_path) -> None:
         assert await albums.get(album.id) is None
 
     asyncio.run(scenario())
+
+
+def test_album_repository_adds_an_album_created_with_items(tmp_path) -> None:
+    """The album row must reach SQLite before its `album_assets` rows (foreign keys are on)."""
+
+    async def scenario() -> None:
+        factory = migrated_session_factory(tmp_path)
+        assets = SQLiteAssetRepository(factory)
+        albums = SQLiteAlbumRepository(factory)
+        first = make_asset("asset_1", sha256="a" * 64)
+        second = make_asset("asset_2", sha256="b" * 64)
+        await assets.add(first)
+        await assets.add(second)
+        album = Album(
+            id="album_new",
+            title="Viaje",
+            asset_ids=frozenset({first.id, second.id}),
+            created_at=NOW,
+            updated_at=NOW,
+        )
+
+        await albums.add(album)
+        assert await albums.get(album.id) == album
+
+        unsaved = Album(id="album_saved", title="Solo save", asset_ids=frozenset({first.id}), created_at=NOW, updated_at=NOW)
+        await albums.save(unsaved)
+        assert await albums.get(unsaved.id) == unsaved
+
+    asyncio.run(scenario())

@@ -11,6 +11,7 @@ from bento.adapters.repositories import SQLiteAssetRepository
 from bento.application.ingestion import UploadedAssetFile
 from bento.application.sharing import SharingService
 from bento.application.telegram_import import PAGE_SIZE, TelegramImportService
+from bento.domain.assets import AssetOrigin
 from bento.domain.errors import AssetNotFoundError, StorageUnavailableError, ValidationFailedError
 from bento.domain.jobs import JobType
 from bento.domain.telegram import TelegramChatKind
@@ -101,6 +102,13 @@ def test_import_lists_media_queues_a_job_and_dedupes(tmp_path: Path) -> None:
         result = await service.run(job)
 
         assert (result.imported, result.duplicates, result.failed) == (2, 0, 0)
+        imported = await SQLiteAssetRepository(device.sessions).list_live()
+        assert {asset.filename: asset.origin for asset in imported} == {
+            "atardecer.jpg": AssetOrigin.TELEGRAM_IMPORT,
+            "recibo-cafe.pdf": AssetOrigin.TELEGRAM_IMPORT,
+        }
+        queued_types = {job.type for job in (await jobs.list(limit=50))[0]}
+        assert not queued_types & {JobType.OCR, JobType.EMBEDDING}
         again = await service.run(job)
         assert (again.imported, again.duplicates) == (0, 2)
         # Original messages are untouched.

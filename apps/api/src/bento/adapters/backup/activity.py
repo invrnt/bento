@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from bento.adapters.backup.pipeline import job_payload_value
 from bento.adapters.repositories.mappers import require_aware
+from bento.application.account import FLOOD_WAIT_UNTIL_KEY
 from bento.application.activity import (
     MAX_ATTENTION_PER_KIND,
     THROUGHPUT_WINDOW_SECONDS,
@@ -27,6 +28,7 @@ from bento.infrastructure.db.models import (
     BlobRefModel,
     InboxItemModel,
     JobModel,
+    SyncStateModel,
     UploadSessionModel,
 )
 
@@ -91,6 +93,7 @@ class SQLiteActivitySource:
                 recent_uploaded_bytes=recent_bytes,
                 recent_window_seconds=(now - oldest).total_seconds() if oldest is not None else 0,
                 flood_wait_until=flood_until,
+                telegram_flood_wait_until=_telegram_flood_until(session, now),
                 failed_uploads=self._failed_uploads(session),
                 failed_backups=self._failed_backups(session),
                 failed_inbox=self._failed_inbox(session),
@@ -195,7 +198,16 @@ def _kind(job: JobModel) -> str:
 
 
 def _flood_until(job: JobModel) -> datetime | None:
-    raw = (job.payload_json or {}).get("flood_wait_until")
+    return _parse_until((job.payload_json or {}).get("flood_wait_until"))
+
+
+def _telegram_flood_until(session: Session, now: datetime) -> datetime | None:
+    row = session.get(SyncStateModel, FLOOD_WAIT_UNTIL_KEY)
+    until = _parse_until(row.value if row is not None else None)
+    return until if until is not None and until > now else None
+
+
+def _parse_until(raw: object) -> datetime | None:
     if not raw:
         return None
     try:

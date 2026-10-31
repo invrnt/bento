@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import secrets
 import time
 from collections.abc import Awaitable, Callable
@@ -31,8 +32,8 @@ from bento.domain.errors import (
     VaultLockedError,
     VaultNotFoundError,
 )
-from bento.domain.security import DeviceIdentity, VaultKeyring
-from bento.domain.sync import SyncState, SyncStatus
+from bento.domain.security import DeviceIdentity, RecoveryWrap, VaultKeyring
+from bento.domain.sync import SyncMessageKind, SyncState, SyncStatus
 from bento.domain.vault import VaultHeader, VaultLayout, VaultState, VaultStatus, VaultUsage
 from bento.ports.key_store import DEVICE_IDENTITY, VAULT_KEYRING, KeyStorePort
 from bento.ports.pairing import DeviceRepositoryPort
@@ -47,6 +48,10 @@ CREATED_AT_KEY = "vault.created_at"
 OTHER_VAULTS_KEY = "vault.other_vaults"
 RECOVERY_KIT_SAVED_KEY = "vault.recovery_kit_saved"
 RECOVERY_KIT_CHECK_KEY = "vault.recovery_kit_check"
+RECOVERY_KIT_WRAP_KEY = "vault.recovery_kit_wrap"
+"""Nonce of the recovery wrap whose code this device showed, so a confirmation never marks a newer code."""
+HEADER_CLEANUP_KEY_PREFIX = "vault.header_cleanup_after."
+"""Sync message id below which superseded headers of the vault were already deleted by this device."""
 BOOTSTRAP_PENDING_KEY = "vault.bootstrap_pending"
 """ISO time of an `install()` the sync engine has not pulled after yet (`"0"` once it has)."""
 KEYRING_REVISION_KEY = "vault.keyring_revision"
@@ -54,6 +59,12 @@ KEYRING_REVISION_KEY = "vault.keyring_revision"
 
 DISCOVERY_TTL_SECONDS = 30.0
 ACCOUNT_RECHECK_SECONDS = 30.0
+RECOVERY_KIT_RECHECK_SECONDS = 30.0
+HEADER_SCAN_PAGE = 100
+HEADER_SCAN_MAX_PAGES = 50
+"""A first cleanup on a long Sync channel is spread over several header updates (the cursor keeps progress)."""
+DELETE_CHUNK = 100
+LOGGER = logging.getLogger("bento.vault")
 _CROCKFORD_ALIASES = str.maketrans({"O": "0", "I": "1", "L": "1"})
 
 
@@ -124,6 +135,13 @@ class _CachedContext:
 
 
 @dataclass(frozen=True, slots=True)
+class _CachedKit:
+    vault_id: str
+    saved: bool
+    at: float
+
+
+@dataclass(frozen=True, slots=True)
 class _Discovery:
     layout: VaultLayout | None
     header: VaultHeader | None
@@ -182,6 +200,7 @@ class VaultService:
         self._monotonic = monotonic
         self._discovery: _Discovery | None = None
         self._context: _CachedContext | None = None
+        self._kit: _CachedKit | None = None
 
     # VaultSessionPort
 
@@ -198,13 +217,13 @@ class VaultService:
             return VaultStatus(state=VaultState.SIGNED_OUT)
         local = await self._local(account.account)
         if local is not None:
-            layout, _ = local
+            layout, keyring = local
             created_at = await self._state.get_value(CREATED_AT_KEY)
             return VaultStatus(
                 state=VaultState.BOOTSTRAPPING if await self._bootstrapping() else VaultState.READY,
                 vault_id=layout.vault_id,
                 created_at=datetime.fromisoformat(created_at) if created_at else None,
-                recovery_kit_saved=await self._state.get_value(RECOVERY_KIT_SAVED_KEY) == "1",
+                recovery_kit_saved=await self._recovery_kit_saved(ports, layout, keyring),
                 devices_count=len(await self._devices.list()),
                 usage=await self._usage.usage(),
                 other_vaults=int(await self._state.get_value(OTHER_VAULTS_KEY) or 0),
@@ -307,6 +326,7 @@ class VaultService:
         return discovery.header
 
     async def update_header(self, mutate: Callable[[VaultHeader], VaultHeader]) -> VaultHeader:
+        """Publish the mutated header (nothing is posted when it does not change), then delete superseded headers."""
         context = await self.require()
         ports = self._require_ports()
         header = await self._verified_header(ports, context.layout, context.keyring)
@@ -316,7 +336,11 @@ class VaultService:
         if updated.vault_id != header.vault_id or updated.layout != header.layout:
             raise ValidationFailedError("The vault id and layout of a header cannot change")
         signed = self._sign(replace(updated, current_epoch=context.keyring.current_epoch, mac=None), context.keyring)
-        await ports.transport.publish_header_text(context.layout, signed.to_json())
+        if signed == header:
+            return header
+        message_id = await ports.transport.publish_header_text(context.layout, signed.to_json())
+        await self._mirror_kit(signed)
+        await self._delete_superseded_headers(ports, context.layout, message_id)
         return signed
 
     # Vault use cases
@@ -360,7 +384,7 @@ class VaultService:
         await self._state.set_value(CREATED_AT_KEY, header.created_at.isoformat())
         await self._state.set_value(OTHER_VAULTS_KEY, str(discovery.others if discovery.header is not None else 0))
         await self._state.set_value(BOOTSTRAP_PENDING_KEY, "0")
-        await self._remember_kit(keyring.vault_id, recovery_code, saved=False)
+        await self._remember_kit(keyring.vault_id, recovery_code, header.recovery)
         await self._save_layout(layout, account)
         await self._register_device()
         await self._changed()
@@ -382,7 +406,13 @@ class VaultService:
             raise IntegrityError("vault_layout")
         await self._state.set_value(OTHER_VAULTS_KEY, str(discovery.others))
         await self.install(discovery.layout, keyring)
-        await self._remember_kit(header.vault_id, code, saved=True)
+        await self._remember_kit(header.vault_id, code, header.recovery)
+        if header.recovery.confirmed_at is None:
+            # Opening the vault with the code proves it was saved; tell every device. Unlock succeeded anyway.
+            try:
+                await self.update_header(self._confirming(header.recovery.nonce))
+            except DomainError as exc:
+                LOGGER.warning("Could not mark the recovery kit as saved after unlocking: %s", exc.code)
         return await self.status()
 
     async def rotate_recovery_code(self) -> str:
@@ -391,16 +421,20 @@ class VaultService:
         code = self._crypto.generate_recovery_code()
         wrap = self._crypto.wrap_for_recovery(context.keyring, code)
         await self.update_header(lambda header: replace(header, recovery=wrap))
-        await self._remember_kit(context.layout.vault_id, code, saved=False)
+        await self._remember_kit(context.layout.vault_id, code, wrap)
         return code
 
     async def confirm_recovery_kit(self, last_group: str) -> VaultStatus:
-        """Mark the kit as saved when the person types the last group of the newest code."""
+        """Mark the kit as saved, for every device, when the person types the last group of the newest code.
+
+        The mark lives in the MAC-covered header (`recovery.confirmed_at`). It is only set while the header still
+        carries the wrap whose code this device showed: a code rotated elsewhere in the meantime stays unconfirmed.
+        """
         context = await self.require()
         expected = await self._state.get_value(RECOVERY_KIT_CHECK_KEY)
         if expected is None or not secrets.compare_digest(expected, _kit_check(context.layout.vault_id, last_group)):
             raise RecoveryGroupMismatchError()
-        await self._state.set_value(RECOVERY_KIT_SAVED_KEY, "1")
+        await self.update_header(self._confirming(await self._state.get_value(RECOVERY_KIT_WRAP_KEY)))
         return await self.status()
 
     async def verify_recovery_code(self, recovery_code: str) -> bool:
@@ -414,9 +448,10 @@ class VaultService:
         return True
 
     def invalidate(self) -> None:
-        """Forget cached discovery and context (account changes, tests)."""
+        """Forget cached discovery, context, and recovery kit state (account changes, tests)."""
         self._discovery = None
         self._context = None
+        self._kit = None
 
     # Internals
 
@@ -539,10 +574,88 @@ class VaultService:
         unsigned = replace(header, current_epoch=keyring.current_epoch, mac=None)
         return replace(unsigned, mac=self._crypto.header_mac(keyring, unsigned.canonical_unsigned_bytes()))
 
-    async def _remember_kit(self, vault_id: str, recovery_code: str, *, saved: bool) -> None:
+    async def _remember_kit(self, vault_id: str, recovery_code: str, wrap: RecoveryWrap) -> None:
         last_group = self._crypto.normalize_recovery_code(recovery_code).rsplit("-", 1)[-1]
         await self._state.set_value(RECOVERY_KIT_CHECK_KEY, _kit_check(vault_id, last_group))
-        await self._state.set_value(RECOVERY_KIT_SAVED_KEY, "1" if saved else "0")
+        await self._state.set_value(RECOVERY_KIT_WRAP_KEY, wrap.nonce)
+        await self._state.set_value(RECOVERY_KIT_SAVED_KEY, "1" if wrap.confirmed_at is not None else "0")
+
+    def _confirming(self, wrap_nonce: str | None) -> Callable[[VaultHeader], VaultHeader]:
+        confirmed_at = self._clock.now()
+
+        def mutate(header: VaultHeader) -> VaultHeader:
+            recovery = header.recovery
+            if recovery.confirmed_at is not None or (wrap_nonce is not None and recovery.nonce != wrap_nonce):
+                return header
+            return replace(header, recovery=replace(recovery, confirmed_at=confirmed_at))
+
+        return mutate
+
+    async def _recovery_kit_saved(self, ports: TelegramPorts, layout: VaultLayout, keyring: VaultKeyring) -> bool:
+        """Vault-wide: the current header's wrap is confirmed. The local mirror answers when Telegram cannot."""
+        cached = self._kit
+        if (
+            cached is not None
+            and cached.vault_id == layout.vault_id
+            and self._monotonic() - cached.at < RECOVERY_KIT_RECHECK_SECONDS
+        ):
+            return cached.saved
+        try:
+            header = await self._verified_header(ports, layout, keyring)
+        except DomainError as exc:
+            LOGGER.debug("Vault header unavailable for the recovery kit state: %s", exc.code)
+            header = None
+        if header is None:
+            # Cached as well, so an unreachable or rate-limited Telegram is not asked again on every status call.
+            saved = await self._state.get_value(RECOVERY_KIT_SAVED_KEY) == "1"
+            self._kit = _CachedKit(vault_id=layout.vault_id, saved=saved, at=self._monotonic())
+            return saved
+        return await self._mirror_kit(header)
+
+    async def _mirror_kit(self, header: VaultHeader) -> bool:
+        """Cache the header's recovery kit state and keep the local fallback flag in step with it."""
+        saved = header.recovery.confirmed_at is not None
+        self._kit = _CachedKit(vault_id=header.vault_id, saved=saved, at=self._monotonic())
+        flag = "1" if saved else "0"
+        if await self._state.get_value(RECOVERY_KIT_SAVED_KEY) != flag:
+            await self._state.set_value(RECOVERY_KIT_SAVED_KEY, flag)
+        return saved
+
+    async def _delete_superseded_headers(self, ports: TelegramPorts, layout: VaultLayout, current_message_id: int) -> None:
+        """Best effort: older headers carry the keyring wrapped by older recovery codes, so they must not linger.
+
+        Scans the Sync channel from where this device's last cleanup stopped and deletes every header posted before
+        `current_message_id`; the current header and anything newer (another device's) are never touched.
+        """
+        cursor_key = HEADER_CLEANUP_KEY_PREFIX + layout.vault_id
+        cursor = int(await self._state.get_value(cursor_key) or 0)
+        scanned_through = current_message_id - 1
+        stale: list[int] = []
+        try:
+            for _ in range(HEADER_SCAN_MAX_PAGES):
+                refs = await ports.transport.list_sync_messages(layout, after_message_id=cursor, limit=HEADER_SCAN_PAGE)
+                stale.extend(
+                    ref.message_id
+                    for ref in refs
+                    if ref.kind == SyncMessageKind.HEADER and ref.message_id < current_message_id
+                )
+                if len(refs) < HEADER_SCAN_PAGE or refs[-1].message_id >= current_message_id:
+                    break
+                cursor = refs[-1].message_id
+            else:
+                scanned_through = cursor
+            for offset in range(0, len(stale), DELETE_CHUNK):
+                await ports.transport.delete_sync_messages(layout, tuple(stale[offset : offset + DELETE_CHUNK]))
+        except DomainError as exc:
+            LOGGER.warning("Could not delete %s superseded vault header(s): %s", len(stale), exc.code)
+            return
+        except Exception as exc:  # noqa: BLE001 - the new header is already published; cleanup retries next time
+            LOGGER.warning("Could not delete %s superseded vault header(s): %s", len(stale), exc.__class__.__name__)
+            return
+        if stale:
+            LOGGER.info("Deleted %s superseded vault header(s)", len(stale))
+        # The current header stays above the cursor, so the next update finds and deletes it.
+        await self._state.set_value(cursor_key, str(scanned_through))
 
     async def _register_device(self) -> None:
         identity = await self.device_identity()

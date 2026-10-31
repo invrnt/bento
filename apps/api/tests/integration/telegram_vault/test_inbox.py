@@ -10,6 +10,7 @@ from bento.adapters.jobs import SQLiteJobQueue
 from bento.adapters.repositories import SQLiteAssetRepository
 from bento.adapters.telegram_mtproto.vault_state import SQLiteInboxItems
 from bento.application.inbox import InboxService, InboxState
+from bento.domain.assets import AssetOrigin
 from bento.domain.errors import UploadTooLargeError
 from bento.domain.jobs import Job, JobType
 from tests.integration.telegram_vault.support import VaultDevice, local_ingestion, make_vault_device
@@ -77,6 +78,8 @@ def test_inbox_lifecycle_import_react_and_delete_after_the_keep_window(tmp_path:
 
         asset = await SQLiteAssetRepository(device.sessions).get(asset_id)
         assert asset is not None and asset.filename == "foto.jpg"
+        # Telegram API terms: files from Telegram never feed OCR or embeddings.
+        assert asset.origin == AssetOrigin.TELEGRAM_INBOX and not asset.ai_indexing_allowed
         assert device.cloud.message(inbox_id, photo).reactions == ("✅",)
         record = await items.get(photo)
         assert record is not None and record.state == InboxState.DONE and record.asset_id == asset_id

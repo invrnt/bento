@@ -45,6 +45,15 @@ class SQLiteAssetRepository:
         with session_scope(self._session_factory) as session:
             session.merge(asset_to_model(asset))
 
+    async def list_live(self, *, after_id: str | None = None, limit: int = 200) -> tuple[Asset, ...]:
+        """Non-trashed assets in id order, after `after_id` (keyset pages for whole-library jobs)."""
+        statement = select(AssetModel).where(AssetModel.deleted_at.is_(None))
+        if after_id is not None:
+            statement = statement.where(AssetModel.id > after_id)
+        with session_scope(self._session_factory) as session:
+            models = session.scalars(statement.order_by(AssetModel.id.asc()).limit(max(limit, 1)))
+            return tuple(asset_from_model(model) for model in models)
+
     async def list_photos_timeline(
         self,
         *,

@@ -4,7 +4,17 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
 
-from bento.domain.assets import Asset, AssetKind, AssetMetadata, AssetMode, ProcessingState, infer_asset_kind, infer_asset_mode
+from bento.domain.assets import (
+    Asset,
+    AssetKind,
+    AssetMetadata,
+    AssetMode,
+    AssetOrigin,
+    ProcessingState,
+    infer_asset_kind,
+    infer_asset_mode,
+    supports_ocr,
+)
 from bento.domain.errors import DuplicateAssetError, FolderNotFoundError, UploadTooLargeError
 from bento.domain.jobs import JobPriority, JobType
 from bento.domain.manifest import ManifestEntityType, ManifestEventType
@@ -32,6 +42,8 @@ class UploadAssetCommand:
     max_size_bytes: int | None = None
     folder_resolver: Callable[[AssetMode], Awaitable[str | None]] | None = None
     """Chooses the folder from the inferred mode (folder backup); called only for new, non-duplicate assets."""
+    origin: AssetOrigin = AssetOrigin.DEVICE
+    """Files obtained from Telegram are never sent to OCR or embeddings (Telegram API terms)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,9 +117,15 @@ class UploadAssetUseCase:
             favorite=False,
             created_at=now,
             updated_at=now,
+            origin=command.origin,
         )
         if initial_state != asset.processing_state:
             asset = asset.transition_to(initial_state, now)
+        index_text = command.ocr_enabled and asset.ai_indexing_allowed and supports_ocr(kind)
+        embed = command.embeddings_enabled and asset.ai_indexing_allowed
+        if not (_can_generate_media(kind) or index_text or embed):
+            # Nothing else will touch it: it is as ready as it gets, like the copies peers receive.
+            asset = asset.finish_processing(now)
         await self._assets.add(asset)
         await self._manifest.append(
             type=ManifestEventType.ASSET_CREATED,
@@ -128,14 +146,14 @@ class UploadAssetUseCase:
                 payload={"asset_id": asset.id},
                 asset_id=asset.id,
             )
-        if command.ocr_enabled and _can_ocr(kind):
+        if index_text:
             await self._jobs.enqueue(
                 type=JobType.OCR,
                 priority=int(JobPriority.OCR),
                 payload={"asset_id": asset.id},
                 asset_id=asset.id,
             )
-        if command.embeddings_enabled:
+        if embed:
             await self._jobs.enqueue(
                 type=JobType.EMBEDDING,
                 priority=int(JobPriority.EMBEDDING),
@@ -143,10 +161,6 @@ class UploadAssetUseCase:
                 asset_id=asset.id,
             )
         return UploadAssetResult(asset=asset, blob_ref=blob_ref, duplicate=False)
-
-
-def _can_ocr(kind: AssetKind) -> bool:
-    return kind in {AssetKind.IMAGE, AssetKind.PDF, AssetKind.DOCUMENT}
 
 
 def _can_generate_media(kind: AssetKind) -> bool:

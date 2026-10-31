@@ -241,3 +241,17 @@ def test_factories_without_capture_installed_pay_nothing(tmp_path: Path) -> None
         session.add(SyncStateModel(key="capture", value=json.dumps({"vault_id": "v", "device_id": DEVICE}), updated_at=NOW))
         session.add(FolderModel(id="folder_1", name="A", created_at=NOW, updated_at=NOW))
     assert ops(plain) == []
+
+
+def test_asset_origin_stays_on_this_device(factory: sessionmaker[Session]) -> None:
+    from bento.domain.assets import AssetOrigin
+
+    async def scenario() -> None:
+        imported = replace(make_asset("asset_imported"), origin=AssetOrigin.TELEGRAM_IMPORT)
+        await SQLiteAssetRepository(factory).add(imported)
+        await SQLiteBlobRefCatalog(factory, FixedClock()).add(remote_blob(imported.id))
+
+    asyncio.run(scenario())
+    captured = ops(factory)
+    assert [entity for entity, entity_id, _, _ in captured if entity_id == "asset_imported"] == ["asset"]
+    assert all("origin" not in fields for _, _, _, fields in captured)

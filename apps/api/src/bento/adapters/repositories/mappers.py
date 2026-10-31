@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from bento.domain.assets import Asset, AssetKind, AssetMetadata, AssetMode, ProcessingState
+from bento.domain.assets import Asset, AssetKind, AssetMetadata, AssetMode, AssetOrigin, ProcessingState
 from bento.domain.devices import Device, DevicePlatform
 from bento.domain.drive import Folder
 from bento.domain.jobs import Job, JobStatus, JobType
@@ -57,7 +57,16 @@ def asset_from_model(model: AssetModel) -> Asset:
         created_at=require_aware(model.created_at),
         updated_at=require_aware(model.updated_at),
         deleted_at=aware(model.deleted_at),
+        origin=_asset_origin(model.origin),
     )
+
+
+def _asset_origin(value: str | None) -> AssetOrigin | None:
+    """Unknown values read as unknown provenance, which keeps the asset out of AI indexing."""
+    try:
+        return AssetOrigin(value) if value is not None else None
+    except ValueError:
+        return None
 
 
 def asset_to_model(asset: Asset) -> AssetModel:
@@ -78,6 +87,7 @@ def asset_to_model(asset: Asset) -> AssetModel:
         created_at=asset.created_at,
         updated_at=asset.updated_at,
         deleted_at=asset.deleted_at,
+        origin=asset.origin.value if asset.origin is not None else None,
     )
 
 

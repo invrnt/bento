@@ -11,6 +11,7 @@ import hashlib
 import os
 import time
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -29,6 +30,7 @@ from bento.domain.telegram import RemotePart
 from bento.infrastructure.db.engine import sqlite_url
 from bento.infrastructure.settings import Settings
 from bento.infrastructure.storage_pipeline import StoragePipelineComponents, build_storage_pipeline
+from bento.ports.blob_store import RemoteBlobUpload
 from bento.interfaces.worker.storage_pipeline import StoragePipelineJobHandler
 from tests.integration.fake_telegram.support import make_device, sign_in
 
@@ -53,7 +55,9 @@ class VaultRemoteBlobStore:
         self._cipher = StreamingBlobCipher(segment_size=4096)
         self._work_dir = work_dir
         self._part_size = part_size
-        self.failures: list[Exception] = []
+        self.failures: list[Exception | None] = []
+        self.album_failures: list[Exception] = []
+        self.albums: list[list[BlobKind]] = []
         self.delete_failures: list[Exception] = []
         self.stored: list[BlobRef] = []
         self.deleted: list[str] = []
@@ -75,7 +79,9 @@ class VaultRemoteBlobStore:
     ) -> BlobRef:
         del encryption
         if self.failures:
-            raise self.failures.pop(0)
+            failure = self.failures.pop(0)  # None lets one call through
+            if failure is not None:
+                raise failure
         source = Path(source_ref)
         if hashlib.sha256(source.read_bytes()).hexdigest() != metadata.sha256:
             raise ValidationFailedError("source changed")
@@ -108,6 +114,20 @@ class VaultRemoteBlobStore:
         )
         self.stored.append(ref)
         return ref
+
+    async def store_many(self, uploads: Sequence[RemoteBlobUpload]) -> tuple[BlobRef, ...]:
+        """Records each album (kinds per request of up to 10) and stores its items like `store`."""
+        if self.album_failures:
+            raise self.album_failures.pop(0)
+        refs: list[BlobRef] = []
+        for offset in range(0, len(uploads), 10):
+            chunk = uploads[offset : offset + 10]
+            self.albums.append([upload.kind for upload in chunk])
+            for upload in chunk:
+                refs.append(
+                    await self.store(upload.source_ref, asset_id=upload.asset_id, kind=upload.kind, metadata=upload.metadata)
+                )
+        return tuple(refs)
 
     async def get(self, blob_id: str) -> BlobRef | None:
         del blob_id

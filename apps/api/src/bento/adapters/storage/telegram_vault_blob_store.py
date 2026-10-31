@@ -30,10 +30,11 @@ from bento.domain.assets import AssetMetadata
 from bento.domain.errors import IntegrityError, StorageUnavailableError, ValidationFailedError
 from bento.domain.security import BlobCipherParams, EncryptionMetadata, EncryptionMode, VaultKeyring
 from bento.domain.storage import BlobKind, BlobPart, BlobRef, StorageBackend
-from bento.domain.telegram import RemotePart
+from bento.domain.telegram import ALBUM_MAX_DOCUMENTS, RemotePart
 from bento.domain.vault import VaultLayout
 from bento.infrastructure.db.engine import session_scope
 from bento.infrastructure.db.models import UploadSessionModel
+from bento.ports.blob_store import RemoteBlobUpload
 from bento.ports.repositories import ClockPort
 from bento.ports.security import BlobCipherPort
 from bento.ports.telegram import RemotePartStorePort
@@ -42,7 +43,7 @@ from bento.ports.vault import VaultContext, VaultSessionPort
 MIB = 1024 * 1024
 MAX_PART_BYTES = 1950 * MIB
 PREMIUM_MAX_PART_BYTES = 3900 * MIB
-ALBUM_SIZE = 10
+ALBUM_SIZE = ALBUM_MAX_DOCUMENTS
 DEFAULT_SMALL_BLOB_BYTES = 8 * MIB
 BLOB_FORMAT_VERSION = 2
 PART_SUFFIX = ".bpart"
@@ -96,14 +97,6 @@ class PartBatchUploader(Protocol):
     """Optional capability of a part store: one album request for up to 10 documents."""
 
     async def upload_parts(self, layout: VaultLayout, items: Sequence[tuple[Path, str]]) -> tuple[RemotePart, ...]: ...
-
-
-@dataclass(frozen=True, slots=True)
-class RemoteBlobUpload:
-    source_ref: str
-    asset_id: str | None
-    kind: BlobKind
-    metadata: AssetMetadata
 
 
 async def upload_part_batch(

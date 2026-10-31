@@ -17,6 +17,7 @@ Status: binding contract for Stages 14-18. It supersedes the Bot API storage des
 
 - Product name never contains "Telegram". UI copy says "conecta tu cuenta de Telegram" and the about/legal pages state that Bento uses the Telegram API.
 - Each build uses Bento's own `api_id`. Never use data from Telegram to train or fine-tune models; local OCR/embeddings index the user's own files only.
+- Enforcement: `assets.origin` (device-local, never synced; migration `0005`) is `device`, `telegram_inbox`, or `telegram_import`, and NULL for assets received from other devices. Only `device` assets get OCR/embedding jobs (upload, reindex) and the OCR/embedding services refuse any other origin when a job runs. Filename, type, and date search keep working for every asset.
 - Respect `FLOOD_WAIT_X` and slow mode; never parallelize beyond the policy below; never automate actions on chats the user did not choose.
 
 ## Process Topology
@@ -109,12 +110,13 @@ The Sync channel's pinned message is a JSON text message (≤ 4096 chars):
 {"bento": "vault-header", "v": 1, "vault_id": "vlt_...", "created_at": "ISO-8601",
  "layout": {"files": <channel_id>, "sync": <channel_id>, "inbox": <channel_id>},
  "current_epoch": 1,
- "recovery": {"alg": "hkdf-aesgcm-v1", "nonce": "b64url", "wrapped_keyring": "b64url"},
+ "recovery": {"alg": "hkdf-aesgcm-v1", "nonce": "b64url", "wrapped_keyring": "b64url", "confirmed_at": "ISO-8601 (optional)"},
  "snapshot": {"message_id": 123, "covers_through_message_id": 456, "created_at": "ISO-8601"} | null,
  "mac": "b64url HMAC-SHA256(header-mac subkey, canonical JSON without mac)"}
 ```
 
-- New headers are posted and pinned; the previous header is unpinned (not deleted).
+- New headers are posted and pinned; older header messages are then deleted (best effort, resumable cursor per device) because they carry the keyring wrapped by superseded recovery codes. The current header and newer ones are never deleted.
+- `recovery.confirmed_at` (optional ISO-8601, MAC-covered, omitted while unset) records that the current recovery code was saved (kit confirmation or an unlock with the code). It is vault-wide: every device reports `recovery_kit_saved` from it, and every new wrap (rotation, device removal) starts without it.
 - Devices with a keyring verify the MAC and ignore headers with invalid MACs. A device that unlocks via recovery code verifies the MAC after unwrapping.
 
 ## Sync Protocol
@@ -132,7 +134,7 @@ The Sync channel's pinned message is a JSON text message (≤ 4096 chars):
 | `asset_index` | asset id | `ocr_text`, `pdf_pages` (list), `language`, `embedding` (`{provider, dimensions, vector_b64_f32}` or null) |
 | `device` | device id | `name`, `platform`, `public_key`, `telegram_auth_hash`, `added_at`, `removed_at` |
 
-`processing_state`, jobs, local cache paths, settings, and search index tables are device-local and never synced.
+`processing_state`, `origin`, jobs, local cache paths, settings, and search index tables are device-local and never synced. Peers create received assets as `indexed`; the uploading device settles each asset to `indexed` (or `failed_partial` after a step failed for good) once no thumbnail/OCR/embedding job is left for it.
 
 ### Operations
 

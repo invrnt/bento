@@ -47,5 +47,9 @@ class VaultSessionPort(Protocol):
         ...
 
     async def update_header(self, mutate: Callable[[VaultHeader], VaultHeader]) -> VaultHeader:
-        """Read the latest header, apply `mutate`, MAC with the current keyring, publish, and return it."""
+        """Read the latest header, apply `mutate`, MAC with the current keyring, publish, and return it.
+
+        Nothing is published when the header does not change. After publishing, older header messages are deleted
+        (best effort): they carry the keyring wrapped by superseded recovery codes.
+        """
         ...

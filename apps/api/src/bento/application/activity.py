@@ -65,6 +65,9 @@ class ActivitySnapshot:
     recent_uploaded_bytes: int = 0
     recent_window_seconds: float = 0
     flood_wait_until: datetime | None = None
+    """Latest `run_after` of uploads rescheduled for a Telegram flood wait."""
+    telegram_flood_wait_until: datetime | None = None
+    """`sync_state["telegram.flood_wait_until"]`: any long wait the Telegram client of this device reported."""
     failed_uploads: tuple[FailedUpload, ...] = ()
     failed_backups: tuple[FailedBackupSource, ...] = ()
     failed_inbox: tuple[FailedInboxItem, ...] = ()
@@ -225,7 +228,8 @@ def _attention(inputs: ActivityInputs) -> list[AttentionItem]:
 def _flood_wait_seconds(inputs: ActivityInputs) -> int | None:
     if inputs.now is None:
         return None
-    candidates = [inputs.snapshot.flood_wait_until]
+    # Every source of a wait collapses into one `flood_wait` item showing the longest remaining wait.
+    candidates = [inputs.snapshot.flood_wait_until, inputs.snapshot.telegram_flood_wait_until]
     if inputs.sync is not None and inputs.sync.state == SyncState.WAITING:
         candidates.append(inputs.sync.waiting_until)
     remaining = [math.ceil((until - inputs.now).total_seconds()) for until in candidates if until is not None]
