@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -13,6 +15,9 @@ VAULT_HEADER_MARKER = "vault-header"
 VAULT_HEADER_VERSION = 1
 CHANNEL_TITLES = {"files": "Bento · Archivos", "sync": "Bento · Sync", "inbox": "Bento · Bandeja"}
 CHAT_FOLDER_TITLE = "Bento"
+VAULT_TITLE_PREFIX = "Bento"
+CHANNEL_ABOUT_NOTICE = "Creado por Bento. No borres ni edites estos mensajes."
+_MARKER_PATTERN = re.compile(r"^bento:v1:(files|sync|inbox):(vlt_[0-9A-Za-z_-]+)$")
 
 
 class VaultState(StrEnum):
@@ -32,6 +37,55 @@ class VaultChannelRole(StrEnum):
 
 def channel_marker(role: VaultChannelRole, vault_id: str) -> str:
     return f"bento:v1:{role.value}:{vault_id}"
+
+
+def channel_about(role: VaultChannelRole, vault_id: str) -> str:
+    """Channel description: the machine marker line plus the human notice."""
+    return f"{channel_marker(role, vault_id)}\n{CHANNEL_ABOUT_NOTICE}"
+
+
+def parse_channel_marker(about: str) -> tuple[VaultChannelRole, str] | None:
+    for line in about.splitlines():
+        match = _MARKER_PATTERN.match(line.strip())
+        if match is not None:
+            return VaultChannelRole(match.group(1)), match.group(2)
+    return None
+
+
+@dataclass(frozen=True, slots=True)
+class VaultChannelCandidate:
+    """A channel seen while iterating dialogs, with its full `about` text."""
+
+    channel_id: int
+    title: str
+    about: str
+    creator: bool
+
+
+def discover_vault_layouts(candidates: Iterable[VaultChannelCandidate]) -> tuple[VaultLayout, ...]:
+    """Discovery rules: creator-owned channels titled `Bento…` whose about carries a marker; complete vaults only.
+
+    The first candidate wins when a role is duplicated; layouts keep the order in which vaults were first seen.
+    """
+    roles: dict[str, dict[VaultChannelRole, int]] = {}
+    for candidate in candidates:
+        if not candidate.creator or not candidate.title.startswith(VAULT_TITLE_PREFIX):
+            continue
+        parsed = parse_channel_marker(candidate.about)
+        if parsed is None:
+            continue
+        role, vault_id = parsed
+        roles.setdefault(vault_id, {}).setdefault(role, candidate.channel_id)
+    return tuple(
+        VaultLayout(
+            vault_id=vault_id,
+            files_channel_id=channels[VaultChannelRole.FILES],
+            sync_channel_id=channels[VaultChannelRole.SYNC],
+            inbox_channel_id=channels[VaultChannelRole.INBOX],
+        )
+        for vault_id, channels in roles.items()
+        if len(channels) == len(VaultChannelRole)
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,6 +160,8 @@ class VaultHeader:
     def from_json(cls, text: str) -> VaultHeader:
         try:
             payload = json.loads(text)
+            if not isinstance(payload, dict):
+                raise ValueError("not a vault header")
             if payload.get("bento") != VAULT_HEADER_MARKER or payload.get("v") != VAULT_HEADER_VERSION:
                 raise ValueError("not a vault header")
             layout = payload["layout"]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -8,6 +9,7 @@ from enum import StrEnum
 from typing import Any
 
 from bento.domain.errors import ValidationFailedError
+from bento.domain.vault import VAULT_HEADER_MARKER
 
 SYNC_BATCH_MARKER = "sync-batch"
 SYNC_PROTOCOL_VERSION = 1
@@ -76,6 +78,17 @@ class SyncMessageKind(StrEnum):
             if suffix and filename.endswith(suffix):
                 return kind
         return None
+
+    @classmethod
+    def from_text(cls, text: str) -> SyncMessageKind | None:
+        """Plaintext Sync messages are JSON objects with a string `bento` marker: the header or fallback pairing."""
+        try:
+            payload = json.loads(text)
+        except ValueError:
+            return None
+        if not isinstance(payload, dict) or not isinstance(payload.get("bento"), str):
+            return None
+        return cls.HEADER if payload["bento"] == VAULT_HEADER_MARKER else cls.PAIRING
 
 
 _SUFFIXES = {
