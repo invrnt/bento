@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Protocol
 
-from bento.domain.errors import StorageUnavailableError, ValidationFailedError
+from bento.domain.errors import DomainError, StorageUnavailableError
 from bento.domain.storage import StorageBackend
 from bento.ports.blob_store import BlobStorePort
-from bento.ports.storage_maintenance import EphemeralCachePort, StorageInventoryPort
+from bento.ports.storage_maintenance import CacheReclaimResult, CacheUsage, EphemeralCachePort, StorageInventoryPort
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,59 +30,75 @@ class StorageReclaimResult:
     skipped_recent_files: int
 
 
+class BlobCacheMaintenancePort(Protocol):
+    """Local copies of uploaded originals (`cache_entries`), evictable because they can be downloaded again."""
+
+    async def evictable_usage(self) -> CacheUsage: ...
+
+    async def evict(self, *, max_bytes: int | None) -> CacheReclaimResult: ...
+
+
 class StorageMaintenanceService:
+    """"Liberar espacio": drops reproducible temp files and cached copies of originals already in the vault.
+
+    Blobs that exist only on this device are never touched, so reclaiming no longer requires every blob to be
+    remote; it requires a reachable remote store so evicted originals can be fetched again.
+    """
+
     def __init__(
         self,
         *,
         storage_backend: StorageBackend,
-        telegram_configured: bool,
-        blob_store: BlobStorePort | None,
+        remote_store: Callable[[], BlobStorePort | None],
         inventory: StorageInventoryPort,
         cache: EphemeralCachePort,
+        blob_cache: BlobCacheMaintenancePort | None = None,
     ) -> None:
         self._storage_backend = storage_backend
-        self._telegram_configured = telegram_configured
-        self._blob_store = blob_store
+        self._remote_store = remote_store
         self._inventory = inventory
         self._cache = cache
+        self._blob_cache = blob_cache
 
     async def status(self) -> StorageMaintenanceStatus:
         inventory = await self._inventory.summarize()
         usage = await self._cache.usage()
-        connection_state = "not_configured"
-        if self._storage_backend == StorageBackend.TELEGRAM and self._telegram_configured:
-            connected = False
-            if self._blob_store is not None:
-                try:
-                    connected = await self._blob_store.probe()
-                except StorageUnavailableError:
-                    connected = False
-            connection_state = "connected" if connected else "unavailable"
-        fully_remote = inventory.local_blobs == 0 and inventory.telegram_blobs == inventory.total_blobs
+        cached = await self._blob_cache.evictable_usage() if self._blob_cache is not None else CacheUsage(bytes=0, files=0)
+        connection_state = await self._connection_state()
         return StorageMaintenanceStatus(
             connection_state=connection_state,
-            can_reclaim=connection_state == "connected" and fully_remote,
-            fully_remote=fully_remote,
-            reclaimable_bytes=usage.bytes,
-            reclaimable_files=usage.files,
+            can_reclaim=connection_state == "connected",
+            fully_remote=inventory.local_blobs == 0 and inventory.telegram_blobs == inventory.total_blobs,
+            reclaimable_bytes=usage.bytes + cached.bytes,
+            reclaimable_files=usage.files + cached.files,
             local_blob_count=inventory.local_blobs,
             telegram_blob_count=inventory.telegram_blobs,
         )
 
     async def reclaim(self) -> StorageReclaimResult:
-        status = await self.status()
-        if status.connection_state != "connected":
+        if await self._connection_state() != "connected":
             raise StorageUnavailableError(StorageBackend.TELEGRAM.value)
-        if not status.fully_remote:
-            raise ValidationFailedError(
-                "Local cache cannot be reclaimed while local blobs still exist",
-                {"local_blob_count": status.local_blob_count},
-            )
-        result = await self._cache.reclaim()
-        return StorageReclaimResult(
-            freed_bytes=result.freed_bytes,
-            deleted_files=result.deleted_files,
-            retained_bytes=result.retained.bytes,
-            retained_files=result.retained.files,
-            skipped_recent_files=result.skipped_recent_files,
+        temp = await self._cache.reclaim()
+        cached = (
+            await self._blob_cache.evict(max_bytes=None)
+            if self._blob_cache is not None
+            else CacheReclaimResult(freed_bytes=0, deleted_files=0, retained=CacheUsage(bytes=0, files=0), skipped_recent_files=0)
         )
+        return StorageReclaimResult(
+            freed_bytes=temp.freed_bytes + cached.freed_bytes,
+            deleted_files=temp.deleted_files + cached.deleted_files,
+            retained_bytes=temp.retained.bytes + cached.retained.bytes,
+            retained_files=temp.retained.files + cached.retained.files,
+            skipped_recent_files=temp.skipped_recent_files + cached.skipped_recent_files,
+        )
+
+    async def _connection_state(self) -> str:
+        if self._storage_backend == StorageBackend.LOCAL:
+            return "not_configured"
+        store = self._remote_store()
+        if store is None:
+            return "unavailable"
+        try:
+            return "connected" if await store.probe() else "unavailable"
+        except DomainError:
+            return "unavailable"

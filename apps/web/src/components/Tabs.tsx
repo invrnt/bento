@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { useId, useRef } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 
 import { cx } from "../lib/cx";
 
@@ -16,26 +17,50 @@ export type TabsProps<T extends string> = {
 };
 
 export function Tabs<T extends string>({ ariaLabel, onChange, tabs, value }: TabsProps<T>) {
+  const baseId = useId();
+  const listRef = useRef<HTMLDivElement | null>(null);
   const selectedTab = tabs.find((tab) => tab.value === value) ?? tabs[0];
 
+  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+
+    if (!step) {
+      return;
+    }
+
+    event.preventDefault();
+    const index = tabs.findIndex((tab) => tab.value === selectedTab.value);
+    const nextIndex = (index + step + tabs.length) % tabs.length;
+    onChange(tabs[nextIndex].value);
+    listRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[nextIndex]?.focus();
+  }
+
   return (
-    <div className="grid gap-3">
-      <div aria-label={ariaLabel} className="flex gap-2 border-b border-app-border" role="tablist">
-        {tabs.map((tab) => {
+    <div className="grid gap-4">
+      <div
+        aria-label={ariaLabel}
+        className="flex gap-1 overflow-x-auto border-b border-line"
+        onKeyDown={onKeyDown}
+        ref={listRef}
+        role="tablist"
+      >
+        {tabs.map((tab, index) => {
           const selected = tab.value === selectedTab.value;
 
           return (
             <button
+              aria-controls={`${baseId}-panel`}
               aria-selected={selected}
               className={cx(
-                "h-10 rounded-t-app-control border-b-2 px-4 text-sm font-medium transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent cursor-pointer",
-                selected
-                  ? "border-app-accent text-app-accent font-semibold"
-                  : "border-transparent text-app-text-muted hover:text-app-text hover:border-app-border/40",
+                "focus-ring relative -mb-px h-10 shrink-0 rounded-t-sm px-3 text-base font-medium transition-colors duration-150",
+                "after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:transition-colors",
+                selected ? "text-ink after:bg-accent" : "text-ink-muted after:bg-transparent hover:text-ink",
               )}
+              id={`${baseId}-tab-${index}`}
               key={tab.value}
               onClick={() => onChange(tab.value)}
               role="tab"
+              tabIndex={selected ? 0 : -1}
               type="button"
             >
               {tab.label}
@@ -43,7 +68,7 @@ export function Tabs<T extends string>({ ariaLabel, onChange, tabs, value }: Tab
           );
         })}
       </div>
-      <div className="min-w-0" role="tabpanel">
+      <div className="min-w-0" id={`${baseId}-panel`} role="tabpanel">
         {selectedTab.content}
       </div>
     </div>

@@ -3,8 +3,21 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, JSON, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    LargeBinary,
+    String,
+    Text,
+    text,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from bento.infrastructure.db.base import Base
 
@@ -49,6 +62,8 @@ class AssetModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    origin: Mapped[str | None] = mapped_column(String(32))
+    """Device-local provenance (`AssetOrigin`), not synced; NULL for assets that arrived from another device."""
 
 
 class AlbumModel(Base):
@@ -91,6 +106,27 @@ class BlobRefModel(Base):
     encryption_nonce: Mapped[str | None] = mapped_column(String(64))
     encryption_tag: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    key_epoch: Mapped[int | None] = mapped_column(Integer)
+    format_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default=text("1"))
+    cipher_header_sha256: Mapped[str | None] = mapped_column(String(64))
+    """b64url SHA-256 of the 36-byte blob v2 header; binds the remote ciphertext to this ref."""
+    remote_deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    parts: Mapped[list[BlobPartModel]] = relationship(
+        order_by="BlobPartModel.part_index",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy="selectin",
+    )
+
+
+class BlobPartModel(Base):
+    __tablename__ = "blob_parts"
+
+    blob_ref_id: Mapped[str] = mapped_column(ForeignKey("blob_refs.id", ondelete="CASCADE"), primary_key=True)
+    part_index: Mapped[int] = mapped_column(Integer, primary_key=True)
+    channel_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    message_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
 
 
 class ThumbnailModel(Base):
@@ -219,4 +255,142 @@ class SettingSecretReferenceModel(Base):
     key: Mapped[str] = mapped_column(String(128), primary_key=True)
     reference: Mapped[str | None] = mapped_column(String(256))
     configured: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SyncOutboxModel(Base):
+    __tablename__ = "sync_outbox"
+    __table_args__ = {"sqlite_autoincrement": True}
+
+    seq: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    op_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    hlc: Mapped[str] = mapped_column(String(96), nullable=False)
+    entity: Mapped[str] = mapped_column(String(32), nullable=False)
+    entity_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    fields_json: Mapped[dict[str, Any]] = mapped_column("fields", JSON, nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SyncFieldClockModel(Base):
+    __tablename__ = "sync_field_clocks"
+
+    entity: Mapped[str] = mapped_column(String(32), primary_key=True)
+    entity_id: Mapped[str] = mapped_column(String(160), primary_key=True)
+    field: Mapped[str] = mapped_column(String(64), primary_key=True)
+    hlc: Mapped[str] = mapped_column(String(96), nullable=False)
+
+
+class SyncPurgedModel(Base):
+    __tablename__ = "sync_purged"
+
+    entity: Mapped[str] = mapped_column(String(32), primary_key=True)
+    entity_id: Mapped[str] = mapped_column(String(160), primary_key=True)
+    hlc: Mapped[str] = mapped_column(String(96), nullable=False)
+    purged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SyncAppliedBatchModel(Base):
+    __tablename__ = "sync_applied_batches"
+
+    batch_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    message_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    applied_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SyncStateModel(Base):
+    __tablename__ = "sync_state"
+
+    key: Mapped[str] = mapped_column(String(128), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class DeviceModel(Base):
+    __tablename__ = "devices"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    platform: Mapped[str] = mapped_column(String(32), nullable=False)
+    public_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    telegram_auth_hash: Mapped[int | None] = mapped_column(BigInteger)
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    is_current: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("0"))
+    introduced_by: Mapped[str | None] = mapped_column(String(64))
+    """Device-local: id of the device whose sync data first created this row here; NULL when created locally."""
+    first_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    """Device-local: when the person acknowledged a device first seen through sync (or it predates this device)."""
+
+
+class BackupSourceModel(Base):
+    __tablename__ = "backup_sources"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    path: Mapped[str] = mapped_column(String(4096), nullable=False, unique=True)
+    label: Mapped[str] = mapped_column(String(255), nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=text("1"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_scan_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    error_code: Mapped[str | None] = mapped_column(String(64))
+
+
+class BackupFileModel(Base):
+    __tablename__ = "backup_files"
+    __table_args__ = (Index("ix_backup_files_state", "state"),)
+
+    source_id: Mapped[str] = mapped_column(ForeignKey("backup_sources.id", ondelete="CASCADE"), primary_key=True)
+    relative_path: Mapped[str] = mapped_column(String(4096), primary_key=True)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    mtime_ns: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    sha256: Mapped[str | None] = mapped_column(String(64))
+    asset_id: Mapped[str | None] = mapped_column(String(64))
+    state: Mapped[str] = mapped_column(String(16), nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String(64))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class UploadSessionModel(Base):
+    __tablename__ = "upload_sessions"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    asset_id: Mapped[str | None] = mapped_column(String(64))
+    blob_ref_id: Mapped[str | None] = mapped_column(String(64))
+    source_path: Mapped[str] = mapped_column(String(4096), nullable=False)
+    blob_kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    epoch: Mapped[int] = mapped_column(Integer, nullable=False)
+    file_salt: Mapped[bytes] = mapped_column(LargeBinary(16), nullable=False)
+    nonce_prefix: Mapped[bytes] = mapped_column(LargeBinary(7), nullable=False)
+    segment_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    plaintext_size: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    ciphertext_size: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    completed_parts: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class CacheEntryModel(Base):
+    __tablename__ = "cache_entries"
+    __table_args__ = (Index("ix_cache_entries_last_accessed_at", "last_accessed_at"),)
+
+    blob_ref_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    path: Mapped[str] = mapped_column(String(4096), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    last_accessed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class InboxItemModel(Base):
+    __tablename__ = "inbox_items"
+
+    message_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False)
+    asset_id: Mapped[str | None] = mapped_column(String(64))
+    error_code: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

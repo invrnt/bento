@@ -10,6 +10,7 @@ Implement Photos, Albums, Favorites, timeline, lightbox, and basic video viewing
 - `/orchestration/AGENTS.md`
 - `/orchestration/product/photos.md`
 - `/orchestration/api/endpoint-map.md`
+- `/orchestration/design-system/brand.md`
 - `/orchestration/design-system/primitives.md`
 - `/orchestration/architecture/styling-design.md`
 - `/orchestration/architecture/i18n-a11y.md`

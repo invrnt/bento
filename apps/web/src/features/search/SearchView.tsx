@@ -1,8 +1,12 @@
 import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import { SearchX } from "lucide-react";
 
+import { PageHeader } from "../../components/PageHeader";
 import { ErrorState, EmptyState, LoadingState } from "../../components/States";
-import type { SearchApi } from "../../api/search";
+import type { SearchApi, SearchHit } from "../../api/search";
 import { t } from "../../i18n/dictionary";
+import { cx } from "../../lib/cx";
 import { SearchFiltersBar } from "./SearchFiltersBar";
 import { SearchResultsList } from "./SearchResultsList";
 import type { SearchFilters, SearchScope } from "./searchFilters";
@@ -11,15 +15,19 @@ import { useSearchResults } from "./useSearchResults";
 
 export type SearchViewProps = {
   client?: SearchApi;
+  /** Replaces the default results list (Documents adds Quick Look and sharing). */
+  renderResults?: (items: SearchHit[]) => ReactNode;
   scope?: SearchScope;
 };
 
-export function SearchView({ client, scope = "global" }: SearchViewProps) {
+export function SearchView({ client, renderResults, scope = "global" }: SearchViewProps) {
   const initialFilters = useMemo(() => parseSearchFilters(window.location.search, scope), [scope]);
   const [filters, setFilters] = useState<SearchFilters>(initialFilters);
   const results = useSearchResults(filters, client);
   const title = scope === "documents" ? t("documents.title") : t("search.title");
   const body = scope === "documents" ? t("documents.subtitle") : t("search.subtitle");
+  const items = results.data?.items ?? [];
+  const refreshing = results.isLoading && results.data !== null;
 
   function updateFilters(nextFilters: SearchFilters): void {
     setFilters(nextFilters);
@@ -29,21 +37,20 @@ export function SearchView({ client, scope = "global" }: SearchViewProps) {
   }
 
   return (
-    <div className="grid w-full gap-5">
-      <header className="flex flex-col gap-1 border-b border-app-border/80 pb-4">
-        <h1 className="text-2xl font-bold tracking-tight text-app-text">{title}</h1>
-        <p className="text-sm text-app-text-muted">{body}</p>
-      </header>
+    <div className="grid w-full gap-8">
+      <PageHeader description={body} title={title}>
+        <SearchFiltersBar filters={filters} onChange={updateFilters} scope={scope} />
+      </PageHeader>
 
-      <SearchFiltersBar filters={filters} onChange={updateFilters} scope={scope} />
-
-      {results.isLoading ? <LoadingState label={t("search.loading")} /> : null}
+      {results.isLoading && results.data === null ? <LoadingState label={t("search.loading")} /> : null}
       {results.error ? <ErrorState body={t("search.error")} onRetry={results.refetch} /> : null}
-      {!results.isLoading && !results.error && results.data?.items.length === 0 ? (
-        <EmptyState body={t("search.empty.body")} title={t("search.empty.title")} />
+      {!results.isLoading && !results.error && results.data && items.length === 0 ? (
+        <EmptyState body={t("search.empty.body")} icon={<SearchX />} title={t("search.empty.title")} />
       ) : null}
-      {!results.error && results.data && results.data.items.length > 0 ? (
-        <SearchResultsList items={results.data.items} />
+      {!results.error && items.length > 0 ? (
+        <div aria-busy={refreshing || undefined} className={cx("transition-opacity duration-150", refreshing && "opacity-60")}>
+          {renderResults ? renderResults(items) : <SearchResultsList items={items} />}
+        </div>
       ) : null}
     </div>
   );

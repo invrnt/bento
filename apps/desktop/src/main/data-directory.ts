@@ -5,7 +5,11 @@ import { validateSafePath } from "./validation";
 export type DataMigrationMode = "copy" | "use-empty";
 
 export class DataDirectoryMigrator {
-  constructor(private readonly getAvailableBytes: (directory: string) => Promise<number> = availableBytes) {}
+  constructor(
+    private readonly getAvailableBytes: (directory: string) => Promise<number> = availableBytes,
+    /** Current POSIX user; `undefined` (Windows) skips the ownership check. */
+    private readonly currentUid: () => number | undefined = () => process.getuid?.(),
+  ) {}
 
   async validate(sourceValue: string, destinationValue: string, mode: DataMigrationMode | undefined): Promise<string> {
     if (!mode) throw new Error("Choose whether to copy the current data or use an empty directory");
@@ -17,6 +21,13 @@ export class DataDirectoryMigrator {
     const realSource = await realpath(source);
     const realDestination = await realpath(destination);
     if (realSource === realDestination) throw new Error("The new data directory must be different");
+    const uid = this.currentUid();
+    if (uid !== undefined) {
+      // Another account could read or plant files in a directory it owns or that anyone can write.
+      const owner = await stat(realDestination);
+      if (owner.uid !== uid) throw new Error("The new data directory must belong to the current user");
+      if (owner.mode & 0o002) throw new Error("The new data directory must not be writable by other users");
+    }
     const relation = path.relative(realSource, realDestination);
     const reverse = path.relative(realDestination, realSource);
     if ((!relation.startsWith("..") && !path.isAbsolute(relation)) || (!reverse.startsWith("..") && !path.isAbsolute(reverse))) {

@@ -1,0 +1,28 @@
+{
+  "name": "bento-relay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Stateless pairing relay for Bento devices (Cloudflare Worker + Durable Object).",
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "wrangler dev",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "wrangler types --check src/worker-configuration.d.ts && tsc --noEmit -p tsconfig.json && tsc --noEmit -p test/tsconfig.json",
+    "deploy": "wrangler deploy",
+    "cf-typegen": "wrangler types src/worker-configuration.d.ts"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.4.11",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5",
+    "wrangler": "4.156.0"
+  },
+  "allowScripts": {
+    "esbuild": true,
+    "workerd": true
+  }
+}

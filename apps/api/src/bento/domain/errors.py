@@ -108,3 +108,61 @@ class SettingsSourceLockedError(DomainError):
             "One or more settings are controlled by the environment or policy",
             {"keys": sorted(keys)},
         )
+
+
+class TelegramNotAvailableError(DomainError):
+    def __init__(self) -> None:
+        super().__init__("telegram_not_available", "This build has no Telegram application credentials")
+
+
+class TelegramAccountError(DomainError):
+    """Login/session failures. Codes: telegram_login_expired, telegram_code_invalid,
+    telegram_password_invalid, telegram_not_authorized, telegram_network, telegram_session_too_new."""
+
+    def __init__(self, code: str, message: str, details: dict[str, Any] | None = None) -> None:
+        super().__init__(code, message, details or {})
+
+
+class TelegramFloodWaitError(DomainError):
+    def __init__(self, retry_after_seconds: int) -> None:
+        super().__init__(
+            "telegram_flood_wait",
+            "Telegram asked to wait before retrying",
+            {"retry_after_seconds": retry_after_seconds},
+        )
+        self.retry_after_seconds = retry_after_seconds
+
+
+class VaultNotFoundError(DomainError):
+    def __init__(self) -> None:
+        super().__init__("vault_not_found", "No Bento vault exists in this Telegram account")
+
+
+class VaultLockedError(DomainError):
+    def __init__(self) -> None:
+        super().__init__("vault_locked", "This device has not been granted access to the vault")
+
+
+class VaultAlreadyExistsError(DomainError):
+    def __init__(self, vault_id: str) -> None:
+        super().__init__("vault_already_exists", "A Bento vault already exists in this account", {"vault_id": vault_id})
+
+
+class RecoveryCodeInvalidError(DomainError):
+    def __init__(self) -> None:
+        super().__init__("recovery_code_invalid", "Recovery code is invalid or does not match this vault")
+
+
+class IntegrityError(DomainError):
+    def __init__(self, what: str) -> None:
+        super().__init__("integrity_failed", "Encrypted data failed authentication", {"what": what})
+
+
+class DeviceNotFoundError(DomainError):
+    def __init__(self, device_id: str) -> None:
+        super().__init__("device_not_found", "Device not found", {"device_id": device_id})
+
+
+class BackupSourceInvalidError(DomainError):
+    def __init__(self, reason: str) -> None:
+        super().__init__("backup_source_invalid", "Folder cannot be backed up", {"reason": reason})

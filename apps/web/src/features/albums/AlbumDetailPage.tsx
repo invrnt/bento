@@ -1,22 +1,27 @@
 import { useEffect, useState } from "react";
+import { ArrowLeft, Image as ImageIcon, Plus, SquareLibrary, Trash2 } from "lucide-react";
 
+import { Badge } from "../../components/Badge";
 import { Button } from "../../components/Button";
+import { Card } from "../../components/Card";
 import { EmptyState, ErrorState, LoadingState } from "../../components/States";
 import { Input } from "../../components/Input";
-import { Thumbnail } from "../../components/Thumbnail";
+import { PageHeader } from "../../components/PageHeader";
 import { albumsApi } from "../../api/albums";
-import type { Album, AlbumsApi } from "../../api/albums";
+import type { AlbumsApi, Album } from "../../api/albums";
 import { assetThumbnailUrl } from "../../api/photos";
 import { t } from "../../i18n/dictionary";
+import { AlbumCover } from "./AlbumCover";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
 
 export type AlbumDetailPageProps = {
   albumId: string;
   api?: AlbumsApi;
+  onBack?: () => void;
 };
 
-export function AlbumDetailPage({ albumId, api = albumsApi }: AlbumDetailPageProps) {
+export function AlbumDetailPage({ albumId, api = albumsApi, onBack = backToAlbums }: AlbumDetailPageProps) {
   const [album, setAlbum] = useState<Album | null>(null);
   const [assetId, setAssetId] = useState("");
   const [loadState, setLoadState] = useState<LoadState>("idle");
@@ -86,71 +91,105 @@ export function AlbumDetailPage({ albumId, api = albumsApi }: AlbumDetailPagePro
   }
 
   if (!album) {
-    return <EmptyState body={t("albums.detailEmptyBody")} title={t("albums.detailEmptyTitle")} />;
+    return (
+      <EmptyState body={t("albums.detailEmptyBody")} icon={<SquareLibrary />} title={t("albums.detailEmptyTitle")} />
+    );
   }
 
+  const count = album.asset_ids.length;
+
   return (
-    <div className="grid w-full gap-5">
-      <header className="grid gap-4 sm:grid-cols-[8rem_1fr] sm:items-center border-b border-app-border/80 pb-5">
-        <Thumbnail
-          alt={album.title}
-          className="max-w-none rounded-xl border border-app-border/80 shadow-sm"
+    <div className="grid w-full content-start gap-8">
+      <div className="flex items-end gap-5">
+        <AlbumCover
+          className="hidden size-24 shrink-0 rounded-xl border border-line shadow-sm sm:block"
+          compact
           src={album.cover_asset ? assetThumbnailUrl(album.cover_asset) : undefined}
-        >
-          <span className="text-app-text-muted/60 font-semibold tracking-wide text-xs">{t("albums.emptyCover")}</span>
-        </Thumbnail>
-        <div className="min-w-0">
-          <h1 className="truncate text-2xl font-bold tracking-tight text-app-text">{album.title}</h1>
-          <p className="mt-1 text-xs text-app-text-muted font-medium bg-slate-100 px-2 py-0.5 rounded-full inline-block select-none">
-            {album.asset_ids.length} {album.asset_ids.length === 1 ? t("photos.item") : t("photos.items")}
-          </p>
-        </div>
-      </header>
+        />
+        <PageHeader
+          className="min-w-0 flex-1"
+          description={
+            <Badge size="md">
+              {count} {count === 1 ? t("photos.item") : t("photos.items")}
+            </Badge>
+          }
+          eyebrow={
+            <a
+              className="focus-ring -ml-1 inline-flex items-center gap-1 rounded-xs px-1 transition-colors hover:text-ink"
+              href="/albums"
+              onClick={(event) => {
+                event.preventDefault();
+                onBack();
+              }}
+            >
+              <ArrowLeft aria-hidden="true" className="size-3.5" />
+              {t("albums.back")}
+            </a>
+          }
+          title={album.title}
+        />
+      </div>
 
       <form
-        className="grid gap-3 rounded-app-card border border-app-border bg-app-surface p-4 shadow-2xs sm:grid-cols-[1fr_auto] sm:items-end transition-all duration-200"
+        className="flex w-full max-w-lg items-end gap-2"
         onSubmit={(event) => {
           event.preventDefault();
           void addItem();
         }}
       >
         <Input
+          className="font-mono"
+          hideLabel
           label={t("albums.addItemLabel")}
           onChange={(event) => setAssetId(event.currentTarget.value)}
           placeholder={t("albums.addItemPlaceholder")}
           value={assetId}
+          wrapperClassName="flex-1"
         />
-        <Button disabled={mutating || !assetId.trim()} type="submit" variant="primary">
+        <Button disabled={mutating || !assetId.trim()} leadingIcon={<Plus />} type="submit" variant="primary">
           {t("albums.addItem")}
         </Button>
       </form>
 
-      {album.asset_ids.length === 0 ? (
-        <EmptyState body={t("albums.albumEmptyBody")} title={t("albums.albumEmptyTitle")} />
+      {count === 0 ? (
+        <EmptyState
+          body={t("albums.albumEmptyBody")}
+          icon={<ImageIcon />}
+          size="sm"
+          title={t("albums.albumEmptyTitle")}
+        />
       ) : (
-        <section aria-label={t("albums.itemsLabel")} className="grid gap-2">
-          {album.asset_ids.map((itemAssetId) => (
-            <div
-              className="flex min-h-14 items-center justify-between gap-4 rounded-app-card border border-app-border bg-app-surface px-4 py-2 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 shadow-2xs"
-              key={itemAssetId}
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="text-app-text-muted/40 shrink-0">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
-                    <circle cx="9" cy="9" r="2"/>
-                    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
-                  </svg>
+        <Card aria-label={t("albums.itemsLabel")} as="section" padding="none">
+          <ul className="divide-y divide-line">
+            {album.asset_ids.map((itemAssetId) => (
+              <li className="flex min-h-14 items-center gap-3 px-4 py-2 transition-colors hover:bg-subtle" key={itemAssetId}>
+                <span
+                  aria-hidden="true"
+                  className="grid size-9 shrink-0 place-items-center rounded-sm bg-kind-image-soft text-kind-image"
+                >
+                  <ImageIcon className="size-4" />
                 </span>
-                <span className="min-w-0 truncate text-sm font-semibold text-app-text">{itemAssetId}</span>
-              </div>
-              <Button disabled={mutating} onClick={() => void removeItem(itemAssetId)} variant="danger" className="h-8.5 px-3 text-xs font-semibold">
-                {t("albums.removeItem")}
-              </Button>
-            </div>
-          ))}
-        </section>
+                <span className="min-w-0 flex-1 truncate font-mono text-sm text-ink">{itemAssetId}</span>
+                <Button
+                  aria-label={`${t("albums.removeItem")} ${itemAssetId}`}
+                  disabled={mutating}
+                  leadingIcon={<Trash2 />}
+                  onClick={() => void removeItem(itemAssetId)}
+                  size="sm"
+                  variant="danger-ghost"
+                >
+                  {t("albums.removeItem")}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </Card>
       )}
     </div>
   );
+}
+
+function backToAlbums() {
+  window.history.pushState({}, "", "/albums");
+  window.dispatchEvent(new PopStateEvent("popstate"));
 }

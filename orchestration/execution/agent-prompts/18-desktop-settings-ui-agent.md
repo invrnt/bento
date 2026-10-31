@@ -11,6 +11,7 @@ Turn Settings into a polished, accessible configuration experience and add the f
 - `/orchestration/product/settings-recovery-security.md`
 - `/orchestration/architecture/desktop-runtime-settings.md`
 - `/orchestration/architecture/i18n-a11y.md`
+- `/orchestration/design-system/brand.md`
 - `/orchestration/design-system/primitives.md`
 - `/orchestration/design-system/motion-interaction.md`
 

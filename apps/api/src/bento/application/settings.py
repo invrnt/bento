@@ -166,7 +166,7 @@ class EditableSettingsService:
             if definition is None or not definition.secret:
                 errors.append(FieldIssue(key, "invalid_secret_reference", "Setting is not a secret field"))
                 continue
-            if snapshot.values[key].locked:
+            if snapshot.values[key].locked or not definition.editable:
                 errors.append(FieldIssue(key, "settings_source_locked", "Secret is controlled by its source"))
                 continue
             if mutation.configured and not _valid_secret_reference(mutation.reference):
@@ -183,6 +183,7 @@ class EditableSettingsService:
         }
         configured.update({key: mutation.configured for key, mutation in references.items()})
         errors.extend(_cross_validate(candidate, configured))
+        warnings.extend(_cross_warnings(candidate, configured))
         probes = _run_probes(normalized, candidate) if run_probes and not errors else ()
         errors.extend(
             FieldIssue(probe.key, "settings_probe_failed", probe.message or "Probe failed")
@@ -303,21 +304,19 @@ def _validate_constraints(definition: Any, value: Any) -> None:
         raise ValueError(f"Must be at most {definition.maximum:g}")
 
 
+def _cross_warnings(values: Mapping[str, Any], configured: Mapping[str, bool]) -> list[FieldIssue]:
+    """Telegram mode without build credentials stays valid: the library keeps working locally."""
+    if values.get("storage_backend") == "telegram" and not all(
+        configured.get(key) for key in ("telegram_api_id", "telegram_api_hash")
+    ):
+        return [FieldIssue("storage_backend", "telegram_not_available", "This build has no Telegram application credentials")]
+    return []
+
+
 def _cross_validate(values: Mapping[str, Any], configured: Mapping[str, bool]) -> list[FieldIssue]:
     issues: list[FieldIssue] = []
-    if values.get("storage_backend") == "telegram":
-        required = (
-            "telegram_bot_token",
-            "telegram_api_id",
-            "telegram_api_hash",
-            "telegram_webhook_secret",
-            "telegram_raw_chat_id",
-            "telegram_thumbs_chat_id",
-            "telegram_journal_chat_id",
-        )
-        missing = [key for key in required if not configured.get(key)]
-        if missing:
-            issues.append(FieldIssue("storage_backend", "telegram_not_configured", "Telegram secrets are incomplete"))
+    if values.get("storage_backend") == "fake" and values.get("environment") == "production":
+        issues.append(FieldIssue("storage_backend", "storage_backend_unavailable", "The simulated Telegram is not available"))
     if values.get("embeddings_provider") == "jina" and not str(values.get("jina_model_path") or "").strip():
         issues.append(FieldIssue("jina_model_path", "model_path_required", "A model path is required"))
     data_dir = Path(str(values.get("data_dir") or ""))
@@ -342,16 +341,6 @@ def _run_probes(changed: Mapping[str, Any], candidate: Mapping[str, Any]) -> tup
             path = (Path(str(candidate["data_dir"])).parent / path).resolve()
         status = "passed" if path.is_file() else "failed"
         results.append(ProbeResult("jina_model_path", status, None if status == "passed" else "Model file was not found"))
-    if candidate.get("storage_backend") == "telegram" and (
-        "storage_backend" in changed or "telegram_bot_api_url" in changed
-    ):
-        results.append(
-            ProbeResult(
-                "storage_backend",
-                "requires_desktop",
-                "Telegram connectivity must be tested by the desktop one-shot probe",
-            )
-        )
     return tuple(results)
 
 

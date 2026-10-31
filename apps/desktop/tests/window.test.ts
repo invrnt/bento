@@ -26,6 +26,7 @@ const electron = vi.hoisted(() => {
 
 vi.mock("electron", () => ({
   BrowserWindow: electron.FakeWindow,
+  nativeTheme: { shouldUseDarkColors: false },
   session: {
     defaultSession: {
       setPermissionRequestHandler: electron.setPermissionRequestHandler,
@@ -52,6 +53,13 @@ describe("BrowserWindow security", () => {
     });
     expect(window.options.webPreferences).not.toHaveProperty("webviewTag", true);
     expect(window.loadURL).toHaveBeenCalledWith("bento://app/");
+  });
+
+  it("disables developer tools unless a development build asks for them", () => {
+    const packaged = createMainWindow() as unknown as InstanceType<typeof electron.FakeWindow>;
+    expect(packaged.options.webPreferences).toMatchObject({ devTools: false });
+    const development = createMainWindow({ devTools: true }) as unknown as InstanceType<typeof electron.FakeWindow>;
+    expect(development.options.webPreferences).toMatchObject({ devTools: true });
   });
 
   it("denies new windows, webviews, remote navigation, and subframe navigation", () => {
@@ -82,5 +90,13 @@ describe("BrowserWindow security", () => {
     requestHandler({}, "media", callback);
     expect(callback).toHaveBeenCalledWith(false);
     expect((electron.setPermissionCheckHandler.mock.calls.at(-1)?.[0] as () => boolean)()).toBe(false);
+  });
+
+  it("keeps the window hidden for tray/login starts", () => {
+    const window = createMainWindow({ showOnReady: false }) as unknown as InstanceType<typeof electron.FakeWindow>;
+    expect(window.once).not.toHaveBeenCalledWith("ready-to-show", expect.any(Function));
+    expect(window.loadURL).toHaveBeenCalledWith("bento://app/");
+    const visible = createMainWindow() as unknown as InstanceType<typeof electron.FakeWindow>;
+    expect(visible.once).toHaveBeenCalledWith("ready-to-show", expect.any(Function));
   });
 });

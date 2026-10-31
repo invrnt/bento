@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
 from bento.application.ingestion.metadata import ExtractedUploadMetadata
 from bento.application.upload import UploadAssetCommand, UploadAssetResult, UploadAssetUseCase
-from bento.domain.assets import Asset, AssetMode
+from bento.domain.assets import Asset, AssetMode, AssetOrigin
 from bento.domain.errors import AssetNotFoundError, UnsupportedMediaTypeError
 from bento.domain.manifest import ManifestEntityType, ManifestEventType
 from bento.domain.storage import BlobKind, BlobRef
@@ -18,6 +19,12 @@ class BlobRefCatalogPort(Protocol):
     async def add(self, blob_ref: BlobRef) -> None: ...
 
     async def latest_for_asset(self, asset_id: str, kind: BlobKind) -> BlobRef | None: ...
+
+
+class RemoteUploadSchedulerPort(Protocol):
+    async def schedule(self, blob_ref: BlobRef) -> bool:
+        """Enqueue the background encrypted upload of a locally stored blob when the vault is ready."""
+        ...
 
 
 class UploadMetadataExtractorPort(Protocol):
@@ -38,6 +45,8 @@ class UploadedAssetFile:
     folder_id: str | None = None
     mode: AssetMode | None = None
     allow_duplicate: bool = True
+    folder_resolver: Callable[[AssetMode], Awaitable[str | None]] | None = None
+    origin: AssetOrigin = AssetOrigin.DEVICE
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,10 +62,12 @@ class AssetIngestionService:
         upload: UploadAssetUseCase,
         blob_refs: BlobRefCatalogPort,
         metadata_extractor: UploadMetadataExtractorPort,
+        remote_uploads: RemoteUploadSchedulerPort | None = None,
     ) -> None:
         self._upload = upload
         self._blob_refs = blob_refs
         self._metadata_extractor = metadata_extractor
+        self._remote_uploads = remote_uploads
 
     async def upload_file(self, file: UploadedAssetFile) -> UploadAssetResult:
         metadata = await self._metadata_extractor.extract(
@@ -78,10 +89,14 @@ class AssetIngestionService:
                 allow_duplicate=file.allow_duplicate,
                 ocr_enabled=False,
                 embeddings_enabled=False,
+                folder_resolver=file.folder_resolver,
+                origin=file.origin,
             )
         )
         if result.blob_ref is not None:
             await self._blob_refs.add(result.blob_ref)
+            if self._remote_uploads is not None:
+                await self._remote_uploads.schedule(result.blob_ref)
         return result
 
 

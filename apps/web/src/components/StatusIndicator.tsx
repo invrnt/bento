@@ -1,34 +1,65 @@
 import { t } from "../i18n/dictionary";
 import { cx } from "../lib/cx";
+import { StatusDot } from "./Badge";
+import type { BadgeTone } from "./Badge";
+import { Tooltip } from "./Tooltip";
 
-export type StatusTone = "idle" | "success" | "warning" | "danger";
+/** `active` means work in progress (uploads, sync): the only tone whose dot pulses. */
+export type StatusTone = "idle" | "active" | "success" | "warning" | "danger";
 
-const toneClasses: Record<StatusTone, string> = {
-  danger: "bg-app-danger animate-pulse shadow-sm shadow-app-danger/35",
-  idle: "bg-slate-400",
-  success: "bg-app-success shadow-sm shadow-app-success/35",
-  warning: "bg-app-warning animate-pulse shadow-sm shadow-app-warning/35",
+export const statusToneMap: Record<StatusTone, BadgeTone> = {
+  active: "accent",
+  danger: "danger",
+  idle: "neutral",
+  success: "success",
+  warning: "warning",
 };
 
 export type StatusIndicatorProps = {
   detail?: string;
+  href?: string;
   label?: string;
+  onNavigate?: (href: string) => void;
   tone?: StatusTone;
 };
 
 export function StatusIndicator({
   detail = t("app.status.detail"),
+  href,
   label = t("app.status.idle"),
+  onNavigate,
   tone = "idle",
 }: StatusIndicatorProps) {
+  const pillClasses =
+    "inline-flex h-8 min-w-8 max-w-[18rem] items-center justify-center gap-2 rounded-full border border-line bg-raised text-sm font-medium text-ink-muted shadow-xs sm:px-3";
+  const content = (
+    <>
+      <StatusDot pulse={tone === "active"} tone={statusToneMap[tone]} />
+      <span className="sr-only truncate sm:not-sr-only">{label}</span>
+    </>
+  );
+
   return (
-    <aside
-      aria-label={t("shell.statusLabel")}
-      className="flex min-h-10 items-center gap-2.5 border-t border-app-border bg-app-surface px-6 py-2.5 text-xs text-app-text-muted select-none"
-    >
-      <span aria-hidden="true" className={cx("h-2.5 w-2.5 rounded-full", toneClasses[tone])} />
-      <span className="font-semibold text-app-text/90">{label}</span>
-      <span className="hidden truncate text-app-text-muted/80 sm:inline">— {detail}</span>
+    <aside aria-label={t("shell.statusLabel")} className="flex shrink-0 select-none">
+      <Tooltip label={detail} side="bottom">
+        {href ? (
+          <a
+            className={cx(pillClasses, "focus-ring transition-colors duration-150 hover:border-line-strong hover:text-ink")}
+            href={href}
+            onClick={(event) => {
+              if (!onNavigate) {
+                return;
+              }
+              event.preventDefault();
+              onNavigate(href);
+            }}
+          >
+            {content}
+          </a>
+        ) : (
+          <span className={pillClasses}>{content}</span>
+        )}
+      </Tooltip>
     </aside>
   );
 }

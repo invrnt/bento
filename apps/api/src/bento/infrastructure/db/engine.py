@@ -1,11 +1,29 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
+
+if TYPE_CHECKING:
+    from bento.infrastructure.settings import Settings
+
+SessionFactoryHook = Callable[[sessionmaker[Session]], None]
+_session_factory_hooks: list[SessionFactoryHook] = []
+
+
+def add_session_factory_hook(hook: SessionFactoryHook) -> None:
+    """Run `hook` on every session factory created afterwards in this process (sync change capture)."""
+    if hook not in _session_factory_hooks:
+        _session_factory_hooks.append(hook)
+
+
+def remove_session_factory_hook(hook: SessionFactoryHook) -> None:
+    if hook in _session_factory_hooks:
+        _session_factory_hooks.remove(hook)
 
 
 def sqlite_url(path: Path | str) -> str:
@@ -25,7 +43,25 @@ def create_sqlite_engine(database_url: str, *, echo: bool = False) -> Engine:
 
 def create_session_factory(database_url: str, *, echo: bool = False) -> sessionmaker[Session]:
     engine = create_sqlite_engine(database_url, echo=echo)
-    return sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    for hook in tuple(_session_factory_hooks):
+        hook(factory)
+    return factory
+
+
+def create_app_session_factory(settings: Settings) -> sessionmaker[Session]:
+    """Session factory for the app database (`<data_dir>/db/bento.sqlite3`) used by API and worker composition.
+
+    Sync change capture is installed explicitly whenever the storage backend can sync, so every writer of
+    synced tables (drive, photos, devices, catalog) produces sync ops even without the process-wide hook.
+    """
+    from bento.adapters.sync.capture import install_change_capture
+    from bento.infrastructure.settings import settings_database_path
+
+    factory = create_session_factory(sqlite_url(settings_database_path(settings)))
+    if settings.storage_backend != "local":
+        install_change_capture(factory)
+    return factory
 
 
 @contextmanager

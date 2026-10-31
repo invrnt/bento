@@ -7,7 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, Mapping
 
-from pydantic import AliasChoices, Field, PrivateAttr
+from pydantic import AliasChoices, Field, PrivateAttr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import dotenv_values
 
@@ -28,25 +28,17 @@ class Settings(BaseSettings):
     runtime_mode: Literal["headless", "desktop"] = Field(
         default="headless", validation_alias=AliasChoices("BENTO_RUNTIME_MODE", "runtime_mode")
     )
-    storage_backend: Literal["local", "telegram"] = "local"
+    storage_backend: Literal["local", "telegram", "fake"] = "telegram"
     host: str = "127.0.0.1"
     api_port: int = Field(default=8000, ge=1, le=65535)
     web_port: int = Field(default=5173, ge=1, le=65535)
     worker_concurrency: int = Field(default=1, ge=1, le=8)
-    telegram_bot_api_url: str = "http://telegram-bot-api:8081"
-    telegram_bot_token: str | None = Field(default=None, repr=False)
-    telegram_api_id: str | None = Field(default=None, repr=False)
-    telegram_api_hash: str | None = Field(default=None, repr=False)
-    telegram_raw_chat_id: str | None = Field(default=None, repr=False)
-    telegram_thumbs_chat_id: str | None = Field(default=None, repr=False)
-    telegram_journal_chat_id: str | None = Field(default=None, repr=False)
-    telegram_webhook_secret: str | None = Field(default=None, repr=False)
-    telegram_min_interval_seconds: float = Field(default=0.05, ge=0)
-    telegram_max_attempts: int = Field(default=3, ge=1, le=20)
-    telegram_retry_base_delay_seconds: float = Field(default=0.25, ge=0)
-    encryption_mode: Literal["none", "aes_gcm"] = "none"
-    bento_encryption_key: str | None = Field(default=None, repr=False)
-    bento_encryption_key_id: str = "primary"
+    telegram_api_id: str | None = Field(
+        default=None, repr=False, validation_alias=AliasChoices("BENTO_TELEGRAM_API_ID", "telegram_api_id")
+    )
+    telegram_api_hash: str | None = Field(
+        default=None, repr=False, validation_alias=AliasChoices("BENTO_TELEGRAM_API_HASH", "telegram_api_hash")
+    )
     ocr_provider: Literal["disabled", "mock", "rapidocr"] = Field(
         default="disabled", validation_alias=AliasChoices("OCR_PROVIDER", "BENTO_OCR_PROVIDER", "ocr_provider")
     )
@@ -69,24 +61,70 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("BENTO_EMBEDDING_DIMENSIONS", "embedding_dimensions"),
     )
     data_dir: str = "/app/data"
+    telegram_parallel_transfers: int = Field(
+        default=1,
+        ge=1,
+        le=4,
+        validation_alias=AliasChoices("BENTO_TELEGRAM_PARALLEL_TRANSFERS", "telegram_parallel_transfers"),
+    )
+    telegram_part_size_mb: int = Field(
+        default=512,
+        ge=64,
+        le=1950,
+        validation_alias=AliasChoices("BENTO_TELEGRAM_PART_SIZE_MB", "telegram_part_size_mb"),
+    )
+    relay_url: str = Field(default="", validation_alias=AliasChoices("BENTO_RELAY_URL", "relay_url"))
+    public_site_url: str = Field(default="", validation_alias=AliasChoices("BENTO_PUBLIC_SITE_URL", "public_site_url"))
+    inbox_keep_hours: int = Field(
+        default=24, ge=0, le=720, validation_alias=AliasChoices("BENTO_INBOX_KEEP_HOURS", "inbox_keep_hours")
+    )
+    trash_retention_days: int = Field(
+        default=30, ge=1, le=365, validation_alias=AliasChoices("BENTO_TRASH_RETENTION_DAYS", "trash_retention_days")
+    )
+    cache_max_gb: float = Field(
+        default=10, ge=1, le=2048, validation_alias=AliasChoices("BENTO_CACHE_MAX_GB", "cache_max_gb")
+    )
+    backup_pause_on_battery: bool = Field(
+        default=True, validation_alias=AliasChoices("BENTO_BACKUP_PAUSE_ON_BATTERY", "backup_pause_on_battery")
+    )
+    backup_bandwidth_limit_kbps: int = Field(
+        default=0,
+        ge=0,
+        le=1_000_000,
+        validation_alias=AliasChoices("BENTO_BACKUP_BANDWIDTH_LIMIT_KBPS", "backup_bandwidth_limit_kbps"),
+    )
+    fake_telegram_dir: str = Field(
+        default="", validation_alias=AliasChoices("BENTO_FAKE_TELEGRAM_DIR", "fake_telegram_dir")
+    )
     _settings_snapshot: EffectiveSettingsSnapshot | None = PrivateAttr(default=None)
+
+    @model_validator(mode="after")
+    def _fake_backend_is_development_only(self) -> Settings:
+        if self.storage_backend == "fake" and self.environment == "production":
+            raise ValueError("The fake Telegram backend cannot be used in production")
+        return self
+
+    @property
+    def telegram_credentials_present(self) -> bool:
+        """Bento's own Telegram application credentials (build configuration) are available."""
+        return all(value is not None and str(value).strip() for value in (self.telegram_api_id, self.telegram_api_hash))
 
     @property
     def telegram_configured(self) -> bool:
-        values = (
-            self.telegram_bot_token,
-            self.telegram_api_id,
-            self.telegram_api_hash,
-            self.telegram_raw_chat_id,
-            self.telegram_thumbs_chat_id,
-            self.telegram_journal_chat_id,
-            self.telegram_webhook_secret,
-        )
-        return all(value is not None and str(value).strip() for value in values)
+        """The configured backend can reach a Telegram account: the simulator, or MTProto with build credentials."""
+        if self.storage_backend == "fake":
+            return True
+        return self.storage_backend == "telegram" and self.telegram_credentials_present
 
     @property
     def effective_snapshot(self) -> EffectiveSettingsSnapshot | None:
         return self._settings_snapshot
+
+
+def fake_telegram_directory(settings: Settings) -> Path:
+    """`fake_telegram_dir`, or `<data_dir>/fake-telegram` when empty."""
+    configured = settings.fake_telegram_dir.strip()
+    return Path(configured).expanduser() if configured else Path(settings.data_dir) / "fake-telegram"
 
 
 def settings_database_path(settings: Settings) -> Path:

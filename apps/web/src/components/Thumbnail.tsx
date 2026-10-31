@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { ReactNode } from "react";
 
 import { cx } from "../lib/cx";
@@ -11,17 +12,27 @@ export type ThumbnailProps = {
 };
 
 export function Thumbnail({ alt = t("common.thumbnail"), children, className, src }: ThumbnailProps) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const showImage = Boolean(src) && src !== failedSrc;
+
   return (
     <div
       className={cx(
-        "aspect-square w-full max-w-64 overflow-hidden rounded-app-control border border-app-border bg-slate-100/70 shadow-3xs flex items-center justify-center transition-all duration-300",
+        "relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-md bg-sunken",
         className,
       )}
     >
-      {src ? (
-        <img alt={alt} className="h-full w-full object-cover select-none" loading="lazy" src={src} />
+      {showImage ? (
+        <img
+          alt={alt}
+          className="size-full select-none object-cover"
+          draggable={false}
+          loading="lazy"
+          onError={() => setFailedSrc(src ?? null)}
+          src={src}
+        />
       ) : (
-        <div className="grid h-full w-full place-items-center p-3 text-center text-xs font-medium text-app-text-muted/80 bg-slate-100/40 select-none">
+        <div className="grid size-full select-none place-items-center p-2 text-center text-xs font-medium text-ink-subtle">
           {children ?? alt}
         </div>
       )}

@@ -1,3 +1,6 @@
+/** Sent on every request; the headless API refuses unsafe methods without it (CSRF). */
+export const clientHeader = { name: "x-bento-client", value: "web" } as const;
+
 export type ApiClientOptions = {
   baseUrl?: string;
   fetcher?: typeof fetch;
@@ -38,6 +41,7 @@ export function createApiClient(options: ApiClientOptions = {}) {
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
     const resolvedPath = appendQuery(normalizedPath, query);
     const requestHeaders = new Headers(headers);
+    requestHeaders.set(clientHeader.name, clientHeader.value);
     let requestBody: BodyInit | undefined;
 
     if (body === undefined) {
@@ -117,4 +121,15 @@ function appendQuery(path: string, query?: QueryParams): string {
   const serialized = search.toString();
 
   return serialized ? `${path}?${serialized}` : path;
+}
+
+/** Resolves API-relative asset URLs (`/api/...`) against the configured API origin. */
+export function absoluteApiPath(path: string, client: Pick<ApiClient, "baseUrl"> = apiClient): string {
+  if (/^https?:\/\//.test(path)) {
+    return path;
+  }
+  if (path.startsWith("/api/") && client.baseUrl.endsWith("/api")) {
+    return `${client.baseUrl.slice(0, -4)}${path}`;
+  }
+  return `${client.baseUrl}${path}`;
 }

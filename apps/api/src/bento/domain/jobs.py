@@ -18,6 +18,14 @@ class JobType(StrEnum):
     REINDEX = "reindex"
     TELEGRAM_IMPORT = "telegram_import"
     JOURNAL_EXPORT = "journal_export"
+    ACCOUNT_RELOAD = "account_reload"
+    INBOX_IMPORT = "inbox_import"
+    REMOTE_UPLOAD = "remote_upload"
+    BACKUP_SCAN = "backup_scan"
+    BACKUP_UPLOAD = "backup_upload"
+    TRASH_PURGE = "trash_purge"
+    CACHE_EVICT = "cache_evict"
+    SYNC_SNAPSHOT = "sync_snapshot"
 
 
 class JobStatus(StrEnum):
@@ -69,6 +77,12 @@ class Job:
         if self.status not in {JobStatus.QUEUED, JobStatus.RETRYING}:
             raise ValidationFailedError("Only queued or retrying jobs can be claimed")
         return replace(self, status=JobStatus.RUNNING, locked_by=worker_id, locked_at=at, updated_at=at)
+
+    def release(self, at: datetime) -> Job:
+        """Return a job abandoned by a stopped worker to the queue without consuming an attempt."""
+        if self.status != JobStatus.RUNNING:
+            raise ValidationFailedError("Only running jobs can be released")
+        return replace(self, status=JobStatus.RETRYING, locked_by=None, locked_at=None, run_after=at, updated_at=at)
 
     def complete(self, at: datetime) -> Job:
         return replace(self, status=JobStatus.SUCCEEDED, locked_by=None, locked_at=None, updated_at=at, error=None)

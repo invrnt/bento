@@ -19,7 +19,7 @@ Assumption: the repository is currently empty, so agents must create a new Docke
 ## Directory Map
 
 - `architecture/`: system architecture, layers, data, routes, UI, integration, security, performance.
-- `design-system/`: UI tokens, primitives, interaction and motion rules.
+- `design-system/`: brand book (`brand.md`), UI tokens, primitives, interaction and motion rules.
 - `product/`: behavior contracts for every user-facing and backend module.
 - `api/`: HTTP, event, error, and external service contracts.
 - `testing/`: required test strategy, layers, critical journeys, merge gates.
@@ -28,8 +28,9 @@ Assumption: the repository is currently empty, so agents must create a new Docke
 ## Core Principles
 
 - Local-first, Docker-first, CPU-first.
-- Telegram is a blob store only; SQLite is the local source of truth.
-- The app must work with `STORAGE_BACKEND=local` and no Telegram config.
+- Telegram-first: the user's own Telegram account (MTProto) is the encrypted blob store and the replication log between devices; each device's SQLite is its local source of truth (see `architecture/telegram-first.md`).
+- Everything leaving the device is end-to-end encrypted; Telegram and the pairing relay only see ciphertext.
+- The app must still work with `STORAGE_BACKEND=local` (single device, no Telegram).
 - Embeddings and OCR are optional capabilities; FTS/name/metadata search must keep working when they are disabled.
 - Clean/Hexagonal Architecture is mandatory.
 - Domain code imports no FastAPI, SQLite, Telegram, OCR, embedding, media, or React libraries.
@@ -54,11 +55,12 @@ Assumption: the repository is currently empty, so agents must create a new Docke
 - Configuración editable con validación, secretos protegidos y aplicación/reinicio controlados.
 - Aplicación de escritorio multiplataforma con Electron y sidecars locales de API/worker.
 - Seed data, doctor script, docs, release hardening.
+- Telegram-first program (Stages 14-17): MTProto account login, encrypted vault, multi-device sync, QR/code pairing via relay, automatic backup, end-user product polish. See `execution/telegram-first-program.md`.
 
 ## Non-Goals
 
 - No product implementation code belongs in `/orchestration`.
-- No microservices in MVP Lite.
+- No microservices; the only hosted component is the stateless pairing relay (`apps/relay`).
 - No GPU-required mode.
-- No public sharing, native mobile app, multi-PC sync, advanced multiuser auth, facial recognition, audio transcription, automatic captions, long-video deep indexing, PostgreSQL, or Qdrant.
+- No public links, native mobile app, OS files-on-demand, shared family vaults (specified as deferred in `product/telegram-first-experience.md`), advanced multiuser auth, facial recognition, audio transcription, automatic captions, long-video deep indexing, PostgreSQL, or Qdrant.
 - No external cloud AI services.

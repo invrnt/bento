@@ -68,15 +68,16 @@ def test_validation_restart_plan_import_redaction_and_safe_export() -> None:
         assert invalid.errors[0].key == "worker_concurrency"
 
         preview = await service.import_preview(
-            "WORKER_CONCURRENCY=2\nTELEGRAM_BOT_TOKEN=top-secret-value\nUNKNOWN_THING=yes"
+            "WORKER_CONCURRENCY=2\nBENTO_TELEGRAM_API_HASH=top-secret-value\nUNKNOWN_THING=yes"
         )
-        secret = next(item for item in preview["items"] if item["key"] == "telegram_bot_token")
+        secret = next(item for item in preview["items"] if item["key"] == "telegram_api_hash")
         assert secret == {
-            "env_key": "TELEGRAM_BOT_TOKEN",
-            "key": "telegram_bot_token",
+            "env_key": "BENTO_TELEGRAM_API_HASH",
+            "key": "telegram_api_hash",
             "secret": True,
-            "locked": False,
-            "status": "ready",
+            # Build credentials are never user input, so importing them is refused.
+            "locked": True,
+            "status": "locked",
             "configured": True,
         }
         assert "top-secret-value" not in repr(preview)
@@ -85,7 +86,7 @@ def test_validation_restart_plan_import_redaction_and_safe_export() -> None:
         await service.apply(expected_revision=0, values={"worker_concurrency": 2})
         exported = await service.export()
         assert exported["values"]["worker_concurrency"] == 2
-        assert "telegram_bot_token" not in exported["values"]
+        assert "telegram_api_hash" not in exported["values"]
 
     asyncio.run(scenario())
 
@@ -94,17 +95,17 @@ def test_secret_snapshot_exposes_presence_never_plaintext() -> None:
     snapshot = resolve_effective_settings(
         persisted=PersistedSettings(
             secret_references={
-                "telegram_bot_token": SecretReferenceMutation("secure:telegram-token", True)
+                "telegram_api_hash": SecretReferenceMutation("secure:telegram-hash", True)
             }
         ),
         environ={},
         runtime_mode="desktop",
     )
 
-    secret = snapshot.values["telegram_bot_token"]
+    secret = snapshot.values["telegram_api_hash"]
     assert secret.value is None
     assert secret.configured is True
-    assert "secure:telegram-token" not in repr(snapshot)
+    assert "secure:telegram-hash" not in repr(snapshot)
 
 
 def test_api_and_worker_settings_snapshots_resolve_identically() -> None:
@@ -133,18 +134,28 @@ def test_api_and_worker_settings_snapshots_resolve_identically() -> None:
 
 def test_desktop_does_not_silently_read_legacy_dotenv(monkeypatch, tmp_path) -> None:
     (tmp_path / ".env").write_text(
-        "BENTO_RUNTIME_MODE=desktop\nSTORAGE_BACKEND=telegram\nTELEGRAM_BOT_TOKEN=must-not-load",
+        "BENTO_RUNTIME_MODE=desktop\nSTORAGE_BACKEND=local\nBENTO_TELEGRAM_API_HASH=must-not-load",
         encoding="utf-8",
     )
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("BENTO_RUNTIME_MODE", "desktop")
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
     monkeypatch.delenv("STORAGE_BACKEND", raising=False)
-    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("BENTO_TELEGRAM_API_HASH", raising=False)
     get_settings.cache_clear()
     try:
         settings = get_settings()
-        assert settings.storage_backend == "local"
-        assert settings.telegram_bot_token is None
+        assert settings.storage_backend == "telegram"
+        assert settings.telegram_api_hash is None
     finally:
         get_settings.cache_clear()
+
+
+def test_fake_storage_backend_is_rejected_in_production() -> None:
+    from bento.application.settings import _cross_validate
+
+    base = {"storage_backend": "fake", "data_dir": "/tmp/bento-data"}
+    issues = _cross_validate({**base, "environment": "production"}, {})
+
+    assert [issue.code for issue in issues] == ["storage_backend_unavailable"]
+    assert _cross_validate({**base, "environment": "local"}, {}) == []

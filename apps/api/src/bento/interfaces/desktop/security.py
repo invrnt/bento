@@ -7,6 +7,8 @@ from urllib.parse import urlsplit
 
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from bento.infrastructure import process_secrets
+
 TOKEN_ENV = "BENTO_DESKTOP_API_TOKEN"
 ORIGIN_ENV = "BENTO_DESKTOP_ORIGIN"
 
@@ -18,7 +20,9 @@ class DesktopSecurityConfig:
 
     @classmethod
     def from_environ(cls, environ: Mapping[str, str]) -> DesktopSecurityConfig:
-        token = environ.get(TOKEN_ENV, "")
+        """The per-launch token comes from the process-private holder (the sidecar launcher moves it
+        out of the environment), falling back to `environ` for embedders and tests."""
+        token = process_secrets.get(TOKEN_ENV) or environ.get(TOKEN_ENV, "")
         origin = environ.get(ORIGIN_ENV, "")
         if len(token) < 32:
             raise RuntimeError(f"{TOKEN_ENV} must contain at least 32 characters in desktop mode")

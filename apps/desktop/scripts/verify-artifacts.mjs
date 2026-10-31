@@ -29,6 +29,14 @@ if (relative.some((filename) => /(^|\/)\.env(?:\.|$)/u.test(filename))) {
 if (!relative.some((filename) => /resources\/bento-sidecar\/bento-sidecar(?:\.exe)?$/iu.test(filename))) {
   throw new Error("The platform-native Python sidecar is missing from the package");
 }
+if (!relative.some((filename) => /resources\/build-config\.json$/iu.test(filename))) {
+  throw new Error("The desktop build configuration resource is missing from the package");
+}
+for (const state of ["idle", "syncing", "paused", "attention"]) {
+  if (!relative.some((filename) => new RegExp(`resources/tray/tray-${state}(?:Template|-linux)?\\.png$`, "iu").test(filename))) {
+    throw new Error(`The ${state} tray icon is missing from the package`);
+  }
+}
 const asarSuffix = `${path.sep}resources${path.sep}app.asar`.toLocaleLowerCase("en-US");
 const asar = files.find((filename) => filename.toLocaleLowerCase("en-US").endsWith(asarSuffix));
 if (!asar) throw new Error("The production app.asar is missing");

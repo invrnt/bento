@@ -32,6 +32,10 @@ class BlobSourceMaterializerPort(Protocol):
     def materialize(self, blob_ref: BlobRef) -> AbstractAsyncContextManager[Path]: ...
 
 
+class RemoteUploadSchedulerPort(Protocol):
+    async def schedule_many(self, blob_refs: tuple[BlobRef, ...]) -> int: ...
+
+
 class MediaGeneratorPort(Protocol):
     async def generate(self, asset: Asset, source_path: Path) -> tuple["GeneratedMediaFile", ...]: ...
 
@@ -62,7 +66,9 @@ class MediaProcessingService:
         generator: MediaGeneratorPort,
         manifest: ManifestJournalPort,
         clock: ClockPort,
+        remote_uploads: RemoteUploadSchedulerPort | None = None,
     ) -> None:
+        self._remote_uploads = remote_uploads
         self._assets = assets
         self._blob_refs = blob_refs
         self._thumbnails = thumbnails
@@ -131,4 +137,6 @@ class MediaProcessingService:
         finally:
             await self._generator.cleanup(generated_files)
 
+        if self._remote_uploads is not None and stored_refs:
+            await self._remote_uploads.schedule_many(tuple(stored_refs))
         return tuple(stored_refs)

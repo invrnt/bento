@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { ChevronRight, Folder, FolderOpen, HardDrive, RotateCw, Upload } from "lucide-react";
 
 import type { DriveApi, DriveBreadcrumb, DriveFolder } from "../../api/drive";
+import { Spinner } from "../../components/Spinner";
 import { cx } from "../../lib/cx";
 import { t } from "../../i18n/dictionary";
 
@@ -70,30 +72,31 @@ export function FolderTree({ api, breadcrumbs, currentFolderId, onNavigate, relo
   return (
     <aside
       aria-label={t("drive.tree.label")}
-      className="min-h-0 rounded-app-card border border-app-border bg-app-surface shadow-2xs"
+      className="hidden w-60 shrink-0 flex-col overflow-hidden rounded-lg border border-line bg-subtle lg:flex"
     >
-      <div className="flex items-center justify-between border-b border-app-border px-3.5 py-3">
-        <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-app-text-muted">{t("drive.tree.title")}</h2>
-        <span className="rounded-full bg-app-accent-muted px-2 py-0.5 text-[11px] font-semibold text-teal-800">
-          {t("drive.tree.cloud")}
-        </span>
+      <h2 className="flex h-11 shrink-0 items-center px-4 text-xs font-medium text-ink-subtle">{t("drive.tree.title")}</h2>
+      <div className="relative min-h-0 flex-1">
+        <div className="absolute inset-0 overflow-auto px-2 pb-2" role="tree">
+          <FolderNode
+            ancestorIds={new Set()}
+            childrenByParent={children}
+            currentFolderId={currentFolderId}
+            depth={0}
+            expanded={expanded}
+            failed={failed}
+            folder={null}
+            label={t("drive.root")}
+            loading={loading}
+            onLoad={loadChildren}
+            onNavigate={onNavigate}
+            onToggle={toggle}
+          />
+        </div>
       </div>
-      <div className="max-h-[640px] overflow-auto p-2" role="tree">
-        <FolderNode
-          ancestorIds={new Set()}
-          childrenByParent={children}
-          currentFolderId={currentFolderId}
-          depth={0}
-          expanded={expanded}
-          failed={failed}
-          folder={null}
-          label={t("drive.root")}
-          loading={loading}
-          onLoad={loadChildren}
-          onNavigate={onNavigate}
-          onToggle={toggle}
-        />
-      </div>
+      <p className="flex shrink-0 gap-2 border-t border-line px-4 py-3 text-xs text-ink-subtle">
+        <Upload aria-hidden="true" className="mt-px size-3.5 shrink-0" />
+        <span>{t("drive.upload.dropHint")}</span>
+      </p>
     </aside>
   );
 }
@@ -122,58 +125,53 @@ function FolderNode(props: FolderNodeProps) {
   const childFolders = childrenByParent[key];
   const isLoading = loading.has(key);
   const hasKnownChildren = Boolean(childFolders?.length);
+  const indent = Math.min(depth, 8) * 14;
 
   return (
     <div aria-expanded={isExpanded} aria-selected={isCurrent} role="treeitem">
       <div
         className={cx(
-          "group flex min-w-0 items-center gap-1 rounded-app-control py-1 pr-1 transition-colors duration-150",
-          isCurrent ? "bg-app-accent-muted text-teal-900" : "text-app-text hover:bg-app-surface-muted",
+          "flex h-8 min-w-0 items-center gap-0.5 rounded-sm pr-1 transition-[background-color,color,box-shadow] duration-150",
+          isCurrent ? "bg-raised text-ink shadow-xs ring-1 ring-line" : "text-ink-muted hover:bg-hover hover:text-ink",
         )}
-        style={{ paddingLeft: `${Math.min(depth, 8) * 14 + 4}px` }}
+        style={{ paddingLeft: `${indent + 2}px` }}
       >
         <button
           aria-label={`${isExpanded ? t("drive.tree.collapse") : t("drive.tree.expand")} ${label}`}
-          className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-app-text-muted hover:bg-white/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent"
+          className="focus-ring grid size-6 shrink-0 place-items-center rounded-xs text-ink-subtle hover:bg-hover hover:text-ink"
           onClick={() => onToggle(folderId)}
           type="button"
         >
-          <svg
+          <ChevronRight
             aria-hidden="true"
-            className={cx("h-3.5 w-3.5 transition-transform duration-150", isExpanded ? "rotate-90" : undefined)}
-            fill="none"
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-          >
-            <path d="m9 18 6-6-6-6" />
-          </svg>
+            className={cx("size-3.5 transition-transform duration-150", isExpanded ? "rotate-90" : undefined)}
+          />
         </button>
         <button
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 text-left text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent"
+          className="focus-ring flex h-7 min-w-0 flex-1 items-center gap-2 rounded-xs px-1 text-left text-base font-medium"
           onClick={() => onNavigate(folderId)}
           type="button"
         >
-          <FolderIcon open={isExpanded} />
+          <FolderGlyph open={isExpanded} root={folderId === null} />
           <span className="truncate">{label}</span>
-          {isLoading ? <span className="ml-auto h-3 w-3 animate-spin rounded-full border border-app-border border-t-app-accent" /> : null}
+          {isLoading ? <Spinner className="ml-auto size-3 border-[1.5px] text-ink-subtle" /> : null}
         </button>
       </div>
       {isExpanded ? (
         <div role="group">
           {failed.has(key) ? (
             <button
-              className="ml-9 rounded px-2 py-1 text-xs font-semibold text-app-danger focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-danger"
+              className="focus-ring my-0.5 inline-flex h-7 items-center gap-1.5 rounded-xs px-2 text-xs font-medium text-danger-ink hover:bg-danger-soft"
               onClick={() => void onLoad(folderId)}
+              style={{ marginLeft: `${indent + 30}px` }}
               type="button"
             >
+              <RotateCw aria-hidden="true" className="size-3" />
               {t("drive.tree.retry")}
             </button>
           ) : null}
           {!isLoading && childFolders && !hasKnownChildren ? (
-            <p className="py-1 pr-2 text-xs text-app-text-muted" style={{ paddingLeft: `${(depth + 2) * 14}px` }}>
+            <p className="py-1 pr-2 text-xs text-ink-subtle" style={{ paddingLeft: `${indent + 48}px` }}>
               {t("drive.tree.empty")}
             </p>
           ) : null}
@@ -193,11 +191,21 @@ function FolderNode(props: FolderNodeProps) {
   );
 }
 
-function FolderIcon({ open }: { open: boolean }) {
+function FolderGlyph({ open, root }: { open: boolean; root: boolean }) {
+  if (root) {
+    return <HardDrive aria-hidden="true" className="size-4 shrink-0 text-ink-muted" strokeWidth={1.75} />;
+  }
+
+  const Icon = open ? FolderOpen : Folder;
+
   return (
-    <svg aria-hidden="true" className="h-4 w-4 shrink-0 text-amber-500" fill="currentColor" viewBox="0 0 24 24">
-      <path d={open ? "M3 7.5h7l2 2h9l-2.2 9H5.2L3 7.5Z" : "M3 5h7l2 2h9v11.5H3V5Z"} />
-    </svg>
+    <Icon
+      aria-hidden="true"
+      className="size-4 shrink-0 text-kind-folder"
+      fill="currentColor"
+      fillOpacity={0.22}
+      strokeWidth={1.75}
+    />
   );
 }
 

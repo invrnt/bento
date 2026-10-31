@@ -1,0 +1,204 @@
+{
+  "blob_v2": {
+    "ciphertexts": {
+      "0": {
+        "hex": "424e543202000000016465666768696a6b6c6d6e6f7071727300001000c8c9cacbcccdce3021a104d776880e728f714d38278e32",
+        "sha256": "1ecc5c4a99327b027621cb70df5731ab52ee434b3295734ca2380b6bf56fe9c2",
+        "size": 52
+      },
+      "1": {
+        "hex": "424e543202000000016465666768696a6b6c6d6e6f7071727300001000c8c9cacbcccdced0be8051e78cc183aa0fa5d4f3e79b21ae",
+        "sha256": "86aa6ea23b9c7656314ac92214dcd7fda785f44efa2c0aa6acba82fbf2ee92e6",
+        "size": 53
+      },
+      "4095": {
+        "sha256": "44e1c6efae3346300ec1e6bcf5f918a64d852d07a19770fe903da623bfbcb951",
+        "size": 4147
+      },
+      "4096": {
+        "sha256": "a59dfd74b1f65225398cb80b54a16dec7ecf3ee576ae42c0bd1cc0978f8d0549",
+        "size": 4148
+      },
+      "4097": {
+        "sha256": "058c7596bd3a2c65d662730c68345d7f9753d27268d64ed7a9cf68175ca6df64",
+        "size": 4165
+      },
+      "9000": {
+        "sha256": "c10fdd00d499f62b899ff06c32bd54141fde607199f7034a7fb0b8e02926a430",
+        "size": 9084
+      }
+    },
+    "file_key": "781bbe573aff77ee693efc0b5d05d852421c118030465a787acaa62390484f98",
+    "header": "424e543202000000016465666768696a6b6c6d6e6f7071727300001000c8c9cacbcccdce",
+    "params": {
+      "epoch": 1,
+      "file_salt": "6465666768696a6b6c6d6e6f70717273",
+      "nonce_prefix": "c8c9cacbcccdce",
+      "segment_size": 4096
+    }
+  },
+  "device_identity": {
+    "device_id": "dev_5ed5c10df6954efe8fb1d0564bf68452",
+    "public_key": "7ea4c31c71d095c37bde03ba3df7fea7bbd3eb967f4d631408c5ea4f91a1e13c",
+    "serialized": "{\"device_id\":\"dev_5ed5c10df6954efe8fb1d0564bf68452\",\"private_key\":\"2x8EGuPXMjnMhYsOjuQE6Uuqk2y2YQePknXYmAXwOPg\",\"v\":1}"
+  },
+  "envelope": {
+    "device_record": "42454e560103000000022e4f811097fb86992494b2738a89fb8d2df2fbbbff2ec167f96d97d7c2d2cb6a36a7c71f48031f87d736087f",
+    "pairing": "42454e56010400000002cb6ae73d169c7ce82b599da396693a49cfb0b48c34795edf2675f40c54bd790e8c100c79adec7dc50e12ab6c",
+    "snapshot": "42454e56010200000002ea6f1665d7e52968cea9851168af5925a2829109dcb8bc2a4fa145a16297c8ad22e959bcb1d29261eb0d5017",
+    "sync": "42454e560101000000023825ed0114df924876cd274c0843329374e01e2efa8180f155b9d229f898e5225120aaaaa96b1d6212321cff"
+  },
+  "envelope_json": "42454e5601010000000217e45324841bb3aa2fd1cbcdf36427100e235124a6cd45c85dbca794b18e5dcc6cebb92638060c547133d3bacb466cb59b5c05dc61acc80051e5aea535bec3c27f0665f2094313c3c56f9665096b02e11d471a3259e07e9af7d1e2316af4d7b9",
+  "fallback": {
+    "commitment": "QxyRbDvzOknek3bJmNHsuF8TKEZDi6cMubGie6Ps3Io",
+    "guest_device_public_key": "7ea4c31c71d095c37bde03ba3df7fea7bbd3eb967f4d631408c5ea4f91a1e13c",
+    "public_keys": [
+      "267345859a1cc0ff10c3c4f779f76ab8ccb98fa0fdaee039a2d8e2f0ff49f073",
+      "c6fd6ec85d67e67a8ddb11ba90da145457585d80701398ef1a6a254f7e157c1f"
+    ],
+    "request_id": "req_kat_ñ",
+    "sas": [
+      "🌷",
+      "⚓",
+      "📕",
+      "🦁"
+    ]
+  },
+  "fallback_grant": {
+    "grant": "a30acb614ebf4daa00e39afd74837aacd847218a6f095e2b1f248ce043af374deae7d477aab0fcba0ddd",
+    "grant_key": "bb96d82b09e78decc63492fc678b5313e36e38ab8cb1dc2ad756f307fe3246b5"
+  },
+  "grant_auth": {
+    "auth": "5KdGsyI4Cudi88iGqbwH-PA--wH0XGGDiYtNX8kzZRI",
+    "payload": "keys grant payload",
+    "recipient": "{\"device_id\":\"dev_653c18a7df874b868712bcddd91d7efc\",\"private_key\":\"Q31lnLJA5HjntRtGJUTUZpuLfsv1fb-hXKEEXJoAE5M\",\"v\":1}",
+    "sender": "{\"device_id\":\"dev_5efb2cc2a7bf4defaf40054d52a90fd5\",\"private_key\":\"8fq_dftj5d9SXt7k9AWR9rLK2hcI4ORDy-wt3I-1fuk\",\"v\":1}"
+  },
+  "header_mac": {
+    "mac": "H678AZ9cQX3RfFHNVIc3fqzHtAeg2Snk7MxDXRcVubE",
+    "unsigned": "{\"bento\":\"vault-header\",\"current_epoch\":2,\"v\":1,\"vault_id\":\"vlt_kat\"}"
+  },
+  "inputs": {
+    "pairing_password": "MXR9T4WA",
+    "vault_id": "vlt_kat",
+    "vmk": {
+      "1": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "2": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f"
+    },
+    "wrapping_key": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f"
+  },
+  "key_store_file": "424b45590117ff740af1cc3a820a61466b7c3dccb2890136a10a9921a76d60582c3c16b58536a0d1a8f52ad70cda61fb7b",
+  "keyring_json": "{\"current_epoch\":2,\"keys\":{\"1\":\"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8\",\"2\":\"ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8\"},\"vault_id\":\"vlt_kat\"}",
+  "keys_message": "{\"bento\":\"keys\",\"epoch\":2,\"grants\":{\"dev_653c18a7df874b868712bcddd91d7efc\":{\"auth\":\"NoVIUxY3LqriRNGXLtt628XJ2BmOJtmyP963-g6xMkU\",\"sealed\":\"QkJPWAEElEW_vpyzYrDZip6gkSA-7UswTdxJXBE3HaAWyxx8elw8PCpfPkw53FGC16fwAMeBZgsHU_bnW96JiE41j77Bm3JW-ThMkDlOUGNk8kzCsHPIIbX0NQljbWJr5nLde6Ct7M7rQdFVSPxJVXfCX3bk7C7OeE1h0Dcna448dLBvO9YTBTCJcNjJkFDtTFI0swWb5HE4RieyeZulnnvH1OMN2oozk6r94l902OTWDlpN6G96CcCMsH5O_ytS8cvxGgac4Ar0R-1w4eHkP0nr7xqe5w\"}},\"removed_device_ids\":[\"dev_removed_kat\"],\"sender_device_id\":\"dev_5efb2cc2a7bf4defaf40054d52a90fd5\",\"v\":2,\"vault_id\":\"vlt_kat\"}",
+  "pairing": {
+    "g2h_frames": [
+      "03aeedc0ac768d5a672c64565713a1d137c5b4c7ed00ef7f973f071d2fcb23a7937bbbe6ba81ad037d97cc4e7ca6",
+      "032dfe2d2c03fd362420fb5c40db06f777444da6bd0b88d4ceff08fbb27a2da2843edf3e875323d389d724a321d7"
+    ],
+    "guest_confirmation": "02bc1d38c3509b29c020829eba6e193accae54b215aa87aa5bdb51eedb098f8bc6",
+    "guest_hello": "01421599f43925351b07db3981b6f509b96e742f57feb665a65a18f093491ed2abee",
+    "h2g_frames": [
+      "03023d24823e11dc8245922e0e7a1523aef064b5f0301770c591529b0c9cdf48ff07b2cacfab4b6ba4c8b6779a",
+      "03826bf87ed7fdb88d297151609000f5917be2c689ccca13aa08a778ebafa091b20b5b822a8ac971a2b98eee9c"
+    ],
+    "host_confirmation": "02cf6b664c05b72c3eb93a3900462726ecfacbbf86a03372a8af3878f613402149",
+    "host_hello": "014150e5bfdec67627761422bfe1683415931eb744a662af20a36c3a07dc9aa825e4",
+    "sas": [
+      "📕",
+      "🐘",
+      "🔥",
+      "🤖"
+    ]
+  },
+  "recovery": {
+    "code": "DD20-A4EG-NA7T-WKNH-VFK3-NKCX-AJK9-RFR7-HFRF",
+    "secret": "6b440511d0aa8fae4eb1dbe63acd9d54a69c3f07",
+    "wrap": {
+      "alg": "hkdf-aesgcm-v1",
+      "nonce": "1k4w6MThyuF99wc3",
+      "wrapped_keyring": "B7FOUnK1Sv4mRpQKl-izbXGbZRFnsdHRJtFIZJUr8RL0KWJeIw1AaYE6wYtnnzQdjdhfAr1APfF-ji69UgVjLrPyQ7ABblTkddz-QZEJhIfbSz2AXop6uvFkm8kP1T3mFwmVtanjBE35pV2WCEadbKwi4X80FETVbPz8DMRjz2EuSFzaETZ77PZQn6ve0BsukaKyU5YzqVtkvKTbUHajow2IrcnK"
+    },
+    "wrap_key": "506e750a4009b463a832cfd8b8835ddeaa5a58226a3181d6e77496d5e088c37e"
+  },
+  "sas_emojis": [
+    "🐶",
+    "🐱",
+    "🦁",
+    "🐴",
+    "🦄",
+    "🐷",
+    "🐘",
+    "🐰",
+    "🐼",
+    "🐓",
+    "🐧",
+    "🐢",
+    "🐟",
+    "🐙",
+    "🦋",
+    "🌷",
+    "🌳",
+    "🌵",
+    "🍄",
+    "🌍",
+    "🌙",
+    "🌈",
+    "🔥",
+    "🍌",
+    "🍎",
+    "🍓",
+    "🌽",
+    "🍕",
+    "🎂",
+    "🍩",
+    "🐝",
+    "🤖",
+    "🎩",
+    "👓",
+    "🔧",
+    "🌻",
+    "🐸",
+    "🌂",
+    "⌛",
+    "⏰",
+    "🎁",
+    "💡",
+    "📕",
+    "🍇",
+    "📎",
+    "⭐",
+    "🔒",
+    "🔑",
+    "🔨",
+    "📞",
+    "⛵",
+    "🚂",
+    "🚲",
+    "🚗",
+    "🚀",
+    "🏆",
+    "⚽",
+    "🎸",
+    "🎺",
+    "🔔",
+    "⚓",
+    "🎧",
+    "📁",
+    "📌"
+  ],
+  "sealed_box": "42424f5801a22802399c31ac7f95392844a061a640e3666e6cf968a6e5706e744c37609d05451ea482b0648f3f3c71e8285feefa8b3288f830ad84a84024d80c25d67610a553f48f9d0cfa14aabfef",
+  "subkeys": {
+    "blob@1": "98a7b33bbca3c9852c56052e970d22391d598806ace2a047c2c48795ab31f0df",
+    "blob@2": "c71b12ad9edafb66628600532db24131d85f9806c7d6136760b4510aaa498009",
+    "device-record@1": "c5ca5b4d577894029649a407b62cc976bcf03cb4c86faeacd767f43adcd09c77",
+    "device-record@2": "a89d4d2a229373c15c0edef475fbbd99401ebfbe8bbdc9597151b608925ddfea",
+    "header-mac@1": "a3da44b53f7e02a370827fc312a9cef6558f7f9d523c93871dbd8c8aecb35316",
+    "header-mac@2": "117cbc4f697f4decaf228a84679041dac1ff848f14b65451460ff2c66f89235a",
+    "pairing@1": "5d10f19b52221b6ea1ce0a342cb87579bdf13f0d5d646867584b5d717c95f797",
+    "pairing@2": "2a1d7df29f4e9aaf7b5a6b2d5eefd8d0a7397943e4cbec03a2f899c97849c857",
+    "snapshot@1": "a3ab17834233f4002900204a502551271e18024f2966cc20b76c3acb75970b5b",
+    "snapshot@2": "e2fb48e9432762ca4554fcab9c4fbfd8f6e3fb82c2f1406dd4b02854850deec8",
+    "sync@1": "2e0c00154dcf13af45028a69d5accaf613e60ac11a1bfdb37acf89b2319da921",
+    "sync@2": "4c2aaa86abf9bfb9902753ae42f54a7373c21ff3222c7122d7104e3aac00b4f0"
+  }
+}

@@ -10,7 +10,6 @@ from urllib.parse import quote
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
-from starlette.background import BackgroundTask
 from starlette.datastructures import UploadFile
 
 from bento.application.drive import (
@@ -28,20 +27,40 @@ from bento.application.photos import AddAlbumAssetCommand, CreateAlbumCommand, P
 from bento.application.storage_maintenance import StorageMaintenanceService
 from bento.domain.assets import Asset, AssetKind, AssetMode
 from bento.domain.drive import DriveItem, Folder
-from bento.domain.errors import DomainError, UnsupportedMediaTypeError, ValidationFailedError
+from bento.domain.errors import AssetNotFoundError, DomainError, UnsupportedMediaTypeError, ValidationFailedError
 from bento.domain.jobs import Job, JobType
 from bento.domain.photos import Album, TimelineGroup
-from bento.domain.security import EncryptionMode
-from bento.domain.storage import BlobKind, BlobRef, StorageBackend
+from bento.domain.storage import BlobKind, BlobRef
 from bento.infrastructure.settings import Settings
+from bento.interfaces.http.routes_account import router as account_router
+from bento.interfaces.http.routes_activity import router as activity_router
+from bento.interfaces.http.routes_backup import router as backup_router
+from bento.interfaces.http.routes_content import pipeline as storage_pipeline
+from bento.interfaces.http.routes_content import router as content_router
+from bento.interfaces.http.routes_dev import router as dev_router
+from bento.interfaces.http.routes_devices import router as devices_router
+from bento.interfaces.http.routes_pairing import router as pairing_router
+from bento.interfaces.http.routes_trash import router as trash_router
 from bento.interfaces.http.routes_search import router as search_router
 from bento.interfaces.http.routes_settings import router as settings_router
-from bento.interfaces.telegram.routes import router as telegram_router
+from bento.interfaces.http.routes_sync import router as sync_router
+from bento.interfaces.http.routes_telegram import router as telegram_router
+from bento.interfaces.http.routes_vault import router as vault_router
 
 router = APIRouter()
 router.include_router(search_router)
 router.include_router(settings_router)
+router.include_router(dev_router)
+router.include_router(account_router)
+router.include_router(vault_router)
 router.include_router(telegram_router)
+router.include_router(pairing_router)
+router.include_router(devices_router)
+router.include_router(content_router)
+router.include_router(backup_router)
+router.include_router(trash_router)
+router.include_router(activity_router)
+router.include_router(sync_router)
 
 
 class HealthResponse(BaseModel):
@@ -430,6 +449,25 @@ async def create_album(request: Request, body: AlbumCreateRequest) -> AlbumRespo
         return _domain_error_response(request, exc)
 
 
+@router.get("/photos/albums/{album_id}", response_model=AlbumResponse)
+async def album_detail(album_id: str, request: Request) -> AlbumResponse | JSONResponse:
+    try:
+        return _album_response(await _product_dependencies(request).photos.get_album(album_id))
+    except DomainError as exc:
+        return _domain_error_response(request, exc)
+
+
+@router.delete("/photos/albums/{album_id}/items/{asset_id}", response_model=AlbumResponse)
+async def remove_album_item(album_id: str, asset_id: str, request: Request) -> AlbumResponse | JSONResponse:
+    try:
+        album = await _product_dependencies(request).photos.remove_asset_from_album(
+            AddAlbumAssetCommand(album_id=album_id, asset_id=asset_id)
+        )
+        return _album_response(album)
+    except DomainError as exc:
+        return _domain_error_response(request, exc)
+
+
 @router.post("/photos/albums/{album_id}/items", response_model=AlbumResponse)
 async def add_album_item(album_id: str, request: Request, body: AlbumItemRequest) -> AlbumResponse | JSONResponse:
     try:
@@ -546,7 +584,7 @@ async def download_asset(asset_id: str, request: Request) -> FileResponse | JSON
         dependencies = _asset_dependencies(request)
         asset_file = await dependencies.files.original_file(asset_id)
         return await _file_response(
-            dependencies,
+            request,
             asset_file.blob_ref,
             media_type=asset_file.asset.metadata.mime_type,
             filename=asset_file.asset.filename,
@@ -557,10 +595,12 @@ async def download_asset(asset_id: str, request: Request) -> FileResponse | JSON
 
 @router.get("/assets/{asset_id}/thumbnail", response_model=None)
 async def asset_thumbnail(asset_id: str, request: Request) -> FileResponse | JSONResponse:
+    """Also serves thumbnails of trashed assets (the trash lists them)."""
     try:
-        dependencies = _asset_dependencies(request)
-        asset_file = await dependencies.files.thumbnail_file(asset_id)
-        return await _file_response(dependencies, asset_file.blob_ref, media_type=_blob_media_type(asset_file.blob_ref))
+        blob_ref = await storage_pipeline(request).blob_refs.latest_for_asset(asset_id, BlobKind.THUMBNAIL)
+        if blob_ref is None:
+            raise AssetNotFoundError(asset_id)
+        return await _file_response(request, blob_ref, media_type=_blob_media_type(blob_ref))
     except DomainError as exc:
         return _domain_error_response(request, exc)
 
@@ -570,7 +610,7 @@ async def asset_preview(asset_id: str, request: Request) -> FileResponse | JSONR
     try:
         dependencies = _asset_dependencies(request)
         asset_file = await dependencies.files.preview_file(asset_id)
-        return await _file_response(dependencies, asset_file.blob_ref, media_type=_blob_media_type(asset_file.blob_ref))
+        return await _file_response(request, asset_file.blob_ref, media_type=_blob_media_type(asset_file.blob_ref))
     except DomainError as exc:
         return _domain_error_response(request, exc)
 
@@ -589,42 +629,13 @@ def _asset_dependencies(request: Request) -> AssetRouteDependencies:
     if cached is not None:
         return cached
 
-    from bento.adapters.jobs import SQLiteJobQueue
-    from bento.adapters.manifest import SQLiteManifestJournal
-    from bento.adapters.media import LocalBlobPathResolver, LocalUploadMetadataExtractor, SQLiteBlobRefCatalog
-    from bento.adapters.repositories import SQLiteAssetRepository, SQLiteFolderRepository
-    from bento.application.upload import UploadAssetUseCase
-    from bento.infrastructure.db.clock import SystemClock
-    from bento.infrastructure.db.engine import create_session_factory, sqlite_url
-    from bento.infrastructure.storage.factory import create_blob_store
-
-    settings = _settings(request)
-    data_dir = _data_dir(settings)
-    clock = SystemClock()
-    session_factory = create_session_factory(sqlite_url(data_dir / "db" / "bento.sqlite3"))
-    assets = SQLiteAssetRepository(session_factory)
-    folders = SQLiteFolderRepository(session_factory)
-    blob_refs = SQLiteBlobRefCatalog(session_factory, clock)
-    manifest = SQLiteManifestJournal(session_factory, clock, data_dir / "journal")
-    blob_store = create_blob_store(settings)
-    upload_use_case = UploadAssetUseCase(
-        assets=assets,
-        folders=folders,
-        blob_store=blob_store,
-        jobs=SQLiteJobQueue(session_factory, clock),
-        manifest=manifest,
-        clock=clock,
-    )
+    components = storage_pipeline(request)
     dependencies = AssetRouteDependencies(
-        ingestion=AssetIngestionService(
-            upload=upload_use_case,
-            blob_refs=blob_refs,
-            metadata_extractor=LocalUploadMetadataExtractor(),
-        ),
-        files=AssetFileQueryService(assets=assets, blob_refs=blob_refs, manifest=manifest, clock=clock),
-        blob_store=blob_store,
-        data_dir=data_dir,
-        resolver=LocalBlobPathResolver(data_dir / "uploads"),
+        ingestion=components.ingestion,
+        files=components.files,
+        blob_store=components.local_store,
+        data_dir=components.data_dir,
+        resolver=components.local_resolver,
     )
     request.app.state.asset_route_dependencies = dependencies
     return dependencies
@@ -639,12 +650,12 @@ def _product_dependencies(request: Request) -> ProductRouteDependencies:
     from bento.adapters.manifest import SQLiteManifestJournal
     from bento.adapters.repositories import SQLiteAlbumRepository, SQLiteAssetRepository, SQLiteFolderRepository
     from bento.infrastructure.db.clock import SystemClock
-    from bento.infrastructure.db.engine import create_session_factory, sqlite_url
+    from bento.infrastructure.db.engine import create_app_session_factory
 
     settings = _settings(request)
     data_dir = _data_dir(settings)
     clock = SystemClock()
-    session_factory = create_session_factory(sqlite_url(data_dir / "db" / "bento.sqlite3"))
+    session_factory = create_app_session_factory(settings)
     assets = SQLiteAssetRepository(session_factory)
     folders = SQLiteFolderRepository(session_factory)
     albums = SQLiteAlbumRepository(session_factory)
@@ -666,29 +677,7 @@ def _storage_maintenance_dependencies(request: Request) -> StorageMaintenanceDep
     cached = getattr(request.app.state, "storage_maintenance_dependencies", None)
     if cached is not None:
         return cached
-
-    from bento.adapters.storage.maintenance import LocalEphemeralCache, SQLiteStorageInventory
-    from bento.infrastructure.db.engine import create_session_factory, sqlite_url
-    from bento.infrastructure.storage.factory import create_blob_store
-
-    settings = _settings(request)
-    data_dir = _data_dir(settings)
-    session_factory = create_session_factory(sqlite_url(data_dir / "db" / "bento.sqlite3"))
-    blob_store = None
-    if settings.storage_backend == StorageBackend.TELEGRAM.value and settings.telegram_configured:
-        try:
-            blob_store = create_blob_store(settings)
-        except DomainError:
-            blob_store = None
-    dependencies = StorageMaintenanceDependencies(
-        service=StorageMaintenanceService(
-            storage_backend=StorageBackend(settings.storage_backend),
-            telegram_configured=settings.telegram_configured,
-            blob_store=blob_store,
-            inventory=SQLiteStorageInventory(session_factory),
-            cache=LocalEphemeralCache(data_dir),
-        )
-    )
+    dependencies = StorageMaintenanceDependencies(service=storage_pipeline(request).maintenance)
     request.app.state.storage_maintenance_dependencies = dependencies
     return dependencies
 
@@ -738,32 +727,19 @@ def _storage_maintenance_status_response(status: Any) -> StorageMaintenanceStatu
 
 
 async def _file_response(
-    dependencies: AssetRouteDependencies,
+    request: Request,
     blob_ref: BlobRef,
     *,
     media_type: str,
     filename: str | None = None,
 ) -> FileResponse:
-    cleanup = None
-    if blob_ref.backend == StorageBackend.LOCAL and blob_ref.encryption.mode == EncryptionMode.NONE:
-        path = dependencies.resolver.resolve(blob_ref)
-    elif blob_ref.backend in {StorageBackend.LOCAL, StorageBackend.TELEGRAM}:
-        path = await dependencies.blob_store.download(blob_ref, _download_cache_path(dependencies.data_dir, blob_ref))
-        cleanup = BackgroundTask(path.unlink, missing_ok=True)
-    else:
-        from bento.domain.errors import StorageUnavailableError
-
-        raise StorageUnavailableError(blob_ref.backend.value)
-    response = FileResponse(path, media_type=media_type, filename=filename, background=cleanup)
+    """Serve a blob from a local copy; remote-only blobs are downloaded into the cache first."""
+    path = await storage_pipeline(request).content.blob_path(blob_ref)
+    response = FileResponse(path, media_type=media_type, filename=filename)
     response.headers["Cache-Control"] = (
         "private, max-age=3600" if blob_ref.kind in {BlobKind.THUMBNAIL, BlobKind.PREVIEW} else "no-store"
     )
     return response
-
-
-def _download_cache_path(data_dir: Path, blob_ref: BlobRef) -> Path:
-    safe_id = "".join(character if character.isalnum() or character in {"-", "_", "."} else "_" for character in blob_ref.id)
-    return data_dir / "cache" / "downloads" / f"{safe_id}-{uuid.uuid4().hex}"
 
 
 def _optional_form_value(value: object) -> str | None:

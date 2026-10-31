@@ -1,3 +1,5 @@
+> Superseded by `architecture/telegram-first.md` from Stage 14 on: Bento uses the user's Telegram account via MTProto, not the Bot API. Kept for history.
+
 # Product: Storage And Telegram
 
 ## Scope

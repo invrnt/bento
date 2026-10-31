@@ -1,4 +1,4 @@
-import { apiClient } from "./client";
+import { absoluteApiPath, apiClient } from "./client";
 
 export type PhotoAssetKind = "image" | "video";
 
@@ -125,11 +125,15 @@ export function createPhotosApi(request: ApiRequest = apiClient.request): Photos
 export const photosApi = createPhotosApi();
 
 export function assetThumbnailUrl(asset: Pick<PhotoAsset, "id" | "thumbnail_url">): string {
-  return asset.thumbnail_url ?? `${apiClient.baseUrl}/assets/${encodeURIComponent(asset.id)}/thumbnail`;
+  return asset.thumbnail_url
+    ? absoluteApiPath(asset.thumbnail_url)
+    : `${apiClient.baseUrl}/assets/${encodeURIComponent(asset.id)}/thumbnail`;
 }
 
 export function assetPreviewUrl(asset: Pick<PhotoAsset, "id" | "preview_url">): string {
-  return asset.preview_url ?? `${apiClient.baseUrl}/assets/${encodeURIComponent(asset.id)}/preview`;
+  return asset.preview_url
+    ? absoluteApiPath(asset.preview_url)
+    : `${apiClient.baseUrl}/assets/${encodeURIComponent(asset.id)}/preview`;
 }
 
 export function assetDownloadUrl(asset: Pick<PhotoAsset, "id">): string {

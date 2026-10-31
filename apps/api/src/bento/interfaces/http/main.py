@@ -4,9 +4,11 @@ from collections.abc import Mapping
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from bento.adapters.sync import configure_change_capture
 from bento.infrastructure.settings import Settings, get_settings, settings_database_path
 from bento.interfaces.desktop.routes import router as desktop_router
 from bento.interfaces.desktop.security import DesktopSecurityConfig, DesktopSecurityMiddleware
+from bento.interfaces.http.request_guard import LocalRequestGuard, allowed_hosts_from_environ
 from bento.interfaces.http.routes import router
 
 
@@ -16,15 +18,20 @@ def create_app(
     desktop_environ: Mapping[str, str] | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
+    configure_change_capture(resolved_settings.storage_backend != "local")
     app = FastAPI(title=resolved_settings.app_name, version=resolved_settings.app_version)
     app.state.settings = resolved_settings
     app.state.settings_database_path = settings_database_path(resolved_settings)
 
-    allowed_origins = ["http://127.0.0.1:5173", "http://localhost:5173"]
+    web_port = resolved_settings.web_port
+    allowed_origins = [f"http://127.0.0.1:{web_port}", f"http://localhost:{web_port}"]
     if resolved_settings.runtime_mode == "desktop":
         security = DesktopSecurityConfig.from_environ(os.environ if desktop_environ is None else desktop_environ)
         allowed_origins = [security.origin]
         app.add_middleware(DesktopSecurityMiddleware, config=security)
+    else:
+        # Inside CORS, so the web client can still read these rejections.
+        app.add_middleware(LocalRequestGuard, allowed_hosts=allowed_hosts_from_environ(os.environ))
 
     app.add_middleware(
         CORSMiddleware,

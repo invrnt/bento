@@ -17,6 +17,10 @@ const CSP = [
   "frame-ancestors 'none'",
 ].join("; ");
 
+/** API responses are data, never documents: nothing in them may run, frame, or be sniffed. */
+const API_CSP = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; sandbox";
+const NULL_BODY_STATUSES = new Set([204, 205, 304]);
+
 interface ApiProxy {
   apiFetch(pathname: string, init?: RequestInit): Promise<Response>;
 }
@@ -30,13 +34,20 @@ export function registerBentoProtocol(protocol: Protocol, rendererRoot: string, 
       headers.delete("authorization");
       headers.delete("cookie");
       headers.delete("origin");
-      return api.apiFetch(`${url.pathname}${url.search}`, {
-        method: request.method,
-        headers,
-        body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
-        // Chromium's ReadableStream request body requires this Node fetch extension.
-        duplex: request.body ? "half" : undefined,
-      } as RequestInit);
+      let response: Response;
+      try {
+        response = await api.apiFetch(`${url.pathname}${url.search}`, {
+          method: request.method,
+          headers,
+          body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
+          // Chromium's ReadableStream request body requires this Node fetch extension.
+          duplex: request.body ? "half" : undefined,
+        } as RequestInit);
+      } catch {
+        // Includes redirects, which the loopback client refuses to follow.
+        return apiProxyError(503, "desktop_api_unavailable");
+      }
+      return hardenApiResponse(response);
     }
 
     const decoded = safeDecode(url.pathname);
@@ -52,6 +63,35 @@ export function registerBentoProtocol(protocol: Protocol, rendererRoot: string, 
     headers.set("X-Content-Type-Options", "nosniff");
     headers.set("Referrer-Policy", "no-referrer");
     return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+  });
+}
+
+/** Never hand the renderer a redirect (it would follow it) and pin safe response headers. */
+export function hardenApiResponse(response: Response): Response {
+  if (response.status >= 300 && response.status < 400 && response.status !== 304) {
+    void response.body?.cancel().catch(() => undefined);
+    return apiProxyError(502, "desktop_api_redirect_blocked");
+  }
+  const headers = new Headers(response.headers);
+  headers.delete("location");
+  headers.delete("refresh");
+  headers.delete("set-cookie");
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("Content-Security-Policy", API_CSP);
+  headers.set("Referrer-Policy", "no-referrer");
+  const body = NULL_BODY_STATUSES.has(response.status) ? null : response.body;
+  return new Response(body, { status: response.status, statusText: response.statusText, headers });
+}
+
+function apiProxyError(status: number, code: string): Response {
+  return new Response(JSON.stringify({ detail: { code, message: "Request rejected" } }), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": API_CSP,
+      "Cache-Control": "no-store",
+    },
   });
 }
 
@@ -77,4 +117,4 @@ function safeDescendant(root: string, candidate: string): boolean {
   return child !== "" && !child.startsWith("..") && !isAbsolute(child);
 }
 
-export { BENTO_ORIGIN, CSP };
+export { API_CSP, BENTO_ORIGIN, CSP };

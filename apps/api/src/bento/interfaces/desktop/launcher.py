@@ -7,21 +7,40 @@ import io
 import json
 import multiprocessing
 import os
-import shutil
+import socket
 import sys
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING, TextIO
 
 from alembic import command
 from alembic.config import Config
 from sqlalchemy.engine import URL
 
+from bento.adapters.security.key_store import WRAPPING_KEY_ENV
+from bento.infrastructure import process_secrets
+from bento.infrastructure.child_processes import resolve_executable
 from bento.infrastructure.settings import Settings, get_settings, settings_database_path
+from bento.interfaces.desktop.security import TOKEN_ENV
+
+if TYPE_CHECKING:
+    import uvicorn
+
+# Desktop main reads the API port only from this single stdout line (`BENTO_API_READY {"port":N}`),
+# written once the server accepts connections on the loopback socket it bound itself.
+READY_PREFIX = "BENTO_API_READY "
+
+# Same layout `make setup` creates (see scripts/doctor), so `make doctor` accepts launcher-created data directories.
+DATA_DIR_LAYOUT = ("db", "cache", "uploads", "models", "journal", "config")
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1"})
+_LISTEN_BACKLOG = 2048
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     multiprocessing.freeze_support()
+    # Before anything else runs: per-launch secrets must not stay where child processes inherit them.
+    process_secrets.adopt_environment_secrets((TOKEN_ENV, WRAPPING_KEY_ENV))
     arguments = _parser().parse_args(argv)
     if arguments.command == "api":
         return _run_api(arguments)
@@ -40,7 +59,7 @@ def _parser() -> argparse.ArgumentParser:
 
     api = subparsers.add_parser("api", help="run the local Bento API")
     api.add_argument("--host", help=argparse.SUPPRESS)
-    api.add_argument("--port", type=int)
+    api.add_argument("--port", type=int, help="headless only; the desktop API always binds an OS-assigned port")
     subparsers.add_parser("worker", help="run the Bento background worker")
     subparsers.add_parser("migrate", help="upgrade the local database schema")
 
@@ -60,13 +79,72 @@ def _run_api(arguments: argparse.Namespace) -> int:
 
     settings = get_settings()
     host = arguments.host or settings.host
-    if settings.runtime_mode == "desktop" and host not in {"127.0.0.1", "::1"}:
-        raise SystemExit("desktop API must bind to an explicit loopback address")
+    if settings.runtime_mode == "desktop":
+        if host not in _LOOPBACK_HOSTS:
+            raise SystemExit("desktop API must bind to an explicit loopback address")
+        if arguments.port is not None:
+            raise SystemExit("desktop API binds an ephemeral port chosen by the operating system")
+        _serve_desktop_api(create_app(settings), host)
+        return 0
     port = arguments.port if arguments.port is not None else settings.api_port
     if not 1 <= port <= 65535:
         raise SystemExit("API port must be between 1 and 65535")
     uvicorn.run(create_app(settings), host=host, port=port, reload=False, access_log=False)
     return 0
+
+
+def _serve_desktop_api(app: object, host: str) -> None:
+    """Serve on a socket this process bound itself, so no other process can take the port between
+    allocation and listening, and announce the port only once requests are being accepted."""
+    import uvicorn
+
+    listener = bind_loopback_listener(host)
+    try:
+        port = int(listener.getsockname()[1])
+        config = uvicorn.Config(app, host=host, port=port, reload=False, access_log=False)
+        server = _announcing_server(config, lambda: announce_ready(port))
+        server.run(sockets=[listener])
+        started = server.started
+    finally:
+        listener.close()
+    if not started:
+        # Same contract as `uvicorn.run`: a failed startup is a failed process.
+        raise SystemExit(3)
+
+
+def bind_loopback_listener(host: str) -> socket.socket:
+    if host not in _LOOPBACK_HOSTS:
+        raise ValueError("Only loopback listeners are allowed")
+    listener = socket.socket(socket.AF_INET6 if ":" in host else socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        exclusive = getattr(socket, "SO_EXCLUSIVEADDRUSE", None)
+        if exclusive is not None:
+            # Windows: forbid any other socket from binding the same address and port.
+            listener.setsockopt(socket.SOL_SOCKET, exclusive, 1)
+        listener.bind((host, 0))
+        listener.listen(_LISTEN_BACKLOG)
+    except BaseException:
+        listener.close()
+        raise
+    return listener
+
+
+def announce_ready(port: int, stream: TextIO | None = None) -> None:
+    target = sys.stdout if stream is None else stream
+    target.write(f"{READY_PREFIX}{json.dumps({'port': port}, separators=(',', ':'))}\n")
+    target.flush()
+
+
+def _announcing_server(config: uvicorn.Config, on_started: Callable[[], None]) -> uvicorn.Server:
+    import uvicorn
+
+    class AnnouncingServer(uvicorn.Server):
+        async def startup(self, sockets: list[socket.socket] | None = None) -> None:
+            await super().startup(sockets=sockets)
+            if self.started and not self.should_exit:
+                on_started()
+
+    return AnnouncingServer(config)
 
 
 def _run_worker() -> int:
@@ -80,6 +158,8 @@ def _run_migrations() -> int:
     settings = get_settings()
     database_path = settings_database_path(settings)
     database_path.parent.mkdir(parents=True, exist_ok=True)
+    for child in DATA_DIR_LAYOUT:
+        (Path(settings.data_dir) / child).mkdir(parents=True, exist_ok=True)
     config = Config(str(_bundle_root() / "alembic.ini"))
     config.set_main_option("script_location", str(_bundle_root() / "migrations"))
     config.set_main_option(
@@ -134,7 +214,7 @@ def _probe_model_file(path: Path) -> dict[str, str]:
 
 
 def _probe_ffmpeg() -> dict[str, str]:
-    available = shutil.which("ffmpeg") is not None and shutil.which("ffprobe") is not None
+    available = resolve_executable("ffmpeg") is not None and resolve_executable("ffprobe") is not None
     return {"probe": "ffmpeg", "status": "ok"} if available else _failed("ffmpeg", "not_available")
 
 

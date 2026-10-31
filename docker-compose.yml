@@ -15,7 +15,6 @@ services:
       - "127.0.0.1:${API_PORT:-8000}:8000"
     volumes:
       - ./data:/app/data
-      - ./data/cache/telegram-bot-api:/var/lib/telegram-bot-api:ro
     develop:
       watch:
         - action: sync+restart
@@ -56,7 +55,6 @@ services:
         condition: service_healthy
     volumes:
       - ./data:/app/data
-      - ./data/cache/telegram-bot-api:/var/lib/telegram-bot-api:ro
     develop:
       watch:
         - action: sync+restart
@@ -106,17 +104,3 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
-
-  telegram-bot-api:
-    image: aiogram/telegram-bot-api@sha256:e0c2d269555a39d37b77ed6dd6fa5e4153b8d8399c6de9f249808682cdd942a5
-    environment:
-      TELEGRAM_API_ID: ${TELEGRAM_API_ID:-}
-      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH:-}
-      TELEGRAM_LOCAL: "1"
-      TELEGRAM_HTTP_PORT: "8081"
-    profiles:
-      - telegram
-    ports:
-      - "127.0.0.1:${TELEGRAM_BOT_API_PORT:-8081}:8081"
-    volumes:
-      - ./data/cache/telegram-bot-api:/var/lib/telegram-bot-api

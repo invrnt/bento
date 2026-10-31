@@ -1,0 +1,784 @@
+"""Sync engine: publish local ops, apply peers' batches, keys grants, snapshots, and bootstrap.
+
+Binding protocol: `orchestration/architecture/telegram-first.md` § Sync Protocol and § Integration Rules.
+Application code depends on ports only; every Sync document leaves the device sealed.
+
+Everything read from the Sync channel is untrusted until opened: edited messages are invalid (Bento never edits
+Sync messages), documents are size-checked before download, the snapshot must match the digest in the
+MAC-covered header, batches below the epoch floor are rejected from their public prefix without decrypting,
+remote clocks are bounded by the message date and the local clock, and permanently invalid messages are counted
+and passed over (the cursor never stops on them).
+
+Telegram dates every message it receives, so the date of a message this device just posted measures how far its
+own wall clock runs ahead of (or behind) Telegram's: beyond 5 minutes peers drop its ops (or it drops theirs),
+and `sync_state["clock_skew"]` makes status and Activity say so.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import hashlib
+import hmac
+import logging
+import time
+import uuid
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
+from dataclasses import dataclass, replace
+from datetime import datetime, timedelta
+from typing import Protocol, runtime_checkable
+
+from bento.application.sync.batching import (
+    MAX_BATCH_BYTES,
+    MAX_BATCH_OPS,
+    assets_to_check,
+    held_asset_id,
+    plan_flush,
+    released_asset_id,
+)
+from bento.application.sync.codec import b64url_encode
+from bento.application.sync.envelope import envelope_epoch
+from bento.application.sync.keys import KeysGrantApplier, KeysMessage, parse_keys_message
+from bento.application.sync.ports import (
+    AssetHoldState,
+    FullStatePublisherPort,
+    HoldStatePort,
+    SyncApplierPort,
+    SyncOutboxStorePort,
+    SyncStateStorePort,
+)
+from bento.application.sync.snapshot import parse_snapshot, snapshot_payload, trusted_states
+from bento.application.sync.state import (
+    BOOTSTRAP,
+    CAPTURE,
+    CLOCK_SKEW,
+    CURSOR,
+    DEVICE_REMOVED,
+    EPOCH_FLOOR,
+    INITIAL_PUBLISH,
+    LAST_PULL_AT,
+    LAST_PUSH_AT,
+    LAST_SKIPPED,
+    LAST_SNAPSHOT_AT,
+    OPS_SINCE_SNAPSHOT,
+    OWN_BATCHES,
+    SKIPPED_MESSAGES,
+    SKIPPED_OPS,
+    SNAPSHOT_REQUESTED_AT,
+    VAULT_SCOPED_KEYS,
+    SyncStateValues,
+    format_timestamp,
+)
+from bento.domain.errors import IntegrityError, ValidationFailedError
+from bento.domain.security import SealPurpose, VaultKeyring
+from bento.domain.sync import (
+    MAX_CLOCK_SKEW_MS,
+    SYNC_MESSAGE_EDITED,
+    SyncBatch,
+    SyncMessageKind,
+    SyncMessageRef,
+    SyncOperation,
+    datetime_ms,
+    hlc_limit_ms,
+    hlc_within,
+)
+from bento.domain.vault import SnapshotPointer, VaultHeader, canonical_json
+from bento.ports.pairing import DeviceRepositoryPort
+from bento.ports.repositories import ClockPort
+from bento.ports.security import VaultCryptoPort
+from bento.ports.sync import EntityState, HlcSourcePort, OutboxEntry, SnapshotSourcePort
+from bento.ports.telegram import VaultTransportPort
+from bento.ports.vault import VaultContext, VaultSessionPort
+
+LOGGER = logging.getLogger("bento.sync")
+
+MIB = 1024 * 1024
+EDITED = "edited"
+"""Skip reason of an edited Sync message."""
+_PULLED_KINDS = frozenset({SyncMessageKind.BATCH, SyncMessageKind.KEYS, SyncMessageKind.HEADER})
+"""Kinds the pull reads; snapshots are read at bootstrap through the header, pairing by the pairing service."""
+_SKEW_UPDATE_MS = 60_000
+"""A stored clock skew is rewritten (and logged) only when it changes direction or by more than this."""
+
+
+@runtime_checkable
+class DeviceRemovalPort(Protocol):
+    """Optional capability of the vault session: forget the vault keys once this device was removed."""
+
+    async def forget_keys_after_removal(self) -> None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class SyncPolicy:
+    flush_min_age_ms: int = 3_000
+    max_batch_ops: int = MAX_BATCH_OPS
+    max_batch_bytes: int = MAX_BATCH_BYTES
+    post_interval_seconds: float = 2.0
+    """Batches, snapshots, and headers share a 1 message / 2 s budget on the Sync channel."""
+    held_recheck_seconds: float = 60.0
+    list_page_size: int = 100
+    outbox_page_size: int = 2_000
+    snapshot_after_ops: int = 2_000
+    snapshot_interval: timedelta = timedelta(hours=24)
+    bootstrap_progress_every: int = 500
+    max_batch_document_bytes: int = 8 * MIB
+    max_keys_document_bytes: int = 1 * MIB
+    max_snapshot_document_bytes: int = 512 * MIB
+    max_batch_json_bytes: int = 16 * MIB
+    """Inflated size limit of one batch (the default limit of the crypto adapter stays for snapshots)."""
+
+
+@dataclass(frozen=True, slots=True)
+class EpochFloor:
+    epoch: int
+    message_id: int
+
+
+@dataclass(frozen=True, slots=True)
+class PullResult:
+    messages: int = 0
+    applied_batches: int = 0
+    applied_fields: int = 0
+    device_removed: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class _Processed:
+    context: VaultContext
+    floor: EpochFloor | None
+    applied: int | None = None
+    removed: bool = False
+    """This device was removed: stop before this message (it is processed again after re-joining)."""
+
+
+class _Skip(Exception):
+    """A Sync message that can never be processed; the pull counts it and moves on."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
+class SyncEngine:
+    def __init__(
+        self,
+        *,
+        vault: VaultSessionPort,
+        transport: VaultTransportPort,
+        crypto: VaultCryptoPort,
+        outbox: SyncOutboxStorePort,
+        state: SyncStateStorePort,
+        applier: SyncApplierPort,
+        snapshots: SnapshotSourcePort,
+        hlc: HlcSourcePort,
+        holds: HoldStatePort,
+        publisher: FullStatePublisherPort,
+        devices: DeviceRepositoryPort,
+        clock: ClockPort,
+        policy: SyncPolicy | None = None,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        monotonic: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._vault = vault
+        self._transport = transport
+        self._crypto = crypto
+        self._outbox = outbox
+        self._state = state
+        self._values = SyncStateValues(state)
+        self._applier = applier
+        self._snapshots = snapshots
+        self._hlc = hlc
+        self._holds = holds
+        self._publisher = publisher
+        self._keys = KeysGrantApplier(crypto=crypto, devices=devices, values=self._values, clock=clock)
+        self._clock = clock
+        self._policy = policy or SyncPolicy()
+        self._sleep = sleep
+        self._monotonic = monotonic
+        self._lock = asyncio.Lock()
+        self._held: dict[int, str] = {}
+        self._scanned_through = 0
+        self._last_full_check = float("-inf")
+        self._last_post_at = float("-inf")
+        self._caught_up = False
+
+    @property
+    def policy(self) -> SyncPolicy:
+        return self._policy
+
+    # Attach, initial publish, bootstrap
+
+    async def prepare(self, context: VaultContext) -> VaultContext:
+        """Enable capture for this vault, run the initial publish once, and bootstrap a device without cursor."""
+        async with self._lock:
+            vault_id, device_id = context.layout.vault_id, context.device.device_id
+            capture = await self._values.get_json(CAPTURE)
+            if not isinstance(capture, dict) or capture.get("vault_id") != vault_id or capture.get("device_id") != device_id:
+                if isinstance(capture, dict) and capture.get("vault_id") != vault_id:
+                    await self._reset_vault_state()
+                # Capture first: changes committed from now on are captured, earlier ones are in the full state.
+                await self._values.set_json(CAPTURE, {"vault_id": vault_id, "device_id": device_id})
+            if await self._state.get_value(INITIAL_PUBLISH) != vault_id:
+                count = await self._publisher.publish_full_state()
+                await self._state.set_value(INITIAL_PUBLISH, vault_id)
+                if count:
+                    LOGGER.info("Initial publish queued %s ops", count)
+            if await self._state.get_value(LAST_SNAPSHOT_AT) is None:
+                await self._values.set_datetime(LAST_SNAPSHOT_AT, self._clock.now())
+            if await self._state.get_value(CURSOR) is None and not await self.device_removed():
+                await self._bootstrap(context)
+            return context
+
+    async def device_removed(self) -> bool:
+        """This device learned from an authenticated keys message that it was removed; sync stays paused."""
+        return await self._state.get_value(DEVICE_REMOVED) is not None
+
+    async def _reset_vault_state(self) -> None:
+        for key in VAULT_SCOPED_KEYS:
+            await self._values.delete(key)
+        await self._outbox.clear()
+        self._held.clear()
+        self._scanned_through = 0
+        self._caught_up = False
+
+    async def _bootstrap(self, context: VaultContext) -> None:
+        await self._values.set_json(BOOTSTRAP, {"done": 0, "total": 0})
+        # `read_header` only returns a header MACed with this device's current epoch.
+        header = await self._vault.read_header()
+        covers = 0
+        if header is not None and header.snapshot is not None:
+            try:
+                covers, snapshot_epoch = await self._apply_snapshot_message(context, header.snapshot)
+            except (IntegrityError, ValidationFailedError) as exc:
+                # A replay from the start of the Sync channel reaches the same state; never retry a bad snapshot.
+                LOGGER.warning("Integrity: skipped the vault snapshot (%s); replaying the Sync channel", _reason(exc))
+                await self._count_skip(header.snapshot.message_id, SyncMessageKind.SNAPSHOT, _reason(exc))
+                covers = 0
+            else:
+                await self._values.set_datetime(LAST_SNAPSHOT_AT, header.snapshot.created_at)
+                # Its creator held `snapshot_epoch` when it had processed everything through `covers`, so anything
+                # sealed below that epoch and posted later is not genuine (architecture § Snapshots).
+                await self._raise_floor(await self._floor(), snapshot_epoch, covers)
+        await self._values.set_int(OPS_SINCE_SNAPSHOT, 0)
+        # The bootstrap marker stays until the following pull reaches the tip.
+        await self._values.set_int(CURSOR, covers)
+
+    async def _apply_snapshot_message(self, context: VaultContext, pointer: SnapshotPointer) -> tuple[int, int]:
+        """Apply the snapshot the header points to; returns `(covers_through_message_id, sealed epoch)`."""
+        if pointer.sha256 is None:
+            # Written before pointers carried a digest: nothing binds the document to the MAC-covered header.
+            raise IntegrityError("snapshot_sha256_missing")
+        envelope = await self._transport.download_sync_document(
+            context.layout, pointer.message_id, max_bytes=self._policy.max_snapshot_document_bytes
+        )
+        # Checked before decrypting: an edited or swapped document never gets to cost a decryption.
+        if not hmac.compare_digest(_digest(envelope), pointer.sha256):
+            raise IntegrityError("snapshot_sha256")
+        epoch = envelope_epoch(envelope)
+        payload = self._crypto.open_json(context.keyring, SealPurpose.SNAPSHOT, envelope, aad=_aad(context))
+        snapshot = parse_snapshot(payload)
+        if snapshot.vault_id != context.layout.vault_id or epoch is None:
+            raise IntegrityError("snapshot")
+        limit = hlc_limit_ms(datetime_ms(self._clock.now()), datetime_ms(pointer.created_at))
+        states, purged, dropped = trusted_states(snapshot.states, snapshot.purged, limit_ms=limit)
+        if dropped:
+            LOGGER.warning("Integrity: dropped %s snapshot clocks that run ahead of the snapshot date", dropped)
+            await self._values.set_int(SKIPPED_OPS, await self._values.get_int(SKIPPED_OPS) + dropped)
+        total = len(states)
+        await self._values.set_json(BOOTSTRAP, {"done": 0, "total": total})
+        await self._applier.apply_snapshot(self._with_progress(states, total), purged, source=snapshot.device_id)
+        await self._values.set_json(BOOTSTRAP, {"done": total, "total": total})
+        return min(pointer.covers_through_message_id, snapshot.covers_through_message_id), epoch
+
+    async def _with_progress(self, states: Sequence[EntityState], total: int) -> AsyncIterator[EntityState]:
+        every = max(1, self._policy.bootstrap_progress_every)
+        for index, entity_state in enumerate(states):
+            if index and index % every == 0:
+                await self._values.set_json(BOOTSTRAP, {"done": index, "total": total})
+            yield entity_state
+
+    # Flush
+
+    async def flush_due(self) -> bool:
+        backlog = await self._outbox.backlog(after_seq=self._scanned_through)
+        if backlog.count:
+            return (
+                backlog.count >= self._policy.max_batch_ops
+                or backlog.total_bytes >= self._policy.max_batch_bytes
+                or backlog.oldest_age_ms >= self._policy.flush_min_age_ms
+            )
+        return bool(self._held) and self._monotonic() - self._last_full_check >= self._policy.held_recheck_seconds
+
+    async def flush(self, context: VaultContext, *, force: bool = False) -> int:
+        """Publish due outbox ops in sealed batches; returns the number of ops published."""
+        async with self._lock:
+            if await self.device_removed() or (not force and not await self.flush_due()):
+                return 0
+            published = 0
+            try:
+                while True:
+                    count, more = await self._flush_round(context)
+                    published += count
+                    if not more:
+                        return published
+            except BaseException:
+                # Unposted entries must be planned again: rescan the whole outbox next time.
+                self._scanned_through = 0
+                self._held.clear()
+                raise
+
+    async def _flush_round(self, context: VaultContext) -> tuple[int, bool]:
+        fresh = await self._outbox.page(after_seq=self._scanned_through, limit=self._policy.outbox_page_size)
+        held_assets = set(self._held.values())
+        full_check = self._monotonic() - self._last_full_check >= self._policy.held_recheck_seconds
+        releases = {asset_id for entry in fresh if (asset_id := released_asset_id(entry.operation)) is not None}
+        check = set(assets_to_check(fresh)) | (held_assets if full_check else releases & held_assets)
+        states = await self._holds.asset_states(frozenset(check)) if check else {}
+        if full_check:
+            self._last_full_check = self._monotonic()
+
+        revisit_seqs = tuple(
+            seq for seq, asset_id in self._held.items() if states.get(asset_id, AssetHoldState.LOCAL) != AssetHoldState.LOCAL
+        )
+        revisit = await self._outbox_entries(revisit_seqs)
+        known = {entry.seq for entry in revisit}
+        for seq in revisit_seqs:
+            if seq not in known:
+                self._held.pop(seq, None)
+        entries = sorted((*revisit, *fresh), key=lambda entry: entry.seq)
+        plan = plan_flush(
+            entries,
+            states,
+            max_ops=self._policy.max_batch_ops,
+            max_bytes=self._policy.max_batch_bytes,
+        )
+        if plan.dropped:
+            await self._outbox.remove(plan.dropped)
+        for seq in plan.dropped:
+            self._held.pop(seq, None)
+        by_seq = {entry.seq: entry for entry in entries}
+        for seq in plan.held:
+            asset_id = held_asset_id(by_seq[seq].operation)
+            if asset_id is not None:
+                self._held[seq] = asset_id
+        if fresh:
+            self._scanned_through = max(self._scanned_through, fresh[-1].seq)
+
+        published = 0
+        for batch in plan.batches:
+            published += await self._post_batch(context, batch)
+            for entry in batch:
+                self._held.pop(entry.seq, None)
+        return published, len(fresh) >= self._policy.outbox_page_size
+
+    async def _outbox_entries(self, seqs: tuple[int, ...]) -> tuple[OutboxEntry, ...]:
+        if not seqs:
+            return ()
+        wanted = set(seqs)
+        found: list[OutboxEntry] = []
+        after = min(wanted) - 1
+        last = max(wanted)
+        while after < last:
+            page = await self._outbox.page(after_seq=after, limit=self._policy.outbox_page_size)
+            if not page:
+                break
+            found.extend(entry for entry in page if entry.seq in wanted)
+            after = page[-1].seq
+        return tuple(found)
+
+    async def _post_batch(self, context: VaultContext, entries: tuple[OutboxEntry, ...]) -> int:
+        """Post `entries` as one batch, or split, so that receivers accept it; returns the ops published."""
+        context = await self._latest_keyring(context)
+        batch = SyncBatch(
+            batch_id=str(uuid.uuid4()),
+            device_id=context.device.device_id,
+            ops=tuple(entry.operation for entry in entries),
+        )
+        payload = batch.to_dict()
+        envelope = None
+        if len(canonical_json(payload)) <= self._policy.max_batch_json_bytes:
+            envelope = self._crypto.seal_json(context.keyring, SealPurpose.SYNC, payload, aad=_aad(context))
+        if envelope is None or len(envelope) > self._policy.max_batch_document_bytes:
+            # Planning keeps batches far below both limits; this only guards against a misconfigured policy.
+            if len(entries) > 1:
+                half = len(entries) // 2
+                return await self._post_batch(context, entries[:half]) + await self._post_batch(context, entries[half:])
+            LOGGER.warning("Dropped a %s op that no receiver would accept", entries[0].operation.entity.value)
+            await self._outbox.remove((entries[0].seq,))
+            return 0
+        await self._pace()
+        sent_at = self._clock.now()
+        ref = await self._transport.post_sync_document(context.layout, SyncMessageKind.BATCH, envelope)
+        self._last_post_at = self._monotonic()
+        self._caught_up = False
+        # Remembered before the outbox rows go: if this batch lands below a key epoch floor, it is re-published.
+        await self._remember_own_batch(ref.message_id)
+        # Only after Telegram confirmed the message; a crash before this re-sends ops that peers ignore by HLC.
+        await self._outbox.remove(tuple(entry.seq for entry in entries))
+        await self._values.set_datetime(LAST_PUSH_AT, self._clock.now())
+        await self._values.set_int(OPS_SINCE_SNAPSHOT, await self._values.get_int(OPS_SINCE_SNAPSHOT) + len(entries))
+        await self._measure_clock(sent_at, ref)
+        return len(entries)
+
+    async def _latest_keyring(self, context: VaultContext) -> VaultContext:
+        """A rotation by another process (device removal in the API) must not be sealed over with the old epoch."""
+        current = await self._vault.current()
+        if current is not None and current.keyring.current_epoch > context.keyring.current_epoch:
+            return replace(context, keyring=current.keyring)
+        return context
+
+    async def _pace(self) -> None:
+        wait = self._policy.post_interval_seconds - (self._monotonic() - self._last_post_at)
+        if wait > 0:
+            await self._sleep(wait)
+
+    # Pull
+
+    async def pull(self, context: VaultContext) -> tuple[VaultContext, PullResult]:
+        """Process Sync messages after the cursor; returns the (possibly re-keyed) context."""
+        async with self._lock:
+            if await self.device_removed():
+                return context, PullResult(device_removed=True)
+            cursor = await self._values.get_int(CURSOR)
+            floor = await self._floor()
+            own = await self._own_batches()
+            messages = batches = fields = 0
+            removed = False
+            latest: datetime | None = None
+            while not removed:
+                refs = await self._transport.list_sync_messages(
+                    context.layout, after_message_id=cursor, limit=self._policy.list_page_size
+                )
+                for ref in refs:
+                    if ref.message_id <= cursor:
+                        continue
+                    latest = ref.created_at if latest is None or ref.created_at > latest else latest
+                    try:
+                        processed = await self._process(context, ref, floor, own=ref.message_id in own)
+                    except _Skip as skip:
+                        LOGGER.warning("Integrity: skipped Sync %s %s (%s)", ref.kind.value, ref.message_id, skip.reason)
+                        await self._count_skip(ref.message_id, ref.kind, skip.reason)
+                        processed = _Processed(context=context, floor=floor)
+                    if processed.removed:
+                        removed = True
+                        break
+                    context, floor = processed.context, processed.floor
+                    if processed.applied is not None:
+                        batches += 1
+                        fields += processed.applied
+                    messages += 1
+                    cursor = ref.message_id
+                    await self._values.set_int(CURSOR, cursor)
+                    if ref.message_id in own:
+                        own.discard(ref.message_id)
+                        await self._values.set_json(OWN_BATCHES, sorted(own))
+                if len(refs) < self._policy.list_page_size:
+                    break
+            if latest is not None:
+                await self._observe_clock(latest)
+            if removed:
+                return context, PullResult(messages=messages, applied_batches=batches, applied_fields=fields, device_removed=True)
+            await self._values.set_datetime(LAST_PULL_AT, self._clock.now())
+            if await self._state.get_value(BOOTSTRAP) is not None:
+                await self._values.delete(BOOTSTRAP)
+            self._caught_up = True
+            return context, PullResult(messages=messages, applied_batches=batches, applied_fields=fields)
+
+    async def _process(
+        self, context: VaultContext, ref: SyncMessageRef, floor: EpochFloor | None, *, own: bool
+    ) -> _Processed:
+        if ref.edited and ref.kind in _PULLED_KINDS:
+            # Bento never edits Sync messages: the content is not what its author posted.
+            raise _Skip(EDITED)
+        if ref.kind == SyncMessageKind.BATCH:
+            return _Processed(context, floor, await self._apply_batch_message(context, ref, floor, own=own))
+        if ref.kind == SyncMessageKind.KEYS:
+            return await self._apply_keys_message(context, ref, floor)
+        if ref.kind == SyncMessageKind.HEADER:
+            return _Processed(context, await self._observe_header(context, ref, floor))
+        # Snapshots matter only while bootstrapping (through the header); pairing has its own cursor.
+        return _Processed(context, floor)
+
+    async def _download(self, context: VaultContext, ref: SyncMessageRef, max_bytes: int) -> bytes:
+        if ref.size_bytes > max_bytes:
+            raise _Skip("too_large")
+        try:
+            return await self._transport.download_sync_document(context.layout, ref.message_id, max_bytes=max_bytes)
+        except ValidationFailedError:
+            raise _Skip("too_large") from None
+        except IntegrityError as exc:
+            # Edited after it was listed: the transport reads the message again before downloading.
+            raise _Skip(_reason(exc)) from None
+
+    async def _apply_batch_message(
+        self, context: VaultContext, ref: SyncMessageRef, floor: EpochFloor | None, *, own: bool
+    ) -> int | None:
+        envelope = await self._download(context, ref, self._policy.max_batch_document_bytes)
+        below_floor = _below_floor(envelope, ref.message_id, floor)
+        if below_floor and not own:
+            # Decided from the public prefix: a removed device's old keys never get to cost a decryption.
+            raise _Skip("below_epoch_floor")
+        if own and not below_floor:
+            return None
+        try:
+            batch = SyncBatch.from_dict(
+                self._crypto.open_json(
+                    context.keyring,
+                    SealPurpose.SYNC,
+                    envelope,
+                    aad=_aad(context),
+                    max_json_bytes=self._policy.max_batch_json_bytes,
+                )
+            )
+        except (IntegrityError, ValidationFailedError) as exc:
+            raise _Skip(_reason(exc)) from None
+        is_own = batch.device_id == context.device.device_id
+        if below_floor:
+            if not is_own:
+                raise _Skip("below_epoch_floor")
+            # Peers reject it too: publish the same ops again under the current epoch.
+            LOGGER.warning("Sync batch %s of this device landed below the key epoch floor; publishing it again", ref.message_id)
+            for operation in batch.ops:
+                await self._outbox.record(operation)
+            return None
+        if is_own or await self._state.is_batch_applied(batch.batch_id):
+            return None
+        operations, dropped = self._trusted_ops(batch.ops, ref.created_at)
+        if dropped:
+            LOGGER.warning("Integrity: dropped %s ops of Sync batch %s whose clocks run ahead", dropped, ref.message_id)
+            await self._values.set_int(SKIPPED_OPS, await self._values.get_int(SKIPPED_OPS) + dropped)
+        applied = await self._applier.apply_batch(
+            batch.batch_id, ref.message_id, operations, sender=batch.device_id, sent_at=ref.created_at
+        )
+        await self._values.set_int(OPS_SINCE_SNAPSHOT, await self._values.get_int(OPS_SINCE_SNAPSHOT) + len(operations))
+        return applied
+
+    def _trusted_ops(self, operations: Sequence[SyncOperation], sent_at: datetime) -> tuple[tuple[SyncOperation, ...], int]:
+        """Ops whose clock is at most the allowed skew ahead of both the message date and this device's clock."""
+        limit = hlc_limit_ms(datetime_ms(self._clock.now()), datetime_ms(sent_at))
+        kept = tuple(sorted((item for item in operations if hlc_within(item.hlc, limit)), key=lambda item: item.hlc))
+        return kept, len(operations) - len(kept)
+
+    async def _apply_keys_message(self, context: VaultContext, ref: SyncMessageRef, floor: EpochFloor | None) -> _Processed:
+        try:
+            message = parse_keys_message(await self._download(context, ref, self._policy.max_keys_document_bytes))
+        except ValidationFailedError:
+            raise _Skip("invalid_keys") from None
+        if message.vault_id != context.layout.vault_id:
+            return _Processed(context, floor)
+        if await self._keys.removes_this_device(message, context):
+            await self._mark_removed(context, message, ref)
+            return _Processed(context, floor, removed=True)
+        try:
+            merged = await self._keys.apply(message, context)
+        except IntegrityError as exc:
+            LOGGER.warning("Integrity: rejected keys grant in message %s (%s)", ref.message_id, exc.details.get("what"))
+            await self._count_skip(ref.message_id, ref.kind, str(exc.details.get("what") or exc.code))
+            merged = None
+        if merged is not None:
+            await self._vault.update_keyring(merged)
+            context = replace(context, keyring=merged)
+            LOGGER.info("Applied vault key epoch %s", merged.current_epoch)
+        # Only an epoch this device already holds raises the floor, so even a rejected message cannot strand it.
+        if message.epoch in context.keyring.keys:
+            floor = await self._raise_floor(floor, message.epoch, ref.message_id)
+        return _Processed(context, floor)
+
+    async def _mark_removed(self, context: VaultContext, message: KeysMessage, ref: SyncMessageRef) -> None:
+        """Another device rotated the keys without this one: stop syncing and forget the vault keys."""
+        LOGGER.warning("This device was removed from the vault (keys epoch %s); sync stops here", message.epoch)
+        await self._values.set_json(
+            DEVICE_REMOVED,
+            {
+                "device_id": context.device.device_id,
+                "epoch": message.epoch,
+                "message_id": ref.message_id,
+                "by": message.sender_device_id,
+                "at": format_timestamp(self._clock.now()),
+            },
+        )
+        if isinstance(self._vault, DeviceRemovalPort):
+            await self._vault.forget_keys_after_removal()
+
+    async def _observe_header(self, context: VaultContext, ref: SyncMessageRef, floor: EpochFloor | None) -> EpochFloor | None:
+        if ref.text is None:
+            return floor
+        try:
+            header = VaultHeader.from_json(ref.text)
+        except ValidationFailedError:
+            return floor
+        if header.vault_id != context.layout.vault_id or not self._header_valid(context.keyring, header):
+            return floor
+        current = floor is None or header.current_epoch >= floor.epoch
+        if header.snapshot is not None and current and self._not_in_future(header.snapshot.created_at):
+            last = await self._values.get_datetime(LAST_SNAPSHOT_AT)
+            if last is None or header.snapshot.created_at > last:
+                await self._values.set_datetime(LAST_SNAPSHOT_AT, header.snapshot.created_at)
+                await self._values.set_int(OPS_SINCE_SNAPSHOT, 0)
+        return await self._raise_floor(floor, header.current_epoch, ref.message_id)
+
+    def _not_in_future(self, value: datetime) -> bool:
+        return datetime_ms(value) <= datetime_ms(self._clock.now()) + MAX_CLOCK_SKEW_MS
+
+    def _header_valid(self, keyring: VaultKeyring, header: VaultHeader) -> bool:
+        if header.current_epoch not in keyring.keys:
+            return False
+        at_epoch = VaultKeyring(vault_id=keyring.vault_id, current_epoch=header.current_epoch, keys=keyring.keys)
+        return self._crypto.verify_header_mac(at_epoch, header.canonical_unsigned_bytes(), header.mac)
+
+    async def _floor(self) -> EpochFloor | None:
+        value = await self._values.get_json(EPOCH_FLOOR)
+        if not isinstance(value, dict):
+            return None
+        try:
+            return EpochFloor(epoch=int(value["epoch"]), message_id=int(value["message_id"]))
+        except (KeyError, TypeError, ValueError):
+            return None
+
+    async def _raise_floor(self, floor: EpochFloor | None, epoch: int, message_id: int) -> EpochFloor | None:
+        if floor is not None and epoch <= floor.epoch:
+            return floor
+        raised = EpochFloor(epoch=epoch, message_id=message_id)
+        await self._values.set_json(EPOCH_FLOOR, {"epoch": epoch, "message_id": message_id})
+        return raised
+
+    # Skips and own batches
+
+    async def _count_skip(self, message_id: int, kind: SyncMessageKind, reason: str) -> None:
+        await self._values.set_int(SKIPPED_MESSAGES, await self._values.get_int(SKIPPED_MESSAGES) + 1)
+        await self._values.set_json(
+            LAST_SKIPPED,
+            {"message_id": message_id, "kind": kind.value, "reason": reason, "at": format_timestamp(self._clock.now())},
+        )
+
+    async def _own_batches(self) -> set[int]:
+        stored = await self._values.get_json(OWN_BATCHES)
+        if not isinstance(stored, list):
+            return set()
+        return {item for item in stored if isinstance(item, int) and not isinstance(item, bool)}
+
+    async def _remember_own_batch(self, message_id: int) -> None:
+        own = await self._own_batches()
+        own.add(int(message_id))
+        await self._values.set_json(OWN_BATCHES, sorted(own))
+
+    # Clock skew
+
+    async def _measure_clock(self, sent_at: datetime, ref: SyncMessageRef) -> None:
+        """Telegram dated the message this device just posted when it arrived, right after `sent_at`."""
+        await self._record_clock_skew(datetime_ms(sent_at) - datetime_ms(ref.created_at), ref.message_id, fresh=True)
+
+    async def _observe_clock(self, latest: datetime) -> None:
+        """A listed message's date is at most Telegram's current time: one dated beyond this device's clock plus
+        the allowed skew proves the clock is behind, and a recent one proves it is not ahead."""
+        skew = datetime_ms(self._clock.now()) - datetime_ms(latest)
+        if skew < -MAX_CLOCK_SKEW_MS:
+            await self._record_clock_skew(skew, None, fresh=False)
+        elif skew <= MAX_CLOCK_SKEW_MS:
+            stored = await self._values.get_json(CLOCK_SKEW)
+            if isinstance(stored, dict) and isinstance(stored.get("skew_ms"), int) and stored["skew_ms"] > 0:
+                await self._values.delete(CLOCK_SKEW)
+
+    async def _record_clock_skew(self, skew_ms: int, message_id: int | None, *, fresh: bool) -> None:
+        stored = await self._values.get_json(CLOCK_SKEW)
+        if abs(skew_ms) <= MAX_CLOCK_SKEW_MS:
+            if fresh and stored is not None:
+                await self._values.delete(CLOCK_SKEW)
+            return
+        previous = stored.get("skew_ms") if isinstance(stored, dict) else None
+        if isinstance(previous, int) and (previous > 0) == (skew_ms > 0) and abs(previous - skew_ms) <= _SKEW_UPDATE_MS:
+            return  # already reported; pulls observe it again every cycle
+        LOGGER.warning(
+            "This device's clock runs %s s %s of Telegram's; fix it so peers and this device keep each other's changes",
+            abs(skew_ms) // 1000,
+            "ahead" if skew_ms > 0 else "behind",
+        )
+        await self._values.set_json(
+            CLOCK_SKEW, {"skew_ms": skew_ms, "message_id": message_id, "at": format_timestamp(self._clock.now())}
+        )
+
+    # Snapshots
+
+    async def snapshot_due(self) -> bool:
+        if await self._state.get_value(SNAPSHOT_REQUESTED_AT) is not None:
+            return True
+        ops = await self._values.get_int(OPS_SINCE_SNAPSHOT)
+        if ops >= self._policy.snapshot_after_ops:
+            return True
+        last = await self._values.get_datetime(LAST_SNAPSHOT_AT)
+        return ops > 0 and last is not None and self._clock.now() - last >= self._policy.snapshot_interval
+
+    async def maybe_snapshot(self, context: VaultContext, *, force: bool = False) -> bool:
+        """Create a snapshot when due and this device has applied everything up to the tip."""
+        async with self._lock:
+            if not self._caught_up or (await self._outbox.backlog(after_seq=self._scanned_through)).count:
+                return False
+            if await self.device_removed():
+                return False
+            if not force and not await self.snapshot_due():
+                return False
+            await self._create_snapshot(context)
+            return True
+
+    async def _create_snapshot(self, context: VaultContext) -> None:
+        now = self._clock.now()
+        cursor = await self._values.get_int(CURSOR)
+        states = [entity_state async for entity_state in self._snapshots.iter_states()]
+        payload = snapshot_payload(
+            snapshot_id=str(uuid.uuid4()),
+            device_id=context.device.device_id,
+            vault_id=context.layout.vault_id,
+            covers_through_message_id=cursor,
+            created_at=now,
+            states=states,
+            purged=await self._snapshots.purged(),
+        )
+        envelope = self._crypto.seal_json(context.keyring, SealPurpose.SNAPSHOT, payload, aad=_aad(context))
+        await self._pace()
+        sent_at = self._clock.now()
+        ref = await self._transport.post_sync_document(context.layout, SyncMessageKind.SNAPSHOT, envelope)
+        self._last_post_at = self._monotonic()
+        pointer = SnapshotPointer(
+            message_id=ref.message_id, covers_through_message_id=cursor, created_at=now, sha256=_digest(envelope)
+        )
+        await self._pace()
+        await self._vault.update_header(lambda header: replace(header, snapshot=pointer))
+        self._last_post_at = self._monotonic()
+        self._caught_up = False
+        await self._values.set_datetime(LAST_SNAPSHOT_AT, now)
+        await self._values.set_int(OPS_SINCE_SNAPSHOT, 0)
+        await self._values.delete(SNAPSHOT_REQUESTED_AT)
+        await self._measure_clock(sent_at, ref)
+        LOGGER.info("Published a sync snapshot with %s entities", len(states))
+
+    async def request_snapshot(self) -> None:
+        await self._values.set_datetime(SNAPSHOT_REQUESTED_AT, self._clock.now())
+
+    # One full cycle
+
+    async def sync_once(self, context: VaultContext, *, force_flush: bool = False) -> VaultContext:
+        context = await self.prepare(context)
+        await self.flush(context, force=force_flush)
+        context, _ = await self.pull(context)
+        await self.maybe_snapshot(context)
+        return context
+
+
+def _aad(context: VaultContext) -> bytes:
+    return context.layout.vault_id.encode("utf-8")
+
+
+def _digest(document: bytes) -> str:
+    """Unpadded base64url SHA-256 of a Sync document's bytes (the header's snapshot pointer carries it)."""
+    return b64url_encode(hashlib.sha256(document).digest())
+
+
+def _reason(exc: IntegrityError | ValidationFailedError) -> str:
+    what = exc.details.get("what") if isinstance(exc, IntegrityError) else None
+    return EDITED if what == SYNC_MESSAGE_EDITED else str(what or exc.code)
+
+
+def _below_floor(envelope: bytes, message_id: int, floor: EpochFloor | None) -> bool:
+    if floor is None or message_id <= floor.message_id:
+        return False
+    epoch = envelope_epoch(envelope)
+    return epoch is not None and epoch < floor.epoch

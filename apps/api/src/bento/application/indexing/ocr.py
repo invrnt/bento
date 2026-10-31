@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Protocol
 
 from bento.application.media.service import BlobPathResolverPort, BlobRefCatalogPort
+from bento.application.sync.ports import AssetIndexRecorderPort
 from bento.domain.assets import Asset, AssetKind, ProcessingState
 from bento.domain.errors import AssetNotFoundError, ValidationFailedError
 from bento.domain.indexing import OCRBlock
@@ -15,6 +17,7 @@ from bento.ports.providers import OCRProviderPort
 from bento.ports.repositories import AssetRepositoryPort, ClockPort
 from bento.ports.search import SearchIndexPort
 
+LOGGER = logging.getLogger("bento.indexing.ocr")
 
 @dataclass(frozen=True, slots=True)
 class PDFPageRender:
@@ -43,6 +46,7 @@ class OCRIndexingService:
         clock: ClockPort,
         pdf_renderer: PDFPageRendererPort | None = None,
         pdf_pages: PDFPageTextCatalogPort | None = None,
+        index_recorder: AssetIndexRecorderPort | None = None,
     ) -> None:
         self._assets = assets
         self._blob_refs = blob_refs
@@ -53,11 +57,15 @@ class OCRIndexingService:
         self._clock = clock
         self._pdf_renderer = pdf_renderer
         self._pdf_pages = pdf_pages
+        self._index_recorder = index_recorder
 
     async def process_asset_ocr(self, asset_id: str) -> tuple[OCRBlock, ...]:
         asset = await self._assets.get(asset_id)
         if asset is None:
             raise AssetNotFoundError(asset_id)
+        if not asset.ai_indexing_allowed:
+            LOGGER.info("Skipped OCR of asset %s (origin %s): only this device's own files are indexed", asset.id, asset.origin)
+            return ()
         if asset.kind not in {AssetKind.IMAGE, AssetKind.PDF}:
             return ()
 
@@ -89,7 +97,25 @@ class OCRIndexingService:
         except Exception:
             await self._mark_partial_failure(pending_asset)
             raise
+        await self._record_index(asset.id, blocks)
         return blocks
+
+    async def _record_index(self, asset_id: str, blocks: tuple[OCRBlock, ...]) -> None:
+        """Publish the OCR result to other devices (`asset_index` op); sync failures never fail indexing."""
+        if self._index_recorder is None:
+            return
+        pages: dict[int, list[str]] = {}
+        for block in blocks:
+            if block.page_number is not None and block.text.strip():
+                pages.setdefault(block.page_number, []).append(block.text)
+        try:
+            await self._index_recorder.record_ocr(
+                asset_id,
+                ocr_text="\n".join(block.text for block in blocks if block.text.strip()),
+                pdf_pages=tuple((page, "\n".join(texts)) for page, texts in sorted(pages.items())),
+            )
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.warning("Could not queue the OCR result for sync: %s", exc.__class__.__name__)
 
     async def _extract_blocks(self, asset: Asset, source_path: Path) -> tuple[OCRBlock, ...]:
         if asset.kind != AssetKind.PDF:

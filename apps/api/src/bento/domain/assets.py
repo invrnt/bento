@@ -23,6 +23,19 @@ class AssetMode(StrEnum):
     PHOTOS = "photos"
 
 
+class AssetOrigin(StrEnum):
+    """How this device obtained an asset. Device-local: never synced."""
+
+    DEVICE = "device"
+    """Picked by the person on this device (upload, Send-to, folder backup)."""
+    TELEGRAM_INBOX = "telegram_inbox"
+    TELEGRAM_IMPORT = "telegram_import"
+
+    @property
+    def from_telegram(self) -> bool:
+        return self in {AssetOrigin.TELEGRAM_INBOX, AssetOrigin.TELEGRAM_IMPORT}
+
+
 class ProcessingState(StrEnum):
     CREATED = "created"
     BLOB_STORED = "blob_stored"
@@ -45,6 +58,7 @@ _TRANSITIONS: Mapping[ProcessingState, frozenset[ProcessingState]] = MappingProx
             {
                 ProcessingState.METADATA_EXTRACTED,
                 ProcessingState.THUMBNAIL_PENDING,
+                ProcessingState.INDEXED,
                 ProcessingState.FAILED_PARTIAL,
             }
         ),
@@ -52,7 +66,12 @@ _TRANSITIONS: Mapping[ProcessingState, frozenset[ProcessingState]] = MappingProx
             {ProcessingState.THUMBNAIL_PENDING, ProcessingState.OCR_PENDING, ProcessingState.INDEXED}
         ),
         ProcessingState.THUMBNAIL_PENDING: frozenset(
-            {ProcessingState.THUMBNAIL_READY, ProcessingState.OCR_PENDING, ProcessingState.FAILED_PARTIAL}
+            {
+                ProcessingState.THUMBNAIL_READY,
+                ProcessingState.OCR_PENDING,
+                ProcessingState.INDEXED,
+                ProcessingState.FAILED_PARTIAL,
+            }
         ),
         ProcessingState.THUMBNAIL_READY: frozenset(
             {ProcessingState.OCR_PENDING, ProcessingState.EMBEDDING_PENDING, ProcessingState.INDEXED}
@@ -77,6 +96,7 @@ _TRANSITIONS: Mapping[ProcessingState, frozenset[ProcessingState]] = MappingProx
         ProcessingState.FAILED: frozenset({ProcessingState.CREATED}),
     }
 )
+_SETTLED_STATES = frozenset({ProcessingState.INDEXED, ProcessingState.FAILED_PARTIAL, ProcessingState.FAILED})
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,6 +136,8 @@ class Asset:
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None
+    origin: AssetOrigin | None = AssetOrigin.DEVICE
+    """Device-local provenance; None when the asset arrived from another device (unknown here)."""
 
     def __post_init__(self) -> None:
         if not self.id.strip():
@@ -126,6 +148,25 @@ class Asset:
     @property
     def is_deleted(self) -> bool:
         return self.deleted_at is not None
+
+    @property
+    def ai_indexing_allowed(self) -> bool:
+        """OCR and embeddings run only on the person's own files from this device.
+
+        Telegram's API terms forbid feeding data obtained from Telegram (Inbox, imports) to ML models. Assets that
+        arrived from another device are never indexed here either: that device publishes its own index.
+        """
+        return self.origin is AssetOrigin.DEVICE
+
+    def finish_processing(self, at: datetime, *, failed: bool = False) -> Asset:
+        """The terminal state once no processing is pending: ready (`indexed`), or `failed_partial` after a step
+        failed for good. Settled assets stay as they are."""
+        if self.processing_state in _SETTLED_STATES:
+            return self
+        target = ProcessingState.FAILED_PARTIAL if failed else ProcessingState.INDEXED
+        if target not in _TRANSITIONS[self.processing_state]:
+            return self
+        return self.transition_to(target, at)
 
     def transition_to(self, state: ProcessingState, at: datetime) -> Asset:
         if state == self.processing_state:
@@ -169,6 +210,10 @@ def infer_asset_kind(mime_type: str) -> AssetKind:
     }:
         return AssetKind.DOCUMENT
     return AssetKind.OTHER
+
+
+def supports_ocr(kind: AssetKind) -> bool:
+    return kind in {AssetKind.IMAGE, AssetKind.PDF, AssetKind.DOCUMENT}
 
 
 def infer_asset_mode(kind: AssetKind) -> AssetMode:

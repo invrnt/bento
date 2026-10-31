@@ -9,8 +9,13 @@ dependencies = [
   "fastapi>=0.115,<0.116",
   "pydantic-settings>=2.7,<3",
   "python-multipart>=0.0.20,<0.1",
+  "segno>=1.6,<2",
+  "spake2>=0.9,<0.10",
   "sqlalchemy>=2.0,<3",
+  "telethon>=1.45,<2",
   "uvicorn[standard]>=0.34,<0.35",
+  "watchdog>=6,<7",
+  "websockets>=15,<18",
 ]
 
 [project.scripts]
@@ -19,11 +24,11 @@ bento-sidecar = "bento.interfaces.desktop.launcher:main"
 [project.optional-dependencies]
 dev = [
   "httpx>=0.28,<0.29",
+  "pillow>=11,<12",
   "pre-commit>=4,<5",
   "pytest>=8.3,<9",
 ]
 desktop = [
-  "aiogram>=3,<4",
   "onnxruntime==1.23.2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
   "onnxruntime>=1.18,<2; sys_platform != 'darwin' or platform_machine != 'x86_64'",
   "pillow>=11,<12",
@@ -40,10 +45,6 @@ ocr = [
   "onnxruntime>=1.18,<2; sys_platform != 'darwin' or platform_machine != 'x86_64'",
   "rapidocr>=3,<4",
 ]
-telegram = [
-  "aiogram>=3,<4",
-]
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

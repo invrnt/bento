@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from bento.adapters.repositories.ids import new_id
@@ -86,6 +86,37 @@ class SQLiteJobQueue:
             claimed = job_from_model(model).claim(worker_id, now)
             session.merge(job_to_model(claimed))
             return claimed
+
+    async def release_abandoned(self, worker_id: str) -> int:
+        """Requeue jobs left running by workers other than `worker_id` (one worker runs at a time)."""
+        now = self._clock.now()
+        with session_scope(self._session_factory) as session:
+            models = session.scalars(
+                select(JobModel).where(
+                    JobModel.status == JobStatus.RUNNING.value,
+                    or_(JobModel.locked_by.is_(None), JobModel.locked_by != worker_id),
+                )
+            ).all()
+            for model in models:
+                session.merge(job_to_model(job_from_model(model).release(now)))
+            return len(models)
+
+    async def has_active(
+        self, asset_id: str, *, types: frozenset[JobType], exclude_job_id: str | None = None
+    ) -> bool:
+        statement = (
+            select(func.count())
+            .select_from(JobModel)
+            .where(
+                JobModel.asset_id == asset_id,
+                JobModel.type.in_([job_type.value for job_type in types]),
+                JobModel.status.in_([JobStatus.QUEUED.value, JobStatus.RUNNING.value, JobStatus.RETRYING.value]),
+            )
+        )
+        if exclude_job_id is not None:
+            statement = statement.where(JobModel.id != exclude_job_id)
+        with session_scope(self._session_factory) as session:
+            return bool(session.scalar(statement))
 
     async def complete(self, job_id: str) -> Job | None:
         job = await self.get(job_id)
