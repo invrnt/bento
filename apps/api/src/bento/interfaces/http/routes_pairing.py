@@ -12,7 +12,6 @@ import uuid
 import weakref
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from pathlib import Path
 from typing import NoReturn, cast
 
 from fastapi import APIRouter, Depends, Request
@@ -28,7 +27,7 @@ from bento.application.pairing import LocalDeviceInfo, PairingRequestView, Pairi
 from bento.domain.devices import DevicePlatform
 from bento.domain.errors import DomainError, TelegramNotConfiguredError
 from bento.infrastructure import services
-from bento.infrastructure.db.engine import create_session_factory, sqlite_url
+from bento.infrastructure.db.engine import create_app_session_factory
 from bento.infrastructure.runtime import get_telegram_runtime
 from bento.infrastructure.settings import Settings
 from bento.interfaces.http.qr import QrMatrix, qr_matrix
@@ -89,8 +88,8 @@ def build_pairing_components(settings: Settings) -> PairingComponents:
 
 
 def device_session_factory(settings: Settings) -> sessionmaker[Session]:
-    """Session factory for the `devices` table. Sync change capture must be installed on it (sync agent)."""
-    return create_session_factory(sqlite_url(Path(settings.data_dir) / "db" / "bento.sqlite3"))
+    """Session factory for the `devices` table, with sync change capture installed."""
+    return create_app_session_factory(settings)
 
 
 def local_device_info(settings: Settings) -> LocalDeviceInfo:

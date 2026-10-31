@@ -14,9 +14,9 @@ from bento.application.sync.state import SNAPSHOT_REQUESTED_AT, format_timestamp
 from bento.domain.errors import DomainError
 from bento.domain.jobs import Job
 from bento.infrastructure.db.clock import SystemClock
-from bento.infrastructure.db.engine import create_session_factory, sqlite_url
+from bento.infrastructure.db.engine import create_app_session_factory
 from bento.infrastructure.runtime import get_telegram_runtime
-from bento.infrastructure.settings import Settings, settings_database_path
+from bento.infrastructure.settings import Settings
 
 LOGGER = logging.getLogger("bento.worker.sync")
 
@@ -38,7 +38,7 @@ def create_sync_loop(settings: Settings) -> SyncLoop | None:
     if runtime is None:
         return None
     clock = SystemClock()
-    session_factory = create_session_factory(sqlite_url(settings_database_path(settings)))
+    session_factory = create_app_session_factory(settings)
     adapters = SQLiteSyncAdapters.create(session_factory, clock, vector_dimensions=settings.embedding_dimensions)
     engine = SyncEngine(
         vault=vault,

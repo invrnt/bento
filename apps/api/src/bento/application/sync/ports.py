@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 from typing import Protocol
 
-from bento.ports.sync import OutboxEntry, SyncOutboxPort, SyncStateRepositoryPort
+from bento.domain.sync import SyncOperation
+from bento.ports.sync import OutboxEntry, SyncApplyPort, SyncOutboxPort, SyncStateRepositoryPort
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,6 +34,20 @@ class SyncOutboxStorePort(SyncOutboxPort, Protocol):
 
 class SyncStateStorePort(SyncStateRepositoryPort, Protocol):
     async def delete_value(self, key: str) -> None: ...
+
+
+class SyncApplierPort(SyncApplyPort, Protocol):
+    async def apply_batch(
+        self,
+        batch_id: str,
+        message_id: int,
+        operations: tuple[SyncOperation, ...],
+        *,
+        sender: str | None = None,
+        sent_at: datetime | None = None,
+    ) -> int:
+        """Also records `sent_at` as the sending device's `last_seen_at` (local-only column)."""
+        ...
 
 
 class AssetHoldState(StrEnum):

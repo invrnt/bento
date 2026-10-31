@@ -141,6 +141,8 @@ class SQLiteSyncOutbox:
             config = load_capture_config(session)
             if config is None:
                 return
+            if session.scalar(select(SyncOutboxModel.seq).where(SyncOutboxModel.op_id == operation.op_id)) is not None:
+                return
             writer = OpWriter(session, config, now_ms=self._now_ms, now=self._now)
             writer.hlc.observe(operation.hlc)
             writer.write(operation)

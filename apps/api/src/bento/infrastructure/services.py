@@ -62,15 +62,14 @@ def get_sync_status_provider(settings: Settings) -> SyncStatusProviderPort:
     from bento.adapters.sync import SQLiteSyncOutbox, SQLiteSyncStateStore
     from bento.application.sync import SyncStatusService
     from bento.infrastructure.db.clock import SystemClock
-    from bento.infrastructure.db.engine import create_session_factory, sqlite_url
+    from bento.infrastructure.db.engine import create_app_session_factory
     from bento.infrastructure.settings import settings_database_path
 
-    database = settings_database_path(settings)
-    key = (settings.storage_backend, str(database.resolve()))
+    key = (settings.storage_backend, str(settings_database_path(settings).resolve()))
     with _sync_status_lock:
         provider = _sync_status_providers.get(key)
         if provider is None:
-            factory = create_session_factory(sqlite_url(database))
+            factory = create_app_session_factory(settings)
             provider = SyncStatusService(
                 enabled=settings.storage_backend != "local",
                 state=SQLiteSyncStateStore(factory),

@@ -21,7 +21,7 @@ from bento.application.indexing.embedding import EmbeddingIndexingService
 from bento.application.media import MediaProcessingService
 from bento.application.indexing import OCRIndexingService
 from bento.infrastructure.db.clock import SystemClock
-from bento.infrastructure.db.engine import create_session_factory, sqlite_url
+from bento.infrastructure.db.engine import create_app_session_factory
 from bento.infrastructure.settings import Settings, get_settings
 from bento.infrastructure.storage.factory import create_blob_store
 from bento.interfaces.worker.dispatch import WorkerDispatcher
@@ -62,7 +62,7 @@ def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> Work
     settings = settings or get_settings()
     data_dir = Path(settings.data_dir)
     clock = SystemClock()
-    session_factory = create_session_factory(sqlite_url(data_dir / "db" / "bento.sqlite3"))
+    session_factory = create_app_session_factory(settings)
     jobs = SQLiteJobQueue(session_factory, clock)
     assets = SQLiteAssetRepository(session_factory)
     blob_refs = SQLiteBlobRefCatalog(session_factory, clock)

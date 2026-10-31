@@ -80,7 +80,15 @@ class SQLiteSyncApplier:
         self._now_ms = now_ms
         self._now = now
 
-    async def apply_batch(self, batch_id: str, message_id: int, operations: tuple[SyncOperation, ...]) -> int:
+    async def apply_batch(
+        self,
+        batch_id: str,
+        message_id: int,
+        operations: tuple[SyncOperation, ...],
+        *,
+        sender: str | None = None,
+        sent_at: datetime | None = None,
+    ) -> int:
         await self.recover_pending_index()
         with self._apply_session() as session:
             if session.get(SyncAppliedBatchModel, batch_id) is not None:
@@ -89,6 +97,8 @@ class SQLiteSyncApplier:
             applied = 0
             for operation in sorted(operations, key=lambda item: item.hlc):
                 applied += context.apply_op(operation)
+            if sender is not None:
+                context.mark_seen(sender, sent_at or context.now)
             context.finish(journal_key=f"{PENDING_INDEX_PREFIX}{batch_id}")
             session.add(SyncAppliedBatchModel(batch_id=batch_id, message_id=message_id, applied_at=self._now()))
         await self._write_index(f"{PENDING_INDEX_PREFIX}{batch_id}", context.index_work, context.purged_assets)
@@ -228,6 +238,17 @@ class _ApplyContext:
             if name in state.clocks:
                 self._set_clock(state.entity, state.entity_id, name, state.clocks[name])
         return len(written)
+
+    def mark_seen(self, device_id: str, at: datetime) -> None:
+        """`last_seen_at` is device-local: only the time this device last received a batch from that peer."""
+        row = self.session.get(DeviceModel, device_id)
+        if row is None:
+            return
+        current = row.last_seen_at
+        if current is not None and current.tzinfo is None:
+            current = current.replace(tzinfo=at.tzinfo)
+        if current is None or at > current:
+            row.last_seen_at = at
 
     def finish(self, *, journal_key: str) -> None:
         self._repair_folders()

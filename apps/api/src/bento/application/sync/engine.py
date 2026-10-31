@@ -29,6 +29,7 @@ from bento.application.sync.ports import (
     AssetHoldState,
     FullStatePublisherPort,
     HoldStatePort,
+    SyncApplierPort,
     SyncOutboxStorePort,
     SyncStateStorePort,
 )
@@ -53,7 +54,7 @@ from bento.domain.sync import SyncBatch, SyncMessageKind, SyncMessageRef
 from bento.domain.vault import SnapshotPointer, VaultHeader
 from bento.ports.repositories import ClockPort
 from bento.ports.security import VaultCryptoPort
-from bento.ports.sync import EntityState, HlcSourcePort, OutboxEntry, SnapshotSourcePort, SyncApplyPort
+from bento.ports.sync import EntityState, HlcSourcePort, OutboxEntry, SnapshotSourcePort
 from bento.ports.telegram import VaultTransportPort
 from bento.ports.vault import VaultContext, VaultSessionPort
 
@@ -97,7 +98,7 @@ class SyncEngine:
         crypto: VaultCryptoPort,
         outbox: SyncOutboxStorePort,
         state: SyncStateStorePort,
-        applier: SyncApplyPort,
+        applier: SyncApplierPort,
         snapshots: SnapshotSourcePort,
         hlc: HlcSourcePort,
         holds: HoldStatePort,
@@ -285,6 +286,7 @@ class SyncEngine:
         return tuple(found)
 
     async def _post_batch(self, context: VaultContext, entries: tuple[OutboxEntry, ...]) -> None:
+        context = await self._latest_keyring(context)
         batch = SyncBatch(
             batch_id=str(uuid.uuid4()),
             device_id=context.device.device_id,
@@ -299,6 +301,13 @@ class SyncEngine:
         await self._outbox.remove(tuple(entry.seq for entry in entries))
         await self._values.set_datetime(LAST_PUSH_AT, self._clock.now())
         await self._values.set_int(OPS_SINCE_SNAPSHOT, await self._values.get_int(OPS_SINCE_SNAPSHOT) + len(entries))
+
+    async def _latest_keyring(self, context: VaultContext) -> VaultContext:
+        """A rotation by another process (device removal in the API) must not be sealed over with the old epoch."""
+        current = await self._vault.current()
+        if current is not None and current.keyring.current_epoch > context.keyring.current_epoch:
+            return replace(context, keyring=current.keyring)
+        return context
 
     async def _pace(self) -> None:
         wait = self._policy.post_interval_seconds - (self._monotonic() - self._last_post_at)
@@ -350,9 +359,7 @@ class SyncEngine:
 
     async def _apply_batch_message(self, context: VaultContext, ref: SyncMessageRef, floor: EpochFloor | None) -> int | None:
         envelope = await self._transport.download_sync_document(context.layout, ref.message_id)
-        if _below_floor(envelope, ref.message_id, floor):
-            LOGGER.warning("Integrity: rejected Sync batch %s sealed below the key epoch floor", ref.message_id)
-            return None
+        below_floor = _below_floor(envelope, ref.message_id, floor)
         try:
             batch = SyncBatch.from_dict(
                 self._crypto.open_json(context.keyring, SealPurpose.SYNC, envelope, aad=_aad(context))
@@ -360,10 +367,20 @@ class SyncEngine:
         except (IntegrityError, ValidationFailedError) as exc:
             LOGGER.warning("Integrity: skipped Sync batch %s (%s)", ref.message_id, exc.code)
             return None
-        if batch.device_id == context.device.device_id or await self._state.is_batch_applied(batch.batch_id):
+        own = batch.device_id == context.device.device_id
+        if below_floor:
+            LOGGER.warning("Integrity: rejected Sync batch %s sealed below the key epoch floor", ref.message_id)
+            if own:
+                # Peers reject it too: publish the same ops again under the current epoch.
+                for operation in batch.ops:
+                    await self._outbox.record(operation)
+            return None
+        if own or await self._state.is_batch_applied(batch.batch_id):
             return None
         operations = tuple(sorted(batch.ops, key=lambda operation: operation.hlc))
-        applied = await self._applier.apply_batch(batch.batch_id, ref.message_id, operations)
+        applied = await self._applier.apply_batch(
+            batch.batch_id, ref.message_id, operations, sender=batch.device_id, sent_at=ref.created_at
+        )
         await self._values.set_int(OPS_SINCE_SNAPSHOT, await self._values.get_int(OPS_SINCE_SNAPSHOT) + len(operations))
         return applied
 
