@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from pathlib import Path
 
 from bento.adapters.fake_telegram import store
 from bento.adapters.fake_telegram.cloud import DocumentUpload, FakeChat, FakeMessage, missing_remote
 from bento.adapters.fake_telegram.session import FakeTelegramSession
-from bento.domain.errors import ValidationFailedError
-from bento.domain.sync import SyncMessageKind, SyncMessageRef
+from bento.domain.errors import IntegrityError, ValidationFailedError
+from bento.domain.sync import SYNC_MESSAGE_EDITED, SyncMessageKind, SyncMessageRef
 from bento.domain.telegram import InboxItem, TelegramChatKind, TelegramMediaKind
 from bento.domain.vault import (
     CHANNEL_TITLES,
@@ -21,6 +22,8 @@ from bento.domain.vault import (
     discover_vault_layouts,
     parse_channel_marker,
 )
+
+LOGGER = logging.getLogger("bento.telegram.fake")
 
 
 class FakeVaultTransport:
@@ -43,6 +46,9 @@ class FakeVaultTransport:
         chat, messages = await self._session.call(self._cloud.read_chat, layout.sync_channel_id)
         pinned = next((item for item in messages if item.id == chat.pinned_message_id), None)
         if pinned is None or pinned.media is not None:
+            return None
+        if pinned.edit_date is not None:
+            LOGGER.warning("Integrity: the pinned vault header %s was edited; it is ignored", pinned.id)
             return None
         return pinned.text
 
@@ -80,7 +86,7 @@ class FakeVaultTransport:
         return tuple(refs)
 
     async def download_sync_document(self, layout: VaultLayout, message_id: int, *, max_bytes: int | None = None) -> bytes:
-        path = await self._session.call(self._cloud.document_path, layout.sync_channel_id, message_id)
+        path = await self._session.call(self._sync_document_path, layout.sync_channel_id, message_id)
         return await self._session.run(_read_bytes, path, max_bytes)
 
     async def delete_sync_messages(self, layout: VaultLayout, message_ids: tuple[int, ...]) -> None:
@@ -158,6 +164,12 @@ class FakeVaultTransport:
                 inbox_channel_id=existing[VaultChannelRole.INBOX],
             )
 
+    def _sync_document_path(self, chat_id: int, message_id: int) -> Path:
+        message = self._cloud.message(chat_id, message_id)
+        if message is not None and message.edit_date is not None:
+            raise IntegrityError(SYNC_MESSAGE_EDITED)
+        return self._cloud.document_path(chat_id, message_id)
+
     def _observe(self, chat: FakeChat, truncated_at: int | None) -> None:
         seen = chat.last_message_id if truncated_at is None else truncated_at
         self._seen[chat.id] = max(self._seen.get(chat.id, 0), seen)
@@ -192,6 +204,7 @@ def _sync_ref(message: FakeMessage, kind: SyncMessageKind) -> SyncMessageRef:
             filename=message.media.filename,
             size_bytes=message.media.size_bytes,
             created_at=message.date,
+            edited=message.edit_date is not None,
         )
     text = message.text or ""
     return SyncMessageRef(
@@ -201,6 +214,7 @@ def _sync_ref(message: FakeMessage, kind: SyncMessageKind) -> SyncMessageRef:
         size_bytes=len(text.encode("utf-8")),
         created_at=message.date,
         text=text,
+        edited=message.edit_date is not None,
     )
 
 

@@ -8,7 +8,9 @@ the account is cached briefly.
 Header trust (architecture § Header): a header counts as current only when it is MACed with this device's
 current epoch. A removed device keeps older epochs, so an older-epoch header is only ever built upon by
 `update_header` one epoch back and with a fresh recovery wrap (its recovery is never carried forward, and its
-snapshot pointer only when this process verified that header while its epoch was current).
+snapshot pointer only when this process verified that header while its epoch was current). An edited pinned
+header reads as absent (the transport refuses it), and published headers never carry a snapshot pointer without
+the document digest.
 """
 
 from __future__ import annotations
@@ -408,6 +410,10 @@ class VaultService:
             if updated.snapshot is not None and updated.snapshot == header.snapshot and header != self._current_header:
                 LOGGER.warning("Dropped the snapshot pointer of an older-epoch header that this device did not verify")
                 updated = replace(updated, snapshot=None)
+        if updated.snapshot is not None and updated.snapshot.sha256 is None:
+            # Written before pointers carried the document digest: never trusted at bootstrap, never published again.
+            LOGGER.info("Dropped a snapshot pointer without a digest from the vault header")
+            updated = replace(updated, snapshot=None)
         signed = self._sign(replace(updated, current_epoch=keyring.current_epoch, mac=None), keyring)
         if signed == header:
             return header

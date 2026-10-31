@@ -198,6 +198,19 @@ def _attention(inputs: ActivityInputs) -> list[AttentionItem]:
     sync = inputs.sync
     if sync is not None and sync.state == SyncState.ERROR:
         items.append(_item("sync_error", AttentionKind.SYNC_ERROR, AttentionAction.RETRY, code=sync.error_code))
+    if sync is not None and sync.clock_skew_ms is not None:
+        # Retrying cannot help: the person fixes the device clock (automatic date and time).
+        skew_seconds = abs(sync.clock_skew_ms) // 1000
+        items.append(
+            _item(
+                "clock_skew",
+                AttentionKind.CLOCK_SKEW,
+                AttentionAction.NONE,
+                direction="ahead" if sync.clock_skew_ms > 0 else "behind",
+                skew_seconds=skew_seconds,
+                skew_minutes=math.ceil(skew_seconds / 60),
+            )
+        )
     for failed in snapshot.failed_uploads[:MAX_ATTENTION_PER_KIND]:
         items.append(
             _item(

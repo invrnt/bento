@@ -7,88 +7,36 @@ epochs after it), shares the Telegram account, and can post anything to the Sync
 from __future__ import annotations
 
 import asyncio
-import json
-import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
-
-import pytest
 
 from bento.adapters.backup.activity import SQLiteActivitySource
 from bento.application.drive import CreateFolderCommand, RenameFolderCommand
 from bento.application.sync import SyncPolicy
 from bento.application.sync.keys import build_keys_message, parse_keys_message
 from bento.application.sync.status import SyncStatusService
-from bento.domain.security import SealPurpose, VaultKeyring
-from bento.domain.sync import SyncBatch, SyncEntity, SyncMessageKind, SyncOperation, SyncOpKind, SyncState
+from bento.domain.security import VaultKeyring
+from bento.domain.sync import SyncEntity, SyncMessageKind, SyncState
 from tests.integration.sync.support import (
     CRYPTO,
+    CountingCrypto,
     SyncClock,
     SyncDevice,
+    Trio,
     create_vault,
+    folder_names,
     join_vault,
+    list_sync,
     make_cloud_device,
-    synced_state,
+    make_trio,
+    post_batch,
+    raw_op,
+    state_int,
+    state_json,
 )
 
-Trio = tuple[SyncDevice, SyncDevice, SyncDevice]
 POISON = "9999999999999999-999999-dev_zzzz"
-
-
-def make_trio(tmp_path: Path, clock: SyncClock, policy: SyncPolicy | None = None) -> Trio:
-    cloud = tmp_path / "cloud"
-    laptop, desktop, phone = (
-        make_cloud_device(tmp_path, cloud, name, clock, policy=policy) for name in ("laptop", "desktop", "phone")
-    )
-
-    async def setup() -> None:
-        await create_vault(laptop)
-        await laptop.register()
-        for device in (desktop, phone):
-            await join_vault(device, laptop)
-            await device.register()
-        for _ in range(2):
-            for device in (laptop, desktop, phone):
-                await device.sync()
-
-    asyncio.run(setup())
-    return laptop, desktop, phone
-
-
-@pytest.fixture
-def trio(tmp_path: Path) -> Trio:
-    return make_trio(tmp_path, SyncClock())
-
-
-def raw_op(entity: SyncEntity, entity_id: str, hlc: str, fields: dict[str, Any], *, device: str) -> SyncOperation:
-    return SyncOperation(
-        op_id=str(uuid.uuid4()), hlc=hlc, device_id=device, entity=entity, entity_id=entity_id, kind=SyncOpKind.UPSERT, fields=fields
-    )
-
-
-async def post_batch(poster: SyncDevice, keyring: VaultKeyring, *operations: SyncOperation) -> int:
-    """Seal and post a batch as the phone would, bypassing its outbox."""
-    context = await poster.context() if poster.vault.keyring is not None else None
-    layout = context.layout if context is not None else poster.vault.layout
-    assert layout is not None
-    batch = SyncBatch(batch_id=str(uuid.uuid4()), device_id=poster.device_id, ops=operations)
-    envelope = CRYPTO.seal_json(keyring, SealPurpose.SYNC, batch.to_dict(), aad=layout.vault_id.encode())
-    ref = await poster.runtime.transport.post_sync_document(layout, SyncMessageKind.BATCH, envelope)
-    return ref.message_id
-
-
-async def state_json(device: SyncDevice, key: str) -> Any:
-    raw = await device.adapters.state.get_value(key)
-    return json.loads(raw) if raw is not None else None
-
-
-async def state_int(device: SyncDevice, key: str) -> int:
-    return int(await device.adapters.state.get_value(key) or 0)
-
-
-def folder_names(device: SyncDevice) -> dict[str, str]:
-    return {folder_id: values[0] for folder_id, values in synced_state(device.factory)["folders"].items()}
 
 
 def test_a_far_future_clock_cannot_freeze_folders_or_the_device_registry(trio: Trio) -> None:
@@ -213,11 +161,6 @@ def phone_public_key(phone: SyncDevice) -> str:
     return b64url_encode(phone.vault.identity.public_key)
 
 
-async def list_sync(device: SyncDevice) -> list[Any]:
-    assert device.vault.layout is not None
-    return list(await device.runtime.transport.list_sync_messages(device.vault.layout, after_message_id=0, limit=1000))
-
-
 def test_a_removed_device_locks_itself_out_and_forged_removals_do_not(trio: Trio) -> None:
     laptop, desktop, phone = trio
 
@@ -302,20 +245,6 @@ def test_bootstrap_sets_the_epoch_floor_from_the_snapshot(tmp_path: Path) -> Non
         assert (await state_json(tablet, "last_skipped"))["reason"] == "below_epoch_floor"
 
     asyncio.run(scenario())
-
-
-class CountingCrypto:
-    """Counts decryptions; delegates everything else."""
-
-    def __init__(self) -> None:
-        self.opened: list[int] = []
-
-    def open_json(self, keyring: VaultKeyring, purpose: SealPurpose, envelope: bytes, **kwargs: Any) -> Any:
-        self.opened.append(len(envelope))
-        return CRYPTO.open_json(keyring, purpose, envelope, **kwargs)
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(CRYPTO, name)
 
 
 def test_oversized_bombs_and_below_floor_documents_are_skipped_cheaply_and_never_retried(tmp_path: Path) -> None:

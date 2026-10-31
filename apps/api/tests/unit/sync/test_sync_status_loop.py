@@ -205,3 +205,22 @@ def test_loop_reports_disabled_without_a_vault_and_wakes_on_sync_now() -> None:
     state.values["sync_requested_at"] = NOW.isoformat()
     run_loop(engine, vault, state, until=lambda: engine.cycles >= 1)
     assert engine.forced[0] is True and "sync_requested_at" not in state.values
+
+
+def test_status_reports_a_skewed_clock_after_any_loop_failure() -> None:
+    state = MemoryState()
+    state.values["capture"] = json.dumps({"vault_id": "vlt_1", "device_id": "dev_a"})
+    state.values["clock_skew"] = json.dumps({"skew_ms": 3_600_000, "message_id": 9, "at": NOW.isoformat()})
+    status = status_of(state)
+    assert status.state == SyncState.IDLE, "sync keeps running with a skewed clock"
+    assert status.error_code == "clock_skew" and status.clock_skew_ms == 3_600_000
+
+    state.values["loop"] = json.dumps({"state": "offline", "waiting_until": None, "error": {"code": "telegram_network", "message": "x"}})
+    status = status_of(state)
+    assert status.error_code == "telegram_network" and status.clock_skew_ms == 3_600_000
+
+    state.values.pop("loop")
+    for stored in ({"skew_ms": 120_000}, {"skew_ms": "soon"}, {"skew_ms": True}, []):
+        state.values["clock_skew"] = json.dumps(stored)
+        status = status_of(state)
+        assert status.error_code is None and status.clock_skew_ms is None

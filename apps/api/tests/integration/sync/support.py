@@ -3,7 +3,10 @@ shared fake Telegram cloud, each with a test `VaultSessionPort` built on the fak
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
+import json
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
@@ -27,8 +30,9 @@ from bento.application.sync import SyncEngine, SyncPolicy
 from bento.domain.account import TelegramAccount
 from bento.domain.assets import Asset, AssetKind, AssetMetadata, AssetMode, ProcessingState
 from bento.domain.devices import Device, DevicePlatform
-from bento.domain.security import DeviceIdentity, EncryptionMetadata, EncryptionMode, VaultKeyring
+from bento.domain.security import DeviceIdentity, EncryptionMetadata, EncryptionMode, SealPurpose, VaultKeyring
 from bento.domain.storage import BlobKind, BlobPart, BlobRef, StorageBackend
+from bento.domain.sync import SyncBatch, SyncEntity, SyncMessageKind, SyncMessageRef, SyncOperation, SyncOpKind
 from bento.domain.vault import VaultHeader, VaultLayout, VaultState, VaultStatus
 from bento.infrastructure.db.engine import session_scope
 from bento.infrastructure.db.models import (
@@ -329,6 +333,83 @@ async def join_vault(device: SyncDevice, host: SyncDevice) -> None:
     await sign_in(device)  # type: ignore[arg-type]
     assert host.vault.layout is not None and host.vault.keyring is not None
     await device.vault.install(host.vault.layout, host.vault.keyring)
+
+
+Trio = tuple[SyncDevice, SyncDevice, SyncDevice]
+
+
+def make_trio(tmp_path: Path, clock: SyncClock, policy: SyncPolicy | None = None) -> Trio:
+    """Laptop (vault creator), desktop, and phone, all registered and synced twice."""
+    cloud = tmp_path / "cloud"
+    laptop, desktop, phone = (
+        make_cloud_device(tmp_path, cloud, name, clock, policy=policy) for name in ("laptop", "desktop", "phone")
+    )
+
+    async def setup() -> None:
+        await create_vault(laptop)
+        await laptop.register()
+        for device in (desktop, phone):
+            await join_vault(device, laptop)
+            await device.register()
+        for _ in range(2):
+            for device in (laptop, desktop, phone):
+                await device.sync()
+
+    asyncio.run(setup())
+    return laptop, desktop, phone
+
+
+def raw_op(entity: SyncEntity, entity_id: str, hlc: str, fields: dict[str, Any], *, device: str) -> SyncOperation:
+    return SyncOperation(
+        op_id=str(uuid.uuid4()), hlc=hlc, device_id=device, entity=entity, entity_id=entity_id, kind=SyncOpKind.UPSERT, fields=fields
+    )
+
+
+def sealed_batch(device_id: str, keyring: VaultKeyring, *operations: SyncOperation) -> bytes:
+    batch = SyncBatch(batch_id=str(uuid.uuid4()), device_id=device_id, ops=operations)
+    return CRYPTO.seal_json(keyring, SealPurpose.SYNC, batch.to_dict(), aad=keyring.vault_id.encode())
+
+
+async def post_batch(poster: SyncDevice, keyring: VaultKeyring, *operations: SyncOperation) -> int:
+    """Seal and post a batch as the phone would, bypassing its outbox."""
+    context = await poster.context() if poster.vault.keyring is not None else None
+    layout = context.layout if context is not None else poster.vault.layout
+    assert layout is not None
+    envelope = sealed_batch(poster.device_id, keyring, *operations)
+    ref = await poster.runtime.transport.post_sync_document(layout, SyncMessageKind.BATCH, envelope)
+    return ref.message_id
+
+
+async def state_json(device: SyncDevice, key: str) -> Any:
+    raw = await device.adapters.state.get_value(key)
+    return json.loads(raw) if raw is not None else None
+
+
+async def state_int(device: SyncDevice, key: str) -> int:
+    return int(await device.adapters.state.get_value(key) or 0)
+
+
+def folder_names(device: SyncDevice) -> dict[str, str]:
+    return {folder_id: values[0] for folder_id, values in synced_state(device.factory)["folders"].items()}
+
+
+class CountingCrypto:
+    """`VaultCrypto` that records every envelope it is asked to open; delegates everything else."""
+
+    def __init__(self) -> None:
+        self.opened: list[bytes] = []
+
+    def open_json(self, keyring: VaultKeyring, purpose: SealPurpose, envelope: bytes, **kwargs: Any) -> Any:
+        self.opened.append(envelope)
+        return CRYPTO.open_json(keyring, purpose, envelope, **kwargs)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(CRYPTO, name)
+
+
+async def list_sync(device: SyncDevice) -> list[SyncMessageRef]:
+    assert device.vault.layout is not None
+    return list(await device.runtime.transport.list_sync_messages(device.vault.layout, after_message_id=0, limit=1000))
 
 
 def synced_state(factory: sessionmaker[Session]) -> dict[str, Any]:

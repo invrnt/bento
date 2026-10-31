@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from bento.adapters.fake_telegram import FakeTelegramCloud
 from bento.application.devices import DeviceService
 from bento.application.sync.state import DEVICE_REMOVED
 from bento.application.vault import LAYOUT_KEY
@@ -20,6 +21,9 @@ from bento.domain.security import VaultKeyring
 from bento.domain.vault import DEVICE_REMOVED_REASON, SnapshotPointer, VaultHeader, VaultLayout, VaultState
 from bento.ports.key_store import VAULT_KEYRING
 from tests.integration.telegram_vault.support import VaultDevice, make_vault_device
+
+
+DIGEST = "LXEWQrcmsEQBYnyp-6wy9chTD7GQPMTbAiWHF5IaSIE"
 
 
 def run(coroutine):  # type: ignore[no-untyped-def]
@@ -114,13 +118,26 @@ def test_an_older_epoch_header_is_never_current_and_never_carries_its_kit_forwar
 def test_the_rotating_device_keeps_the_snapshot_pointer_it_verified(tmp_path: Path) -> None:
     async def scenario() -> None:
         host, guest, _ = await _host_and_guest(tmp_path)
-        pointer = SnapshotPointer(message_id=3, covers_through_message_id=2, created_at=host.clock.now())
+        pointer = SnapshotPointer(message_id=3, covers_through_message_id=2, created_at=host.clock.now(), sha256=DIGEST)
         await host.vault.update_header(lambda header: replace(header, snapshot=pointer))
 
         await _devices(host).remove((await guest.vault.require()).device.device_id)
 
         header = await host.vault.read_header()
         assert header is not None and header.current_epoch == 2 and header.snapshot == pointer
+
+    run(scenario())
+
+
+def test_published_headers_never_carry_a_snapshot_pointer_without_its_digest(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        host, _, _ = await _host_and_guest(tmp_path)
+        legacy = SnapshotPointer(message_id=3, covers_through_message_id=2, created_at=host.clock.now())
+
+        await host.vault.update_header(lambda header: replace(header, snapshot=legacy))
+
+        header = await host.vault.read_header()
+        assert header is not None and header.snapshot is None
 
     run(scenario())
 
@@ -230,5 +247,32 @@ def test_recovery_unlock_of_a_removed_device_installs_a_fresh_identity(tmp_path:
         registered = {device.id: device for device in await guest.devices.list(include_removed=True)}
         assert registered[context.device.device_id].current and registered[context.device.device_id].active
         assert registered[old.device.device_id].removed_at is not None
+
+    run(scenario())
+
+
+def test_an_edited_pinned_header_is_not_a_header_at_all(tmp_path: Path) -> None:
+    """Bento never edits the header; a removed device with a live session can, so an edited header is invalid."""
+
+    async def scenario() -> None:
+        host, _, code = await _host_and_guest(tmp_path)
+        context = await host.vault.require()
+        layout = context.layout
+        cloud = FakeTelegramCloud(tmp_path / "cloud")
+        assert await host.vault.read_header() is not None
+        pinned = cloud.chat(layout.sync_channel_id).pinned_message_id
+        text = await host.runtime.transport.read_header_text(layout)
+        assert pinned is not None and text is not None
+
+        cloud.edit_message(layout.sync_channel_id, pinned, text=text)  # even unchanged
+
+        host.vault.invalidate()
+        assert await host.vault.read_header() is None
+        with pytest.raises(IntegrityError):
+            await host.vault.update_header(lambda header: header)
+        assert not await host.vault.verify_recovery_code(code)
+        stranger = make_vault_device(tmp_path, tmp_path / "cloud", "tablet")
+        await stranger.sign_in()
+        assert (await stranger.vault.status()).state == VaultState.NO_VAULT
 
     run(scenario())

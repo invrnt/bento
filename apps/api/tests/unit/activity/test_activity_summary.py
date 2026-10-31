@@ -152,3 +152,16 @@ def test_a_removed_device_and_a_stale_kit_are_attention_items() -> None:
     assert kit.kind.value == "recovery_kit" and kit.params == {"reason": "stale"}
     unsaved = _activity(vault=VaultStatus(state=VaultState.READY, recovery_kit_saved=False))
     assert unsaved.attention[0].params == {}
+
+
+def test_a_skewed_clock_is_an_attention_item_without_a_retry() -> None:
+    ahead = _activity(sync=SyncStatus(state=SyncState.IDLE, error_code="clock_skew", clock_skew_ms=3_599_000))
+    [item] = ahead.attention
+    assert (item.id, item.kind.value, item.title_key, item.action.value) == (
+        "clock_skew", "clock_skew", "activity.attention.clock_skew", "none"
+    )
+    assert item.params == {"direction": "ahead", "skew_seconds": 3599, "skew_minutes": 60}
+    assert ahead.summary.value == "attention"
+
+    behind = _activity(sync=SyncStatus(state=SyncState.IDLE, error_code="clock_skew", clock_skew_ms=-400_000))
+    assert behind.attention[0].params == {"direction": "behind", "skew_seconds": 400, "skew_minutes": 7}

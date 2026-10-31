@@ -6,6 +6,7 @@ from bento.application.sync.ports import SyncOutboxStorePort, SyncStateStorePort
 from bento.application.sync.state import (
     BOOTSTRAP,
     CAPTURE,
+    CLOCK_SKEW,
     DEVICE_REMOVED,
     LAST_PULL_AT,
     LAST_PUSH_AT,
@@ -14,11 +15,12 @@ from bento.application.sync.state import (
     SyncStateValues,
     parse_timestamp,
 )
-from bento.domain.sync import BootstrapProgress, SyncState, SyncStatus
+from bento.domain.sync import MAX_CLOCK_SKEW_MS, BootstrapProgress, SyncState, SyncStatus
 from bento.ports.repositories import ClockPort
 
 _BOOTSTRAP_OVERRIDES = frozenset({SyncState.IDLE, SyncState.SYNCING})
 DEVICE_REMOVED_CODE = "device_removed"
+CLOCK_SKEW_CODE = "clock_skew"
 
 
 class SyncStatusService:
@@ -54,6 +56,8 @@ class SyncStatusService:
                 last_pull_at=await self._values.get_datetime(LAST_PULL_AT),
                 error_code=DEVICE_REMOVED_CODE,
             )
+        skew = _clock_skew(await self._values.get_json(CLOCK_SKEW))
+        code = str(error["code"]) if error and error.get("code") else None
         return SyncStatus(
             state=state,
             pending_ops=(await self._outbox.backlog()).count,
@@ -61,7 +65,9 @@ class SyncStatusService:
             last_pull_at=await self._values.get_datetime(LAST_PULL_AT),
             bootstrap=bootstrap,
             waiting_until=waiting_until,
-            error_code=str(error["code"]) if error and error.get("code") else None,
+            # Sync keeps running with a skewed clock; a failure of the loop itself is reported first.
+            error_code=code if code is not None else (CLOCK_SKEW_CODE if skew is not None else None),
+            clock_skew_ms=skew,
         )
 
     async def request_sync(self) -> None:
@@ -74,6 +80,15 @@ def _loop_state(value: object, *, default: SyncState) -> SyncState:
         return SyncState(str(value)) if value is not None else default
     except ValueError:
         return default
+
+
+def _clock_skew(value: object) -> int | None:
+    if not isinstance(value, dict):
+        return None
+    skew = value.get("skew_ms")
+    if not isinstance(skew, int) or isinstance(skew, bool) or abs(skew) <= MAX_CLOCK_SKEW_MS:
+        return None
+    return skew
 
 
 def _bootstrap(value: object) -> BootstrapProgress | None:

@@ -58,6 +58,7 @@ class FakeMessage:
     text: str | None = None
     media: FakeMedia | None = None
     reactions: tuple[str, ...] = ()
+    edit_date: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -393,6 +394,40 @@ class FakeTelegramCloud:
             if staged is not None:
                 staged.unlink(missing_ok=True)
 
+    def edit_message(
+        self, chat_id: int, message_id: int, *, text: str | None = None, document: DocumentUpload | None = None
+    ) -> FakeMessage:
+        """What any session of the account can do to a channel post: replace its text and/or its document.
+
+        Bento never edits Sync messages; tests use this to play a removed device that still has a session.
+        """
+        if text is not None and len(text) > (MAX_CAPTION_CHARS if document else MAX_TEXT_CHARS):
+            raise ValidationFailedError("Telegram message is too long", {"length": len(text)})
+        staged = self._stage(document) if document is not None else None
+        try:
+            with self.locked():
+                payload = self._read_chat_payload(chat_id)
+                record = next((item for item in payload["messages"] if item["id"] == message_id), None)
+                if record is None:
+                    raise missing_remote()
+                if text is not None:
+                    record["text"] = text
+                if document is not None and staged is not None:
+                    mime_type = document.mime_type or _guess_mime(document.filename)
+                    record["media"] = {
+                        "kind": (document.kind or media_kind_for(mime_type)).value,
+                        "filename": document.filename,
+                        "mime_type": mime_type,
+                        "size_bytes": staged.stat().st_size,
+                    }
+                    store.replace(staged, self._document_file(chat_id, message_id))
+                record["edit_date"] = self.now().isoformat()
+                self._write_chat(payload)
+                return _message_from_json(record)
+        finally:
+            if staged is not None:
+                staged.unlink(missing_ok=True)
+
     def delete_messages(self, chat_id: int, message_ids: Iterable[int]) -> int:
         targets = set(message_ids)
         with self.locked():
@@ -611,6 +646,7 @@ def _message_from_json(payload: dict[str, Any]) -> FakeMessage:
             size_bytes=int(attached["size_bytes"]),
         ),
         reactions=tuple(payload.get("reactions") or ()),
+        edit_date=_parse(payload["edit_date"]) if payload.get("edit_date") else None,
     )
 
 

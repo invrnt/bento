@@ -18,6 +18,8 @@ CHAT_FOLDER_TITLE = "Bento"
 VAULT_TITLE_PREFIX = "Bento"
 CHANNEL_ABOUT_NOTICE = "Creado por Bento. No borres ni edites estos mensajes."
 _MARKER_PATTERN = re.compile(r"^bento:v1:(files|sync|inbox):(vlt_[0-9A-Za-z_-]+)$")
+_DIGEST_PATTERN = re.compile(r"[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]")
+"""Unpadded base64url of exactly 32 bytes (the last character carries 2 zero bits)."""
 
 
 class VaultState(StrEnum):
@@ -108,6 +110,9 @@ class SnapshotPointer:
     message_id: int
     covers_through_message_id: int
     created_at: datetime
+    sha256: str | None = None
+    """Unpadded base64url SHA-256 of the `.bsnap` document bytes, MAC-covered. Every new pointer carries it;
+    a pointer without it (headers written before the field existed) is not trusted at bootstrap."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,13 +138,7 @@ class VaultHeader:
             },
             "current_epoch": self.current_epoch,
             "recovery": _recovery_payload(self.recovery),
-            "snapshot": None
-            if self.snapshot is None
-            else {
-                "message_id": self.snapshot.message_id,
-                "covers_through_message_id": self.snapshot.covers_through_message_id,
-                "created_at": self.snapshot.created_at.isoformat(),
-            },
+            "snapshot": None if self.snapshot is None else _snapshot_payload(self.snapshot),
         }
         return payload
 
@@ -186,6 +185,7 @@ class VaultHeader:
                     message_id=int(snapshot["message_id"]),
                     covers_through_message_id=int(snapshot["covers_through_message_id"]),
                     created_at=_aware(snapshot["created_at"]),
+                    sha256=_optional_digest(snapshot.get("sha256")),
                 ),
                 mac=payload.get("mac"),
             )
@@ -227,6 +227,26 @@ def _recovery_payload(recovery: RecoveryWrap) -> dict[str, Any]:
     if recovery.confirmed_at is not None:
         payload["confirmed_at"] = recovery.confirmed_at.isoformat()
     return payload
+
+
+def _snapshot_payload(snapshot: SnapshotPointer) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "message_id": snapshot.message_id,
+        "covers_through_message_id": snapshot.covers_through_message_id,
+        "created_at": snapshot.created_at.isoformat(),
+    }
+    # Omitted only for pointers written before the field existed, so their MAC still verifies.
+    if snapshot.sha256 is not None:
+        payload["sha256"] = snapshot.sha256
+    return payload
+
+
+def _optional_digest(value: Any) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or _DIGEST_PATTERN.fullmatch(value) is None:
+        raise ValueError("snapshot sha256 must be unpadded base64url of 32 bytes")
+    return value
 
 
 def _optional_datetime(value: Any) -> datetime | None:

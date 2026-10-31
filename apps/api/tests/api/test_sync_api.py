@@ -81,6 +81,23 @@ def test_status_reflects_the_worker_loop_state_and_pending_ops(tmp_path: Path) -
     assert body["waiting_until"] == "2026-04-01T10:05:00+00:00"
     assert body["error"] == {"code": "telegram_flood_wait", "message": "Telegram asked to wait before retrying", "details": {}}
 
+    # A clock more than 5 minutes ahead of Telegram's: reported while the loop itself is healthy.
+    asyncio.run(state.set_value("clock_skew", json.dumps({"skew_ms": 754_321, "message_id": 7, "at": "2026-04-01T10:00:00+00:00"})))
+    asyncio.run(state.set_value("loop", json.dumps({"state": "idle", "waiting_until": None, "error": None})))
+    body = client.get("/api/sync/status").json()
+    assert body["state"] == "bootstrapping"
+    assert body["error"]["code"] == "clock_skew" and "clock" in body["error"]["message"]
+    assert body["error"]["details"] == {"direction": "ahead", "skew_seconds": 754}
+    activity = client.get("/api/activity").json()
+    [item] = [item for item in activity["attention"] if item["kind"] == "clock_skew"]
+    assert item == {
+        "id": "clock_skew",
+        "kind": "clock_skew",
+        "title_key": "activity.attention.clock_skew",
+        "params": {"direction": "ahead", "skew_seconds": 754, "skew_minutes": 13},
+        "action": "none",
+    }
+
     asyncio.run(state.set_value("device_removed", json.dumps({"device_id": "dev_api", "epoch": 2})))
     body = client.get("/api/sync/status").json()
     assert body["state"] == "paused" and body["bootstrap"] is None

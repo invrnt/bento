@@ -40,7 +40,12 @@ class TelegramAccountPort(Protocol):
 
 
 class VaultTransportPort(Protocol):
-    """Vault channels: discovery, header, Sync channel messages, and the Inbox."""
+    """Vault channels: discovery, header, Sync channel messages, and the Inbox.
+
+    Bento never edits Sync channel messages, and a removed device can still edit channel posts (even replace a
+    document), so an edited Sync message is invalid: refs carry `edited`, the pinned header reads as absent, and
+    documents of edited messages are refused.
+    """
 
     async def find_vaults(self) -> tuple[VaultLayout, ...]: ...
 
@@ -49,7 +54,7 @@ class VaultTransportPort(Protocol):
         ...
 
     async def read_header_text(self, layout: VaultLayout) -> str | None:
-        """Text of the currently pinned Sync message, if any."""
+        """Text of the currently pinned Sync message, if any. None when that message was edited."""
         ...
 
     async def publish_header_text(self, layout: VaultLayout, text: str) -> int:
@@ -65,12 +70,14 @@ class VaultTransportPort(Protocol):
     async def list_sync_messages(
         self, layout: VaultLayout, *, after_message_id: int, limit: int = 100
     ) -> tuple[SyncMessageRef, ...]:
-        """Ascending by message id; metadata only (documents are fetched with `download_sync_document`)."""
+        """Ascending by message id; metadata only (documents are fetched with `download_sync_document`).
+        Edited messages are listed with `edited=True`."""
         ...
 
     async def download_sync_document(self, layout: VaultLayout, message_id: int, *, max_bytes: int | None = None) -> bytes:
         """The document of one Sync message. With `max_bytes`, a larger document raises `ValidationFailedError`
-        before it is downloaded (the size is read again from the message, which may have been edited)."""
+        before it is downloaded (the size is read again from the message, which may have been edited). A message
+        that was edited raises `IntegrityError(SYNC_MESSAGE_EDITED)` before anything is downloaded."""
         ...
 
     async def delete_sync_messages(self, layout: VaultLayout, message_ids: tuple[int, ...]) -> None: ...

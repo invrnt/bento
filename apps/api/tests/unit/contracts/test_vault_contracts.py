@@ -122,3 +122,30 @@ def test_discovery_keeps_complete_creator_owned_bento_vaults() -> None:
         VaultLayout(vault_id="vlt_new", files_channel_id=-11, sync_channel_id=-12, inbox_channel_id=-13),
     )
     assert channel_marker(VaultChannelRole.SYNC, "vlt_new") == "bento:v1:sync:vlt_new"
+
+
+DIGEST = "LXEWQrcmsEQBYnyp-6wy9chTD7GQPMTbAiWHF5IaSIE"  # b64url SHA-256 of b"x"
+
+
+def test_snapshot_digest_is_mac_covered_and_omitted_only_for_old_pointers() -> None:
+    pointer = SnapshotPointer(
+        message_id=123, covers_through_message_id=456, created_at=datetime(2026, 10, 2, tzinfo=UTC), sha256=DIGEST
+    )
+    header = make_header(snapshot=pointer)
+
+    assert json.loads(header.to_json())["snapshot"]["sha256"] == DIGEST
+    assert VaultHeader.from_json(header.to_json()) == header
+    other = make_header(snapshot=SnapshotPointer(123, 456, pointer.created_at, sha256="A" * 43))
+    assert other.canonical_unsigned_bytes() != header.canonical_unsigned_bytes()
+
+    legacy = make_header()  # pointers written before the digest existed keep their exact MAC-covered bytes
+    assert "sha256" not in json.loads(legacy.to_json())["snapshot"]
+    assert VaultHeader.from_json(legacy.to_json()).snapshot.sha256 is None  # type: ignore[union-attr]
+
+
+@pytest.mark.parametrize("digest", ["", "abc", DIGEST + "A", DIGEST[:-1] + "B", DIGEST[:-1] + "=", 42])
+def test_malformed_snapshot_digests_make_the_header_invalid(digest: object) -> None:
+    payload = json.loads(make_header().to_json())
+    payload["snapshot"]["sha256"] = digest
+    with pytest.raises(ValidationFailedError):
+        VaultHeader.from_json(json.dumps(payload))

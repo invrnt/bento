@@ -12,12 +12,12 @@ from telethon import errors, functions, types, utils
 from bento.adapters.telegram_mtproto.chats import MtprotoTelegramChats
 from bento.adapters.telegram_mtproto.parts import REQUEST_SIZE, MtprotoRemotePartStore
 from bento.adapters.telegram_mtproto.transport import MtprotoVaultTransport
-from bento.domain.errors import StorageUnavailableError, TelegramFloodWaitError, ValidationFailedError
-from bento.domain.sync import SyncMessageKind
+from bento.domain.errors import IntegrityError, StorageUnavailableError, TelegramFloodWaitError, ValidationFailedError
+from bento.domain.sync import SYNC_MESSAGE_EDITED, SyncMessageKind
 from bento.domain.telegram import RemotePart, TelegramChatKind, TelegramMediaKind
 from bento.domain.vault import CHANNEL_TITLES, VaultChannelRole, VaultLayout, channel_about
 from bento.infrastructure.mtproto.transfer import TokenBucket, TransferLimits
-from tests.unit.telegram_mtproto.fake_telethon import ME, FakeTelethonClient, bento_channel, fail_on, make_session
+from tests.unit.telegram_mtproto.fake_telethon import ME, NOW, FakeTelethonClient, bento_channel, fail_on, make_session
 
 
 def run(coroutine):  # type: ignore[no-untyped-def]
@@ -151,6 +151,32 @@ def test_sync_documents_and_listing() -> None:
         await transport.delete_sync_messages(layout, (batch.message_id,))
         with pytest.raises(StorageUnavailableError):
             await transport.download_sync_document(layout, batch.message_id)
+
+    run(scenario())
+
+
+def test_edited_sync_messages_are_flagged_and_their_documents_and_headers_refused() -> None:
+    async def scenario() -> None:
+        client, session = _signed_in()
+        layout = _layout(client)
+        transport = MtprotoVaultTransport(session)  # type: ignore[arg-type]
+        batch = await transport.post_sync_document(layout, SyncMessageKind.BATCH, b"sealed")
+        header = '{"bento": "vault-header"}'
+        pinned = await transport.publish_header_text(layout, header)
+        assert not batch.edited and await transport.read_header_text(layout) == header
+
+        # Telegram sets edit_date on any edit, also one that swaps the document of a channel post.
+        client.message(layout.sync_channel_id, batch.message_id).edit_date = NOW
+        client.message(layout.sync_channel_id, pinned).edit_date = NOW
+
+        listed = {ref.message_id: ref for ref in await transport.list_sync_messages(layout, after_message_id=0)}
+        assert listed[batch.message_id].edited and listed[pinned].edited
+        downloads = len(client.calls_of("download_media"))
+        with pytest.raises(IntegrityError) as refused:
+            await transport.download_sync_document(layout, batch.message_id)
+        assert refused.value.details == {"what": SYNC_MESSAGE_EDITED}
+        assert len(client.calls_of("download_media")) == downloads, "refused before downloading"
+        assert await transport.read_header_text(layout) is None
 
     run(scenario())
 

@@ -21,6 +21,7 @@ _ERROR_MESSAGES = {
     "vault_not_found": "No Bento vault exists in this Telegram account",
     "storage_unavailable": "Telegram is unreachable",
     "device_removed": "Another device removed this one from the vault; join again to sync",
+    "clock_skew": "This device's clock is more than 5 minutes off; fix it so devices keep each other's changes",
 }
 
 
@@ -81,9 +82,20 @@ def _status_response(status: SyncStatus) -> SyncStatusResponse:
         error=None
         if status.error_code is None
         else SyncErrorResponse(
-            code=status.error_code, message=_ERROR_MESSAGES.get(status.error_code, "Sync failed; it will retry")
+            code=status.error_code,
+            message=_ERROR_MESSAGES.get(status.error_code, "Sync failed; it will retry"),
+            details=_error_details(status),
         ),
     )
+
+
+def _error_details(status: SyncStatus) -> dict[str, object]:
+    if status.error_code != "clock_skew" or status.clock_skew_ms is None:
+        return {}
+    return {
+        "direction": "ahead" if status.clock_skew_ms > 0 else "behind",
+        "skew_seconds": abs(status.clock_skew_ms) // 1000,
+    }
 
 
 def _iso(value: datetime | None) -> str | None:
