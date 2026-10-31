@@ -10,11 +10,11 @@ from __future__ import annotations
 import asyncio
 import threading
 from collections import Counter
-from collections.abc import Awaitable, Callable, Iterator
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import asynccontextmanager, contextmanager
 from datetime import timedelta
 from pathlib import Path
-from typing import AsyncIterator, Protocol
+from typing import Protocol
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker

@@ -181,8 +181,10 @@ class StoragePipelineService:
             raise ValidationFailedError("Remote store returned a blob without remote parts")
         remote_ref = replace(remote_ref, asset_id=blob_ref.asset_id, kind=blob_ref.kind)
         if not await self._catalog.replace_with_remote(blob_ref.id, remote_ref):
-            await _delete_orphan(store, remote_ref)
-            return RemoteUploadResult(UploadOutcome.MISSING)
+            if await self._catalog.get(remote_ref.id) is None:
+                # Purged while uploading: do not leave unreachable parts behind.
+                await _delete_orphan(store, remote_ref)
+                return RemoteUploadResult(UploadOutcome.MISSING)
 
         dropped = False
         if blob_ref.kind == BlobKind.ORIGINAL and self._sources is not None:

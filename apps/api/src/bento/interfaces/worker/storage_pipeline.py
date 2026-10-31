@@ -139,9 +139,10 @@ class StoragePipelineLoop:
             for source in await backup.list_sources():
                 if source.enabled and source.error_code:
                     await backup.enqueue_scan(source.id)
-        if self._due("retention", self.retention_interval):
-            if not await self.components.backup_jobs.has_waiting(JobType.TRASH_PURGE):
-                await self.components.jobs.enqueue(type=JobType.TRASH_PURGE, priority=7, payload={"expired": True})
+        if self._due("retention", self.retention_interval) and not await self.components.backup_jobs.has_waiting(
+            JobType.TRASH_PURGE
+        ):
+            await self.components.jobs.enqueue(type=JobType.TRASH_PURGE, priority=7, payload={"expired": True})
         if self._due("cache", self.cache_interval):
             await self.components.request_cache_eviction()
 

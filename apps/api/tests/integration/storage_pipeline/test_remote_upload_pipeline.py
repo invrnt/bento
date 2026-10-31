@@ -237,3 +237,26 @@ def _outcome(outcome: UploadOutcome):  # type: ignore[no-untyped-def]
     from bento.application.storage_pipeline import RemoteUploadResult
 
     return RemoteUploadResult(outcome)
+
+
+def test_refs_purged_during_upload_leave_no_remote_parts(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        store = await vault_remote_store(tmp_path)
+        components = pipeline_for(migrated_data_dir(tmp_path), RemoteSwitch(store))
+        result = await _ingest(components, tmp_path, "a.txt", b"alpha")
+        original_store = store.store
+
+        async def store_then_purge(*args, **kwargs):  # type: ignore[no-untyped-def]
+            remote = await original_store(*args, **kwargs)
+            await components.files.delete_asset(result.asset.id)
+            await components.trash.purge((result.asset.id,))
+            return remote
+
+        store.store = store_then_purge  # type: ignore[method-assign]
+        outcome = await components.pipeline.upload(result.blob_ref.id)
+
+        assert outcome.outcome == UploadOutcome.MISSING
+        assert store.deleted == [store.stored[0].id]
+        assert not any(store.remote_exists(part) for part in store.stored[0].parts)
+
+    run(scenario())
