@@ -26,11 +26,8 @@ from bento.adapters.security import (
 )
 from bento.adapters.settings import SQLiteSettingsRepository
 from bento.adapters.storage.telegram_vault_blob_store import MIB, SQLiteUploadSessionStore, TelegramVaultBlobStore
-from bento.adapters.telegram_mtproto.vault_state import (
-    SQLiteStorageBackendPreference,
-    SQLiteVaultState,
-    SQLiteVaultUsage,
-)
+from bento.adapters.sync.store import SQLiteSyncStateStore
+from bento.adapters.telegram_mtproto.vault_state import SQLiteStorageBackendPreference, SQLiteVaultUsage
 from bento.application.account import AccountService
 from bento.application.vault import LAYOUT_KEY, DeviceDescription, TelegramPorts, VaultService
 from bento.domain.devices import DevicePlatform
@@ -111,7 +108,7 @@ def vault_session(settings: Settings) -> VaultService:
             telegram=telegram,
             crypto=vault_crypto(),
             key_store=_LazyKeyStore(settings),
-            state=SQLiteVaultState(sessions, clock),
+            state=SQLiteSyncStateStore(sessions, now=clock.now),
             devices=SQLiteDeviceRepository(sessions),
             usage=SQLiteVaultUsage(sessions),
             device=device_description(),

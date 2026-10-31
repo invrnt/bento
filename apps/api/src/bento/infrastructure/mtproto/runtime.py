@@ -10,12 +10,12 @@ from datetime import timedelta
 from pathlib import Path
 
 from bento.adapters.security import VaultCrypto
+from bento.adapters.sync.store import SQLiteSyncStateStore
 from bento.adapters.telegram_mtproto.account import MtprotoTelegramAccount
 from bento.adapters.telegram_mtproto.chats import MtprotoTelegramChats
 from bento.adapters.telegram_mtproto.parts import MtprotoRemotePartStore
 from bento.adapters.telegram_mtproto.session import MtprotoSession
 from bento.adapters.telegram_mtproto.transport import MtprotoVaultTransport
-from bento.adapters.telegram_mtproto.vault_state import SQLiteVaultState
 from bento.application.account import FLOOD_WAIT_UNTIL_KEY
 from bento.application.devices import telegram_device_model
 from bento.application.vault import DeviceIdentityStore
@@ -48,7 +48,7 @@ def create_mtproto_runtime(settings: Settings, key_store: KeyStorePort) -> Teleg
         )
 
     clock = SystemClock()
-    state = SQLiteVaultState(create_app_session_factory(settings), clock)
+    state = SQLiteSyncStateStore(create_app_session_factory(settings), now=clock.now)
 
     async def record_long_wait(seconds: int) -> None:
         await state.set_value(FLOOD_WAIT_UNTIL_KEY, (clock.now() + timedelta(seconds=seconds)).isoformat())

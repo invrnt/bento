@@ -15,11 +15,8 @@ from bento.adapters.repositories.devices import SQLiteDeviceRepository
 from bento.adapters.security import InMemoryKeyStore, StreamingBlobCipher, VaultCrypto
 from bento.adapters.settings import SQLiteSettingsRepository
 from bento.adapters.storage.telegram_vault_blob_store import SQLiteUploadSessionStore, TelegramVaultBlobStore
-from bento.adapters.telegram_mtproto.vault_state import (
-    SQLiteStorageBackendPreference,
-    SQLiteVaultState,
-    SQLiteVaultUsage,
-)
+from bento.adapters.sync.store import SQLiteSyncStateStore
+from bento.adapters.telegram_mtproto.vault_state import SQLiteStorageBackendPreference, SQLiteVaultUsage
 from bento.application.vault import DeviceDescription, TelegramPorts, VaultService
 from bento.domain.devices import DevicePlatform
 from bento.infrastructure.runtime import TelegramRuntime, bento_device_model, create_fake_telegram_runtime
@@ -49,7 +46,7 @@ class VaultDevice:
     runtime: TelegramRuntime
     sessions: sessionmaker[Session]
     vault: VaultService
-    state: SQLiteVaultState
+    state: SQLiteSyncStateStore
     devices: SQLiteDeviceRepository
     clock: TickingClock
     crypto: VaultCrypto
@@ -90,7 +87,7 @@ def make_vault_device(root: Path, cloud_dir: Path, name: str, *, telegram: bool 
     )
     clock = TickingClock()
     crypto = VaultCrypto()
-    state = SQLiteVaultState(sessions, clock)
+    state = SQLiteSyncStateStore(sessions, now=clock.now)
     devices = SQLiteDeviceRepository(sessions)
     vault = VaultService(
         telegram=(lambda: TelegramPorts(account=runtime.account, transport=runtime.transport)) if telegram else (lambda: None),

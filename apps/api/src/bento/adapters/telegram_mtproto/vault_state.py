@@ -1,6 +1,7 @@
 """Device-local SQLite bookkeeping of the Telegram vault features.
 
-Backend-agnostic: the same adapters serve the MTProto client and the fake cloud.
+Backend-agnostic: the same adapters serve the MTProto client and the fake cloud. String values in `sync_state`
+(`VaultStatePort`) go through `bento.adapters.sync.store.SQLiteSyncStateStore`, shared with the sync engine.
 """
 
 from __future__ import annotations
@@ -8,7 +9,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from bento.adapters.repositories.mappers import aware, require_aware
@@ -17,29 +18,7 @@ from bento.application.inbox import InboxRecord, InboxState
 from bento.domain.errors import SettingsRevisionConflictError
 from bento.domain.vault import VaultUsage
 from bento.infrastructure.db.engine import session_scope
-from bento.infrastructure.db.models import AssetModel, InboxItemModel, SyncStateModel
-from bento.ports.repositories import ClockPort
-
-
-class SQLiteVaultState:
-    """String values in `sync_state` (`VaultStatePort`)."""
-
-    def __init__(self, session_factory: sessionmaker[Session], clock: ClockPort) -> None:
-        self._session_factory = session_factory
-        self._clock = clock
-
-    async def get_value(self, key: str) -> str | None:
-        with session_scope(self._session_factory) as session:
-            model = session.get(SyncStateModel, key)
-            return model.value if model is not None else None
-
-    async def set_value(self, key: str, value: str) -> None:
-        with session_scope(self._session_factory) as session:
-            session.merge(SyncStateModel(key=key, value=value, updated_at=self._clock.now()))
-
-    async def delete_value(self, key: str) -> None:
-        with session_scope(self._session_factory) as session:
-            session.execute(delete(SyncStateModel).where(SyncStateModel.key == key))
+from bento.infrastructure.db.models import AssetModel, InboxItemModel
 
 
 class SQLiteVaultUsage:

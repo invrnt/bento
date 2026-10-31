@@ -106,7 +106,8 @@ async def run_inbox_loop(settings: Settings, stop_event: asyncio.Event, *, servi
 def create_inbox_service(settings: Settings) -> InboxService:
     from bento.adapters.jobs import SQLiteJobQueue
     from bento.adapters.repositories.devices import SQLiteDeviceRepository
-    from bento.adapters.telegram_mtproto.vault_state import SQLiteInboxItems, SQLiteVaultState
+    from bento.adapters.sync.store import SQLiteSyncStateStore
+    from bento.adapters.telegram_mtproto.vault_state import SQLiteInboxItems
     from bento.infrastructure.db.clock import SystemClock
     from bento.infrastructure.mtproto import wiring
 
@@ -121,7 +122,7 @@ def create_inbox_service(settings: Settings) -> InboxService:
         vault=wiring.vault_session(settings),
         transport=transport,
         items=SQLiteInboxItems(sessions),
-        state=SQLiteVaultState(sessions, clock),
+        state=SQLiteSyncStateStore(sessions, now=clock.now),
         jobs=SQLiteJobQueue(sessions, clock),
         devices=SQLiteDeviceRepository(sessions),
         ingestion=create_ingestion_service(settings),
