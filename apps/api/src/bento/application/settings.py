@@ -318,6 +318,8 @@ def _cross_validate(values: Mapping[str, Any], configured: Mapping[str, bool]) -
         missing = [key for key in required if not configured.get(key)]
         if missing:
             issues.append(FieldIssue("storage_backend", "telegram_not_configured", "Telegram secrets are incomplete"))
+    if values.get("storage_backend") == "fake" and values.get("environment") == "production":
+        issues.append(FieldIssue("storage_backend", "storage_backend_unavailable", "The simulated Telegram is not available"))
     if values.get("embeddings_provider") == "jina" and not str(values.get("jina_model_path") or "").strip():
         issues.append(FieldIssue("jina_model_path", "model_path_required", "A model path is required"))
     data_dir = Path(str(values.get("data_dir") or ""))
