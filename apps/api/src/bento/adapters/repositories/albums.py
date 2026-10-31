@@ -58,6 +58,9 @@ def _album_asset_ids(session: Session, album_id: str) -> frozenset[str]:
 
 
 def _replace_album_assets(session: Session, album: Album) -> None:
+    # The session does not autoflush and the models have no relationship, so the unit of work would not order the
+    # album row before its items: write the album first or the `album_assets` foreign key fails.
+    session.flush()
     session.execute(delete(AlbumAssetModel).where(AlbumAssetModel.album_id == album.id))
     for asset_id in sorted(album.asset_ids):
         session.add(AlbumAssetModel(album_id=album.id, asset_id=asset_id, created_at=album.updated_at))
