@@ -210,7 +210,6 @@ export const enEveryday: Partial<Record<MessageKey, string>> = {
 
   "drive.add.more": "More ways to add",
   "documents.actions": "Actions for {name}",
-  "documents.open": "Open {name}",
   "photos.actions": "Actions for {name}",
   "photos.delete": "Delete",
 };

@@ -325,7 +325,6 @@ export function DriveBrowser({
 
   /** Reversible: moves to trash at once and offers "Deshacer" instead of asking first. */
   async function removeEntries(targets: DriveEntry[]) {
-    clearSelection();
     await deleteWithUndo({ onChange: reload, perform: () => trashDriveEntries(api, targets), restore: restoreFromTrash });
   }
 
@@ -617,7 +616,10 @@ export function DriveBrowser({
       {selectionMode ? (
         <SelectionBar
           downloadableCount={downloadableEntries.length}
-          onBulkDelete={() => void removeEntries(selectedEntries)}
+          onBulkDelete={() => {
+            clearSelection();
+            void removeEntries(selectedEntries);
+          }}
           onBulkDownload={() => downloadDriveEntries(api, selectedEntries, openInNewTab)}
           onBulkMove={() => openAction({ entries: selectedEntries, type: "bulk-move" })}
           onClear={clearSelection}

@@ -209,7 +209,6 @@ export const esEveryday = {
 
   "drive.add.more": "Más formas de añadir",
   "documents.actions": "Acciones para {name}",
-  "documents.open": "Abrir {name}",
   "photos.actions": "Acciones para {name}",
   "photos.delete": "Eliminar",
 } as const;
