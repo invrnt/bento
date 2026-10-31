@@ -4,7 +4,9 @@ import "@testing-library/jest-dom/vitest";
 Object.defineProperty(globalThis.navigator, "language", { configurable: true, value: "es-ES" });
 
 // Node 26 shadows jsdom's Web Storage with its own (undefined without --localstorage-file); install a memory store.
-if (typeof window !== "undefined" && !window.localStorage) {
+// Typed structurally: this file is also checked by tsconfig.node.json, which has no DOM lib.
+const host = globalThis as { localStorage?: unknown };
+if ("document" in globalThis && !host.localStorage) {
   const values = new Map<string, string>();
   const storage = {
     clear: () => values.clear(),
@@ -16,5 +18,5 @@ if (typeof window !== "undefined" && !window.localStorage) {
     removeItem: (key: string) => void values.delete(key),
     setItem: (key: string, value: string) => void values.set(key, String(value)),
   };
-  Object.defineProperty(window, "localStorage", { configurable: true, value: storage });
+  Object.defineProperty(globalThis, "localStorage", { configurable: true, value: storage });
 }

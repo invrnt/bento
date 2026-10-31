@@ -67,6 +67,7 @@ def test_unreadable_directories_are_rejected(tmp_path: Path) -> None:
 
 def test_home_expansion_resolves_to_an_absolute_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))  # Path.expanduser reads USERPROFILE on Windows
     (tmp_path / "Imágenes").mkdir()
     info = LocalFolderScanner().inspect("~/Imágenes")
     assert info.exists and info.is_dir and info.path == (tmp_path / "Imágenes").resolve()

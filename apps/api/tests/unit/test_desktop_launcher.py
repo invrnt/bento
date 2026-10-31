@@ -133,6 +133,8 @@ def test_desktop_api_sidecar_reports_the_port_it_bound_and_requires_the_token(tm
         "BENTO_DESKTOP_ORIGIN": "bento://app",
         "BENTO_DESKTOP_API_TOKEN": token,
         "PYTHONPATH": os.pathsep.join(sys.path),
+        # Windows sockets and temp dirs need these; without SYSTEMROOT asyncio fails with WinError 10106.
+        **{name: os.environ[name] for name in ("SYSTEMROOT", "WINDIR", "TEMP", "TMP", "USERPROFILE") if name in os.environ},
     }
     command = [sys.executable, "-m", "bento.interfaces.desktop"]
     subprocess.run([*command, "migrate"], env=environment, cwd=tmp_path, check=True, capture_output=True, timeout=120)

@@ -38,7 +38,7 @@ def test_backup_sources_crud_and_validation(tmp_path: Path) -> None:
         (str(tmp_path / "nope"), "not_found"),
         (str(components.data_dir), "inside_data_dir"),
         ("relative/dir", "not_absolute"),
-        ("/", "filesystem_root"),
+        (tmp_path.anchor, "filesystem_root"),
     ):
         rejected = client.post("/api/backup/sources", json={"path": path})
         assert rejected.status_code == 400, path

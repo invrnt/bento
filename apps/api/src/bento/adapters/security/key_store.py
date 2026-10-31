@@ -18,6 +18,7 @@ import re
 import stat
 import struct
 import tempfile
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -255,11 +256,24 @@ def _atomic_write(path: Path, payload: bytes) -> None:
             handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temporary, path)
+        _replace(temporary, path)
     except BaseException:
         Path(temporary).unlink(missing_ok=True)
         raise
     _fsync_directory(path.parent)
+
+
+def _replace(source: str, target: Path) -> None:
+    """`os.replace`, retried briefly on Windows where a concurrent reader or writer can hold the target."""
+    attempts = 1 if _POSIX else 20
+    for attempt in range(attempts):
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(0.01 * (attempt + 1))
 
 
 def _fsync_directory(directory: Path) -> None:

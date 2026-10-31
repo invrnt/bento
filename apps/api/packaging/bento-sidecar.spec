@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_data_files, copy_metadata
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules, copy_metadata
 
 api_root = Path(SPEC).resolve().parent.parent
 source_root = api_root / "src"
@@ -22,6 +22,10 @@ hiddenimports = [
     "uvicorn.protocols.websockets.websockets_impl",
     "uvicorn.protocols.websockets.wsproto_impl",
 ]
+# Bento resolves some modules at runtime (e.g. the MTProto runtime via importlib) and watchdog picks
+# its observer per platform, so static analysis alone would miss them.
+hiddenimports += collect_submodules("bento")
+hiddenimports += collect_submodules("watchdog.observers")
 
 for distribution in ("alembic", "bento-api", "fastapi", "pydantic", "sqlalchemy", "uvicorn"):
     try:
