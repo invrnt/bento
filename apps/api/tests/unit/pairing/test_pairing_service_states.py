@@ -267,3 +267,36 @@ def test_host_falls_back_when_the_login_token_keeps_expiring() -> None:
         assert b64url_encode(guest.vault.identity.public_key) == host.devices.items[guest.vault.identity.device_id].public_key
 
     asyncio.run(scenario())
+
+
+def test_codes_sas_tokens_and_keys_are_never_logged(caplog: pytest.LogCaptureFixture) -> None:
+    import logging
+
+    for name in ("bento.pairing", "bento.pairing.relay", "bento.devices"):
+        logging.getLogger(name).disabled = False
+    caplog.set_level(logging.DEBUG)
+
+    async def scenario() -> list[str]:
+        relay = MemoryRelay()
+        host = make_unit_device(relay, crypto=CRYPTO, keyring=CRYPTO.generate_keyring("vlt_unit"))
+        guest = make_unit_device(relay, crypto=CRYPTO, keyring=None, authorized=False)
+        host.account.on_accept = lambda _token: setattr(guest.account, "authorized", True)
+        hosted = await host.service.host()
+        assert hosted.session.code is not None
+        joined = await guest.service.join(hosted.session.code.format())
+        waiting = await _until(lambda: host.service.get(hosted.session.id), PairingState.AWAITING_APPROVAL)
+        await host.service.approve(hosted.session.id)
+        await _until(lambda: guest.service.get(joined.session.id), PairingState.COMPLETED)
+        assert host.vault.keyring is not None
+        secrets = [hosted.session.code.format(), hosted.session.code.secret, hosted.session.code.nameplate]
+        secrets += list(waiting.session.sas or ())
+        secrets += [token.decode() for token in host.account.accepted]
+        secrets += [b64url_encode(key) for key in host.vault.keyring.keys.values()]
+        secrets += [b64url_encode(guest.vault.identity.private_key), b64url_encode(guest.vault.identity.public_key)]
+        return secrets
+
+    secrets = asyncio.run(scenario())
+    text = "\n".join(record.getMessage() for record in caplog.records)
+    assert "awaiting_approval" in text, "pairing events are logged"
+    for secret in secrets:
+        assert secret not in text
