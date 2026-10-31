@@ -23,8 +23,8 @@ Electron main is an interface/infrastructure host, not a domain layer. It may ma
 
 1. Acquire a single-instance lock and route subsequent launches to the existing window.
 2. Resolve the platform user-data directory and read only minimal bootstrap metadata: schema version, active data directory, and last-known-good settings revision.
-3. Allocate loopback ports, create an unguessable per-launch API token, and spawn API first.
-4. Wait for a bounded authenticated readiness check; then spawn the worker.
+3. Create an unguessable per-launch API token (a fresh one for every API process) and spawn API first, passing the token only in that process's environment. The API binds `127.0.0.1:0` itself and reports the OS-assigned port with one stdout line, `BENTO_API_READY {"port":N}`, once it accepts connections. Main never reserves a port, never passes `--port` or the token in argv, and never sends the token anywhere before that line arrives (or after that API exits).
+4. Wait for a bounded authenticated readiness check against the announced port; then spawn the worker.
 5. Load the bundled renderer only after API readiness. Show a native recovery window with safe diagnostics if startup fails.
 6. On quit, stop accepting work, terminate sidecars gracefully with a timeout, and only then force-kill owned child processes if required.
 
@@ -87,7 +87,11 @@ Browser/headless UI may edit non-secret settings through the API. Secret editing
 - Validate every IPC payload on both sides; never expose generic filesystem, shell, process, or arbitrary IPC methods.
 - Block new-window creation, external navigation, remote code, and unapproved protocols. Use a strict CSP and only bundled renderer assets.
 - Sidecars bind to loopback on ephemeral ports and require the per-launch bearer token plus an expected desktop origin. Do not expose it in logs or persistent browser storage.
-- Validate selected paths, prevent traversal, and never allow the data directory to be a filesystem root.
+- At sidecar start the backend moves `BENTO_DESKTOP_API_TOKEN` and `BENTO_DEVICE_WRAPPING_KEY` out of `os.environ` into a process-private holder (`bento/infrastructure/process_secrets.py`); every external tool (ffmpeg, ffprobe) runs with an allowlisted environment (`PATH`, `HOME`, `LANG`, `LC_*`, `TMPDIR`/`TEMP`/`TMP`, plus `SYSTEMROOT`/`WINDIR` on Windows), from an absolute path resolved outside the current directory, in a Bento-owned working directory.
+- Main redacts the per-launch tokens from its log and redacts sidecar output per complete line (overlong lines are dropped, never truncated).
+- Packaged builds ignore `BENTO_SIDECAR_PATH`, reject `--remote-debugging-port`/`--remote-debugging-pipe`/`--inspect*` switches, disable DevTools, and install an application menu without reload or developer tools.
+- `/api` proxy responses carry `X-Content-Type-Options: nosniff` and a `default-src 'none'; sandbox` CSP; redirects are never followed or handed to the renderer.
+- Validate selected paths, prevent traversal, and never allow the data directory to be a filesystem root. A data-directory migration target must be owned by the current user and not world-writable.
 
 ## Packaging
 
@@ -96,6 +100,7 @@ Browser/headless UI may edit non-secret settings through the API. Secret editing
 - Initial artifacts: Windows installer, signed/notarized macOS DMG, Linux AppImage and/or `.deb` as supported by the selected packager.
 - Bundle or verify ffmpeg and required native libraries per platform. Large embedding models remain optional downloads with checksum, progress, cancellation, and resumability.
 - Code-sign/notarize release artifacts and publish checksums, SBOM, provenance, and one immutable updater manifest per supported platform/architecture. A remote update check reads metadata only; main downloads and verifies exact HTTPS assets by hash/size before serving any Squirrel feed from loopback. Installation is explicit and fails closed on signature, schema, target, hash, size, or feed mismatch.
+- Each per-target manifest is Ed25519-signed as `<manifest>.sig` (detached, up to four signatures for rotation). Builds embed the public key as `updatePublicKey` in `resources/build-config.json` (from `BENTO_UPDATE_PUBLIC_KEY`); with a key, a missing or invalid signature fails closed before the manifest is parsed, and without one the updater keeps hash-only checks and logs a warning once. Signing runs only in the dependency-free release publish job (`scripts/sign-update-manifest.mjs`, key from the `BENTO_UPDATE_SIGNING_KEY` secret). Key generation and rotation: `docs/desktop/releasing.md`.
 
 ## Definition Of Done
 

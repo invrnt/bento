@@ -55,6 +55,13 @@ describe("BrowserWindow security", () => {
     expect(window.loadURL).toHaveBeenCalledWith("bento://app/");
   });
 
+  it("disables developer tools unless a development build asks for them", () => {
+    const packaged = createMainWindow() as unknown as InstanceType<typeof electron.FakeWindow>;
+    expect(packaged.options.webPreferences).toMatchObject({ devTools: false });
+    const development = createMainWindow({ devTools: true }) as unknown as InstanceType<typeof electron.FakeWindow>;
+    expect(development.options.webPreferences).toMatchObject({ devTools: true });
+  });
+
   it("denies new windows, webviews, remote navigation, and subframe navigation", () => {
     const window = createMainWindow() as unknown as InstanceType<typeof electron.FakeWindow>;
     const openHandler = window.webContents.setWindowOpenHandler.mock.calls[0]?.[0] as () => unknown;

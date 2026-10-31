@@ -27,6 +27,10 @@ export interface MainStrings {
     installUpdate: string;
     quit: string;
   };
+  /** Application menu (packaged builds); other entries use Electron's localized role labels. */
+  appMenu: {
+    view: string;
+  };
   notifications: {
     backgroundTitle: string;
     backgroundBody(platform: NodeJS.Platform): string;
@@ -111,6 +115,9 @@ function spanish(locale: string): MainStrings {
       installUpdate: "Instalar actualización…",
       quit: "Salir",
     },
+    appMenu: {
+      view: "Ver",
+    },
     notifications: {
       backgroundTitle: "Bento sigue funcionando en segundo plano",
       backgroundBody: (platform) => platform === "darwin"
@@ -171,6 +178,9 @@ function english(locale: string): MainStrings {
       restartToUpdate: "Restart to update",
       installUpdate: "Install update…",
       quit: "Quit",
+    },
+    appMenu: {
+      view: "View",
     },
     notifications: {
       backgroundTitle: "Bento keeps running in the background",

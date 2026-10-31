@@ -1,8 +1,10 @@
 import {
+  chmod,
   mkdtemp,
   mkdir,
   readFile,
   readdir,
+  realpath,
   rm,
   symlink,
   writeFile,
@@ -110,5 +112,19 @@ describe("data directory migration safety", () => {
     );
     await emptyFixture.migrator.execute(emptyFixture.source, emptyDestination, "use-empty");
     await expect(readdir(emptyDestination)).resolves.toEqual([]);
+  });
+  it.skipIf(process.platform === "win32")("rejects a destination owned by another user or writable by everyone", async () => {
+    const { destination, root, source } = await fixture();
+    await mkdir(destination);
+    const uid = process.getuid!();
+    const foreign = new DataDirectoryMigrator(async () => Number.MAX_SAFE_INTEGER, () => uid + 1);
+    await expect(foreign.validate(source, destination, "use-empty")).rejects.toThrow(/belong to the current user/u);
+
+    const shared = path.join(root, "shared");
+    await mkdir(shared);
+    await chmod(shared, 0o777);
+    const owner = new DataDirectoryMigrator(async () => Number.MAX_SAFE_INTEGER, () => uid);
+    await expect(owner.validate(source, shared, "use-empty")).rejects.toThrow(/writable by other users/u);
+    await expect(owner.validate(source, destination, "use-empty")).resolves.toBe(await realpath(destination));
   });
 });

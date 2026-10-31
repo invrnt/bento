@@ -8,6 +8,8 @@ export interface WindowOptions {
   recoveryMode?: boolean;
   /** False for `--hidden`/login starts: the renderer loads but the window stays in the tray. */
   showOnReady?: boolean;
+  /** Developer tools; only development builds pass `true`. */
+  devTools?: boolean;
 }
 
 export function createMainWindow(options: WindowOptions = {}): BrowserWindow {
@@ -31,6 +33,7 @@ export function createMainWindow(options: WindowOptions = {}): BrowserWindow {
       experimentalFeatures: false,
       navigateOnDragDrop: false,
       spellcheck: false,
+      devTools: options.devTools === true,
     },
   });
 

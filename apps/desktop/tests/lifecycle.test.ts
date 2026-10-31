@@ -84,7 +84,12 @@ describe("desktop preferences", () => {
 describe("launch at login", () => {
   function controller(platform: NodeJS.Platform, overrides: Partial<ConstructorParameters<typeof LoginItemController>[0]> = {}) {
     const app = { setLoginItemSettings: vi.fn(), getLoginItemSettings: vi.fn(() => ({ openAtLogin: false, wasOpenedAtLogin: true })) };
-    const fs = { mkdir: vi.fn(async () => undefined), writeAtomic: vi.fn(async () => undefined), remove: vi.fn(async () => undefined) };
+    const fs = {
+      mkdir: vi.fn(async () => undefined),
+      writeAtomic: vi.fn(async () => undefined),
+      remove: vi.fn(async () => undefined),
+      lstat: vi.fn(async () => ({ isFile: () => true, uid: 1000, mode: 0o100755 })),
+    };
     const login = new LoginItemController({
       platform,
       packaged: true,
@@ -93,6 +98,7 @@ describe("launch at login", () => {
       homeDirectory: "/home/ana",
       app,
       fs,
+      uid: 1000,
       ...overrides,
     });
     return { app, fs, login };
@@ -121,7 +127,10 @@ describe("launch at login", () => {
   });
 
   it("writes and removes an XDG autostart entry on Linux", async () => {
-    const { app, fs, login } = controller("linux", { environment: { XDG_CONFIG_HOME: "/home/ana/.cfg", APPIMAGE: "/home/ana/Apps/Bento.AppImage" } });
+    const { app, fs, login } = controller("linux", {
+      execPath: "/tmp/.mount_BentoA1b2C3/bento",
+      environment: { XDG_CONFIG_HOME: "/home/ana/.cfg", APPIMAGE: "/home/ana/Apps/Bento.AppImage", APPDIR: "/tmp/.mount_BentoA1b2C3" },
+    });
     await login.apply(true);
     expect(fs.mkdir).toHaveBeenCalledWith(path.join("/home/ana/.cfg", "autostart"));
     const [target, contents] = fs.writeAtomic.mock.calls[0] as unknown as [string, string];
@@ -134,6 +143,41 @@ describe("launch at login", () => {
 
     const fallback = controller("linux", { environment: { XDG_CONFIG_HOME: "relative/config" } });
     expect(fallback.login.autostartPath()).toBe(path.join("/home/ana", ".config", "autostart", "bento.desktop"));
+  });
+
+  it("uses an inherited APPIMAGE only when it is this app's own trusted AppImage", async () => {
+    const mounted = { execPath: "/tmp/.mount_BentoA1b2C3/bento" };
+    const environment = { APPIMAGE: "/home/ana/Apps/Bento.AppImage", APPDIR: "/tmp/.mount_BentoA1b2C3" };
+    const exec = (fs: { writeAtomic: { mock: { calls: unknown[][] } } }) => /Exec=(.*) --hidden/u.exec(String(fs.writeAtomic.mock.calls[0]?.[1]))?.[1];
+
+    // Inherited from some other AppImage (we are not running from its mount): ignored.
+    const inherited = controller("linux", { environment: { APPIMAGE: "/home/ana/Apps/Other.AppImage", APPDIR: "/tmp/.mount_Other" } });
+    await inherited.login.apply(true);
+    expect(exec(inherited.fs)).toBe("/usr/lib/bento-desktop/bento");
+    expect(inherited.fs.lstat).not.toHaveBeenCalled();
+
+    const untrusted: Array<[string, Partial<{ isFile: () => boolean; uid: number; mode: number }> | Error, Record<string, string>?]> = [
+      ["owned by another user", { uid: 0 }],
+      ["writable by everyone", { mode: 0o100777 }],
+      ["not a regular file (symlink, directory)", { isFile: () => false }],
+      ["missing", new Error("ENOENT")],
+      ["relative", {}, { APPIMAGE: "Apps/Bento.AppImage" }],
+      ["not normalized", {}, { APPIMAGE: "/home/ana/Apps/../Apps/Bento.AppImage" }],
+    ];
+    for (const [, stats, extra] of untrusted) {
+      const { fs, login } = controller("linux", { ...mounted, environment: { ...environment, ...extra } });
+      fs.lstat.mockImplementation(async () => {
+        if (stats instanceof Error) throw stats;
+        return { isFile: () => true, uid: 1000, mode: 0o100755, ...stats };
+      });
+      await expect(login.apply(true)).rejects.toThrow(TypeError);
+      expect(fs.writeAtomic).not.toHaveBeenCalled();
+    }
+
+    const trusted = controller("linux", { ...mounted, environment });
+    await trusted.login.apply(true);
+    expect(exec(trusted.fs)).toBe("/home/ana/Apps/Bento.AppImage");
+    expect(trusted.fs.lstat).toHaveBeenCalledWith("/home/ana/Apps/Bento.AppImage");
   });
 
   it("writes the real autostart file atomically", async () => {

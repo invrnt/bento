@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { mkdir, rename, unlink, writeFile } from "node:fs/promises";
+import { lstat, mkdir, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { squirrelStubExecutable } from "./squirrel";
 
@@ -14,6 +14,7 @@ export interface LoginItemFileSystem {
   mkdir(directory: string): Promise<void>;
   writeAtomic(filePath: string, contents: string): Promise<void>;
   remove(filePath: string): Promise<void>;
+  lstat(filePath: string): Promise<{ isFile(): boolean; uid: number; mode: number }>;
 }
 
 export interface LoginItemOptions {
@@ -25,7 +26,11 @@ export interface LoginItemOptions {
   app: LoginItemApp;
   squirrelInstalled?: boolean;
   fs?: LoginItemFileSystem;
+  /** Current POSIX user id (defaults to `process.getuid()`). */
+  uid?: number;
 }
+
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/u;
 
 /** Registers Bento to start in the tray at login (macOS/Windows login items, Linux XDG autostart). */
 export class LoginItemController {
@@ -45,8 +50,9 @@ export class LoginItemController {
     if (this.options.platform === "linux") {
       const target = this.autostartPath();
       if (enabled) {
+        const executable = await this.linuxExecutable();
         await this.fs.mkdir(path.dirname(target));
-        await this.fs.writeAtomic(target, linuxAutostartEntry(this.linuxExecutable()));
+        await this.fs.writeAtomic(target, linuxAutostartEntry(executable));
       } else {
         await this.fs.remove(target);
       }
@@ -77,9 +83,29 @@ export class LoginItemController {
     return path.join(configHome, "autostart", "bento.desktop");
   }
 
-  private linuxExecutable(): string {
-    const appImage = this.options.environment.APPIMAGE;
-    return appImage && path.isAbsolute(appImage) ? appImage : this.options.execPath;
+  /**
+   * The AppImage file when this executable runs from it, otherwise `execPath`. `APPIMAGE` is inherited
+   * environment, so it is used only while the AppImage runtime has mounted this very executable
+   * (`APPDIR`) and it names an absolute regular file owned by the current user and not writable by
+   * everyone; anything else is refused rather than written into the autostart entry.
+   */
+  private async linuxExecutable(): Promise<string> {
+    const { environment, execPath } = this.options;
+    const appImage = environment.APPIMAGE;
+    if (!appImage || !isDescendant(environment.APPDIR, execPath)) return execPath;
+    if (!await this.trustedAppImage(appImage)) throw new TypeError("The AppImage path cannot be used for autostart");
+    return appImage;
+  }
+
+  private async trustedAppImage(candidate: string): Promise<boolean> {
+    if (!path.isAbsolute(candidate) || path.normalize(candidate) !== candidate || CONTROL_CHARACTERS.test(candidate)) return false;
+    try {
+      const info = await this.fs.lstat(candidate);
+      const uid = this.options.uid ?? process.getuid?.();
+      return info.isFile() && (uid === undefined || info.uid === uid) && (info.mode & 0o002) === 0;
+    } catch {
+      return false;
+    }
   }
 
   private windowsExecutable(): string {
@@ -110,7 +136,14 @@ export function desktopExecArgument(value: string): string {
   return quoted.replace(/%/gu, "%%").replace(/\\/gu, "\\\\");
 }
 
+function isDescendant(root: string | undefined, candidate: string): boolean {
+  if (!root || !path.isAbsolute(root)) return false;
+  const child = path.relative(root, candidate);
+  return child !== "" && !child.startsWith("..") && !path.isAbsolute(child);
+}
+
 const defaultFileSystem: LoginItemFileSystem = {
+  lstat: (filePath) => lstat(filePath),
   mkdir: async (directory) => { await mkdir(directory, { recursive: true, mode: 0o700 }); },
   writeAtomic: async (filePath, contents) => {
     const temporary = `${filePath}.${randomBytes(6).toString("hex")}.tmp`;

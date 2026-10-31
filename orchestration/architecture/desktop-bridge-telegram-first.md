@@ -74,7 +74,7 @@ All channels also require the `bento://app` origin (existing rule).
 
 - `get()` returns the stored values (defaults above on first run or if the file is unreadable).
 - `set(patch)` applies side effects first and persists only if they succeed; it resolves with the full updated preferences.
-  - `launchAtLogin`: macOS/Windows login item, Linux `~/.config/autostart/bento.desktop` (atomic write). Login starts use `--hidden` (macOS uses `wasOpenedAtLogin`) and stay in the tray. Development (unpackaged) builds store the value but never register the Electron binary.
+  - `launchAtLogin`: macOS/Windows login item, Linux `~/.config/autostart/bento.desktop` (atomic write). An inherited `APPIMAGE` is used only while this executable runs from that AppImage's mount (`APPDIR`) and it is an absolute regular file owned by the current user and not world-writable; otherwise the entry is not written and the call fails with `preferences_launch_at_login_failed`. Login starts use `--hidden` (macOS uses `wasOpenedAtLogin`) and stay in the tray. Development (unpackaged) builds store the value but never register the Electron binary.
   - `keepRunningInBackground`: when `true`, closing the window hides it; `Salir` in the tray (or OS shutdown/update) is the only way to quit. When `false`, closing the window quits.
   - `autoDownloadUpdates`: when turned on with an update already `available`, the download starts immediately.
 - Errors: invalid payload → `TypeError`; OS refused the login item → rejects with message containing `preferences_launch_at_login_failed` (value unchanged). Electron prefixes IPC errors (`Error invoking remote method '…': Error: <message>`), so match with `includes`.
@@ -104,7 +104,7 @@ Unknown targets from a newer desktop build should fall back to Actividad.
 
 ### `savePageAsPdf`
 
-- Prints the **current page of the main window** with `printToPDF({ printBackground: true, pageSize: "A4" })`, then shows a native save dialog (default `Documents/Kit de recuperación de Bento.pdf`, or `Bento recovery kit.pdf` for English OS locales; `suggestedName` overrides the file name, `.pdf` is appended when missing). The file is written atomically with owner-only permissions and the in-memory PDF is wiped afterwards.
+- Prints the **current page of the main window** with `printToPDF({ printBackground: true, pageSize: "A4" })`, then shows a native save dialog (default `Documents/Kit de recuperación de Bento.pdf`, or `Bento recovery kit.pdf` for English OS locales; `suggestedName` overrides the file name, `.pdf` is appended when missing; an existing file the dialog did not confirm is never replaced, so the appended name becomes `<name> (2).pdf`, `(3)`, … instead). The file is written atomically with owner-only permissions and the in-memory PDF is wiped afterwards.
 - Result: `{ saved: false }` when the dialog is canceled; `{ saved: true, fileName }` (base name only, never a path) on success.
 - Errors: invalid payload → `TypeError`; called from anything but the main window's top-level frame → `This command is only available to the main window`; a save already in progress → `pdf_save_in_progress`; filesystem failures reject with the OS error.
 - The renderer never supplies HTML, URLs, or paths.
