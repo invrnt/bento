@@ -54,6 +54,8 @@ export const esEveryday = {
   "activity.advanced.body": "Miniaturas, texto en imágenes e índices se preparan en una cola aparte.",
   "activity.advanced.link": "Ver trabajos en segundo plano",
   "activity.advanced.title": "Para usuarios avanzados",
+  "activity.attention.clock_skew": "La fecha y hora de este equipo no son correctas",
+  "activity.attention.clock_skew.body": "Activa la fecha y hora automáticas en tu sistema para que tus dispositivos no pierdan cambios.",
   "activity.attention.flood_wait": "Telegram pidió esperar un poco",
   "activity.attention.flood_wait.body": "Bento reanudará los envíos automáticamente.",
   "activity.attention.generic": "Algo necesita tu atención",

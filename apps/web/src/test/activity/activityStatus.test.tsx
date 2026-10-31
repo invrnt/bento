@@ -74,6 +74,13 @@ describe("describeActivity", () => {
 
     const stale = attention({ action: "save_recovery_kit", id: "recovery_kit", kind: "recovery_kit", params: { reason: "stale" }, title_key: "activity.attention.recovery_kit" });
     expect(describeActivity(activity({ attention: [stale], summary: "attention" })).detail).toBe("Tu kit de recuperación ya no sirve: genera uno nuevo");
+
+    const skew = attention({
+      action: "none", id: "clock_skew", kind: "clock_skew", params: { direction: "ahead", skew_minutes: 9, skew_seconds: 540 }, title_key: "activity.attention.clock_skew",
+    });
+    expect(normalizeActivity(activity({ attention: [skew], summary: "attention" })).attention[0]?.kind).toBe("clock_skew");
+    expect(attentionTitle(skew)).toBe("La fecha y hora de este equipo no son correctas");
+    expect(attentionHref(skew)).toBeNull();
   });
 
   it("keeps the new actions and maps each one to a route", () => {

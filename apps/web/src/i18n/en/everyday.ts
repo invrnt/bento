@@ -56,6 +56,8 @@ export const enEveryday: Partial<Record<MessageKey, string>> = {
   "activity.advanced.body": "Thumbnails, text in images and indexes are prepared in a separate queue.",
   "activity.advanced.link": "See background jobs",
   "activity.advanced.title": "For advanced users",
+  "activity.attention.clock_skew": "This computer's date and time are off",
+  "activity.attention.clock_skew.body": "Turn on automatic date and time in your system so your devices don't miss each other's changes.",
   "activity.attention.flood_wait": "Telegram asked to wait a little",
   "activity.attention.flood_wait.body": "Bento will resume sending automatically.",
   "activity.attention.generic": "Something needs your attention",

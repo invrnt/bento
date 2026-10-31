@@ -18,7 +18,8 @@ export type AttentionKind =
   | "recovery_kit"
   | "inbox_failed"
   | "new_device"
-  | "device_removed";
+  | "device_removed"
+  | "clock_skew";
 
 export type AttentionAction = "retry" | "open_settings" | "save_recovery_kit" | "open_devices" | "none";
 

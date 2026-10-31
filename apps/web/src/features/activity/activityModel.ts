@@ -191,6 +191,7 @@ const attentionKinds: readonly AttentionKind[] = [
   "inbox_failed",
   "new_device",
   "device_removed",
+  "clock_skew",
 ];
 
 /** A kit saved before the cloud's keys changed (`params.reason = "stale"`) no longer opens it. */

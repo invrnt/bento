@@ -6,6 +6,7 @@ import {
   BellRing,
   CircleCheck,
   CirclePause,
+  Clock,
   CloudAlert,
   CloudDownload,
   CloudOff,
@@ -307,6 +308,7 @@ function TransferCard({
 }
 
 const attentionIcons: Record<string, ReactNode> = {
+  clock_skew: <Clock />,
   device_removed: <Unplug />,
   inbox_failed: <Inbox />,
   new_device: <MonitorSmartphone />,
