@@ -126,7 +126,8 @@ describe("launch at login", () => {
     expect(login.launchedHidden(["--hidden"])).toBe(true);
   });
 
-  it("writes and removes an XDG autostart entry on Linux", async () => {
+  // XDG autostart and AppImage trust use POSIX paths and ownership; they only ship on Linux.
+  it.skipIf(process.platform === "win32")("writes and removes an XDG autostart entry on Linux", async () => {
     const { app, fs, login } = controller("linux", {
       execPath: "/tmp/.mount_BentoA1b2C3/bento",
       environment: { XDG_CONFIG_HOME: "/home/ana/.cfg", APPIMAGE: "/home/ana/Apps/Bento.AppImage", APPDIR: "/tmp/.mount_BentoA1b2C3" },
@@ -145,7 +146,7 @@ describe("launch at login", () => {
     expect(fallback.login.autostartPath()).toBe(path.join("/home/ana", ".config", "autostart", "bento.desktop"));
   });
 
-  it("uses an inherited APPIMAGE only when it is this app's own trusted AppImage", async () => {
+  it.skipIf(process.platform === "win32")("uses an inherited APPIMAGE only when it is this app's own trusted AppImage", async () => {
     const mounted = { execPath: "/tmp/.mount_BentoA1b2C3/bento" };
     const environment = { APPIMAGE: "/home/ana/Apps/Bento.AppImage", APPDIR: "/tmp/.mount_BentoA1b2C3" };
     const exec = (fs: { writeAtomic: { mock: { calls: unknown[][] } } }) => /Exec=(.*) --hidden/u.exec(String(fs.writeAtomic.mock.calls[0]?.[1]))?.[1];

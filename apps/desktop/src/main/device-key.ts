@@ -44,7 +44,9 @@ export interface ProvisionOptions {
  * - A stored OS-protected key is always reused; if the OS store is unavailable startup fails closed
  *   instead of letting the backend silently switch keys.
  * - A data directory already using the backend's 0600 key file stays in file mode.
- * - Otherwise a new random key is generated when the OS store is available.
+ * - Otherwise a new random key is generated when the OS store is available. If the OS store reports itself
+ *   available but refuses to encrypt (e.g. a locked or missing keychain), no key existed yet, so falling back
+ *   to file mode is safe.
  */
 export async function provisionDeviceWrappingKey(options: ProvisionOptions): Promise<DeviceKeyProvision> {
   const exists = options.exists ?? fileExists;
@@ -65,7 +67,11 @@ export async function provisionDeviceWrappingKey(options: ProvisionOptions): Pro
   if (bytes.length !== KEY_BYTES) throw new Error("Device key generation returned an unexpected length");
   const key = bytes.toString("base64url");
   bytes.fill(0);
-  await options.store.writeInternal(DEVICE_WRAPPING_KEY_NAME, key);
+  try {
+    await options.store.writeInternal(DEVICE_WRAPPING_KEY_NAME, key);
+  } catch {
+    return { secureStorage: "file", generated: false };
+  }
   return { key, secureStorage: "os", generated: true };
 }
 

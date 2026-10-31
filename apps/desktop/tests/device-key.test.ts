@@ -63,6 +63,13 @@ describe("device wrapping key provisioning", () => {
     }
   });
 
+  it("falls back to the backend key file when the OS store refuses to encrypt a new key", async () => {
+    const { store, dataDir, storage } = await fixture();
+    storage.encryptStringAsync.mockRejectedValueOnce(new Error("Error while encrypting the text provided to safeStorage.encryptStringAsync."));
+    await expect(provisionDeviceWrappingKey({ store, dataDir })).resolves.toEqual({ secureStorage: "file", generated: false });
+    expect(await store.hasInternal(DEVICE_WRAPPING_KEY_NAME)).toBe(false);
+  });
+
   it("keeps a data directory that already uses the backend key file in file mode", async () => {
     const { store, dataDir } = await fixture();
     await mkdir(path.dirname(fileWrappingKeyPath(dataDir)), { recursive: true });
