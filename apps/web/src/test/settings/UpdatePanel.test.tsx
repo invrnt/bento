@@ -12,7 +12,7 @@ const platform: DesktopPlatform = {
   desktop: true,
   platform: "win32",
   recoveryMode: false,
-  secureStorage: "available",
+  secureStorage: "os",
   version: "0.4.0",
 };
 
