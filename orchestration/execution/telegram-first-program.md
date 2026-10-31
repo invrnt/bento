@@ -42,14 +42,14 @@ Shared-file rules for Stage 15:
 
 Exit: full backend suite green, two-process fake-cloud sync journey passes, pairing over a local relay double passes, desktop tests green, site builds.
 
-## Stage 16 — Web experience (after the design/branding pass is merged)
+## Stage 16 — Web experience (starts with Stage 15; typed API clients and i18n scaffolding are pre-built)
 
 | Agent | Prompt | Owns |
 |---|---|---|
-| web-onboarding | `28-web-onboarding-devices-agent.md` | `features/{onboarding,account,devices,pairing,recovery}/**`, `api/{account,vault,pairing,devices}.ts`, `components/QrCode.tsx`, `i18n/es/onboarding.ts` + `i18n/en/onboarding.ts`, app shell status footer |
-| web-experience | `29-web-everyday-agent.md` | `features/{backup,activity,trash,share,import,quicklook}/**`, `api/{backup,activity,trash,telegram}.ts`, settings IA simplification, `i18n/{es,en}/everyday.ts`, English base dictionary |
+| web-core-flows | `28-web-onboarding-devices-agent.md` | `features/{onboarding,account,devices,pairing,recovery,settings}/**`, `components/QrCode.tsx`, `app/App.tsx`, `routes/{settings,join}.tsx`, `i18n/{es,en}/onboarding.ts` |
+| web-everyday | `29-web-everyday-agent.md` | `features/{activity,trash,share,import,quicklook}/**`, `app/status.tsx`, `components/{AppShell,Sidebar,StatusIndicator}.tsx`, drive/photos/documents integration points, `routes/{trash,activity}.tsx`, `i18n/{es,en}/everyday.ts`, `i18n/en/base.ts` |
 
-Shared: `routes/routeConfig.ts`, `components/Sidebar.tsx`, `app/App.tsx` — one-line additions only; the orchestrator resolves conflicts.
+Shared: `routes/routeConfig.ts` one-line additions only; `src/api/**` is frozen (report gaps); the orchestrator resolves conflicts.
 
 ## Stage 17 — Integration and hardening (orchestrator)
 
