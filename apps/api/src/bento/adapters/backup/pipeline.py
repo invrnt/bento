@@ -2,13 +2,21 @@
 
 from __future__ import annotations
 
-from sqlalchemy import case, func, select
+from datetime import datetime
+
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from bento.adapters.repositories.mappers import asset_from_model, blob_ref_from_model, blob_ref_to_model
+from bento.adapters.repositories.mappers import (
+    asset_from_model,
+    blob_ref_from_model,
+    blob_ref_to_model,
+    job_from_model,
+    job_to_model,
+)
 from bento.application.storage_pipeline import UPLOADABLE_KINDS
 from bento.domain.assets import AssetMetadata
-from bento.domain.jobs import JobStatus, JobType
+from bento.domain.jobs import Job, JobStatus, JobType
 from bento.domain.storage import BlobKind, BlobRef, StorageBackend
 from bento.infrastructure.db.engine import session_scope
 from bento.infrastructure.db.models import AssetModel, BlobRefModel, JobModel, ThumbnailModel
@@ -92,3 +100,27 @@ class SQLitePipelineCatalog:
         )
         with session_scope(self._session_factory) as session:
             return tuple(blob_ref_from_model(model) for model in session.scalars(statement))
+
+    async def claim_pending_uploads(
+        self, *, kinds: frozenset[BlobKind], worker_id: str, exclude_job_id: str, limit: int, now: datetime
+    ) -> tuple[Job, ...]:
+        if limit <= 0 or not kinds:
+            return ()
+        statement = (
+            select(JobModel)
+            .where(
+                JobModel.type == JobType.REMOTE_UPLOAD.value,
+                JobModel.status.in_((JobStatus.QUEUED.value, JobStatus.RETRYING.value)),
+                JobModel.locked_by.is_(None),
+                or_(JobModel.run_after.is_(None), JobModel.run_after <= now),
+                JobModel.id != exclude_job_id,
+                job_payload_value("kind").in_([kind.value for kind in kinds]),
+            )
+            .order_by(JobModel.priority.asc(), JobModel.created_at.asc(), JobModel.id.asc())
+            .limit(limit)
+        )
+        with session_scope(self._session_factory) as session:
+            claimed = tuple(job_from_model(model).claim(worker_id, now) for model in session.scalars(statement))
+            for job in claimed:
+                session.merge(job_to_model(job))
+            return claimed

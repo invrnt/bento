@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
@@ -28,8 +30,20 @@ class BlobStorePort(Protocol):
     async def delete(self, blob_id: str) -> None: ...
 
 
+@dataclass(frozen=True, slots=True)
+class RemoteBlobUpload:
+    source_ref: str
+    asset_id: str | None
+    kind: BlobKind
+    metadata: AssetMetadata
+
+
 class RemoteBlobStorePort(BlobStorePort, Protocol):
     """Blob stores whose refs are self-describing (Telegram parts). Deletion and range reads take the ref itself."""
+
+    async def store_many(self, uploads: Sequence[RemoteBlobUpload]) -> tuple[BlobRef, ...]:
+        """Like `store` for each upload (same order), sending small blobs together in albums of up to 10."""
+        ...
 
     async def delete_ref(self, blob_ref: BlobRef) -> None: ...
 

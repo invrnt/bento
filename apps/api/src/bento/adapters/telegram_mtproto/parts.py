@@ -20,11 +20,11 @@ from telethon import errors, types
 from bento.adapters.telegram_mtproto.session import MtprotoSession
 from bento.domain.errors import IntegrityError, StorageUnavailableError, ValidationFailedError
 from bento.domain.storage import StorageBackend
-from bento.domain.telegram import RemotePart
+from bento.domain.telegram import ALBUM_MAX_DOCUMENTS, RemotePart
 from bento.domain.vault import VaultLayout
 
 REQUEST_SIZE = 512 * 1024
-ALBUM_SIZE = 10
+ALBUM_SIZE = ALBUM_MAX_DOCUMENTS
 FILE_REFERENCE_RETRIES = 3
 
 

@@ -4,6 +4,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 
+ALBUM_MAX_DOCUMENTS = 10
+"""Telegram sends at most 10 documents in one album (grouped media) request."""
+
 
 class TelegramChatKind(StrEnum):
     SAVED = "saved"

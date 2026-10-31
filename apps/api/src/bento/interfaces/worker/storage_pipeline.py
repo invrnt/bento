@@ -58,18 +58,56 @@ class StoragePipelineJobHandler:
             raise RuntimeError(f"No storage pipeline handler for {job.type.value}")
 
     async def _remote_upload(self, job: Job) -> None:
-        blob_id = job.payload.get("blob_id")
-        if not isinstance(blob_id, str) or not blob_id:
-            raise RuntimeError("remote_upload job missing blob_id")
-        try:
-            await self.components.pipeline.upload(blob_id)
-        except Exception as exc:
-            if job.attempts + 1 < job.max_attempts:
-                raise
-            # Exhausted: keep a retryable FAILED job so the Actividad panel can offer "Reintentar".
-            error = " ".join((str(exc) or exc.__class__.__name__).split())[:500]
-            LOGGER.warning("Remote upload of %s failed permanently: %s", blob_id, error)
-            await self.components.pipeline.park_failure(blob_id, error)
+        blob_id = _blob_id(job)
+        pipeline = self.components.pipeline
+        companions = await pipeline.claim_batch_companions(job, worker_id=job.locked_by or "worker")
+        if not companions:
+            try:
+                await pipeline.upload(blob_id)
+            except Exception as exc:
+                await self._exhausted_or_raise(job, blob_id, exc)
+            return
+        # Thumbnails and previews waiting together go up in one album; each keeps its own job and outcome.
+        jobs, clock = self.components.jobs, self.components.clock
+        batch: list[tuple[Job, str]] = []
+        for companion in companions:
+            companion_blob = companion.payload.get("blob_id")
+            if isinstance(companion_blob, str) and companion_blob:
+                batch.append((companion, companion_blob))
+            else:
+                await jobs.save(companion.fail("remote_upload job missing blob_id", clock.now()))
+        items = {item.blob_id: item for item in await pipeline.upload_many((blob_id, *(blob for _, blob in batch)))}
+        for companion, companion_blob in batch:
+            error = items[companion_blob].error
+            try:
+                if error is not None:
+                    await self._exhausted_or_raise(companion, companion_blob, error)
+            except Exception as exc:  # noqa: BLE001 - the companion retries with backoff, like a dispatched job
+                await jobs.save(companion.fail(_safe_error(exc), clock.now()))
+            else:
+                await jobs.save(companion.complete(clock.now()))
+        own = items[blob_id].error
+        if own is not None:
+            await self._exhausted_or_raise(job, blob_id, own)
+
+    async def _exhausted_or_raise(self, job: Job, blob_id: str, exc: Exception) -> None:
+        if job.attempts + 1 < job.max_attempts:
+            raise exc
+        # Exhausted: keep a retryable FAILED job so the Actividad panel can offer "Reintentar".
+        error = _safe_error(exc)
+        LOGGER.warning("Remote upload of %s failed permanently: %s", blob_id, error)
+        await self.components.pipeline.park_failure(blob_id, error)
+
+
+def _blob_id(job: Job) -> str:
+    blob_id = job.payload.get("blob_id")
+    if not isinstance(blob_id, str) or not blob_id:
+        raise RuntimeError("remote_upload job missing blob_id")
+    return blob_id
+
+
+def _safe_error(exc: Exception) -> str:
+    return " ".join((str(exc) or exc.__class__.__name__).split())[:500]
 
 
 @dataclass
