@@ -149,30 +149,10 @@ def create_import_service(settings: Settings) -> TelegramImportService:
 
 
 def create_ingestion_service(settings: Settings) -> AssetIngestionService:
-    """The same ingestion the upload endpoint uses (local-first; the storage pipeline uploads to the vault)."""
-    from bento.adapters.jobs import SQLiteJobQueue
-    from bento.adapters.manifest import SQLiteManifestJournal
-    from bento.adapters.media import LocalUploadMetadataExtractor, SQLiteBlobRefCatalog
-    from bento.adapters.repositories import SQLiteAssetRepository, SQLiteFolderRepository
-    from bento.application.upload import UploadAssetUseCase
-    from bento.infrastructure.db.clock import SystemClock
-    from bento.infrastructure.mtproto import wiring
-    from bento.infrastructure.storage.factory import create_blob_store
+    """The upload endpoint's ingestion: local first, with the vault upload queued right away."""
+    from bento.infrastructure.storage_pipeline import get_storage_pipeline
 
-    sessions = wiring.session_factory(settings)
-    clock = SystemClock()
-    return AssetIngestionService(
-        upload=UploadAssetUseCase(
-            assets=SQLiteAssetRepository(sessions),
-            folders=SQLiteFolderRepository(sessions),
-            blob_store=create_blob_store(settings),
-            jobs=SQLiteJobQueue(sessions, clock),
-            manifest=SQLiteManifestJournal(sessions, clock, Path(settings.data_dir) / "journal"),
-            clock=clock,
-        ),
-        blob_refs=SQLiteBlobRefCatalog(sessions, clock),
-        metadata_extractor=LocalUploadMetadataExtractor(),
-    )
+    return get_storage_pipeline(settings).ingestion
 
 
 async def _wait_for_activity(settings: Settings, stop_event: asyncio.Event) -> None:

@@ -116,3 +116,27 @@ def make_vault_device(root: Path, cloud_dir: Path, name: str, *, telegram: bool 
         clock=clock,
         crypto=crypto,
     )
+
+
+def local_ingestion(device: VaultDevice) -> Any:
+    """The upload ingestion over this device's database and a local blob store."""
+    from bento.adapters.jobs import SQLiteJobQueue
+    from bento.adapters.manifest import SQLiteManifestJournal
+    from bento.adapters.media import LocalUploadMetadataExtractor
+    from bento.adapters.repositories import SQLiteAssetRepository, SQLiteFolderRepository
+    from bento.adapters.storage.local_blob_store import LocalBlobStoreAdapter
+    from bento.application.ingestion import AssetIngestionService
+    from bento.application.upload import UploadAssetUseCase
+
+    return AssetIngestionService(
+        upload=UploadAssetUseCase(
+            assets=SQLiteAssetRepository(device.sessions),
+            folders=SQLiteFolderRepository(device.sessions),
+            blob_store=LocalBlobStoreAdapter(device.data_dir / "uploads"),
+            jobs=SQLiteJobQueue(device.sessions, device.clock),
+            manifest=SQLiteManifestJournal(device.sessions, device.clock, device.data_dir / "journal"),
+            clock=device.clock,
+        ),
+        blob_refs=SQLiteBlobRefCatalog(device.sessions, device.clock),
+        metadata_extractor=LocalUploadMetadataExtractor(),
+    )
