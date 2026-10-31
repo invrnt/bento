@@ -13,7 +13,7 @@
     "test": "node scripts/build.mjs && node --test \"test/*.test.mjs\"",
     "preview": "node scripts/build.mjs && node scripts/serve.mjs",
     "check:placeholders": "node scripts/check-placeholders.mjs",
-    "deploy": "node scripts/build.mjs && node scripts/check-placeholders.mjs && npx --yes wrangler@4.151.3 pages deploy",
+    "deploy": "node scripts/build.mjs && node scripts/check-placeholders.mjs && npx --yes wrangler@4.151.3 pages deploy --branch main",
     "deploy:preview": "node scripts/build.mjs && npx --yes wrangler@4.151.3 pages deploy --branch preview"
   }
 }
