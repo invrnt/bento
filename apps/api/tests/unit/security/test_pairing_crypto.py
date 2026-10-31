@@ -4,7 +4,7 @@ import unicodedata
 
 import pytest
 
-from bento.adapters.security import SAS_EMOJIS, PairingCryptoFactory, PairingCryptoSession
+from bento.adapters.security import SAS_EMOJIS, PairingCryptoFactory, PairingCryptoSession, verify_commitment
 from bento.adapters.security.pairing_crypto import MAX_FRAME_BYTES, sas_from_bits
 from bento.domain.errors import IntegrityError, ValidationFailedError
 from bento.domain.pairing import PairingCode
@@ -224,20 +224,89 @@ def test_sas_emoji_list_is_fixed_distinct_and_safe() -> None:
         sas_from_bits(b"\x00")
 
 
-def test_fallback_keys_agree_on_sas() -> None:
-    host, guest, intruder = factory.fallback_keys(), factory.fallback_keys(), factory.fallback_keys()
-    assert len(host.public_key()) == 32
-    assert host.sas_with(guest.public_key()) == guest.sas_with(host.public_key())
-    deterministic = PairingCryptoFactory(random_bytes=DeterministicRandom(b"fallback"))
-    a, b, c = deterministic.fallback_keys(), deterministic.fallback_keys(), deterministic.fallback_keys()
-    assert a.sas_with(b.public_key()) != a.sas_with(c.public_key())
-    with pytest.raises(IntegrityError):
-        host.sas_with(bytes(32))
-    with pytest.raises(IntegrityError):
-        host.sas_with(b"short")
-    with pytest.raises(IntegrityError):
-        host.sas_with(host.public_key())
-    assert intruder.sas_with(host.public_key()) == host.sas_with(intruder.public_key())
+GUEST_DEVICE_KEY = bytes(range(1, 33))
+REQUEST_ID = "req_7f3a"
+
+
+def _transcript(guest_eph: bytes, host_eph: bytes, **overrides: object) -> dict[str, object]:
+    transcript: dict[str, object] = {
+        "request_id": REQUEST_ID,
+        "guest_device_public_key": GUEST_DEVICE_KEY,
+        "guest_ephemeral_public_key": guest_eph,
+        "host_ephemeral_public_key": host_eph,
+    }
+    transcript.update(overrides)
+    return transcript
+
+
+def test_fallback_commit_then_reveal_flow_agrees_on_sas() -> None:
+    guest, host = factory.fallback_keys(), factory.fallback_keys()
+    commitment = guest.commitment(device_public_key=GUEST_DEVICE_KEY, request_id=REQUEST_ID)
+    assert len(commitment) == 43 and "=" not in commitment
+    # Host offers its ephemeral key, then the guest reveals and the host checks the commitment.
+    assert verify_commitment(
+        commitment, eph_pub=guest.public_key(), device_public_key=GUEST_DEVICE_KEY, request_id=REQUEST_ID
+    )
+    transcript = _transcript(guest.public_key(), host.public_key())
+    guest_sas = guest.sas_with(host.public_key(), **transcript)  # type: ignore[arg-type]
+    host_sas = host.sas_with(guest.public_key(), **transcript)  # type: ignore[arg-type]
+    assert guest_sas == host_sas
+    assert len(guest_sas) == 4 and all(emoji in SAS_EMOJIS for emoji in guest_sas)
+
+
+def test_commitment_binds_every_input() -> None:
+    guest, other = factory.fallback_keys(), factory.fallback_keys()
+    commitment = guest.commitment(device_public_key=GUEST_DEVICE_KEY, request_id=REQUEST_ID)
+    good = {"eph_pub": guest.public_key(), "device_public_key": GUEST_DEVICE_KEY, "request_id": REQUEST_ID}
+    assert verify_commitment(commitment, **good)  # type: ignore[arg-type]
+    for field, value in (
+        ("eph_pub", other.public_key()),
+        ("device_public_key", bytes(range(2, 34))),
+        ("request_id", "req_7f3b"),
+        ("eph_pub", b"short"),
+        ("request_id", ""),
+    ):
+        assert not verify_commitment(commitment, **{**good, field: value})  # type: ignore[arg-type]
+    for bad in ("", commitment + "A", commitment[:-1], commitment[:-1] + ("A" if commitment[-1] != "A" else "B")):
+        assert not verify_commitment(bad, **good)  # type: ignore[arg-type]
+    assert not verify_commitment("ñ" * 43, **good)  # type: ignore[arg-type]
+    assert not verify_commitment(None, **good)  # type: ignore[arg-type]
+    with pytest.raises(ValidationFailedError):
+        guest.commitment(device_public_key=b"short", request_id=REQUEST_ID)
+    with pytest.raises(ValidationFailedError):
+        guest.commitment(device_public_key=GUEST_DEVICE_KEY, request_id="")
+
+
+def test_fallback_sas_binds_the_transcript() -> None:
+    deterministic = PairingCryptoFactory(random_bytes=DeterministicRandom(b"fallback-transcript"))
+    guest, host = deterministic.fallback_keys(), deterministic.fallback_keys()
+    base = _transcript(guest.public_key(), host.public_key())
+    reference = host.sas_with(guest.public_key(), **base)  # type: ignore[arg-type]
+    for override in ({"request_id": "req_other"}, {"guest_device_public_key": bytes(range(2, 34))}):
+        assert host.sas_with(guest.public_key(), **{**base, **override}) != reference  # type: ignore[arg-type]
+    intruder = deterministic.fallback_keys()
+    swapped = _transcript(intruder.public_key(), host.public_key())
+    assert host.sas_with(intruder.public_key(), **swapped) != reference  # type: ignore[arg-type]
+    roles_swapped = _transcript(host.public_key(), guest.public_key())
+    assert host.sas_with(guest.public_key(), **roles_swapped) != reference  # type: ignore[arg-type]
+
+
+def test_fallback_sas_rejects_inconsistent_or_invalid_transcripts() -> None:
+    guest, host, intruder = factory.fallback_keys(), factory.fallback_keys(), factory.fallback_keys()
+    transcript = _transcript(guest.public_key(), host.public_key())
+    bad_calls = [
+        (host, intruder.public_key(), transcript),
+        (intruder, guest.public_key(), transcript),
+        (host, guest.public_key(), _transcript(guest.public_key(), guest.public_key())),
+        (host, guest.public_key(), {**transcript, "request_id": ""}),
+        (host, guest.public_key(), {**transcript, "guest_device_public_key": b"short"}),
+        (host, b"short", transcript),
+        (host, bytes(32), _transcript(bytes(32), host.public_key())),
+        (host, host.public_key(), transcript),
+    ]
+    for keys, peer, call_transcript in bad_calls:
+        with pytest.raises(IntegrityError):
+            keys.sas_with(peer, **call_transcript)  # type: ignore[arg-type]
 
 
 def test_reprs_hide_secrets() -> None:

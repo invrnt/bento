@@ -28,6 +28,7 @@ from bento.adapters.security import (
     StreamingBlobCipher,
     VaultCrypto,
     WrappedFileKeyStore,
+    verify_commitment,
 )
 from bento.adapters.security.primitives import b64url_decode, vault_subkey
 from bento.adapters.security.stream_aead import blob_file_key, encode_blob_header
@@ -40,6 +41,7 @@ FIXTURE = Path(__file__).parent / "fixtures" / "crypto_vectors.json"
 REGENERATE = os.environ.get("BENTO_REGENERATE_CRYPTO_VECTORS") == "1"
 VAULT_ID = "vlt_kat"
 PAIRING_PASSWORD = b"MXR9T4WA"
+FALLBACK_REQUEST_ID = "req_kat_ñ"
 WRAPPING_KEY = bytes(range(64, 96))
 
 
@@ -153,9 +155,20 @@ def _compute_vectors(tmp_path: Path) -> dict[str, Any]:
 
     fallback = PairingCryptoFactory(random_bytes=DeterministicRandom(b"fallback"))
     first, second = fallback.fallback_keys(), fallback.fallback_keys()
+    transcript = {
+        "request_id": FALLBACK_REQUEST_ID,
+        "guest_device_public_key": identity.public_key,
+        "guest_ephemeral_public_key": first.public_key(),
+        "host_ephemeral_public_key": second.public_key(),
+    }
+    guest_sas = first.sas_with(second.public_key(), **transcript)
+    assert guest_sas == second.sas_with(first.public_key(), **transcript)
     vectors["fallback"] = {
         "public_keys": [first.public_key().hex(), second.public_key().hex()],
-        "sas": list(first.sas_with(second.public_key())),
+        "request_id": FALLBACK_REQUEST_ID,
+        "guest_device_public_key": identity.public_key.hex(),
+        "commitment": first.commitment(device_public_key=identity.public_key, request_id=FALLBACK_REQUEST_ID),
+        "sas": list(guest_sas),
     }
 
     store = WrappedFileKeyStore(tmp_path / "secure", WRAPPING_KEY, random_bytes=DeterministicRandom(b"keystore"))
@@ -217,6 +230,14 @@ def test_published_vectors_still_decrypt(tmp_path: Path) -> None:
     assert asyncio.run(store.get("vault.keyring")) == b"key store secret"
 
     assert crypto.keyring_from_bytes(fixture["keyring_json"].encode()) == keyring
+
+    fallback = fixture["fallback"]
+    assert verify_commitment(
+        fallback["commitment"],
+        eph_pub=bytes.fromhex(fallback["public_keys"][0]),
+        device_public_key=bytes.fromhex(fallback["guest_device_public_key"]),
+        request_id=fallback["request_id"],
+    )
     assert len(b64url_decode(mac["mac"])) == 32
 
 
@@ -326,8 +347,14 @@ def test_published_vectors_follow_spec_formulas() -> None:
     second = X25519PrivateKey.from_private_bytes(fallback_entropy(32))
     publics = [first.public_key().public_bytes_raw(), second.public_key().public_bytes_raw()]
     assert [value.hex() for value in publics] == fallback["public_keys"]
+    request_id = fallback["request_id"].encode("utf-8")
+    device_key = bytes.fromhex(fallback["guest_device_public_key"])
+    assert device_key == recipient_public
+    commitment = hashlib.sha256(b"bento/v1/pair-commit" + publics[0] + device_key + request_id).digest()
+    assert b64url_decode(fallback["commitment"]) == commitment and "=" not in fallback["commitment"]
     fallback_shared = first.exchange(second.public_key())
-    sas_bits = _hkdf(fallback_shared, b"".join(sorted(publics)), b"bento/v1/pairing/fallback-sas", 3)
+    transcript_salt = hashlib.sha256(request_id + device_key + publics[0] + publics[1]).digest()
+    sas_bits = _hkdf(fallback_shared, transcript_salt, b"bento/v1/pairing/fallback-sas", 3)
     fallback_value = int.from_bytes(sas_bits, "big")
     assert fallback["sas"] == [SAS_EMOJIS[(fallback_value >> shift) & 63] for shift in (18, 12, 6, 0)]
 

@@ -50,15 +50,18 @@
   },
   "envelope_json": "42454e5601010000000217e45324841bb3aa2fd1cbcdf36427100e235124a6cd45c85dbca794b18e5dcc6cebb92638060c547133d3bacb466cb59b5c05dc61acc80051e5aea535bec3c27f0665f2094313c3c56f9665096b02e11d471a3259e07e9af7d1e2316af4d7b9",
   "fallback": {
+    "commitment": "QxyRbDvzOknek3bJmNHsuF8TKEZDi6cMubGie6Ps3Io",
+    "guest_device_public_key": "7ea4c31c71d095c37bde03ba3df7fea7bbd3eb967f4d631408c5ea4f91a1e13c",
     "public_keys": [
       "267345859a1cc0ff10c3c4f779f76ab8ccb98fa0fdaee039a2d8e2f0ff49f073",
       "c6fd6ec85d67e67a8ddb11ba90da145457585d80701398ef1a6a254f7e157c1f"
     ],
+    "request_id": "req_kat_ñ",
     "sas": [
-      "🐷",
-      "🐱",
-      "🐷",
-      "🚀"
+      "🌷",
+      "⚓",
+      "📕",
+      "🦁"
     ]
   },
   "header_mac": {

@@ -11,6 +11,7 @@ from bento.adapters.security.pairing_crypto import (
     FallbackPairingKeys,
     PairingCryptoFactory,
     PairingCryptoSession,
+    verify_commitment,
 )
 from bento.adapters.security.stream_aead import StreamingBlobCipher
 from bento.adapters.security.vault_crypto import VaultCrypto
@@ -29,4 +30,5 @@ __all__ = [
     "WrappingKey",
     "decode_encryption_key",
     "load_wrapping_key",
+    "verify_commitment",
 ]
