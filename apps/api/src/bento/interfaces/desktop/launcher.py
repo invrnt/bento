@@ -96,13 +96,17 @@ def _serve_desktop_api(app: object, host: str) -> None:
     import uvicorn
 
     listener = bind_loopback_listener(host)
-    port = int(listener.getsockname()[1])
     try:
+        port = int(listener.getsockname()[1])
         config = uvicorn.Config(app, host=host, port=port, reload=False, access_log=False)
         server = _announcing_server(config, lambda: announce_ready(port))
         server.run(sockets=[listener])
+        started = server.started
     finally:
         listener.close()
+    if not started:
+        # Same contract as `uvicorn.run`: a failed startup is a failed process.
+        raise SystemExit(3)
 
 
 def bind_loopback_listener(host: str) -> socket.socket:

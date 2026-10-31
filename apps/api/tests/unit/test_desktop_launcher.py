@@ -171,3 +171,16 @@ def test_desktop_api_sidecar_reports_the_port_it_bound_and_requires_the_token(tm
         except subprocess.TimeoutExpired:
             api.kill()
             api.wait()
+
+
+def test_desktop_api_startup_failure_announces_nothing_and_fails_the_process(capsys) -> None:
+    async def failing_app(scope, receive, send) -> None:
+        if scope["type"] == "lifespan":
+            await receive()
+            await send({"type": "lifespan.startup.failed", "message": "boom"})
+
+    with pytest.raises(SystemExit) as exited:
+        launcher._serve_desktop_api(failing_app, "127.0.0.1")
+
+    assert exited.value.code == 3
+    assert launcher.READY_PREFIX not in capsys.readouterr().out
