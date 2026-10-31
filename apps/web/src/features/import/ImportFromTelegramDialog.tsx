@@ -67,6 +67,14 @@ function ImportDialogBody({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const media = useTelegramMedia(step === "media" && chat ? chat.id : null, kind, api.listMedia);
+  const backRef = useRef<HTMLButtonElement | null>(null);
+
+  // The step's primary button changes under the cursor; keep keyboard focus inside the dialog.
+  useEffect(() => {
+    if (step === "media") {
+      backRef.current?.focus();
+    }
+  }, [step]);
   const selectedCount = useMemo(() => media.items.filter((item) => selected.has(item.message_id)).length, [media.items, selected]);
   const allLoadedSelected = media.items.length > 0 && selectedCount === media.items.length;
   const canSelectWholeChat = allLoadedSelected && Boolean(media.nextCursor) && kind === "all";
@@ -178,6 +186,7 @@ function ImportDialogBody({
                 setSelected(new Set());
                 setWholeChat(false);
               }}
+              ref={backRef}
               size="sm"
               variant="ghost"
             >

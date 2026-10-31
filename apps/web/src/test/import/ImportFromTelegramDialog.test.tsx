@@ -55,6 +55,7 @@ describe("ImportFromTelegramDialog", () => {
     const grid = await chooseSavedMessages();
 
     expect(api.listMedia).toHaveBeenCalledWith({ chat_id: 1, kind: "all" });
+    expect(screen.getByRole("button", { name: "Cambiar chat" })).toHaveFocus();
     expect(screen.getByRole("dialog", { name: "Importar de Telegram" })).toHaveTextContent("Desde Mensajes guardados");
     const tiles = within(grid).getAllByRole("checkbox");
     expect(tiles.map((tile) => tile.getAttribute("aria-label"))).toEqual([
