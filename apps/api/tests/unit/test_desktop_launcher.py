@@ -14,7 +14,7 @@ def test_runtime_probe_is_machine_readable_and_secret_free(monkeypatch, capsys, 
     monkeypatch.setattr(
         launcher,
         "get_settings",
-        lambda: Settings(data_dir=str(tmp_path), telegram_bot_token=secret),
+        lambda: Settings(data_dir=str(tmp_path), telegram_api_hash=secret),
     )
 
     exit_code = launcher.main(("probe", "runtime"))

@@ -33,20 +33,12 @@ class Settings(BaseSettings):
     api_port: int = Field(default=8000, ge=1, le=65535)
     web_port: int = Field(default=5173, ge=1, le=65535)
     worker_concurrency: int = Field(default=1, ge=1, le=8)
-    telegram_bot_api_url: str = "http://telegram-bot-api:8081"
-    telegram_bot_token: str | None = Field(default=None, repr=False)
-    telegram_api_id: str | None = Field(default=None, repr=False)
-    telegram_api_hash: str | None = Field(default=None, repr=False)
-    telegram_raw_chat_id: str | None = Field(default=None, repr=False)
-    telegram_thumbs_chat_id: str | None = Field(default=None, repr=False)
-    telegram_journal_chat_id: str | None = Field(default=None, repr=False)
-    telegram_webhook_secret: str | None = Field(default=None, repr=False)
-    telegram_min_interval_seconds: float = Field(default=0.05, ge=0)
-    telegram_max_attempts: int = Field(default=3, ge=1, le=20)
-    telegram_retry_base_delay_seconds: float = Field(default=0.25, ge=0)
-    encryption_mode: Literal["none", "aes_gcm"] = "none"
-    bento_encryption_key: str | None = Field(default=None, repr=False)
-    bento_encryption_key_id: str = "primary"
+    telegram_api_id: str | None = Field(
+        default=None, repr=False, validation_alias=AliasChoices("BENTO_TELEGRAM_API_ID", "telegram_api_id")
+    )
+    telegram_api_hash: str | None = Field(
+        default=None, repr=False, validation_alias=AliasChoices("BENTO_TELEGRAM_API_HASH", "telegram_api_hash")
+    )
     ocr_provider: Literal["disabled", "mock", "rapidocr"] = Field(
         default="disabled", validation_alias=AliasChoices("OCR_PROVIDER", "BENTO_OCR_PROVIDER", "ocr_provider")
     )
@@ -113,17 +105,16 @@ class Settings(BaseSettings):
         return self
 
     @property
+    def telegram_credentials_present(self) -> bool:
+        """Bento's own Telegram application credentials (build configuration) are available."""
+        return all(value is not None and str(value).strip() for value in (self.telegram_api_id, self.telegram_api_hash))
+
+    @property
     def telegram_configured(self) -> bool:
-        values = (
-            self.telegram_bot_token,
-            self.telegram_api_id,
-            self.telegram_api_hash,
-            self.telegram_raw_chat_id,
-            self.telegram_thumbs_chat_id,
-            self.telegram_journal_chat_id,
-            self.telegram_webhook_secret,
-        )
-        return all(value is not None and str(value).strip() for value in values)
+        """The configured backend can reach a Telegram account: the simulator, or MTProto with build credentials."""
+        if self.storage_backend == "fake":
+            return True
+        return self.storage_backend == "telegram" and self.telegram_credentials_present
 
     @property
     def effective_snapshot(self) -> EffectiveSettingsSnapshot | None:

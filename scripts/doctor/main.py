@@ -3,7 +3,6 @@ from __future__ import annotations
 import base64
 import binascii
 import os
-import re
 import shutil
 import sqlite3
 import subprocess
@@ -14,6 +13,7 @@ from typing import Mapping
 from dotenv import dotenv_values
 from pydantic import ValidationError
 
+from bento.adapters.security.key_store import WRAPPING_KEY_ENV, WRAPPING_KEY_FILE
 from bento.domain.settings_registry import SETTINGS_BY_KEY, SETTINGS_REGISTRY
 from bento.infrastructure.settings import Settings, load_effective_settings
 
@@ -46,7 +46,9 @@ def main() -> None:
         _check_docker_compose(root, settings),
         _check_ffmpeg(),
         _check_model(root, data_dir, settings),
+        _check_storage_mode(settings),
         _check_telegram(settings),
+        _check_key_store(data_dir, _wrapping_key_environment(root)),
     ]
 
     failures = [check for check in checks if check.status == "fail"]
@@ -74,6 +76,19 @@ def _load_settings(root: Path, environ: Mapping[str, str] | None = None) -> Sett
         if alias in values:
             bootstrap[key] = values[alias]
     return load_effective_settings(Settings(_env_file=None, **bootstrap), environ=values)
+
+
+def _wrapping_key_environment(root: Path, environ: Mapping[str, str] | None = None) -> dict[str, str]:
+    values: dict[str, str] = {}
+    path = root / ".env"
+    if path.is_file():
+        value = dotenv_values(path).get(WRAPPING_KEY_ENV)
+        if value:
+            values[WRAPPING_KEY_ENV] = value
+    process_environment = environ if environ is not None else os.environ
+    if process_environment.get(WRAPPING_KEY_ENV):
+        values[WRAPPING_KEY_ENV] = process_environment[WRAPPING_KEY_ENV]
+    return values
 
 
 def _overlay_registered(target: dict[str, str], layer: Mapping[str, str]) -> None:
@@ -166,31 +181,55 @@ def _check_model(root: Path, data_dir: Path, settings: Settings) -> Check:
     return Check(name="embedding model", status="fail", detail=f"{provider} model missing at {model_path}")
 
 
+STORAGE_MODES = {
+    "local": "local (this device only, no Telegram)",
+    "telegram": "telegram (encrypted vault in the user's Telegram account)",
+    "fake": "fake (simulated Telegram for development only)",
+}
+
+
+def _check_storage_mode(settings: Settings) -> Check:
+    return Check(name="storage mode", status="pass", detail=STORAGE_MODES[settings.storage_backend])
+
+
 def _check_telegram(settings: Settings) -> Check:
+    """Bento's own Telegram application credentials are build configuration, never user input."""
+    keys = ("telegram_api_id", "telegram_api_hash")
+    missing = [SETTINGS_BY_KEY[key].env_aliases[0] for key in keys if not _configured(settings, key)]
+    api_id = settings.telegram_api_id
+    if api_id is not None and api_id.strip() and not api_id.strip().isdigit():
+        alias = SETTINGS_BY_KEY["telegram_api_id"].env_aliases[0]
+        return Check(name="telegram credentials", status="fail", detail=f"{alias} must be a number")
     if settings.storage_backend != "telegram":
-        return Check(name="telegram config", status="pass", detail="local storage mode does not require Telegram")
-    telegram_secrets = (definition for definition in SETTINGS_REGISTRY if definition.group == "telegram" and definition.secret)
-    missing = [definition.env_aliases[0] for definition in telegram_secrets if not _configured(settings, definition.key)]
-    if settings.encryption_mode != "aes_gcm":
-        missing.append("ENCRYPTION_MODE=aes_gcm")
-    if not _configured(settings, "bento_encryption_key"):
-        missing.append(SETTINGS_BY_KEY["bento_encryption_key"].env_aliases[0])
+        state = "present" if not missing else f"missing {', '.join(missing)}"
+        return Check(name="telegram credentials", status="pass", detail=f"not required in {settings.storage_backend} mode ({state})")
     if missing:
-        return Check(name="telegram config", status="fail", detail=f"missing {', '.join(missing)}")
-    webhook_secret = settings.telegram_webhook_secret
-    if webhook_secret is not None and re.fullmatch(r"[A-Za-z0-9_-]{32,256}", webhook_secret) is None:
-        alias = SETTINGS_BY_KEY["telegram_webhook_secret"].env_aliases[0]
-        return Check(name="telegram config", status="fail", detail=f"{alias} has invalid format")
-    encoded_key = settings.bento_encryption_key
-    if encoded_key is not None:
+        return Check(name="telegram credentials", status="fail", detail=f"missing {', '.join(missing)}")
+    return Check(name="telegram credentials", status="pass", detail="build credentials are present")
+
+
+def _check_key_store(data_dir: Path, environ: Mapping[str, str]) -> Check:
+    raw = environ.get(WRAPPING_KEY_ENV, "").strip()
+    if raw:
         try:
-            key = base64.urlsafe_b64decode(encoded_key + "=" * (-len(encoded_key) % 4))
+            valid = len(base64.urlsafe_b64decode(raw + "=" * (-len(raw) % 4))) == 32
         except (ValueError, binascii.Error):
-            key = b""
-        if len(key) != 32:
-            alias = SETTINGS_BY_KEY["bento_encryption_key"].env_aliases[0]
-            return Check(name="telegram config", status="fail", detail=f"{alias} must decode to 32 bytes")
-    return Check(name="telegram config", status="pass", detail="telegram mode has required settings")
+            valid = False
+        if not valid:
+            return Check(name="key store", status="fail", detail=f"{WRAPPING_KEY_ENV} must be a base64url-encoded 32-byte key")
+        return Check(name="key store", status="pass", detail=f"wrapping key from {WRAPPING_KEY_ENV}")
+    path = data_dir / WRAPPING_KEY_FILE
+    if path.is_file():
+        return Check(
+            name="key store",
+            status="warn",
+            detail=f"file-based wrapping key at {WRAPPING_KEY_FILE.as_posix()}; protect this folder (protege esta carpeta)",
+        )
+    return Check(
+        name="key store",
+        status="warn",
+        detail=f"no {WRAPPING_KEY_ENV}; a file-based wrapping key will be created at {WRAPPING_KEY_FILE.as_posix()}",
+    )
 
 
 def _configured(settings: Settings, key: str) -> bool:

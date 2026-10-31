@@ -28,7 +28,6 @@ dev = [
   "pytest>=8.3,<9",
 ]
 desktop = [
-  "aiogram>=3,<4",
   "onnxruntime==1.23.2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
   "onnxruntime>=1.18,<2; sys_platform != 'darwin' or platform_machine != 'x86_64'",
   "pillow>=11,<12",
@@ -45,10 +44,6 @@ ocr = [
   "onnxruntime>=1.18,<2; sys_platform != 'darwin' or platform_machine != 'x86_64'",
   "rapidocr>=3,<4",
 ]
-telegram = [
-  "aiogram>=3,<4",
-]
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

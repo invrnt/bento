@@ -18,12 +18,12 @@ def test_settings_compare_and_set_is_versioned_and_secret_safe(tmp_path) -> None
             expected_revision=0,
             values={"worker_concurrency": "2"},
             secret_references={
-                "telegram_bot_token": SecretReferenceMutation("secure:telegram-token", True)
+                "telegram_api_hash": SecretReferenceMutation("secure:telegram-token", True)
             },
         )
         assert first.revision == 1
         assert first.values == {"worker_concurrency": "2"}
-        assert first.secret_references["telegram_bot_token"].configured is True
+        assert first.secret_references["telegram_api_hash"].configured is True
 
         with pytest.raises(SettingsRevisionConflictError):
             await repository.compare_and_set(
@@ -34,7 +34,7 @@ def test_settings_compare_and_set_is_versioned_and_secret_safe(tmp_path) -> None
         with pytest.raises(ValidationFailedError):
             await repository.compare_and_set(
                 expected_revision=1,
-                values={"telegram_bot_token": "top-secret-value"},
+                values={"telegram_api_hash": "top-secret-value"},
                 secret_references={},
             )
 

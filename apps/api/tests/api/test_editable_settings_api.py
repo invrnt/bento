@@ -46,9 +46,9 @@ def test_settings_contract_supports_schema_validation_apply_and_conflict(tmp_pat
 
     values = client.get("/api/settings/values").json()
     assert values["revision"] == 0
-    assert values["values"]["telegram_bot_token"] == {
+    assert values["values"]["telegram_api_hash"] == {
         "source": "default",
-        "locked": False,
+        "locked": True,
         "apply_mode": "restart_services",
         "configured": False,
     }
@@ -81,7 +81,7 @@ def test_settings_import_and_export_never_echo_secrets(tmp_path) -> None:
     secret = "this-value-must-never-be-returned"
     preview = client.post(
         "/api/settings/import/preview",
-        json={"content": f"TELEGRAM_BOT_TOKEN={secret}\nWORKER_CONCURRENCY=2"},
+        json={"content": f"BENTO_TELEGRAM_API_HASH={secret}\nWORKER_CONCURRENCY=2"},
     )
     assert preview.status_code == 200
     assert secret not in preview.text
@@ -90,4 +90,4 @@ def test_settings_import_and_export_never_echo_secrets(tmp_path) -> None:
     exported = client.get("/api/settings/export")
     assert exported.status_code == 200
     assert secret not in exported.text
-    assert "telegram_bot_token" not in exported.json()["values"]
+    assert "telegram_api_hash" not in exported.json()["values"]
