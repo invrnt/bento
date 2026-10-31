@@ -9,6 +9,7 @@ Everything a maintainer needs to build, configure and ship the Telegram-first Be
 | [Pairing relay](relay.md) | Deploying `apps/relay` to Cloudflare and setting `BENTO_RELAY_URL`. |
 | [Public site](site.md) | Building and deploying `apps/site` to Cloudflare Pages and setting `BENTO_PUBLIC_SITE_URL`. |
 | [Multi-device development](multi-device.md) | Running two local Bento instances against the fake Telegram cloud. |
+| [Launch checklist](launch-checklist.md) | Owner actions before the first public release: credentials, relay, signing key, legal review. |
 
 Related:
 
@@ -24,5 +25,7 @@ Related:
 | `BENTO_TELEGRAM_API_HASH` | secret | API and worker (Telethon) | GitHub Actions secret; local env for dev |
 | `BENTO_RELAY_URL` | public | Pairing (host and guest) | GitHub Actions variable; local env for dev |
 | `BENTO_PUBLIC_SITE_URL` | public | Pairing dialog web link (`/join#…`) | GitHub Actions variable; local env for dev |
+| `BENTO_UPDATE_PUBLIC_KEY` | public | Desktop updater (Ed25519 manifest signatures) | GitHub Actions variable |
+| `BENTO_UPDATE_SIGNING_KEY` | secret | Release workflow (signs update manifests) | GitHub Actions secret |
 
 Desktop builds write these into `resources/build-config.json` at package time and pass them to the sidecars as environment variables; absent values are omitted. Without Telegram credentials, sign-in reports `telegram_not_available`; without a relay URL, pairing uses the Telegram Sync-channel fallback; without a site URL, the pairing dialog shows no web link.
