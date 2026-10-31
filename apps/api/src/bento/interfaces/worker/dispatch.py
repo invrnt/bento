@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from bento.application.indexing.embedding import EmbeddingIndexingService
 from bento.application.indexing import OCRIndexingService
@@ -9,6 +10,9 @@ from bento.application.media import MediaProcessingService
 from bento.domain.jobs import Job, JobStatus, JobType
 from bento.ports.jobs import JobQueuePort
 from bento.ports.repositories import ClockPort
+
+if TYPE_CHECKING:
+    from bento.interfaces.worker.storage_pipeline import StoragePipelineJobHandler
 
 
 LOGGER = logging.getLogger("bento.worker.dispatch")
@@ -22,6 +26,7 @@ class WorkerDispatcher:
     worker_id: str
     ocr: OCRIndexingService | None = None
     embedding: EmbeddingIndexingService | None = None
+    storage_pipeline: StoragePipelineJobHandler | None = None
 
     async def process_one(self) -> bool:
         job = await self.jobs.claim_next(self.worker_id)
@@ -38,6 +43,9 @@ class WorkerDispatcher:
         return True
 
     async def _handle(self, job: Job) -> None:
+        if self.storage_pipeline is not None and self.storage_pipeline.handles(job.type):
+            await self.storage_pipeline.handle(job)
+            return
         if job.type in {JobType.THUMBNAIL, JobType.PDF_THUMBNAIL, JobType.VIDEO_THUMBNAIL}:
             asset_id = job.asset_id or _payload_asset_id(job)
             await self.media.process_asset_media(asset_id)

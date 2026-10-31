@@ -9,7 +9,7 @@ import pytest
 
 from bento.adapters.storage.maintenance import LocalEphemeralCache
 from bento.application.storage_maintenance import StorageMaintenanceService
-from bento.domain.errors import StorageUnavailableError, ValidationFailedError
+from bento.domain.errors import StorageUnavailableError
 from bento.domain.storage import StorageBackend
 from bento.ports.storage_maintenance import StorageInventory
 
@@ -45,7 +45,7 @@ def test_reclaim_removes_old_ephemeral_files_but_keeps_recent_and_service_data(t
     asyncio.run(scenario())
 
 
-def test_service_only_reclaims_when_telegram_is_connected_and_inventory_is_remote(tmp_path: Path) -> None:
+def test_service_reclaims_when_the_remote_store_is_connected(tmp_path: Path) -> None:
     async def scenario() -> None:
         cached = tmp_path / "cache" / "media" / "asset-1" / "preview.jpg"
         cached.parent.mkdir(parents=True)
@@ -54,8 +54,7 @@ def test_service_only_reclaims_when_telegram_is_connected_and_inventory_is_remot
         os.utime(cached, (old_timestamp, old_timestamp))
         service = StorageMaintenanceService(
             storage_backend=StorageBackend.TELEGRAM,
-            telegram_configured=True,
-            blob_store=ConnectedBlobStore(),
+            remote_store=lambda: ConnectedBlobStore(),
             inventory=StaticInventory(StorageInventory(total_blobs=4, telegram_blobs=4, local_blobs=0)),
             cache=LocalEphemeralCache(tmp_path, recent_grace_seconds=300),
         )
@@ -73,27 +72,40 @@ def test_service_only_reclaims_when_telegram_is_connected_and_inventory_is_remot
     asyncio.run(scenario())
 
 
-def test_service_blocks_reclaim_for_unavailable_telegram_or_local_blobs(tmp_path: Path) -> None:
+def test_service_blocks_reclaim_only_when_the_remote_store_is_unreachable(tmp_path: Path) -> None:
     async def scenario() -> None:
-        unavailable = StorageMaintenanceService(
-            storage_backend=StorageBackend.TELEGRAM,
-            telegram_configured=True,
-            blob_store=UnavailableBlobStore(),
-            inventory=StaticInventory(StorageInventory(total_blobs=1, telegram_blobs=1, local_blobs=0)),
-            cache=LocalEphemeralCache(tmp_path),
-        )
-        with pytest.raises(StorageUnavailableError):
-            await unavailable.reclaim()
+        for remote in (lambda: UnavailableBlobStore(), lambda: None):
+            unavailable = StorageMaintenanceService(
+                storage_backend=StorageBackend.TELEGRAM,
+                remote_store=remote,
+                inventory=StaticInventory(StorageInventory(total_blobs=1, telegram_blobs=1, local_blobs=0)),
+                cache=LocalEphemeralCache(tmp_path),
+            )
+            assert (await unavailable.status()).connection_state == "unavailable"
+            with pytest.raises(StorageUnavailableError):
+                await unavailable.reclaim()
 
+        # Local-only blobs are never evicted, so they no longer block reclaiming cached copies.
         mixed = StorageMaintenanceService(
             storage_backend=StorageBackend.TELEGRAM,
-            telegram_configured=True,
-            blob_store=ConnectedBlobStore(),
+            remote_store=lambda: ConnectedBlobStore(),
             inventory=StaticInventory(StorageInventory(total_blobs=2, telegram_blobs=1, local_blobs=1)),
             cache=LocalEphemeralCache(tmp_path),
         )
-        with pytest.raises(ValidationFailedError, match="local blobs"):
-            await mixed.reclaim()
+        status = await mixed.status()
+        assert status.fully_remote is False
+        assert status.can_reclaim is True
+        assert (await mixed.reclaim()).freed_bytes == 0
+
+        local = StorageMaintenanceService(
+            storage_backend=StorageBackend.LOCAL,
+            remote_store=lambda: None,
+            inventory=StaticInventory(StorageInventory(total_blobs=1, telegram_blobs=0, local_blobs=1)),
+            cache=LocalEphemeralCache(tmp_path),
+        )
+        assert (await local.status()).connection_state == "not_configured"
+        with pytest.raises(StorageUnavailableError):
+            await local.reclaim()
 
     asyncio.run(scenario())
 
