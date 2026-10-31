@@ -11,6 +11,7 @@ describe("desktop diagnostic redaction", () => {
         authorization: "Bearer abc.def.ghi",
         nested: {
           telegram_api_hash: "hash-value",
+          BENTO_DEVICE_WRAPPING_KEY: "wrapping-value",
           output: `failed for ${known} at https://local.test/path?token=url-token&keep=yes`,
         },
         list: ["Bearer other-token", circular],
@@ -22,6 +23,7 @@ describe("desktop diagnostic redaction", () => {
       authorization: "[REDACTED]",
       nested: {
         telegram_api_hash: "[REDACTED]",
+        BENTO_DEVICE_WRAPPING_KEY: "[REDACTED]",
         output: "failed for [REDACTED] at https://local.test/path?token=[REDACTED]&keep=yes",
       },
       list: ["Bearer [REDACTED]", { safe: "visible", self: "[CIRCULAR]" }],
