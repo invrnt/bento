@@ -58,7 +58,7 @@ Error codes: `telegram_not_available` (no build credentials), `telegram_login_ex
  "other_vaults": 0, "recovery_kit_stale": false, "reason": null}
 ```
 
-`locked` means the account has a vault but this device has no keyring yet (show "aprobar desde otro dispositivo" or "usar kit de recuperación"). `reason: "device_removed"` (only with `locked`) means another device removed this one: the keys were dropped, the local library stays, and re-joining (pairing or kit) gives this device a new identity. `recovery_kit_stale: true` (with `recovery_kit_saved: false`) means the pinned header wraps an older key epoch: generate a new kit with `POST /vault/recovery-code`. `bootstrapping` means the snapshot/ops are being applied (`/sync/status` has progress).
+`locked` means the account has a vault but this device has no keyring yet (show "aprobar desde otro dispositivo" or "usar kit de recuperación"). `reason` with `signed_out` is `session_closed` (this device was attached to a vault and lost its Telegram session; show a reconnect screen, not the first-run welcome) or `device_removed` (removed and signed out). `reason: "device_removed"` with `locked` means another device removed this one: the keys were dropped, the local library stays, and re-joining (pairing or kit) gives this device a new identity. `recovery_kit_stale: true` (with `recovery_kit_saved: false`) means the pinned header wraps an older key epoch: generate a new kit with `POST /vault/recovery-code`. `bootstrapping` means the snapshot/ops are being applied (`/sync/status` has progress).
 
 ## Sync — owner: sync agent
 
