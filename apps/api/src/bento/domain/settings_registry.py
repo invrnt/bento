@@ -48,7 +48,8 @@ SETTINGS_REGISTRY: tuple[SettingDefinition, ...] = (
     _field("app_version", ("APP_VERSION",), "advanced", Type.STRING, "0.1.0", editable=False),
     _field("environment", ("ENVIRONMENT",), "advanced", Type.STRING, "local", editable=False),
     _field("runtime_mode", ("BENTO_RUNTIME_MODE",), "advanced", Type.CHOICE, "headless", editable=False, choices=("headless", "desktop")),
-    _field("storage_backend", ("STORAGE_BACKEND",), "storage", Type.CHOICE, "local", apply=Apply.RESTART_SERVICES, choices=("local", "telegram", "fake"), probe="storage"),
+    # Telegram-first: without an account or vault the library simply stays local; `local` is the explicit opt-out.
+    _field("storage_backend", ("STORAGE_BACKEND",), "storage", Type.CHOICE, "telegram", apply=Apply.RESTART_SERVICES, choices=("local", "telegram", "fake"), probe="storage"),
     _field("host", ("HOST",), "advanced", Type.STRING, "127.0.0.1", availability=Availability.HEADLESS, editable=False),
     _field("api_port", ("API_PORT",), "advanced", Type.INTEGER, 8000, availability=Availability.HEADLESS, editable=False, minimum=1, maximum=65535),
     _field("web_port", ("WEB_PORT",), "advanced", Type.INTEGER, 5173, availability=Availability.HEADLESS, editable=False, minimum=1, maximum=65535),

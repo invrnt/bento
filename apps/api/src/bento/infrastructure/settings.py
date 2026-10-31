@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     runtime_mode: Literal["headless", "desktop"] = Field(
         default="headless", validation_alias=AliasChoices("BENTO_RUNTIME_MODE", "runtime_mode")
     )
-    storage_backend: Literal["local", "telegram", "fake"] = "local"
+    storage_backend: Literal["local", "telegram", "fake"] = "telegram"
     host: str = "127.0.0.1"
     api_port: int = Field(default=8000, ge=1, le=65535)
     web_port: int = Field(default=5173, ge=1, le=65535)

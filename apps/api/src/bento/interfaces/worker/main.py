@@ -25,6 +25,7 @@ from bento.infrastructure.db.engine import create_session_factory, sqlite_url
 from bento.infrastructure.settings import Settings, get_settings
 from bento.infrastructure.storage.factory import create_blob_store
 from bento.interfaces.worker.dispatch import WorkerDispatcher
+from bento.interfaces.worker.telegram import TelegramJobHandlers, run_inbox_loop
 
 LOGGER = logging.getLogger("bento.worker")
 
@@ -38,14 +39,19 @@ async def run_worker(stop_event: asyncio.Event | None = None) -> None:
     )
     event = stop_event or asyncio.Event()
     dispatcher = _create_dispatcher(worker_id=f"worker-{os.getpid()}", settings=settings)
-    while not event.is_set():
-        processed = await dispatcher.process_one()
-        if processed:
-            continue
-        try:
-            await asyncio.wait_for(event.wait(), timeout=1.0)
-        except TimeoutError:
-            continue
+    inbox_loop = asyncio.create_task(run_inbox_loop(settings, event))
+    try:
+        while not event.is_set():
+            processed = await dispatcher.process_one()
+            if processed:
+                continue
+            try:
+                await asyncio.wait_for(event.wait(), timeout=1.0)
+            except TimeoutError:
+                continue
+    finally:
+        event.set()
+        await asyncio.gather(inbox_loop, return_exceptions=True)
 
 
 def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> WorkerDispatcher:
@@ -101,7 +107,15 @@ def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> Work
         clock=clock,
         text_catalog=SQLiteEmbeddingTextCatalog(session_factory),
     )
-    return WorkerDispatcher(jobs=jobs, media=media, clock=clock, worker_id=worker_id, ocr=ocr, embedding=embedding)
+    return WorkerDispatcher(
+        jobs=jobs,
+        media=media,
+        clock=clock,
+        worker_id=worker_id,
+        ocr=ocr,
+        embedding=embedding,
+        telegram=TelegramJobHandlers(settings),
+    )
 
 
 def _embedding_provider(data_dir: Path, settings: Settings) -> DisabledEmbeddingProvider | MockEmbeddingProvider | JinaOmniNanoGgufAdapter:

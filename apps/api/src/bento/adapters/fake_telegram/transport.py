@@ -120,6 +120,7 @@ class FakeVaultTransport:
                 mime_type=message.media.mime_type,
                 size_bytes=message.media.size_bytes,
                 date=message.date,
+                reactions=message.reactions,
             )
             for message in messages
             if message.id > after_message_id and message.media is not None

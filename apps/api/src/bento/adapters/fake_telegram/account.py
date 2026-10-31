@@ -64,7 +64,7 @@ class FakeTelegramAccount:
             raise TelegramAccountError("telegram_login_expired", "No phone login is in progress")
         if re.sub(r"\s", "", code) != FAKE_LOGIN_CODE:
             return AccountStatus(step=LoginStep.CODE_REQUIRED, error_code="telegram_code_invalid")
-        authorization = await self._session.run(self._cloud.create_authorization, self._options)
+        authorization = await self._session.run(self._cloud.create_authorization, await self._session.announced_options())
         return await self._finish(authorization.id)
 
     async def submit_password(self, password: str) -> AccountStatus:
@@ -165,7 +165,7 @@ class FakeTelegramAccount:
 
     async def _issue_qr(self) -> None:
         await self._discard_qr()
-        token = await self._session.run(self._cloud.issue_login_token, self._options)
+        token = await self._session.run(self._cloud.issue_login_token, await self._session.announced_options())
         self._pending = _PendingLogin(step=LoginStep.QR_PENDING, token=token)
 
     async def _discard_qr(self) -> None:

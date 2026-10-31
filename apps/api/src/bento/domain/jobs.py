@@ -18,6 +18,8 @@ class JobType(StrEnum):
     REINDEX = "reindex"
     TELEGRAM_IMPORT = "telegram_import"
     JOURNAL_EXPORT = "journal_export"
+    ACCOUNT_RELOAD = "account_reload"
+    INBOX_IMPORT = "inbox_import"
 
 
 class JobStatus(StrEnum):

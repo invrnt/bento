@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib
 import os
 import threading
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -67,11 +67,15 @@ def create_fake_telegram_runtime(
     options: FakeTelegramOptions | None = None,
     environ: Mapping[str, str] | None = None,
     clock: Callable[[], float] | None = None,
+    device_model: Callable[[], Awaitable[str]] | None = None,
 ) -> TelegramRuntime:
-    """An uncached fake runtime; call twice with different key stores to simulate two devices in one process."""
+    """An uncached fake runtime; call twice with different key stores to simulate two devices in one process.
+
+    `device_model` makes the instance announce that name at sign-in (as MTProto does with `Bento (<suffix>)`).
+    """
     resolved = options or FakeTelegramOptions.from_environ(os.environ if environ is None else environ)
     cloud = FakeTelegramCloud(directory) if clock is None else FakeTelegramCloud(directory, clock=clock)
-    session = FakeTelegramSession(cloud, key_store, resolved)
+    session = FakeTelegramSession(cloud, key_store, resolved, device_model=device_model)
     return TelegramRuntime(
         account=FakeTelegramAccount(session),
         transport=FakeVaultTransport(session),
@@ -88,7 +92,9 @@ def approve_fake_telegram_logins(settings: Settings) -> int:
 def _create_runtime(settings: Settings, key_store: KeyStorePort) -> TelegramRuntime:
     if settings.storage_backend == "fake":
         options = FakeTelegramOptions.from_environ(os.environ, app_name=f"{settings.app_name} {settings.app_version}")
-        return create_fake_telegram_runtime(fake_telegram_directory(settings), key_store, options=options)
+        return create_fake_telegram_runtime(
+            fake_telegram_directory(settings), key_store, options=options, device_model=bento_device_model(key_store)
+        )
     try:
         module: Any = importlib.import_module(MTPROTO_RUNTIME_MODULE)
     except ModuleNotFoundError as exc:
@@ -97,6 +103,20 @@ def _create_runtime(settings: Settings, key_store: KeyStorePort) -> TelegramRunt
             raise TelegramNotAvailableError() from exc
         raise
     return module.create_mtproto_runtime(settings, key_store)
+
+
+def bento_device_model(key_store: KeyStorePort) -> Callable[[], Awaitable[str]]:
+    """`Bento (<last 6 chars of device_id>)` for this device, creating its identity on first use."""
+    from bento.adapters.security import VaultCrypto
+    from bento.application.account import telegram_device_model
+    from bento.application.vault import DeviceIdentityStore
+
+    identities = DeviceIdentityStore(key_store, VaultCrypto())
+
+    async def provide() -> str:
+        return telegram_device_model((await identities.get()).device_id)
+
+    return provide
 
 
 def _cache_key(settings: Settings) -> tuple[str, ...]:

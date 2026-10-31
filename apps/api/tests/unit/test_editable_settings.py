@@ -134,7 +134,7 @@ def test_api_and_worker_settings_snapshots_resolve_identically() -> None:
 
 def test_desktop_does_not_silently_read_legacy_dotenv(monkeypatch, tmp_path) -> None:
     (tmp_path / ".env").write_text(
-        "BENTO_RUNTIME_MODE=desktop\nSTORAGE_BACKEND=telegram\nBENTO_TELEGRAM_API_HASH=must-not-load",
+        "BENTO_RUNTIME_MODE=desktop\nSTORAGE_BACKEND=local\nBENTO_TELEGRAM_API_HASH=must-not-load",
         encoding="utf-8",
     )
     monkeypatch.chdir(tmp_path)
@@ -145,7 +145,7 @@ def test_desktop_does_not_silently_read_legacy_dotenv(monkeypatch, tmp_path) -> 
     get_settings.cache_clear()
     try:
         settings = get_settings()
-        assert settings.storage_backend == "local"
+        assert settings.storage_backend == "telegram"
         assert settings.telegram_api_hash is None
     finally:
         get_settings.cache_clear()

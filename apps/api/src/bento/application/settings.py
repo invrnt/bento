@@ -183,6 +183,7 @@ class EditableSettingsService:
         }
         configured.update({key: mutation.configured for key, mutation in references.items()})
         errors.extend(_cross_validate(candidate, configured))
+        warnings.extend(_cross_warnings(candidate, configured))
         probes = _run_probes(normalized, candidate) if run_probes and not errors else ()
         errors.extend(
             FieldIssue(probe.key, "settings_probe_failed", probe.message or "Probe failed")
@@ -303,13 +304,17 @@ def _validate_constraints(definition: Any, value: Any) -> None:
         raise ValueError(f"Must be at most {definition.maximum:g}")
 
 
+def _cross_warnings(values: Mapping[str, Any], configured: Mapping[str, bool]) -> list[FieldIssue]:
+    """Telegram mode without build credentials stays valid: the library keeps working locally."""
+    if values.get("storage_backend") == "telegram" and not all(
+        configured.get(key) for key in ("telegram_api_id", "telegram_api_hash")
+    ):
+        return [FieldIssue("storage_backend", "telegram_not_available", "This build has no Telegram application credentials")]
+    return []
+
+
 def _cross_validate(values: Mapping[str, Any], configured: Mapping[str, bool]) -> list[FieldIssue]:
     issues: list[FieldIssue] = []
-    if values.get("storage_backend") == "telegram":
-        if not all(configured.get(key) for key in ("telegram_api_id", "telegram_api_hash")):
-            issues.append(
-                FieldIssue("storage_backend", "telegram_not_available", "This build has no Telegram application credentials")
-            )
     if values.get("storage_backend") == "fake" and values.get("environment") == "production":
         issues.append(FieldIssue("storage_backend", "storage_backend_unavailable", "The simulated Telegram is not available"))
     if values.get("embeddings_provider") == "jina" and not str(values.get("jina_model_path") or "").strip():

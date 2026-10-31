@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
+from dataclasses import replace
 from typing import ParamSpec, TypeVar
 
 from bento.adapters.fake_telegram.cloud import FakeTelegramCloud
@@ -17,14 +18,35 @@ P = ParamSpec("P")
 T = TypeVar("T")
 
 
-class FakeTelegramSession:
-    """One Bento instance: its authorization id lives in the key store under `telegram.session`."""
+DeviceModelProvider = Callable[[], Awaitable[str]]
 
-    def __init__(self, cloud: FakeTelegramCloud, key_store: KeyStorePort, options: FakeTelegramOptions) -> None:
+
+class FakeTelegramSession:
+    """One Bento instance: its authorization id lives in the key store under `telegram.session`.
+
+    With a `device_model` provider the instance announces that name (like `Bento (ab12cd)`) when it signs in,
+    exactly as the MTProto client does, instead of `options.device_model`.
+    """
+
+    def __init__(
+        self,
+        cloud: FakeTelegramCloud,
+        key_store: KeyStorePort,
+        options: FakeTelegramOptions,
+        *,
+        device_model: DeviceModelProvider | None = None,
+    ) -> None:
         self.cloud = cloud
         self.options = options
         self._key_store = key_store
+        self._device_model = device_model
         self._touched_at = 0.0
+
+    async def announced_options(self) -> FakeTelegramOptions:
+        """The options a new authorization of this instance is recorded with."""
+        if self._device_model is None:
+            return self.options
+        return replace(self.options, device_model=await self._device_model())
 
     async def authorization_id(self) -> str | None:
         raw = await self._key_store.get(TELEGRAM_SESSION)

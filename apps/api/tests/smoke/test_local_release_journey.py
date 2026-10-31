@@ -14,7 +14,7 @@ from bento.interfaces.http.main import create_app
 
 def test_local_release_critical_journey(tmp_path: Path) -> None:
     data_dir = _migrated_data_dir(tmp_path)
-    client = TestClient(create_app(Settings(data_dir=str(data_dir))))
+    client = TestClient(create_app(Settings(data_dir=str(data_dir), storage_backend="local")))
 
     settings = client.get("/api/settings")
     assert settings.status_code == 200

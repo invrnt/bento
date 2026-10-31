@@ -27,7 +27,7 @@ def _fresh_runtime() -> Iterator[None]:
 
 
 def test_local_storage_has_no_telegram_runtime(tmp_path: Path) -> None:
-    assert get_telegram_runtime(Settings(data_dir=str(tmp_path)), MemoryKeyStore()) is None
+    assert get_telegram_runtime(Settings(data_dir=str(tmp_path), storage_backend="local"), MemoryKeyStore()) is None
 
 
 def test_fake_runtime_is_cached_per_process_until_reset(tmp_path: Path) -> None:

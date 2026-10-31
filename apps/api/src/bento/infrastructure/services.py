@@ -20,30 +20,42 @@ if TYPE_CHECKING:
 
 
 def get_key_store(settings: Settings) -> KeyStorePort:
-    """Owner: vault-crypto (Stage 14) / mtproto wiring (Stage 15)."""
-    raise NotImplementedError("get_key_store is wired in Stage 15")
+    """Owner: vault-crypto (Stage 14) / mtproto wiring (Stage 15). `<data_dir>/secure`, cached per data dir."""
+    from bento.infrastructure.mtproto import wiring
+
+    return wiring.key_store(settings)
 
 
 def get_vault_crypto() -> VaultCryptoPort:
-    raise NotImplementedError("get_vault_crypto is wired in Stage 15")
+    from bento.infrastructure.mtproto import wiring
+
+    return wiring.vault_crypto()
 
 
 def get_blob_cipher() -> BlobCipherPort:
-    raise NotImplementedError("get_blob_cipher is wired in Stage 15")
+    from bento.infrastructure.mtproto import wiring
+
+    return wiring.blob_cipher()
 
 
 def get_pairing_crypto() -> PairingCryptoFactoryPort:
-    raise NotImplementedError("get_pairing_crypto is wired in Stage 15")
+    from bento.infrastructure.mtproto import wiring
+
+    return wiring.pairing_crypto()
 
 
 def get_vault_session(settings: Settings) -> VaultSessionPort:
-    """Owner: mtproto agent."""
-    raise NotImplementedError("get_vault_session is implemented by the mtproto agent")
+    """Owner: mtproto agent. Cached per process; never raises (local mode reports `local_only`)."""
+    from bento.infrastructure.mtproto import wiring
+
+    return wiring.vault_session(settings)
 
 
 def get_remote_blob_store(settings: Settings) -> RemoteBlobStorePort | None:
     """Owner: mtproto agent. None when the vault is not ready on this device."""
-    raise NotImplementedError("get_remote_blob_store is implemented by the mtproto agent")
+    from bento.infrastructure.mtproto import wiring
+
+    return wiring.remote_blob_store(settings)
 
 
 def get_asset_content(settings: Settings) -> AssetContentPort:
@@ -58,3 +70,6 @@ def get_sync_status_provider(settings: Settings) -> SyncStatusProviderPort:
 
 def reset_services() -> None:
     """Drop cached instances (tests, account reloads). Each owner clears its own caches here."""
+    from bento.infrastructure.mtproto import wiring
+
+    wiring.reset()

@@ -45,6 +45,8 @@ class InboxItem:
     mime_type: str
     size_bytes: int | None
     date: datetime
+    # The account's own reactions; every device of the account shares them, so they mark handled items.
+    reactions: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
