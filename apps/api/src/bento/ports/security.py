@@ -136,6 +136,44 @@ class FallbackPairingKeysPort(Protocol):
         host_ephemeral_public_key: bytes,
     ) -> tuple[str, str, str, str]: ...
 
+    def grant_key_with(
+        self,
+        peer_public_key: bytes,
+        *,
+        request_id: str,
+        guest_device_public_key: bytes,
+        guest_ephemeral_public_key: bytes,
+        host_ephemeral_public_key: bytes,
+    ) -> bytes:
+        """32-byte `HKDF(X25519, salt = SAS transcript hash, info="bento/v1/pairing/fallback-grant")`."""
+        ...
+
+    def seal_grant(
+        self,
+        peer_public_key: bytes,
+        sealed_keyring: bytes,
+        *,
+        request_id: str,
+        guest_device_public_key: bytes,
+        guest_ephemeral_public_key: bytes,
+        host_ephemeral_public_key: bytes,
+    ) -> bytes:
+        """Host: `nonce 12B || AES-256-GCM(grant_key, nonce, sealed_keyring, aad=request_id)`."""
+        ...
+
+    def open_grant(
+        self,
+        peer_public_key: bytes,
+        grant: bytes,
+        *,
+        request_id: str,
+        guest_device_public_key: bytes,
+        guest_ephemeral_public_key: bytes,
+        host_ephemeral_public_key: bytes,
+    ) -> bytes:
+        """Guest: the sealed keyring inside `grant`. Raises `IntegrityError` unless the SAS-verified host made it."""
+        ...
+
 
 class PairingCryptoFactoryPort(Protocol):
     def host_session(self, password: bytes) -> PairingCryptoSessionPort: ...

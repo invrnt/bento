@@ -158,7 +158,16 @@ def test_fallback_messages_are_parsed_or_ignored() -> None:
         created_at=NOW,
     )
     assert reveal is not None and reveal.eph_pub == bytes(range(32)) and reveal.offer_eph_pub == bytes(range(32))
+    grant = parse_fallback_message(
+        '{"bento":"pair_grant","v":1,"request_id":"%s","grant":"%s"}' % (request_id, b64url_encode(bytes(60))),
+        message_id=11,
+        created_at=NOW,
+    )
+    assert grant is not None and grant.kind is FallbackKind.GRANT and grant.grant == bytes(60)
     for junk in (
+        '{"bento":"pair_grant","v":1,"request_id":"%s","sealed_keyring":"%s"}' % (request_id, KEY),
+        '{"bento":"pair_grant","v":1,"request_id":"%s","grant":""}' % request_id,
+        '{"bento":"pair_grant","v":1,"request_id":"%s","grant":"%s"}' % (request_id, b64url_encode(bytes(48 * 1024 + 29))),
         "",
         "plain text",
         "[1]",

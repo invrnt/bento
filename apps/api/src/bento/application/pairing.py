@@ -69,6 +69,8 @@ FALLBACK_REQUEST_TTL_SECONDS = 900.0
 MAX_DEVICE_NAME_CHARS = 64
 MAX_LOGIN_TOKEN_BYTES = 512
 MAX_SEALED_KEYRING_BYTES = 48 * 1024
+MAX_FALLBACK_GRANT_BYTES = MAX_SEALED_KEYRING_BYTES + 28
+"""A fallback grant is `nonce 12B || AES-256-GCM(sealed keyring) || tag 16B`."""
 MAX_FALLBACK_MESSAGE_BYTES = 64 * 1024
 MAX_FALLBACK_TEXT_CHARS = 3500
 """Longer fallback messages are posted as `.bpair` documents instead of text (Telegram allows 4096)."""
@@ -351,7 +353,7 @@ class FallbackMessage:
     request: FallbackRequest | None = None
     eph_pub: bytes | None = None
     offer_eph_pub: bytes | None = None
-    sealed_keyring: bytes | None = field(default=None, repr=False)
+    grant: bytes | None = field(default=None, repr=False)
 
 
 def parse_fallback_message(text: str, *, message_id: int, created_at: datetime) -> FallbackMessage | None:
@@ -400,8 +402,8 @@ def parse_fallback_message(text: str, *, message_id: int, created_at: datetime) 
                 offer_eph_pub=decode_public_key(offer) if kind is FallbackKind.REVEAL and offer is not None else None,
             )
         if kind is FallbackKind.GRANT:
-            sealed = b64url_decode(payload.get("sealed_keyring"), max_bytes=MAX_SEALED_KEYRING_BYTES)
-            return FallbackMessage(**base, sealed_keyring=sealed)
+            grant = b64url_decode(payload.get("grant"), max_bytes=MAX_FALLBACK_GRANT_BYTES)
+            return FallbackMessage(**base, grant=grant) if grant else None
     except ValidationFailedError:
         return None
     return FallbackMessage(**base)
@@ -1147,8 +1149,21 @@ class PairingService:
                     self._set(session, PairingState.CONNECTED)
                     self._set(session, PairingState.AWAITING_APPROVAL, sas=sas)
                 elif message.kind is FallbackKind.GRANT and host_eph is not None:
-                    assert message.sealed_keyring is not None
-                    keyring = self._open_grant(identity, message.sealed_keyring, layout.vault_id, aad=request_id)
+                    assert message.grant is not None
+                    try:
+                        sealed = keys.open_grant(
+                            host_eph,
+                            message.grant,
+                            request_id=request_id,
+                            guest_device_public_key=identity.public_key,
+                            guest_ephemeral_public_key=keys.public_key(),
+                            host_ephemeral_public_key=host_eph,
+                        )
+                    except IntegrityError:
+                        # Not made by the host whose emojis the user compares: ignore it and keep waiting.
+                        logger.warning("pairing %s ignored a grant from someone other than the reviewing device", session.id)
+                        continue
+                    keyring = self._open_grant(identity, sealed, layout.vault_id, aad=request_id)
                     await self._verify_granted_keyring(layout, keyring)
                     self._set(session, PairingState.APPROVING)
                     self._set(session, PairingState.BOOTSTRAPPING)
@@ -1195,6 +1210,7 @@ class PairingService:
         offer_message_id: int,
     ) -> None:
         host_eph = keys.public_key()
+        guest_eph = b""
         while session.sas is None:
             event = await self._next(session, min(session.deadline, self._now() + self._timeouts.fallback_poll_interval))
             if event is None:
@@ -1219,11 +1235,12 @@ class PairingService:
                 request_id=request.request_id,
             ):
                 raise _Abort(PairingState.FAILED, "pairing_commitment_mismatch")
+            guest_eph = message.eph_pub
             sas = keys.sas_with(
-                message.eph_pub,
+                guest_eph,
                 request_id=request.request_id,
                 guest_device_public_key=request.public_key,
-                guest_ephemeral_public_key=message.eph_pub,
+                guest_ephemeral_public_key=guest_eph,
                 host_ephemeral_public_key=host_eph,
             )
             self._set(session, PairingState.AWAITING_APPROVAL, sas=sas)
@@ -1247,9 +1264,17 @@ class PairingService:
                 self._vault_crypto.keyring_to_bytes(context.keyring),
                 aad=request.request_id.encode("utf-8"),
             )
+            # Sealed to the device key and authenticated by the exchange whose SAS the user just compared.
+            grant = keys.seal_grant(
+                guest_eph,
+                sealed,
+                request_id=request.request_id,
+                guest_device_public_key=request.public_key,
+                guest_ephemeral_public_key=guest_eph,
+                host_ephemeral_public_key=host_eph,
+            )
             await self._post_fallback(
-                context.layout,
-                fallback_payload(FallbackKind.GRANT, request.request_id, sealed_keyring=b64url_encode(sealed)),
+                context.layout, fallback_payload(FallbackKind.GRANT, request.request_id, grant=b64url_encode(grant))
             )
             self._index.answered.add(request.request_id)
             await self._record_device(request.device_id, request.device_name, request.platform, request.public_key, None)

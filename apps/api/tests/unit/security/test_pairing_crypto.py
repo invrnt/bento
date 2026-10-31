@@ -309,6 +309,46 @@ def test_fallback_sas_rejects_inconsistent_or_invalid_transcripts() -> None:
             keys.sas_with(peer, **call_transcript)  # type: ignore[arg-type]
 
 
+def test_fallback_grant_key_agrees_and_is_separate_from_the_sas() -> None:
+    guest, host = factory.fallback_keys(), factory.fallback_keys()
+    transcript = _transcript(guest.public_key(), host.public_key())
+    guest_key = guest.grant_key_with(host.public_key(), **transcript)  # type: ignore[arg-type]
+    host_key = host.grant_key_with(guest.public_key(), **transcript)  # type: ignore[arg-type]
+    assert guest_key == host_key and len(guest_key) == 32
+    assert host.grant_key_with(guest.public_key(), **{**transcript, "request_id": "req_other"}) != host_key  # type: ignore[arg-type]
+    intruder = factory.fallback_keys()
+    assert intruder.grant_key_with(guest.public_key(), **_transcript(guest.public_key(), intruder.public_key())) != host_key  # type: ignore[arg-type]
+    for keys, peer, call_transcript in (
+        (host, intruder.public_key(), transcript),
+        (intruder, guest.public_key(), transcript),
+        (host, guest.public_key(), {**transcript, "request_id": ""}),
+        (host, host.public_key(), transcript),
+    ):
+        with pytest.raises(IntegrityError):
+            keys.grant_key_with(peer, **call_transcript)  # type: ignore[arg-type]
+
+
+def test_fallback_grant_only_opens_for_the_sas_verified_host() -> None:
+    guest, host, intruder = factory.fallback_keys(), factory.fallback_keys(), factory.fallback_keys()
+    transcript = _transcript(guest.public_key(), host.public_key())
+    grant = host.seal_grant(guest.public_key(), b"sealed keyring", **transcript)  # type: ignore[arg-type]
+    assert guest.open_grant(host.public_key(), grant, **transcript) == b"sealed keyring"  # type: ignore[arg-type]
+    assert host.seal_grant(guest.public_key(), b"sealed keyring", **transcript)[:12] != grant[:12]  # type: ignore[arg-type]
+
+    # A channel writer knows every public value but neither ephemeral private key.
+    forged = intruder.seal_grant(
+        guest.public_key(), b"attacker keyring", **_transcript(guest.public_key(), intruder.public_key())  # type: ignore[arg-type]
+    )
+    tampered = (flip_bit(grant, 0), flip_bit(grant, 12 * 8), flip_bit(grant, len(grant) * 8 - 1))  # nonce, body, tag
+    for bad in (forged, *tampered, grant[:20], b"", grant + b"x"):
+        with pytest.raises(IntegrityError):
+            guest.open_grant(host.public_key(), bad, **transcript)  # type: ignore[arg-type]
+    with pytest.raises(IntegrityError):
+        guest.open_grant(host.public_key(), grant, **{**transcript, "request_id": "req_other"})  # type: ignore[arg-type]
+    with pytest.raises(ValidationFailedError):
+        host.seal_grant(guest.public_key(), b"", **transcript)  # type: ignore[arg-type]
+
+
 def test_reprs_hide_secrets() -> None:
     host, _guest = _confirmed()
     text = repr(host)
