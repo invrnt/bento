@@ -79,3 +79,32 @@ Shared: `routes/routeConfig.ts` one-line additions only; `src/api/**` is frozen 
 **Device ↔ Telegram authorization matching**
 
 A session cannot learn its own authorization hash (current = 0). Every Bento client therefore connects with `device_model = "Bento (<last 6 chars of device_id>)"`; to close another device's session, list authorizations and match `device_model` against the target device id suffix. The guest's hash is also available to the host from `AcceptedLogin.authorization_hash`. The fake cloud may be extended minimally (by the mtproto agent) to record the `device_model` each instance announces.
+
+## Status — Stages 14-17 complete (2026-10-31)
+
+**Delivered**
+
+- MTProto account sign-in (QR, phone, 2FA) with Bento's build credentials; automatic vault (three private channels in a muted `Bento` chat folder); Bot API removed.
+- End-to-end encryption: keyring with epochs, v2 streaming blob format (range reads, resumable parts), sealed envelopes, recovery codes, device identities, wrapped key store.
+- Multi-device sync: change capture, encrypted batches, LWW per field with HLC, snapshots with header-pinned digests, trash/purge, key rotation with sender-authenticated grants, epoch floors, removed-device lockout, edited-message rejection, clock-skew warnings, size caps.
+- Pairing: SPAKE2 over the Cloudflare relay (`apps/relay`, Worker + SQLite Durable Object, per-/64 and per-nameplate limits) with SAS emojis and login-token acceptance (new device signed in without the phone); Sync-channel fallback with commit-then-reveal, guest confirmation, and SAS-bound grants.
+- Storage pipeline: local-first ingestion, background encrypted uploads (album batching, offline/flood-wait rescheduling), bounded cache, Range streaming, folder backup (watchdog), trash with remote deletion, Activity summary, Inbox channel, share to Telegram, import from Telegram (never fed to OCR/embeddings, per API terms §1.5).
+- Desktop: tray, background lifecycle, launch at login, `bento://` deep links, Send to Bento, PDF recovery kit, background updates with Ed25519-signed manifests, device wrapping key in the OS store, self-bound sidecar port, scrubbed child environments.
+- Web: first run, join/pairing, devices (review, selective removal), recovery kit, reconnect screens, Activity, trash with undo, share/import dialogs, Quick Look with streaming, simplified Settings, full English locale.
+- Site (`apps/site`), user guides (es/en), legal drafts, developer docs, launch checklist.
+
+**Verification**
+
+- Backend 823 tests (+13 multi-process e2e journeys: `make e2e`), web 269, desktop 326, relay 74, site 50.
+- Live QA with two simulated devices and the real relay under `wrangler dev`: first run, pairing by code without the phone, live convergence, trash, removal with new kit.
+- Independent security review; every high/medium finding fixed (see commits "Security fixes …" and the architecture doc's hardened rules).
+
+**Residual risks (documented, accepted for now)**
+
+- Emoji comparison (SAS) relies on the user; a careless confirmation can admit an attacker in the fallback flow.
+- A device that is still active can register a ghost device before its removal; mitigated by the new-device review prompt and selective removal, not prevented.
+- Anyone with the account session can deny service (delete/edit channel messages, answer pairing requests first); confidentiality is preserved.
+- Concurrent key rotations by two devices can diverge; rare (manual removals on two devices at once).
+- Real-Telegram behaviour (flood limits, `acceptLoginToken` restrictions, file-reference refresh) is verified only against the simulator; see `docs/dev/launch-checklist.md` for the required real-account smoke test.
+
+**Owner actions**: `docs/dev/launch-checklist.md`. **Deferred features**: `product/telegram-first-experience.md` § Deferred.
