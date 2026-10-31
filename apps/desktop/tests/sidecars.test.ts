@@ -4,7 +4,9 @@ import path from "node:path";
 import { PassThrough } from "node:stream";
 import { describe, expect, it, vi } from "vitest";
 import { BENTO_ORIGIN } from "../src/shared/contracts";
-import { SidecarSupervisor } from "../src/main/sidecars";
+import { SECRET_ENVIRONMENT, SECRET_SETTING_KEYS, SidecarSupervisor } from "../src/main/sidecars";
+import { LEGACY_SECRET_SETTING_KEYS } from "../src/main/secrets";
+import { sidecarRuntimeEnvironment } from "../src/main/build-config";
 
 class FakeChild extends EventEmitter {
   pid = 42;
@@ -37,7 +39,7 @@ function setup() {
   const supervisor = new SidecarSupervisor({
     command: { executable: "bento-sidecar", prefixArguments: [] },
     dataDir: "/tmp/bento-test-data",
-    secretEnvironment: { telegram_bot_token: "telegram-secret" },
+    secretEnvironment: { legacy_bot_token: "legacy-secret" },
     reservePort: async () => 43127,
     randomToken: () => "unguessable-per-launch-token-1234567890",
     fetch,
@@ -66,8 +68,8 @@ describe("authenticated sidecar lifecycle", () => {
       API_PORT: "43127",
       DATA_DIR: "/tmp/bento-test-data",
       BENTO_DESKTOP_ORIGIN: BENTO_ORIGIN,
-      TELEGRAM_BOT_TOKEN: "telegram-secret",
     });
+    expect(Object.values(launches[1]!.env)).not.toContain("legacy-secret");
     expect(launches[1]?.env.BENTO_DESKTOP_API_TOKEN?.length).toBeGreaterThanOrEqual(32);
     const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("http://127.0.0.1:43127/api/desktop/readiness");
@@ -77,30 +79,27 @@ describe("authenticated sidecar lifecycle", () => {
     expect(supervisor.status).toEqual({ state: "ready", recoveryMode: false });
   });
 
-  it("keeps the desktop secret environment mapping aligned with the canonical backend registry", async () => {
-    const expectedAliases = {
-      telegram_bot_token: "TELEGRAM_BOT_TOKEN",
-      telegram_api_id: "TELEGRAM_API_ID",
-      telegram_api_hash: "TELEGRAM_API_HASH",
-      telegram_raw_chat_id: "TELEGRAM_RAW_CHAT_ID",
-      telegram_thumbs_chat_id: "TELEGRAM_THUMBS_CHAT_ID",
-      telegram_journal_chat_id: "TELEGRAM_JOURNAL_CHAT_ID",
-      telegram_webhook_secret: "TELEGRAM_WEBHOOK_SECRET",
-      bento_encryption_key: "BENTO_ENCRYPTION_KEY",
-    } as const;
+  it("forwards no Bot API secrets and only registry-backed secret aliases", async () => {
+    for (const legacy of LEGACY_SECRET_SETTING_KEYS) {
+      expect(SECRET_SETTING_KEYS).not.toContain(legacy);
+      expect(SECRET_ENVIRONMENT).not.toHaveProperty(legacy);
+    }
     const registryPath = path.resolve(import.meta.dirname, "../../api/src/bento/domain/settings_registry.py");
     const registry = await readFile(registryPath, "utf8");
-    const registeredSecrets = [...registry.matchAll(
+    const registeredSecrets = Object.fromEntries([...registry.matchAll(
       /_field\("([a-z0-9_]+)", \("([A-Z0-9_]+)"(?:,\s*"[A-Z0-9_]+")*,?\),[^\n]*secret=True\)/gu,
-    )].map((match) => [match[1], match[2]] as const);
-    expect(Object.fromEntries(registeredSecrets)).toEqual(expectedAliases);
+    )].map((match) => [match[1], match[2]] as const));
+    for (const [key, alias] of Object.entries(SECRET_ENVIRONMENT)) {
+      expect(registeredSecrets[key]).toBe(alias);
+      expect(SECRET_SETTING_KEYS).toContain(key);
+    }
 
-    const secretValues = Object.fromEntries(Object.keys(expectedAliases).map((key) => [key, `value-for-${key}`]));
+    const legacyValues = Object.fromEntries(LEGACY_SECRET_SETTING_KEYS.map((key) => [key, `value-for-${key}`]));
     const launches: Array<{ command: string; env: NodeJS.ProcessEnv }> = [];
     const supervisor = new SidecarSupervisor({
       command: { executable: "bento-sidecar", prefixArguments: [] },
       dataDir: "/tmp/bento-test-data",
-      secretEnvironment: { ...secretValues, unknown_secret: "must-not-leak" },
+      secretEnvironment: legacyValues,
       reservePort: async () => 43127,
       randomToken: () => "unguessable-per-launch-token-1234567890",
       fetch: async () => jsonResponse({ status: "ready" }),
@@ -113,12 +112,119 @@ describe("authenticated sidecar lifecycle", () => {
       },
     });
     await supervisor.start();
-
     const apiEnvironment = launches.find((launch) => launch.command === "api")!.env;
-    for (const [key, alias] of Object.entries(expectedAliases)) {
-      expect(apiEnvironment[alias]).toBe(secretValues[key]);
+    for (const value of Object.values(legacyValues)) expect(Object.values(apiEnvironment)).not.toContain(value);
+    expect(apiEnvironment).not.toHaveProperty("TELEGRAM_BOT_TOKEN");
+    expect(apiEnvironment).not.toHaveProperty("BENTO_ENCRYPTION_KEY");
+  });
+
+  it("injects the device wrapping key and build configuration, stripping inherited overrides", async () => {
+    const launches: Array<{ command: string; env: NodeJS.ProcessEnv }> = [];
+    const inherited = { BENTO_DEVICE_WRAPPING_KEY: "inherited-wrapping-key", BENTO_RELAY_URL: "wss://inherited.example", PATH: process.env.PATH };
+    const previous = { ...process.env };
+    Object.assign(process.env, inherited);
+    try {
+      const key = Buffer.alloc(32, 7).toString("base64url");
+      const supervisor = new SidecarSupervisor({
+        command: { executable: "bento-sidecar", prefixArguments: [] },
+        dataDir: "/tmp/bento-test-data",
+        runtimeEnvironment: { BENTO_TELEGRAM_API_ID: "12345", BENTO_RUNTIME_MODE: "headless" },
+        strippedEnvironment: ["BENTO_RELAY_URL"],
+        deviceWrappingKey: key,
+        reservePort: async () => 43127,
+        randomToken: () => "unguessable-per-launch-token-1234567890",
+        fetch: async () => jsonResponse({ status: "ready" }),
+        spawnProcess: (_executable, arguments_, options) => {
+          const child = new FakeChild();
+          const command = arguments_[0] ?? "";
+          launches.push({ command, env: options.env });
+          if (command === "migrate" || command === "probe") queueMicrotask(() => child.exit(0));
+          return child;
+        },
+      });
+      await supervisor.start();
+      await supervisor.runProbe({ kind: "ffmpeg" });
+      for (const command of ["migrate", "api", "worker", "probe"]) {
+        const environment = launches.find((launch) => launch.command === command)!.env;
+        expect(environment.BENTO_DEVICE_WRAPPING_KEY).toBe(key);
+        expect(environment.BENTO_TELEGRAM_API_ID).toBe("12345");
+        expect(environment).not.toHaveProperty("BENTO_RELAY_URL");
+        // Fixed desktop values cannot be overridden by runtime configuration.
+        expect(environment.BENTO_RUNTIME_MODE).toBe("desktop");
+      }
+    } finally {
+      for (const key of Object.keys(inherited)) delete process.env[key];
+      Object.assign(process.env, previous);
     }
-    expect(Object.values(apiEnvironment)).not.toContain("must-not-leak");
+  });
+
+  it("spawns packaged API and worker sidecars as production without the fake cloud", async () => {
+    const launches: Array<{ command: string; env: NodeJS.ProcessEnv }> = [];
+    const inherited = { ENVIRONMENT: "local", STORAGE_BACKEND: "fake", BENTO_DEV_STORAGE_BACKEND: "fake" };
+    Object.assign(process.env, inherited);
+    try {
+      const runtime = sidecarRuntimeEnvironment({ packaged: true, buildConfig: {}, environment: process.env });
+      const supervisor = new SidecarSupervisor({
+        command: { executable: "bento-sidecar", prefixArguments: [] },
+        dataDir: "/tmp/bento-test-data",
+        runtimeEnvironment: runtime.set,
+        strippedEnvironment: runtime.strip,
+        reservePort: async () => 43127,
+        randomToken: () => "unguessable-per-launch-token-1234567890",
+        fetch: async () => jsonResponse({ status: "ready" }),
+        spawnProcess: (_executable, arguments_, options) => {
+          const child = new FakeChild();
+          launches.push({ command: arguments_[0] ?? "", env: options.env });
+          if (arguments_[0] === "migrate") queueMicrotask(() => child.exit(0));
+          return child;
+        },
+      });
+      await supervisor.start();
+      for (const command of ["api", "worker"]) {
+        const environment = launches.find((launch) => launch.command === command)!.env;
+        expect(environment.ENVIRONMENT).toBe("production");
+        expect(environment).not.toHaveProperty("STORAGE_BACKEND");
+        expect(environment).not.toHaveProperty("BENTO_DEV_STORAGE_BACKEND");
+      }
+    } finally {
+      for (const key of Object.keys(inherited)) delete process.env[key];
+    }
+  });
+
+  it("never forwards an inherited wrapping key when the backend must use its key file", async () => {
+    const launches: Array<{ command: string; env: NodeJS.ProcessEnv }> = [];
+    process.env.BENTO_DEVICE_WRAPPING_KEY = "inherited-wrapping-key";
+    try {
+      const supervisor = new SidecarSupervisor({
+        command: { executable: "bento-sidecar", prefixArguments: [] },
+        dataDir: "/tmp/bento-test-data",
+        reservePort: async () => 43127,
+        randomToken: () => "unguessable-per-launch-token-1234567890",
+        fetch: async () => jsonResponse({ status: "ready" }),
+        spawnProcess: (_executable, arguments_, options) => {
+          const child = new FakeChild();
+          launches.push({ command: arguments_[0] ?? "", env: options.env });
+          if (arguments_[0] === "migrate") queueMicrotask(() => child.exit(0));
+          return child;
+        },
+      });
+      await supervisor.start();
+      for (const launch of launches) expect(launch.env).not.toHaveProperty("BENTO_DEVICE_WRAPPING_KEY");
+    } finally {
+      delete process.env.BENTO_DEVICE_WRAPPING_KEY;
+    }
+  });
+
+  it("waits for readiness and rejects when the supervisor enters recovery", async () => {
+    const { supervisor } = setup();
+    const ready = supervisor.waitUntilReady(1_000);
+    await supervisor.start();
+    await expect(ready).resolves.toBeUndefined();
+    await expect(supervisor.waitUntilReady()).resolves.toBeUndefined();
+    await supervisor.stop();
+    const pending = supervisor.waitUntilReady(1_000);
+    supervisor.emit("status", { state: "recovery", recoveryMode: true });
+    await expect(pending).rejects.toThrow(/not available/u);
   });
 
   it("never proxies outside the relative API allowlist", async () => {

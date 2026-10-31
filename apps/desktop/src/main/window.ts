@@ -6,6 +6,8 @@ import { isAllowedNavigation } from "./protocol";
 export interface WindowOptions {
   preloadPath?: string;
   recoveryMode?: boolean;
+  /** False for `--hidden`/login starts: the renderer loads but the window stays in the tray. */
+  showOnReady?: boolean;
 }
 
 export function createMainWindow(options: WindowOptions = {}): BrowserWindow {
@@ -40,7 +42,7 @@ export function createMainWindow(options: WindowOptions = {}): BrowserWindow {
   window.webContents.on("will-frame-navigate", (event) => {
     if (!isAllowedNavigation(event.url)) event.preventDefault();
   });
-  window.once("ready-to-show", () => window.show());
+  if (options.showOnReady !== false) window.once("ready-to-show", () => window.show());
   void window.loadURL(`${BENTO_ORIGIN}/${options.recoveryMode ? "?recovery=1" : ""}`);
   return window;
 }

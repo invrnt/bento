@@ -5,6 +5,7 @@ import path from "node:path";
 import { EventEmitter } from "node:events";
 import { BENTO_ORIGIN, LifecycleState, ProbeRequest, ProbeResult } from "../shared/contracts";
 import { RedactingLog } from "./redaction";
+import { DEVICE_WRAPPING_KEY_ENV } from "./device-key";
 
 interface LaunchCommand { executable: string; prefixArguments: string[] }
 interface SpawnedProcess {
@@ -22,6 +23,12 @@ export interface SidecarSupervisorOptions {
   command: LaunchCommand;
   dataDir: string;
   secretEnvironment?: Record<string, string>;
+  /** Non-secret runtime configuration (build config, dev storage backend). */
+  runtimeEnvironment?: Record<string, string>;
+  /** Inherited variables removed from every sidecar environment. */
+  strippedEnvironment?: readonly string[];
+  /** base64url device wrapping key; omitted when the backend uses its key file. */
+  deviceWrappingKey?: string;
   spawnProcess?: (executable: string, args: string[], options: { env: NodeJS.ProcessEnv; stdio: ["ignore", "pipe", "pipe"] }) => SpawnedProcess;
   fetch?: typeof globalThis.fetch;
   reservePort?: () => Promise<number>;
@@ -59,13 +66,31 @@ export class SidecarSupervisor extends EventEmitter {
     this.reservePort = options.reservePort ?? reserveLoopbackPort;
     this.randomToken = options.randomToken ?? (() => randomBytes(32).toString("base64url"));
     this.delay = options.delay ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
-    this.log = options.log ?? new RedactingLog(() => undefined, () => [this.token, ...Object.values(this.secretEnvironment)]);
+    this.log = options.log ?? new RedactingLog(() => undefined, () => [
+      this.token,
+      ...Object.values(this.secretEnvironment),
+      ...(options.deviceWrappingKey ? [options.deviceWrappingKey] : []),
+    ]);
     this.readinessTimeoutMs = options.readinessTimeoutMs ?? 30_000;
     this.shutdownTimeoutMs = options.shutdownTimeoutMs ?? 5_000;
   }
 
   get status(): { state: LifecycleState; recoveryMode: boolean } {
     return { state: this.stateValue, recoveryMode: this.stateValue === "recovery" };
+  }
+
+  /** Resolves once sidecars are ready; rejects if the supervisor enters recovery or stops. */
+  waitUntilReady(timeoutMs = 120_000): Promise<void> {
+    if (this.stateValue === "ready") return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => { cleanup(); reject(new Error("Desktop services are not ready")); }, timeoutMs);
+      const listener = (status: { state: LifecycleState }): void => {
+        if (status.state === "ready") { cleanup(); resolve(); }
+        else if (status.state === "recovery" || status.state === "stopping") { cleanup(); reject(new Error("Desktop services are not available")); }
+      };
+      const cleanup = (): void => { clearTimeout(timeout); this.removeListener("status", listener); };
+      this.on("status", listener);
+    });
   }
 
   setDataDir(dataDir: string): void {
@@ -152,10 +177,9 @@ export class SidecarSupervisor extends EventEmitter {
   }
 
   async runProbe(request: ProbeRequest): Promise<ProbeResult> {
-    const extraEnvironment = secretEnvironment(request.secrets ?? {});
     const arguments_: string[] = [request.kind];
     if (request.path) arguments_.push("--path", request.path);
-    const result = await this.runToCompletion("probe", arguments_, extraEnvironment, true);
+    const result = await this.runToCompletion("probe", arguments_, {}, true);
     try {
       return JSON.parse(result.stdout.trim()) as ProbeResult;
     } catch {
@@ -181,8 +205,11 @@ export class SidecarSupervisor extends EventEmitter {
   }
 
   private environment(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
+    const inherited: NodeJS.ProcessEnv = { ...process.env };
+    for (const key of [DEVICE_WRAPPING_KEY_ENV, ...(this.options.strippedEnvironment ?? [])]) delete inherited[key];
     return {
-      ...process.env,
+      ...inherited,
+      ...this.options.runtimeEnvironment,
       BENTO_RUNTIME_MODE: "desktop",
       HOST: "127.0.0.1",
       DATA_DIR: this.options.dataDir,
@@ -190,6 +217,7 @@ export class SidecarSupervisor extends EventEmitter {
       BENTO_DESKTOP_API_TOKEN: this.token,
       BENTO_DESKTOP_ORIGIN: BENTO_ORIGIN,
       ...secretEnvironment(this.secretEnvironment),
+      ...(this.options.deviceWrappingKey ? { [DEVICE_WRAPPING_KEY_ENV]: this.options.deviceWrappingKey } : {}),
       ...extra,
     };
   }
@@ -277,33 +305,17 @@ async function reserveLoopbackPort(): Promise<number> {
   });
 }
 
-export const SECRET_SETTING_KEYS = [
-  "telegram_bot_token",
-  "telegram_api_id",
-  "telegram_api_hash",
-  "telegram_raw_chat_id",
-  "telegram_thumbs_chat_id",
-  "telegram_journal_chat_id",
-  "telegram_webhook_secret",
-  "bento_encryption_key",
-] as const;
+/**
+ * User-entered secret settings forwarded to sidecars. Telegram-first runtime secrets (session, keyring,
+ * device identity) live in the backend key store, so no settings secret is currently forwarded.
+ */
+export const SECRET_SETTING_KEYS: readonly string[] = Object.freeze([]);
 
-type SecretSettingKey = typeof SECRET_SETTING_KEYS[number];
-
-export const SECRET_ENVIRONMENT = {
-  telegram_bot_token: "TELEGRAM_BOT_TOKEN",
-  telegram_api_id: "TELEGRAM_API_ID",
-  telegram_api_hash: "TELEGRAM_API_HASH",
-  telegram_raw_chat_id: "TELEGRAM_RAW_CHAT_ID",
-  telegram_thumbs_chat_id: "TELEGRAM_THUMBS_CHAT_ID",
-  telegram_journal_chat_id: "TELEGRAM_JOURNAL_CHAT_ID",
-  telegram_webhook_secret: "TELEGRAM_WEBHOOK_SECRET",
-  bento_encryption_key: "BENTO_ENCRYPTION_KEY",
-} as const satisfies Record<SecretSettingKey, string>;
+export const SECRET_ENVIRONMENT: Readonly<Record<string, string>> = Object.freeze({});
 
 function secretEnvironment(values: Record<string, string>): Record<string, string> {
   return Object.fromEntries(Object.entries(values).flatMap(([key, value]) => {
-    const environmentKey = SECRET_ENVIRONMENT[key as SecretSettingKey];
+    const environmentKey = Object.hasOwn(SECRET_ENVIRONMENT, key) ? SECRET_ENVIRONMENT[key] : undefined;
     return environmentKey ? [[environmentKey, value]] : [];
   }));
 }

@@ -14,6 +14,15 @@ export const IPC_CHANNELS = {
   updatesDownload: "bento:updates-download",
   updatesInstall: "bento:updates-install",
   updatesChanged: "bento:updates-changed",
+  preferencesGet: "bento:preferences-get",
+  preferencesSet: "bento:preferences-set",
+  deepLinkSubscribe: "bento:deep-link-subscribe",
+  deepLinkUnsubscribe: "bento:deep-link-unsubscribe",
+  deepLinkReceived: "bento:deep-link",
+  navigateSubscribe: "bento:navigate-subscribe",
+  navigateUnsubscribe: "bento:navigate-unsubscribe",
+  navigateRequested: "bento:navigate",
+  savePageAsPdf: "bento:save-page-as-pdf",
 } as const;
 
 export type ApplyPhase =
@@ -38,13 +47,49 @@ export interface LifecycleStatus {
   recoveryMode: boolean;
 }
 
+/** "os": device keys are wrapped by the OS secure store; "file": the backend uses a 0600 key file. */
+export type SecureStorageMode = "os" | "file";
+
 export interface PlatformMetadata {
   desktop: true;
   platform: NodeJS.Platform;
   arch: string;
   version: string;
-  secureStorage: "available" | "unavailable";
+  secureStorage: SecureStorageMode;
+  /** Preferred OS locale as a BCP 47 tag, e.g. "es-CO". */
+  locale: string;
   recoveryMode: boolean;
+}
+
+export interface DesktopPreferences {
+  keepRunningInBackground: boolean;
+  launchAtLogin: boolean;
+  autoDownloadUpdates: boolean;
+}
+
+export type DesktopPreferencesPatch = Partial<DesktopPreferences>;
+
+export interface JoinDeepLink {
+  kind: "join";
+  code: string;
+}
+
+export type DeepLink = JoinDeepLink;
+
+export type NavigationTarget = "activity" | "drive" | "settings" | "recovery-kit";
+
+export interface NavigateRequest {
+  target: NavigationTarget;
+  attentionId?: string;
+}
+
+export interface SavePdfRequest {
+  suggestedName?: string;
+}
+
+export interface SavePdfResult {
+  saved: boolean;
+  fileName?: string;
 }
 
 export interface PickerResult {
@@ -88,12 +133,11 @@ export interface SettingsApplyResult {
   errors?: Array<{ key: string; code: string; message: string }>;
 }
 
-export type ProbeKind = "writable-directory" | "model-file" | "ffmpeg" | "ocr" | "telegram";
+export type ProbeKind = "writable-directory" | "model-file" | "ffmpeg" | "ocr";
 
 export interface ProbeRequest {
   kind: ProbeKind;
   path?: string;
-  secrets?: Record<string, string>;
 }
 
 export interface ProbeResult {
@@ -158,4 +202,11 @@ export interface BentoDesktopBridge {
     install(): Promise<UpdateInstallResult>;
     onState(listener: (state: UpdateState) => void): () => void;
   };
+  preferences: {
+    get(): Promise<DesktopPreferences>;
+    set(patch: DesktopPreferencesPatch): Promise<DesktopPreferences>;
+  };
+  onDeepLink(listener: (link: DeepLink) => void): () => void;
+  onNavigate(listener: (request: NavigateRequest) => void): () => void;
+  savePageAsPdf(request?: SavePdfRequest): Promise<SavePdfResult>;
 }
