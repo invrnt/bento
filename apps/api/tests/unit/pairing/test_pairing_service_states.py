@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 
 import pytest
 
 from bento.adapters.security import PairingCryptoFactory, VaultCrypto
 from bento.application.pairing import PairingService, PairingView, b64url_encode, join_request_message
-from bento.domain.devices import DevicePlatform
+from bento.domain.devices import Device, DevicePlatform
 from bento.domain.errors import TelegramAccountError, VaultLockedError
 from bento.domain.pairing import PairingCode, PairingError, PairingRole, PairingState
-from tests.unit.pairing.pairing_doubles import UNIT, MemoryRelay, make_unit_device, with_timeouts
+from tests.unit.pairing.pairing_doubles import UNIT, MemoryRelay, MemorySyncState, make_unit_device, with_timeouts
 
 CRYPTO = VaultCrypto()
 
@@ -300,3 +302,50 @@ def test_codes_sas_tokens_and_keys_are_never_logged(caplog: pytest.LogCaptureFix
     assert "awaiting_approval" in text, "pairing events are logged"
     for secret in secrets:
         assert secret not in text
+
+
+def _removed_device(device_id: str, public_key: bytes) -> Device:
+    when = datetime(2026, 10, 1, tzinfo=UTC)
+    return Device(
+        id=device_id,
+        name="Portátil viejo",
+        platform=DevicePlatform.LINUX,
+        public_key=b64url_encode(public_key),
+        added_at=when,
+        removed_at=when,
+    )
+
+
+@pytest.mark.parametrize("known_as", ["registry_row", "remembered_by_keys_message", "removed_while_approving"])
+def test_a_removed_device_id_cannot_join_again(known_as: str) -> None:
+    async def scenario() -> None:
+        relay = MemoryRelay()
+        sync_state = MemorySyncState()
+        host = make_unit_device(relay, crypto=CRYPTO, keyring=CRYPTO.generate_keyring("vlt_unit"), sync_state=sync_state)
+        guest = make_unit_device(relay, crypto=CRYPTO, keyring=None, name="Nuevo · Linux")
+        guest_id = guest.vault.identity.device_id
+        removed = _removed_device(guest_id, guest.vault.identity.public_key)
+        if known_as == "registry_row":
+            host.devices.items[guest_id] = removed
+        elif known_as == "remembered_by_keys_message":
+            sync_state.values["removed_device_ids"] = json.dumps(["dev_other", guest_id])
+
+        hosted = await host.service.host()
+        assert hosted.session.code is not None
+        joined = await guest.service.join(hosted.session.code.format())
+        if known_as == "removed_while_approving":
+            await _until(lambda: host.service.get(hosted.session.id), PairingState.AWAITING_APPROVAL)
+            host.devices.items[guest_id] = removed
+            await host.service.approve(hosted.session.id)
+
+        failed = await _until(lambda: host.service.get(hosted.session.id), PairingState.FAILED)
+        assert failed.session.error_code == "pairing_device_removed"
+        told = await _until(lambda: guest.service.get(joined.session.id), PairingState.FAILED)
+        assert told.session.error_code == "pairing_device_removed", "the guest learns it needs a new identity"
+        assert guest.vault.installed == [] and guest.vault.keyring is None
+        if known_as == "remembered_by_keys_message":
+            assert guest_id not in host.devices.items
+        else:
+            assert host.devices.items[guest_id] == removed, "pairing never clears removed_at"
+
+    asyncio.run(scenario())

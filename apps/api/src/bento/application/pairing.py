@@ -47,6 +47,7 @@ from bento.domain.pairing import (
     PairingSession,
     PairingState,
     PairingTransport,
+    PairingVaultInfo,
     can_transition,
 )
 from bento.domain.security import DeviceIdentity, VaultKeyring
@@ -59,6 +60,7 @@ from bento.ports.security import (
     PairingCryptoSessionPort,
     VaultCryptoPort,
 )
+from bento.ports.sync import SyncStateRepositoryPort
 from bento.ports.telegram import TelegramAccountPort, VaultTransportPort
 from bento.ports.vault import VaultContext, VaultSessionPort
 
@@ -75,11 +77,16 @@ MAX_FALLBACK_MESSAGE_BYTES = 64 * 1024
 MAX_FALLBACK_TEXT_CHARS = 3500
 """Longer fallback messages are posted as `.bpair` documents instead of text (Telegram allows 4096)."""
 FALLBACK_PROTOCOL_VERSION = 1
+MAX_PENDING_GRANTS = 16
+"""Grants a Sync-channel guest keeps, unopened, until the user confirms the emojis."""
+MAX_OFFERED_DEVICES = 1000
 
 _DEVICE_ID = re.compile(r"^dev_[0-9A-Za-z_]{1,64}$")
 _VAULT_ID = re.compile(r"^vlt_[0-9A-Za-z_-]{1,64}$")
 _REQUEST_ID = re.compile(r"^[0-9A-Za-z_-]{16,64}$")
 _REASON = re.compile(r"^[a-z0-9_]{1,64}$")
+DEVICE_REMOVED_REASON = "device_removed"
+"""`reason` of a `rejected` frame or `pair_reject` sent to a guest whose device id was removed."""
 _B64URL = re.compile(r"^[A-Za-z0-9_-]*={0,2}$")
 _MAX_CHANNEL_ID = 1 << 62
 
@@ -95,7 +102,9 @@ _ERROR_MESSAGES: dict[str, str] = {
     "pairing_protocol": "The other device sent an invalid pairing message",
     "pairing_grant_invalid": "The vault access sent by the other device is invalid",
     "pairing_commitment_mismatch": "The new device's keys do not match its request",
-    "pairing_request_taken": "Another device is handling this request",
+    "pairing_request_taken": "Another device answered this request",
+    "pairing_vault_ambiguous": "This Telegram account has several Bento vaults; pair with a code or the recovery code",
+    "pairing_device_removed": "This device was removed from the vault; it must join again with a new identity",
     "pairing_request_expired": "The pairing request expired",
     "pairing_internal": "Pairing failed unexpectedly",
 }
@@ -237,6 +246,9 @@ def parse_peer_message(payload: Mapping[str, Any], *, sender: PairingRole) -> Pe
         if message_type is MessageType.TELEGRAM_LOGIN_FAILED:
             reason = payload.get("reason")
             return PeerMessage(message_type, reason=reason if isinstance(reason, str) and _REASON.match(reason) else "unknown")
+        if message_type is MessageType.REJECTED:
+            reason = payload.get("reason")
+            return PeerMessage(message_type, reason=reason if isinstance(reason, str) and _REASON.match(reason) else None)
     except ValidationFailedError:
         raise pairing_error("pairing_protocol") from None
     return PeerMessage(message_type)
@@ -353,6 +365,8 @@ class FallbackMessage:
     request: FallbackRequest | None = None
     eph_pub: bytes | None = None
     offer_eph_pub: bytes | None = None
+    devices_count: int | None = None
+    reason: str | None = None
     grant: bytes | None = field(default=None, repr=False)
 
 
@@ -400,10 +414,14 @@ def parse_fallback_message(text: str, *, message_id: int, created_at: datetime) 
                 **base,
                 eph_pub=decode_public_key(payload.get("eph_pub")),
                 offer_eph_pub=decode_public_key(offer) if kind is FallbackKind.REVEAL and offer is not None else None,
+                devices_count=_devices_count(payload.get("devices")) if kind is FallbackKind.OFFER else None,
             )
         if kind is FallbackKind.GRANT:
             grant = b64url_decode(payload.get("grant"), max_bytes=MAX_FALLBACK_GRANT_BYTES)
             return FallbackMessage(**base, grant=grant) if grant else None
+        if kind is FallbackKind.REJECT:
+            reason = payload.get("reason")
+            return FallbackMessage(**base, reason=reason if isinstance(reason, str) and _REASON.match(reason) else None)
     except ValidationFailedError:
         return None
     return FallbackMessage(**base)
@@ -411,6 +429,13 @@ def parse_fallback_message(text: str, *, message_id: int, created_at: datetime) 
 
 def fallback_payload(kind: FallbackKind, request_id: str, **fields: Any) -> dict[str, Any]:
     return {"bento": kind.value, "v": FALLBACK_PROTOCOL_VERSION, "request_id": request_id, **fields}
+
+
+def _devices_count(value: object) -> int | None:
+    """The host's claimed number of active devices (a hint shown to the guest); anything odd is dropped."""
+    if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= MAX_OFFERED_DEVICES:
+        return None
+    return value
 
 
 # Service ------------------------------------------------------------------------------------------
@@ -468,7 +493,7 @@ class PairingRequestView:
 
 @dataclass(frozen=True, slots=True)
 class _Command:
-    kind: Literal["approve", "reject"]
+    kind: Literal["approve", "reject", "confirm"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -496,6 +521,13 @@ class _Abort(Exception):
         self.code = code
 
 
+def _rejection(reason: str | None) -> _Abort:
+    """How a guest ends when the other device refuses it."""
+    if reason == DEVICE_REMOVED_REASON:
+        return _Abort(PairingState.FAILED, "pairing_device_removed")
+    return _Abort(PairingState.REJECTED)
+
+
 @dataclass(eq=False)
 class _Session:
     id: str
@@ -511,6 +543,8 @@ class _Session:
     error_code: str | None = None
     error_message: str | None = None
     request_id: str | None = None
+    vault: PairingVaultInfo | None = None
+    confirmed: bool = False
     events: asyncio.Queue[_Event] = field(default_factory=asyncio.Queue)
     changed: asyncio.Event = field(default_factory=asyncio.Event)
     task: asyncio.Task[None] | None = None
@@ -541,6 +575,8 @@ class _FallbackIndex:
         self.cursor: int | None = None
         self.requests: dict[str, FallbackRequest] = {}
         self.answered: set[str] = set()
+        self.revealed: set[str] = set()
+        """Requests whose guest already revealed its key, i.e. accepted some device's offer."""
         self.subscribers: dict[str, _Session] = {}
 
     def reset(self, vault_id: str) -> None:
@@ -548,6 +584,7 @@ class _FallbackIndex:
         self.cursor = None
         self.requests.clear()
         self.answered.clear()
+        self.revealed.clear()
 
 
 def _utcnow() -> datetime:
@@ -567,6 +604,7 @@ class PairingService:
         devices: DeviceRepositoryPort,
         verify_commitment: CommitmentVerifier,
         local_device: Callable[[], Awaitable[LocalDeviceInfo]] | LocalDeviceInfo,
+        sync_state: SyncStateRepositoryPort | None = None,
         timeouts: PairingTimeouts | None = None,
         clock: Callable[[], datetime] = _utcnow,
     ) -> None:
@@ -579,6 +617,7 @@ class PairingService:
         self._devices = devices
         self._verify_commitment = verify_commitment
         self._local_device = local_device
+        self._sync_state = sync_state
         self._timeouts = timeouts or PairingTimeouts()
         self._clock = clock
         self._sessions: dict[str, _Session] = {}
@@ -628,6 +667,26 @@ class PairingService:
         await self._wait_for_change(session, self._timeouts.cleanup)
         return self._view(session)
 
+    async def confirm(self, pairing_id: str) -> PairingView:
+        """Guest of the Sync-channel fallback: the user saw the same emojis on the reviewing device.
+
+        Until then the guest opens no grant; afterwards it accepts only a grant bound to the offer behind
+        those emojis. Relay guests do not confirm: SPAKE2 with the out-of-band code already authenticates
+        the host.
+        """
+        session = self._require_session(pairing_id)
+        if (
+            session.role is not PairingRole.GUEST
+            or session.transport is not PairingTransport.TELEGRAM
+            or session.state is not PairingState.AWAITING_APPROVAL
+            or session.sas is None
+        ):
+            raise PairingError("pairing_state_conflict", "This pairing cannot be confirmed now")
+        session.confirmed = True
+        self._set(session, PairingState.APPROVING)
+        session.events.put_nowait(_Command("confirm"))
+        return self._view(session)
+
     async def cancel(self, pairing_id: str) -> PairingView:
         session = self._require_session(pairing_id)
         if session.state.terminal:
@@ -666,8 +725,8 @@ class PairingService:
         login = await self._account.status()
         if not login.authorized:
             raise TelegramAccountError("telegram_not_authorized", "Sign in to Telegram before asking for access")
-        status = await self._require_not_paired()
-        layout = await self._discover_layout(status)
+        await self._require_not_paired()
+        layout, header = await self._discover_layout()
         identity = await self._vault.device_identity()
         info = await self._local_info()
         keys = self._crypto.fallback_keys()
@@ -688,7 +747,8 @@ class PairingService:
         )
         session.cleanup_layout = layout
         session.cleanup_ids.add(ref.message_id)
-        self._start(session, self._guest_fallback(session, layout, keys, identity, request_id, ref.message_id))
+        session.vault = PairingVaultInfo(created_at=header.created_at)
+        self._start(session, self._guest_fallback(session, layout, header, keys, identity, request_id, ref.message_id))
         return self._view(session)
 
     async def list_requests(self) -> tuple[PairingRequestView, ...]:
@@ -723,15 +783,28 @@ class PairingService:
         remaining = (request.created_at + timedelta(seconds=self._timeouts.request_ttl) - self._clock()).total_seconds()
         if remaining <= 0:
             raise pairing_error("pairing_request_expired")
-        await self._check_new_device(request.device_id, request.public_key, context)
+        try:
+            await self._check_new_device(request.device_id, request.public_key, context)
+        except PairingError as exc:
+            if exc.code == "pairing_device_removed":
+                await self._post_reject(context.layout, request_id, reason=DEVICE_REMOVED_REASON)
+            raise
         keys = self._crypto.fallback_keys()
+        offer_fields: dict[str, Any] = {"eph_pub": b64url_encode(keys.public_key())}
+        devices_count = sum(1 for device in await self._devices.list() if device.active)
+        if devices_count:
+            offer_fields["devices"] = devices_count
         session = self._new_session(PairingRole.HOST, PairingTransport.TELEGRAM, remaining, request_id=request_id)
         session.peer = PairingPeer(device_name=request.device_name, platform=request.platform.value)
         self._index.subscribers[request_id] = session
+        if request_id in self._index.revealed:
+            # The guest already took someone else's offer and ignores later ones: say so instead of waiting.
+            self._index.answered.add(request_id)
+            self._finish(session, PairingState.FAILED, "pairing_request_taken")
+            return self._view(session)
         try:
             offer = await self._post_fallback(
-                context.layout,
-                fallback_payload(FallbackKind.OFFER, request_id, eph_pub=b64url_encode(keys.public_key())),
+                context.layout, fallback_payload(FallbackKind.OFFER, request_id, **offer_fields)
             )
         except BaseException:
             self._finish(session, PairingState.FAILED, "pairing_internal")
@@ -765,11 +838,12 @@ class PairingService:
                 session.task.cancel()
         return self._view(session)
 
-    async def _post_reject(self, layout: VaultLayout, request_id: str) -> None:
+    async def _post_reject(self, layout: VaultLayout, request_id: str, *, reason: str | None = None) -> None:
         """Tell the guest (best effort) and hide the request on this device."""
         self._index.answered.add(request_id)
+        fields = {"reason": reason} if reason is not None else {}
         try:
-            await self._post_fallback(layout, fallback_payload(FallbackKind.REJECT, request_id))
+            await self._post_fallback(layout, fallback_payload(FallbackKind.REJECT, request_id, **fields))
         except DomainError as exc:
             logger.warning("could not post a pairing rejection: %s", exc.code)
 
@@ -798,7 +872,7 @@ class PairingService:
         session.pump = asyncio.create_task(self._pump(session, channel, crypto, PairingRole.GUEST))
         join = (await self._expect(session, self._step_deadline(session), MessageType.JOIN_REQUEST)).join
         assert join is not None
-        await self._check_new_device(join.device_id, join.public_key, context)
+        await self._check_relay_guest(channel, crypto, join, context)
         session.peer = PairingPeer(device_name=join.device_name, platform=join.platform.value)
         self._set(session, PairingState.AWAITING_APPROVAL, sas=crypto.sas())
 
@@ -819,6 +893,9 @@ class PairingService:
             else:
                 raise _Abort(PairingState.FAILED, "pairing_protocol")
 
+        context = await self._vault.require()
+        # Removal may have happened while the user looked at the emojis.
+        await self._check_relay_guest(channel, crypto, join, context)
         authorization_hash = None
         if not authorized:
             authorization_hash = await self._authorize_guest(session, channel, crypto, token)
@@ -841,6 +918,17 @@ class PairingService:
                 return
             if message.type not in {MessageType.LOGIN_TOKEN, MessageType.TELEGRAM_READY}:
                 raise _Abort(PairingState.FAILED, "pairing_protocol")
+
+    async def _check_relay_guest(
+        self, channel: PairingChannelPort, crypto: PairingCryptoSessionPort, join: JoinRequest, context: VaultContext
+    ) -> None:
+        try:
+            await self._check_new_device(join.device_id, join.public_key, context)
+        except PairingError as exc:
+            if exc.code == "pairing_device_removed":
+                with contextlib.suppress(DomainError):
+                    await self._send(channel, crypto, {"type": MessageType.REJECTED.value, "reason": DEVICE_REMOVED_REASON})
+            raise
 
     async def _authorize_guest(
         self, session: _Session, channel: PairingChannelPort, crypto: PairingCryptoSessionPort, token: bytes | None
@@ -947,7 +1035,7 @@ class PairingService:
                 await self._guest_login_failed(session, channel, crypto, login)
                 next_poll = self._now() + self._timeouts.login_poll_interval
             elif message.type is MessageType.REJECTED:
-                raise _Abort(PairingState.REJECTED)
+                raise _rejection(message.reason)
             elif message.type is MessageType.VAULT_GRANT and keyring is None:
                 assert message.grant is not None
                 grant = message.grant
@@ -1109,14 +1197,22 @@ class PairingService:
         self,
         session: _Session,
         layout: VaultLayout,
+        header: VaultHeader,
         keys: FallbackPairingKeysPort,
         identity: DeviceIdentity,
         request_id: str,
         request_message_id: int,
     ) -> None:
+        """Take the first offer, show its emojis, and install a grant only after the user confirms them here.
+
+        Anyone with channel access (Telegram itself, a removed device whose session is still alive) can
+        answer first. The commitment stops them from choosing emojis, so their offer shows emojis that the
+        reviewing device does not; the user's confirmation on this device is what rules them out.
+        """
         cursor = request_message_id
         host_eph: bytes | None = None
         related: set[int] = {request_message_id}
+        pending: list[bytes] = []
         while True:
             refs = await self._transport.list_sync_messages(layout, after_message_id=cursor, limit=100)
             for ref in refs:
@@ -1146,42 +1242,63 @@ class PairingService:
                     )
                     session.cleanup_ids.add(reveal.message_id)
                     related.add(reveal.message_id)
+                    session.vault = replace(session.vault or PairingVaultInfo(), devices_count=message.devices_count)
                     self._set(session, PairingState.CONNECTED)
                     self._set(session, PairingState.AWAITING_APPROVAL, sas=sas)
                 elif message.kind is FallbackKind.GRANT and host_eph is not None:
+                    # Kept unopened until the user confirms the emojis of the offer we answered.
                     assert message.grant is not None
-                    try:
-                        sealed = keys.open_grant(
-                            host_eph,
-                            message.grant,
-                            request_id=request_id,
-                            guest_device_public_key=identity.public_key,
-                            guest_ephemeral_public_key=keys.public_key(),
-                            host_ephemeral_public_key=host_eph,
-                        )
-                    except IntegrityError:
-                        # Not made by the host whose emojis the user compares: ignore it and keep waiting.
-                        logger.warning("pairing %s ignored a grant from someone other than the reviewing device", session.id)
+                    if len(pending) < MAX_PENDING_GRANTS:
+                        pending.append(message.grant)
+                elif message.kind is FallbackKind.REJECT:
+                    raise _rejection(message.reason)
+            if session.confirmed and host_eph is not None:
+                while pending:
+                    keyring = self._accept_fallback_grant(session, layout, keys, identity, host_eph, pending.pop(0))
+                    if keyring is None:
                         continue
-                    keyring = self._open_grant(identity, sealed, layout.vault_id, aad=request_id)
-                    await self._verify_granted_keyring(layout, keyring)
-                    self._set(session, PairingState.APPROVING)
+                    await self._verify_granted_keyring(layout, header, keyring)
                     self._set(session, PairingState.BOOTSTRAPPING)
                     session.cleanup_ids |= related
                     await self._vault.install(layout, keyring)
                     await self._delete_fallback_messages(session)
                     self._finish(session, PairingState.COMPLETED)
                     return
-                elif message.kind is FallbackKind.REJECT:
-                    raise _Abort(PairingState.REJECTED)
             if len(refs) >= 100:
                 continue
             event = await self._next(session, min(session.deadline, self._now() + self._timeouts.fallback_poll_interval))
             if event is None and self._now() >= session.deadline:
                 raise _Abort(PairingState.EXPIRED, "pairing_request_expired")
 
-    async def _verify_granted_keyring(self, layout: VaultLayout, keyring: VaultKeyring) -> None:
-        """The fallback grant is not bound to the SAS exchange: require that it MACs the pinned header."""
+    def _accept_fallback_grant(
+        self,
+        session: _Session,
+        layout: VaultLayout,
+        keys: FallbackPairingKeysPort,
+        identity: DeviceIdentity,
+        host_eph: bytes,
+        grant: bytes,
+    ) -> VaultKeyring | None:
+        """The keyring in a grant made by the confirmed offer's host, or None for anyone else's grant."""
+        assert session.request_id is not None
+        request_id = session.request_id
+        try:
+            sealed = keys.open_grant(
+                host_eph,
+                grant,
+                request_id=request_id,
+                guest_device_public_key=identity.public_key,
+                guest_ephemeral_public_key=keys.public_key(),
+                host_ephemeral_public_key=host_eph,
+            )
+        except IntegrityError:
+            # Anyone with channel access can post a grant: ignore it and keep waiting.
+            logger.warning("pairing %s ignored a grant from someone other than the confirmed device", session.id)
+            return None
+        return self._open_grant(identity, sealed, layout.vault_id, aad=request_id)
+
+    async def _verify_granted_keyring(self, layout: VaultLayout, shown: VaultHeader, keyring: VaultKeyring) -> None:
+        """Defence in depth: the granted keyring must MAC the pinned header of the vault the user was shown."""
         text = await self._transport.read_header_text(layout)
         if text is None:
             raise _Abort(PairingState.FAILED, "pairing_grant_invalid")
@@ -1192,6 +1309,8 @@ class PairingService:
         # The header is MACed with the epoch it declares, which a fresh grant always contains.
         valid = (
             header.vault_id == layout.vault_id
+            and header.layout == layout
+            and header.created_at == shown.created_at
             and header.current_epoch in keyring.keys
             and header.current_epoch <= keyring.current_epoch
             and self._vault_crypto.verify_header_mac(
@@ -1218,16 +1337,19 @@ class PairingService:
                     raise _Abort(PairingState.EXPIRED, "pairing_request_expired")
                 await self._scan(context)
                 continue
-            if not isinstance(event, _Fallback) or event.message.message_id <= offer_message_id:
+            if not isinstance(event, _Fallback):
                 continue
             message = event.message
             if message.kind in {FallbackKind.GRANT, FallbackKind.REJECT}:
-                raise _Abort(PairingState.FAILED, "pairing_request_taken")
+                raise self._request_taken(request.request_id)
             if message.kind is not FallbackKind.REVEAL:
                 continue
             assert message.eph_pub is not None
-            if message.offer_eph_pub is not None and message.offer_eph_pub != host_eph:
-                raise _Abort(PairingState.FAILED, "pairing_request_taken")
+            # A reveal older than our offer, or naming another offer, answers someone else's offer.
+            if message.message_id < offer_message_id or (
+                message.offer_eph_pub is not None and message.offer_eph_pub != host_eph
+            ):
+                raise self._request_taken(request.request_id)
             if not self._verify_commitment(
                 request.commitment,
                 eph_pub=message.eph_pub,
@@ -1251,7 +1373,7 @@ class PairingService:
                 raise _Abort(PairingState.EXPIRED, "pairing_request_expired")
             if isinstance(event, _Fallback):
                 if event.message.kind in {FallbackKind.GRANT, FallbackKind.REJECT}:
-                    raise _Abort(PairingState.FAILED, "pairing_request_taken")
+                    raise self._request_taken(request.request_id)
                 continue
             if not isinstance(event, _Command):
                 continue
@@ -1259,6 +1381,12 @@ class PairingService:
                 await self._post_reject(context.layout, request.request_id)
                 raise _Abort(PairingState.REJECTED)
             context = await self._vault.require()
+            try:
+                await self._check_new_device(request.device_id, request.public_key, context)
+            except PairingError as exc:
+                if exc.code == "pairing_device_removed":
+                    await self._post_reject(context.layout, request.request_id, reason=DEVICE_REMOVED_REASON)
+                raise
             sealed = self._vault_crypto.seal_for_device(
                 request.public_key,
                 self._vault_crypto.keyring_to_bytes(context.keyring),
@@ -1281,6 +1409,11 @@ class PairingService:
             logger.info("pairing %s granted vault access through the Sync channel", session.id)
             self._finish(session, PairingState.COMPLETED)
             return
+
+    def _request_taken(self, request_id: str) -> _Abort:
+        """Another device (maybe not the user's) answered first: stop listing the request and say so here."""
+        self._index.answered.add(request_id)
+        return _Abort(PairingState.FAILED, "pairing_request_taken")
 
     async def _scan(self, context: VaultContext) -> None:
         """Advance the host cursor over pairing messages, indexing requests and notifying reviews."""
@@ -1309,6 +1442,8 @@ class PairingService:
             return
         if message.kind in {FallbackKind.GRANT, FallbackKind.REJECT}:
             index.answered.add(message.request_id)
+        elif message.kind is FallbackKind.REVEAL:
+            index.revealed.add(message.request_id)
         subscriber = index.subscribers.get(message.request_id)
         if subscriber is not None and not subscriber.state.terminal:
             subscriber.events.put_nowait(_Fallback(message))
@@ -1361,35 +1496,55 @@ class PairingService:
             return await self._transport.post_sync_text(layout, SyncMessageKind.PAIRING, text)
         return await self._transport.post_sync_document(layout, SyncMessageKind.PAIRING, text.encode("utf-8"))
 
-    async def _discover_layout(self, status: VaultStatus) -> VaultLayout:
-        layouts = await self._transport.find_vaults()
-        if not layouts:
-            raise VaultNotFoundError()
-        for layout in layouts:
-            if status.vault_id is not None and layout.vault_id == status.vault_id:
-                return layout
-        if len(layouts) == 1:
-            return layouts[0]
-        newest: tuple[datetime, VaultLayout] | None = None
-        for layout in layouts:
+    async def _discover_layout(self) -> tuple[VaultLayout, VaultHeader]:
+        """The only vault of this account with a readable header. Several vaults are never chosen between:
+        whoever can create channels in the account (Telegram itself) could otherwise steer the new device."""
+        candidates: list[tuple[VaultLayout, VaultHeader]] = []
+        for layout in await self._transport.find_vaults():
             text = await self._transport.read_header_text(layout)
             try:
-                created_at = VaultHeader.from_json(text).created_at if text is not None else None
+                header = VaultHeader.from_json(text) if text is not None else None
             except ValidationFailedError:
-                created_at = None
-            if created_at is not None and (newest is None or created_at > newest[0]):
-                newest = (created_at, layout)
-        return newest[1] if newest is not None else layouts[0]
+                header = None
+            if header is not None and header.vault_id == layout.vault_id:
+                candidates.append((layout, header))
+        if not candidates:
+            raise VaultNotFoundError()
+        if len(candidates) > 1:
+            raise pairing_error("pairing_vault_ambiguous")
+        return candidates[0]
 
     # Shared helpers ---------------------------------------------------------------------------
 
     async def _check_new_device(self, device_id: str, public_key: bytes, context: VaultContext) -> None:
-        """A guest may not impersonate this device or an active device with another key."""
+        """A guest may not impersonate this device or an active device with another key, nor reuse a removed id."""
         if device_id == context.device.device_id:
             raise pairing_error("pairing_protocol")
         existing = await self._devices.get(device_id)
         if existing is not None and existing.active and existing.public_key != b64url_encode(public_key):
             raise pairing_error("pairing_protocol")
+        await self._refuse_removed_device(device_id, existing)
+
+    async def _refuse_removed_device(self, device_id: str, existing: Device | None) -> None:
+        """Removal is final for a device id: re-adding it would revive the grants and access other devices
+        already refuse. The guest has to join with a new identity, i.e. a new id."""
+        if existing is not None and not existing.active:
+            raise pairing_error("pairing_device_removed")
+        if device_id in await self._remembered_removed_device_ids():
+            raise pairing_error("pairing_device_removed")
+
+    async def _remembered_removed_device_ids(self) -> frozenset[str]:
+        """Ids listed as removed by accepted keys messages (`sync_state`), even without a registry row."""
+        if self._sync_state is None:
+            return frozenset()
+        from bento.application.sync.state import REMOVED_DEVICES  # the sync package imports this module
+
+        raw = await self._sync_state.get_value(REMOVED_DEVICES)
+        try:
+            stored = json.loads(raw) if raw else []
+        except ValueError:
+            return frozenset()
+        return frozenset(item for item in stored if isinstance(item, str)) if isinstance(stored, list) else frozenset()
 
     async def _record_device(
         self,
@@ -1400,6 +1555,8 @@ class PairingService:
         authorization_hash: int | None,
     ) -> None:
         existing = await self._devices.get(device_id)
+        # Never clears `removed_at`: checked before every grant, and again here.
+        await self._refuse_removed_device(device_id, existing)
         now = self._clock()
         await self._devices.save(
             Device(
@@ -1574,6 +1731,7 @@ class PairingService:
                 sas=session.sas if session.state in _SAS_STATES else None,
                 needs_telegram_qr=login_url is not None,
                 error_code=session.error_code,
+                vault=session.vault,
             ),
             telegram_login_url=login_url,
             error_message=session.error_message,
@@ -1616,6 +1774,7 @@ class PairingService:
             if request.created_at < cutoff and request_id not in self._index.subscribers:
                 del self._index.requests[request_id]
                 self._index.answered.discard(request_id)
+                self._index.revealed.discard(request_id)
 
     def _remaining(self, session: _Session) -> float:
         return max(0.0, session.deadline - self._now())

@@ -6,6 +6,7 @@ import {
   CloudDownload,
   LifeBuoy,
   MonitorSmartphone,
+  ShieldAlert,
   ShieldCheck,
   Timer,
   TriangleAlert,
@@ -14,7 +15,14 @@ import {
 
 import { apiClient } from "../../api/client";
 import type { ApiClient } from "../../api/client";
-import { cancelPairing, joinPairing, requestPairingViaTelegram, terminalPairingStates } from "../../api/pairing";
+import {
+  cancelPairing,
+  confirmPairing,
+  joinPairing,
+  needsGuestConfirmation,
+  requestPairingViaTelegram,
+  terminalPairingStates,
+} from "../../api/pairing";
 import type { Pairing } from "../../api/pairing";
 import { getVault, unlockVault } from "../../api/vault";
 import { Button } from "../../components/Button";
@@ -33,6 +41,7 @@ import { recoveryErrorKey } from "../recovery/recoveryCode";
 import { formatPairingInput, isCompletePairingCode } from "./pairingCode";
 import { pairingProblem, pairingProblemKeys } from "./pairingErrors";
 import type { PairingProblem } from "./pairingErrors";
+import { PairingVaultSummary } from "./PairingVaultSummary";
 import { SasEmojis } from "./SasEmojis";
 import { usePairingSession } from "./usePairingSession";
 
@@ -77,6 +86,9 @@ export function JoinScreen({
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const [checkingVault, setCheckingVault] = useState(false);
   const [started, setStarted] = useState<Pairing | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [confirmFailed, setConfirmFailed] = useState(false);
+  const [mismatch, setMismatch] = useState(false);
   const session = usePairingSession(started, { client, pollIntervalMs });
   const pairing = session.pairing;
 
@@ -147,7 +159,32 @@ export function JoinScreen({
   function leavePairing(next: JoinStep) {
     if (pairing && !terminalPairingStates.has(pairing.state)) void cancelPairing(pairing.id, client).catch(() => undefined);
     setStarted(null);
+    setMismatch(false);
+    setConfirmFailed(false);
     setStep(next);
+  }
+
+  /** "Coinciden": only now does this device accept the access granted by the device behind these emojis. */
+  async function confirmMatch() {
+    if (!pairing || confirming) return;
+    setConfirming(true);
+    setConfirmFailed(false);
+    try {
+      session.setPairing(await confirmPairing(pairing.id, client));
+    } catch {
+      setConfirmFailed(true);
+    } finally {
+      setConfirming(false);
+    }
+  }
+
+  /** "No coinciden": stop here. Without a confirmation the API never installs a grant, even if this call fails. */
+  function rejectMatch() {
+    if (!pairing) return;
+    setMismatch(true);
+    void cancelPairing(pairing.id, client)
+      .then((cancelled) => session.setPairing(cancelled))
+      .catch(() => undefined);
   }
 
   if (step === "already") {
@@ -275,8 +312,13 @@ export function JoinScreen({
   if (step === "pairing" && pairing) {
     return (
       <PairingStep
+        confirmFailed={confirmFailed}
+        confirming={confirming}
+        mismatch={mismatch}
         onCancel={() => leavePairing("code")}
+        onMatch={() => void confirmMatch()}
         onNoDevice={() => leavePairing("signin")}
+        onNoMatch={rejectMatch}
         onRetry={() => (pairing.transport === "telegram" ? leavePairing("choose") : leavePairing("code"))}
         pairing={pairing}
       />
@@ -356,13 +398,23 @@ function ProblemCallout({ action, problem }: { action?: ReactNode; problem: Pair
 }
 
 function PairingStep({
+  confirmFailed,
+  confirming,
+  mismatch,
   onCancel,
+  onMatch,
   onNoDevice,
+  onNoMatch,
   onRetry,
   pairing,
 }: {
+  confirmFailed: boolean;
+  confirming: boolean;
+  mismatch: boolean;
   onCancel: () => void;
+  onMatch: () => void;
   onNoDevice: () => void;
+  onNoMatch: () => void;
   onRetry: () => void;
   pairing: Pairing;
 }) {
@@ -377,12 +429,57 @@ function PairingStep({
     </>
   );
 
+  if (mismatch) {
+    return (
+      <SetupFrame
+        description={t("join.pairing.mismatchBody")}
+        footer={failureFooter}
+        hero={<HeroIcon tone="warning"><ShieldAlert /></HeroIcon>}
+        stepKey="pairing-mismatch"
+        title={t("join.pairing.mismatchTitle")}
+        width="md"
+      />
+    );
+  }
+
+  if (needsGuestConfirmation(pairing) && pairing.sas) {
+    return (
+      <SetupFrame
+        description={t("join.pairing.matchBody")}
+        footer={
+          <>
+            <Button disabled={confirming} onClick={onNoMatch}>
+              {t("join.pairing.noMatch")}
+            </Button>
+            <Button loading={confirming} onClick={onMatch} variant="primary">
+              {t("join.pairing.match")}
+            </Button>
+          </>
+        }
+        stepKey="pairing-match"
+        title={t("join.pairing.matchTitle")}
+      >
+        <div className="grid gap-5 py-2">
+          <SasEmojis emojis={pairing.sas} />
+          <PairingVaultSummary vault={pairing.vault} />
+          {confirmFailed ? (
+            <Callout role="alert" tone="danger">
+              {t("join.pairing.confirmFailed")}
+            </Callout>
+          ) : null}
+        </div>
+      </SetupFrame>
+    );
+  }
+
+  const confirmedFallback = pairing.transport === "telegram" && pairing.state === "approving";
+
   switch (pairing.state) {
     case "awaiting_approval":
     case "approving":
       return (
         <SetupFrame
-          description={t("join.pairing.confirmBody")}
+          description={confirmedFallback ? t("join.pairing.confirmedBody") : t("join.pairing.confirmBody")}
           footer={
             <Button onClick={onCancel} variant="ghost">
               {t("hostPair.cancel")}
@@ -393,9 +490,14 @@ function PairingStep({
         >
           <div aria-live="polite" className="grid gap-5 py-2">
             {pairing.sas ? <SasEmojis emojis={pairing.sas} /> : null}
+            {confirmedFallback ? <PairingVaultSummary vault={pairing.vault} /> : null}
             <p className="flex items-center justify-center gap-2.5 text-sm text-ink-muted" role="status">
               <Spinner className="size-3.5 text-accent-ink" />
-              {pairing.state === "approving" ? t("join.pairing.receiving") : t("join.pairing.waitingApproval")}
+              {confirmedFallback
+                ? t("join.pairing.waitingAccess")
+                : pairing.state === "approving"
+                  ? t("join.pairing.receiving")
+                  : t("join.pairing.waitingApproval")}
             </p>
           </div>
         </SetupFrame>

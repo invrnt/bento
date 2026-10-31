@@ -15,6 +15,9 @@ export type PairingState =
   | "expired"
   | "cancelled";
 
+/** What a Sync-channel guest shows next to the emojis. `devices_count` is the other device's unverified claim. */
+export type PairingVault = { created_at: string | null; devices_count: number | null };
+
 export type Pairing = {
   code: string | null;
   error: ApiErrorBody | null;
@@ -28,6 +31,7 @@ export type Pairing = {
   state: PairingState;
   telegram_qr: QrMatrix | null;
   transport: "relay" | "telegram";
+  vault: PairingVault | null;
   web_link: string | null;
 };
 
@@ -61,6 +65,16 @@ export function getPairing(id: string, client: ApiClient = apiClient): Promise<P
 
 export function approvePairing(id: string, client: ApiClient = apiClient): Promise<Pairing> {
   return client.request<Pairing>(path(id, "/approve"), { method: "POST" });
+}
+
+/** Sync-channel guest: the emojis match the other device, so accept its access (relay guests never confirm). */
+export function confirmPairing(id: string, client: ApiClient = apiClient): Promise<Pairing> {
+  return client.request<Pairing>(path(id, "/confirm"), { method: "POST" });
+}
+
+/** A guest of the Sync-channel fallback must confirm the emojis itself before it accepts any access. */
+export function needsGuestConfirmation(pairing: Pairing): boolean {
+  return pairing.role === "guest" && pairing.transport === "telegram" && pairing.state === "awaiting_approval" && pairing.sas !== null;
 }
 
 export function rejectPairing(id: string, client: ApiClient = apiClient): Promise<Pairing> {

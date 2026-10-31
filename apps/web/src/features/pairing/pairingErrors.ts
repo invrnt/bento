@@ -1,11 +1,24 @@
 import type { MessageKey } from "../../i18n/dictionary";
 
-export type PairingProblem = "wrongCode" | "notFound" | "relayUnavailable" | "rateLimited" | "telegramLogin" | "network" | "generic";
+export type PairingProblem =
+  | "wrongCode"
+  | "notFound"
+  | "relayUnavailable"
+  | "rateLimited"
+  | "telegramLogin"
+  | "network"
+  | "requestTaken"
+  | "vaultAmbiguous"
+  | "deviceRemoved"
+  | "generic";
 
 /** Groups backend/relay error codes into the few situations a person can act on. */
 export function pairingProblem(code: string | null | undefined): PairingProblem {
   const value = (code ?? "").toLowerCase();
   if (!value) return "generic";
+  if (value === "pairing_request_taken") return "requestTaken";
+  if (value === "pairing_vault_ambiguous") return "vaultAmbiguous";
+  if (value === "pairing_device_removed") return "deviceRemoved";
   if (value.includes("relay") || value === "pairing_unavailable" || value === "storage_unavailable") return "relayUnavailable";
   if (value.includes("rate_limit") || value.includes("flood")) return "rateLimited";
   if (value.includes("room_not_found") || value.includes("not_found") || value.includes("expired")) return "notFound";
@@ -18,11 +31,14 @@ export function pairingProblem(code: string | null | undefined): PairingProblem 
 }
 
 export const pairingProblemKeys: Record<PairingProblem, MessageKey> = {
+  deviceRemoved: "pairing.problem.deviceRemoved",
   generic: "pairing.problem.generic",
   network: "pairing.problem.network",
   notFound: "pairing.problem.notFound",
   rateLimited: "pairing.problem.rateLimited",
   relayUnavailable: "pairing.problem.relayUnavailable",
+  requestTaken: "pairing.problem.requestTaken",
   telegramLogin: "pairing.problem.telegramLogin",
+  vaultAmbiguous: "pairing.problem.vaultAmbiguous",
   wrongCode: "pairing.problem.wrongCode",
 };

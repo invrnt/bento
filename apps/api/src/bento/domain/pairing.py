@@ -102,6 +102,18 @@ class PairingPeer:
 
 
 @dataclass(frozen=True, slots=True)
+class PairingVaultInfo:
+    """What a Sync-channel guest shows about the vault it is joining, before the user confirms the emojis.
+
+    `created_at` comes from the pinned header (checked again against the granted keyring before installing);
+    `devices_count` is the host's unauthenticated claim in its offer, a hint only.
+    """
+
+    created_at: datetime | None = None
+    devices_count: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class PairingSession:
     id: str
     role: PairingRole
@@ -113,6 +125,7 @@ class PairingSession:
     sas: tuple[str, ...] | None = None
     needs_telegram_qr: bool = False
     error_code: str | None = None
+    vault: PairingVaultInfo | None = None
 
 
 ALLOWED_TRANSITIONS: dict[PairingState, frozenset[PairingState]] = {

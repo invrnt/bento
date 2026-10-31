@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from bento.adapters.pairing import WebSocketPairingRelay
 from bento.adapters.repositories.devices import SQLiteDeviceRepository
 from bento.adapters.security import verify_commitment
+from bento.adapters.sync import SQLiteSyncStateStore
 from bento.application.devices import DeviceService
 from bento.application.pairing import LocalDeviceInfo, PairingRequestView, PairingService, PairingView
 from bento.domain.devices import DevicePlatform
@@ -62,7 +63,8 @@ def build_pairing_components(settings: Settings) -> PairingComponents:
         raise TelegramNotConfiguredError()
     vault = services.get_vault_session(settings)
     vault_crypto = services.get_vault_crypto()
-    devices = SQLiteDeviceRepository(device_session_factory(settings))
+    session_factory = device_session_factory(settings)
+    devices = SQLiteDeviceRepository(session_factory)
     pairing = PairingService(
         relay=WebSocketPairingRelay(settings.relay_url),
         crypto=services.get_pairing_crypto(),
@@ -73,6 +75,7 @@ def build_pairing_components(settings: Settings) -> PairingComponents:
         devices=devices,
         verify_commitment=verify_commitment,
         local_device=local_device_info(settings),
+        sync_state=SQLiteSyncStateStore(session_factory),
     )
     _live_services.add(pairing)
     return PairingComponents(
@@ -158,6 +161,13 @@ class PairingErrorResponse(BaseModel):
     message: str
 
 
+class PairingVaultResponse(BaseModel):
+    """Shown by a Sync-channel guest next to the emojis; `devices_count` is the host's unverified claim."""
+
+    created_at: str | None
+    devices_count: int | None
+
+
 class PairingResponse(BaseModel):
     id: str
     role: str
@@ -172,6 +182,7 @@ class PairingResponse(BaseModel):
     sas: list[str] | None
     telegram_qr: QrMatrix | None
     error: PairingErrorResponse | None
+    vault: PairingVaultResponse | None
 
 
 class PairingJoinRequest(BaseModel):
@@ -256,6 +267,14 @@ async def approve_pairing(
     return await _respond(request, service.approve(pairing_id))
 
 
+@router.post("/pairing/{pairing_id}/confirm", response_model=PairingResponse)
+async def confirm_pairing(
+    pairing_id: str, request: Request, service: PairingService = Depends(get_pairing_service)
+) -> PairingResponse | JSONResponse:
+    """Guest of the Sync-channel fallback: the emojis match, so accept the grant of this exchange."""
+    return await _respond(request, service.confirm(pairing_id))
+
+
 @router.post("/pairing/{pairing_id}/reject", response_model=PairingResponse)
 async def reject_pairing(
     pairing_id: str, request: Request, service: PairingService = Depends(get_pairing_service)
@@ -302,6 +321,12 @@ def pairing_response(view: PairingView, *, site_url: str = "") -> PairingRespons
         error=PairingErrorResponse(code=session.error_code, message=view.error_message or "Pairing failed")
         if session.error_code is not None
         else None,
+        vault=PairingVaultResponse(
+            created_at=session.vault.created_at.isoformat() if session.vault.created_at is not None else None,
+            devices_count=session.vault.devices_count,
+        )
+        if session.vault is not None
+        else None,
     )
 
 
@@ -320,6 +345,8 @@ _CONFLICT = frozenset(
         "pairing_nameplate_taken",
         "pairing_expired",
         "pairing_request_expired",
+        "pairing_vault_ambiguous",
+        "pairing_device_removed",
         "vault_locked",
         "vault_not_found",
         "telegram_not_authorized",

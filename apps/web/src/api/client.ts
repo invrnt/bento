@@ -1,3 +1,6 @@
+/** Sent on every request; the headless API refuses unsafe methods without it (CSRF). */
+export const clientHeader = { name: "x-bento-client", value: "web" } as const;
+
 export type ApiClientOptions = {
   baseUrl?: string;
   fetcher?: typeof fetch;
@@ -38,6 +41,7 @@ export function createApiClient(options: ApiClientOptions = {}) {
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
     const resolvedPath = appendQuery(normalizedPath, query);
     const requestHeaders = new Headers(headers);
+    requestHeaders.set(clientHeader.name, clientHeader.value);
     let requestBody: BodyInit | undefined;
 
     if (body === undefined) {

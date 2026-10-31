@@ -12,7 +12,7 @@ vi.hoisted(() => Object.defineProperty(navigator, "language", { configurable: tr
 
 const pairing = (overrides: Partial<Pairing> = {}): Pairing => ({
   code: null, error: null, expires_at: new Date(Date.now() + 600_000).toISOString(), id: "pair_1", link: null, peer: null, qr: null,
-  role: "guest", sas: null, state: "waiting", telegram_qr: null, transport: "relay", web_link: null, ...overrides,
+  role: "guest", sas: null, state: "waiting", telegram_qr: null, transport: "relay", vault: null, web_link: null, ...overrides,
 });
 const sas = ["🐙", "🌵", "🎈", "🚀"];
 const authorized: AccountStatus = {
@@ -119,6 +119,87 @@ describe("joining from a new device", () => {
     fireEvent.click(screen.getByRole("button", { name: /Pedir acceso a mis otros dispositivos/ }));
     expect(await screen.findByRole("heading", { name: "Esperando a tus otros dispositivos" })).toBeInTheDocument();
     expect(api.callsTo("POST /pairing/request")).toHaveLength(1);
+  });
+
+  it("asks this device to confirm the emojis before it accepts access through Telegram", async () => {
+    const vaultInfo = { created_at: "2025-03-12T09:30:00Z", devices_count: 3 };
+    const fallback = (overrides: Partial<Pairing> = {}) => pairing({ id: "pair_3", transport: "telegram", vault: vaultInfo, ...overrides });
+    const { api, onDone } = renderJoin(
+      {
+        "GET /account": authorized,
+        "GET /pairing/pair_3": sequence(fallback({ sas, state: "awaiting_approval" })),
+        "GET /sync/status": { bootstrap: null, error: null, last_pull_at: null, last_push_at: null, pending_ops: 0, state: "idle", waiting_until: null },
+        "GET /vault": vault("locked"),
+        "POST /pairing/pair_3/confirm": fallback({ sas, state: "approving" }),
+        "POST /pairing/request": fallback(),
+      },
+      { initialStep: "choose" },
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /Pedir acceso a mis otros dispositivos/ }));
+
+    expect(await screen.findByRole("heading", { name: "¿Ves los mismos emojis en tu otro dispositivo?" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Emojis de verificación: 🐙 🌵 🎈 🚀" })).toBeInTheDocument();
+    const summary = screen.getByRole("group", { name: "Nube a la que se unirá este equipo" });
+    expect(summary).toHaveTextContent("Creada el 12 de marzo de 2025");
+    expect(summary).toHaveTextContent("3 dispositivos");
+    expect(api.callsTo("POST /pairing/pair_3/confirm")).toHaveLength(0);
+
+    api.on("GET /pairing/pair_3", sequence(fallback({ sas, state: "approving" }), fallback({ sas, state: "approving" }), fallback({ state: "completed" })));
+    fireEvent.click(screen.getByRole("button", { name: "Coinciden" }));
+    await waitFor(() => expect(api.callsTo("POST /pairing/pair_3/confirm")).toHaveLength(1));
+    expect(await screen.findByText("Esperando el acceso…")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Coinciden" })).not.toBeInTheDocument();
+
+    expect(await screen.findByRole("heading", { name: "Tu biblioteca está lista" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Abrir mi biblioteca" }));
+    expect(onDone).toHaveBeenCalledOnce();
+  });
+
+  it("stops without accepting anything when the emojis do not match", async () => {
+    const fallback = (overrides: Partial<Pairing> = {}) => pairing({ id: "pair_4", sas, state: "awaiting_approval", transport: "telegram", ...overrides });
+    const { api } = renderJoin(
+      {
+        "DELETE /pairing/pair_4": fallback({ sas: null, state: "cancelled" }),
+        "GET /account": authorized,
+        "GET /pairing/pair_4": fallback(),
+        "GET /vault": vault("locked"),
+        "POST /pairing/request": fallback(),
+      },
+      { initialStep: "choose" },
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /Pedir acceso a mis otros dispositivos/ }));
+    expect(screen.queryByRole("group", { name: "Nube a la que se unirá este equipo" })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "No coinciden" }));
+
+    expect(await screen.findByRole("heading", { name: "No se añadió este equipo" })).toBeInTheDocument();
+    await waitFor(() => expect(api.callsTo("DELETE /pairing/pair_4")).toHaveLength(1));
+    expect(api.callsTo("POST /pairing/pair_4/confirm")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Probar otra vez" }));
+    expect(await screen.findByRole("heading", { name: "Tu nube ya existe en esta cuenta" })).toBeInTheDocument();
+  });
+
+  it("explains why it cannot ask for access when the account has several clouds", async () => {
+    renderJoin(
+      {
+        "POST /pairing/request": () => {
+          throw new FakeHttpError(409, "pairing_vault_ambiguous");
+        },
+      },
+      { initialStep: "choose" },
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /Pedir acceso a mis otros dispositivos/ }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Tu cuenta de Telegram tiene varias nubes de Bento");
+  });
+
+  it("does not ask relay guests to confirm: the code already authenticates the other device", async () => {
+    renderJoin({
+      "GET /pairing/pair_1": pairing({ sas, state: "awaiting_approval" }),
+      "POST /pairing/join": pairing(),
+    });
+    fireEvent.change(screen.getByLabelText("Código de emparejamiento"), { target: { value: "K7Q2-MXR9-T4WA" } });
+    fireEvent.click(screen.getByRole("button", { name: "Unirme" }));
+    expect(await screen.findByRole("heading", { name: "Confirma en tu otro dispositivo" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Coinciden" })).not.toBeInTheDocument();
   });
 
   it("unlocks with the recovery kit when there is no other device", async () => {

@@ -10,6 +10,10 @@ QR payloads are returned as a matrix so the renderer draws them without third-pa
 
 Generate with `segno` (error correction `M`, no border; the UI adds the quiet zone).
 
+## Request guard (headless mode)
+
+Outside desktop mode every request must use a loopback `Host` (`127.0.0.1`, `localhost`, or `[::1]`, any port) or a host listed in `BENTO_ALLOWED_HOSTS` (comma-separated, read from the API process environment); anything else gets `400 host_not_allowed` (DNS rebinding). Every method other than GET/HEAD/OPTIONS must also carry `X-Bento-Client: web`, or it gets `403 csrf_header_missing`: browsers only let a page send that header after a CORS preflight, which the API grants solely to its web origins. The web client (`apps/web/src/api/client.ts`) sends it on every request; scripts must add it too (`curl -H 'X-Bento-Client: web' …`). Desktop mode keeps its exact-origin + bearer-token middleware instead; the header is accepted there and ignored.
+
 ## Account (Telegram sign-in) — owner: mtproto agent
 
 | Method | Path | Body | Response |
@@ -88,15 +92,18 @@ Guest (new device):
 | Method | Path | Body | Response |
 |---|---|---|---|
 | POST | `/pairing/join` | `{code}` (code or full `bento://`/`https` link) | `Pairing` |
-| POST | `/pairing/request` | – | `Pairing` (Sync-channel fallback; requires Telegram sign-in) |
+| POST | `/pairing/request` | – | `Pairing` (Sync-channel fallback; requires Telegram sign-in; `409 pairing_vault_ambiguous` when the account has several vaults) |
+| POST | `/pairing/{id}/confirm` | – | `Pairing` (`approving`). Fallback guests only, in `awaiting_approval` with `sas`: the user saw the same emojis on the reviewing device. Until then the guest opens no grant; afterwards it accepts only the grant bound to the offer behind those emojis. Relay guests and hosts get `409 pairing_state_conflict`. "No coinciden" is `DELETE /pairing/{id}`. |
 
 Fallback requests seen by hosts:
 
 | Method | Path | Response |
 |---|---|---|
 | GET | `/pairing/requests` | `{items: [{id, device_name, platform, created_at}]}` |
-| POST | `/pairing/requests/{id}/review` | `Pairing` with `sas` |
+| POST | `/pairing/requests/{id}/review` | `Pairing` with `sas`, or `failed` with `pairing_request_taken` when the guest already answered another device's offer; `409 pairing_device_removed` for a removed device id |
 | POST | `/pairing/requests/{id}/approve` · `/reject` | `Pairing` |
+
+A host session that sees another device's answer (a reveal for another offer, or a grant/reject it did not post) ends `failed` with `pairing_request_taken`; the UI says "Otro dispositivo respondió a esta solicitud. Si no fuiste tú, cancela en el equipo nuevo."
 
 `Pairing`:
 
@@ -105,8 +112,11 @@ Fallback requests seen by hosts:
  "state": "waiting|connected|awaiting_approval|approving|needs_telegram_login|bootstrapping|completed|rejected|failed|expired|cancelled",
  "code": "K7Q2-MXR9-T4WA" | null, "link": "bento://join?v=1&c=…" | null, "web_link": "…" | null, "qr": QR | null,
  "expires_at": "ISO", "peer": {"device_name": "…", "platform": "linux|macos|windows"} | null,
- "sas": ["🐙", "🌵", "🎈", "🚀"] | null, "telegram_qr": QR | null, "error": Error | null}
+ "sas": ["🐙", "🌵", "🎈", "🚀"] | null, "telegram_qr": QR | null, "error": Error | null,
+ "vault": {"created_at": "ISO" | null, "devices_count": 3 | null} | null}
 ```
+
+`vault` is set only for fallback guests: `created_at` comes from the pinned header the guest discovered (checked again against the granted keyring before installing) and `devices_count` from the host's offer (an unverified hint). Pairing error codes: `pairing_request_taken`, `pairing_vault_ambiguous` (409), `pairing_device_removed` (409; the guest must join with a new identity), plus the relay codes in `pairing-relay-contract.md`.
 
 Pairing sessions live in API memory; restarting the API cancels them.
 

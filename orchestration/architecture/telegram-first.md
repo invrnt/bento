@@ -201,13 +201,22 @@ The Sync channel's pinned message is a JSON text message (≤ 4096 chars):
 
 Used when the relay is unreachable or disabled. Requires the guest to sign in to Telegram first.
 
-Commit-then-reveal prevents anyone with channel access (including Telegram) from grinding ephemeral keys to match the 24-bit SAS.
+Everyone with write access to the Sync channel can take part: Telegram itself, and a removed device whose Telegram session is still alive. Commit-then-reveal stops them from grinding ephemeral keys to match the 24-bit SAS, and **the guest confirms the emojis itself** before it opens any grant, so answering a request first gains an attacker nothing.
 
+0. The guest picks the vault from `find_vaults`: exactly one layout with a readable header whose `vault_id` matches. With none it fails `vault_not_found`; with several it fails `pairing_vault_ambiguous` and never chooses (whoever can create channels in the account could otherwise steer it). The relay flow and the recovery code still work.
 1. Guest posts plaintext JSON `pair_request {request_id, device_id, device_name, platform, public_key, commitment}` where `commitment = b64url(SHA-256("bento/v1/pair-commit" || eph_guest_pub || public_key || request_id))`.
-2. Online devices show a non-blocking prompt. On "Revisar", the host posts `pair_offer {request_id, eph_pub: eph_host_pub}`.
-3. The guest posts `pair_reveal {request_id, eph_pub: eph_guest_pub}`; the host verifies the commitment and rejects mismatches.
-4. Both compute the SAS with `HKDF(X25519(eph_host, eph_guest), salt = SHA-256(request_id || public_key || eph_guest_pub || eph_host_pub), info = "bento/v1/pairing/fallback-sas")` and display the emojis.
-5. After the user confirms the emojis match, the host posts `pair_grant {request_id, grant}` with `grant = b64url(nonce 12B || AES-256-GCM(grant_key, nonce, sealed_keyring, aad = request_id))`, where `grant_key = HKDF(X25519(eph_host, eph_guest), salt = the SAS transcript hash of step 4, info = "bento/v1/pairing/fallback-grant", length = 32)` and `sealed_keyring = seal_for_device(public_key, keyring_json, aad = request_id)` (defence in depth). The grant is therefore bound to the exchange whose SAS the user verified, not only to the public device key: the guest ignores grants that fail to decrypt (anyone with channel access can post one), then still checks that the granted keyring verifies the pinned header MAC before installing it. Requests expire after 15 minutes; the guest deletes its own pairing messages after completion.
+2. Online devices show a non-blocking prompt. On "Revisar", the host posts `pair_offer {request_id, eph_pub: eph_host_pub, devices?: n}` (`devices` = its count of active devices, a hint for the guest).
+3. The guest takes **only the first** `pair_offer` it sees for its request and posts `pair_reveal {request_id, eph_pub: eph_guest_pub, offer: eph_host_pub}`; later offers are ignored. The host verifies the commitment and rejects mismatches.
+4. Both compute the SAS with `HKDF(X25519(eph_host, eph_guest), salt = SHA-256(request_id || public_key || eph_guest_pub || eph_host_pub), info = "bento/v1/pairing/fallback-sas")` and display the emojis. The guest also shows the vault's `created_at` (from the header it discovered) and the offer's `devices` count.
+5. **Both users confirm.** On the host, "Añadir" posts `pair_grant {request_id, grant}` with `grant = b64url(nonce 12B || AES-256-GCM(grant_key, nonce, sealed_keyring, aad = request_id))`, where `grant_key = HKDF(X25519(eph_host, eph_guest), salt = the SAS transcript hash of step 4, info = "bento/v1/pairing/fallback-grant", length = 32)` and `sealed_keyring = seal_for_device(public_key, keyring_json, aad = request_id)` (defence in depth). On the guest, the session stays `awaiting_approval` until the user presses "Coinciden" (`POST /pairing/{id}/confirm`, state `approving`); "No coinciden" cancels it. Grants that arrive earlier are kept unopened (at most 16).
+6. After the confirmation the guest opens only grants whose AES-GCM verifies under the grant key of the confirmed offer (anyone with channel access can post a grant, so the others are ignored), then checks that the granted keyring MACs the pinned header and that the header still names the same layout and `created_at` it showed, and installs. Requests expire after 15 minutes; the guest deletes its own pairing messages after completion.
+
+Host-side signals:
+
+- When the guest's reveal answers another offer (it names a different `offer`, or it is older than this host's offer), or a `pair_grant`/`pair_reject` from someone else appears, the host session ends `failed` with `pairing_request_taken` and the request is no longer listed. Reviewing a request whose guest already revealed fails the same way at once. The UI says "Otro dispositivo respondió a esta solicitud. Si no fuiste tú, cancela en el equipo nuevo."
+- If an attacker posts a grant before any device reviewed, hosts stop listing the request (they cannot tell it from another device's approval); the guest still shows emojis no device of the user shows and accepts nothing without "Coinciden".
+
+Why the relay flow stays host-confirmed only: SPAKE2 with the 40-bit code that the host displays and the user types authenticates both ends, and a wrong guess burns the code, so a guest that completes key confirmation already knows it reached the device that showed the code. Its SAS is a secondary check for the host.
 
 ### Recovery
 
@@ -222,6 +231,7 @@ A signed-in device with the recovery code unwraps the keyring from the header. T
   3. Rotate: create `VMK_{e+1}`, post a `keys` message to Sync with `{epoch, grants: {device_id: seal_for_device(pub, keyring_json)}}` for every remaining active device, publish a new header wrapped with a **new recovery code**, and show the new recovery kit immediately (mandatory step).
   4. New data uses the new epoch. Copy explains that files the removed device already downloaded cannot be erased remotely.
 - Devices apply `keys` messages addressed to them and keep all epochs.
+- Removal is final for a device id: a host refuses to pair a guest whose `device_id` is removed in its registry or listed in `sync_state.removed_device_ids` (`pairing_device_removed`), checked before the emojis and again before the grant, and pairing never clears `removed_at`. The guest learns it through `rejected {reason: "device_removed"}` (relay) or `pair_reject {reason: "device_removed"}` (fallback) and must join again with a new identity.
 
 ## Inbox, Sharing, Import
 

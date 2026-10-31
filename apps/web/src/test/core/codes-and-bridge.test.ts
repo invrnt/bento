@@ -44,6 +44,9 @@ describe("pairing codes", () => {
     expect(pairingProblem("rate_limited")).toBe("rateLimited");
     expect(pairingProblem("telegram_login_failed")).toBe("telegramLogin");
     expect(pairingProblem("network_error")).toBe("network");
+    expect(pairingProblem("pairing_request_taken")).toBe("requestTaken");
+    expect(pairingProblem("pairing_vault_ambiguous")).toBe("vaultAmbiguous");
+    expect(pairingProblem("pairing_device_removed")).toBe("deviceRemoved");
     expect(pairingProblem("server_error")).toBe("generic");
     expect(pairingProblem(null)).toBe("generic");
   });
