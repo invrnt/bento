@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f5f2ee" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0c0e15" media="(prefers-color-scheme: dark)">
+<meta name="referrer" content="no-referrer">
+<title>Security: what each party sees · Bento</title>
+<meta name="description" content="What Bento encrypts, what Telegram can see, what the pairing relay sees, how the recovery kit works and what we cannot protect.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/site.css">
+<link rel="alternate" hreflang="es" href="/security/">
+<link rel="alternate" hreflang="en" href="/en/security/">
+</head>
+<body>
+<a class="skip-link" href="#content">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="logo" href="/en/">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect class="box" width="32" height="32" rx="9"/><rect class="cell" x="4.5" y="5" width="10.5" height="22" rx="3.5"/><rect class="cell" x="17" y="5" width="10.5" height="10" rx="3.5"/><rect class="cell" x="17" y="17" width="10.5" height="10" rx="3.5"/><circle class="ume" cx="22.25" cy="22" r="2.75"/></svg>
+      Bento
+    </a>
+    <nav class="site-nav" aria-label="Main">
+      <a href="/en/#how-it-works">How it works</a>
+      <a href="/en/#privacy">Privacy</a>
+      <a href="/en/#devices">Devices</a>
+      <a href="/en/#faq">FAQ</a>
+      <a href="/en/security/" aria-current="page">Security</a>
+    </nav>
+    <div class="header-actions">
+      <a class="lang-switch" href="/security/" hreflang="es" lang="es">Español</a>
+      <a class="button button-primary button-sm" href="/en/#download">Download</a>
+    </div>
+  </div>
+</header>
+
+<main id="content">
+  <div class="wrap">
+    <header class="page-header narrow">
+      <span class="eyebrow">Security</span>
+      <h1 class="page-title">What each party sees</h1>
+      <p class="page-lead">Bento is built so your cloud is unreadable to everyone but your devices. Here we explain, without fine print, what is encrypted, what Telegram can see, what the pairing relay sees and what we cannot protect.</p>
+    </header>
+
+    <div class="prose">
+      <nav class="toc" aria-labelledby="on-this-page">
+        <h2 id="on-this-page">On this page</h2>
+        <ol>
+          <li><a href="#summary">In short</a></li>
+          <li><a href="#encryption">What is encrypted</a></li>
+          <li><a href="#telegram">What Telegram sees</a></li>
+          <li><a href="#unencrypted">What you choose to send unencrypted</a></li>
+          <li><a href="#relay">What the relay sees</a></li>
+          <li><a href="#pairing">Pairing devices</a></li>
+          <li><a href="#recovery-kit">Recovery kit</a></li>
+          <li><a href="#remove-device">Removing a device</a></li>
+          <li><a href="#your-devices">Your devices</a></li>
+          <li><a href="#limits">What Bento cannot protect</a></li>
+          <li><a href="#updates">Updates</a></li>
+          <li><a href="#website">This website</a></li>
+          <li><a href="#report">Reporting a problem</a></li>
+        </ol>
+      </nav>
+
+      <h2 id="summary">In short</h2>
+      <ul>
+        <li>Everything Bento uploads to Telegram is encrypted first on your computer, with keys that only your devices and your recovery kit hold.</li>
+        <li>Telegram stores unreadable data. It knows you use Bento, how much space your cloud takes and when you upload or download.</li>
+        <li>The relay only passes encrypted messages between two devices while you pair them, and keeps nothing for more than 10 minutes.</li>
+        <li>Bento has no accounts of its own and no servers holding your files, and it sends no analytics.</li>
+        <li>If you lose all your devices and your recovery kit too, nobody can recover your cloud. Not even us.</li>
+      </ul>
+
+      <h2 id="encryption">What is encrypted</h2>
+      <p>Before uploading anything, Bento encrypts on your computer:</p>
+      <ul>
+        <li>the contents of every file, its thumbnails and its previews;</li>
+        <li>the names of files, folders and albums, and the type of each file;</li>
+        <li>the dates, camera details and location stored in your photos;</li>
+        <li>your favorites and how you organize your library;</li>
+        <li>the text Bento recognizes in images and PDFs, and smart search data;</li>
+        <li>the list of changes your devices use to stay in sync.</li>
+      </ul>
+      <h3>How it is encrypted</h3>
+      <ul>
+        <li><strong>AES-256-GCM</strong>, a standard authenticated cipher: besides hiding the contents, it detects any modification. If someone alters, reorders or truncates an encrypted file, Bento rejects it.</li>
+        <li>Each cloud has a <strong>random 256-bit master key</strong>. Separate keys are derived from it for files, sync and each other use, and every file is encrypted with its own key.</li>
+        <li>Files are encrypted in 1 MiB blocks, so Bento can play a video or resume a download without fetching the whole file. When it finishes, it checks the SHA-256 fingerprint of the complete file.</li>
+        <li>On each device, the Telegram session and the keys are stored encrypted with a device key protected by the system’s secure store (Keychain on macOS, Windows data protection, Secret Service or KWallet on Linux). If the system has no secure store, Bento uses a protected file inside its data folder and tells you.</li>
+      </ul>
+
+      <h2 id="telegram">What Telegram sees</h2>
+      <p>Telegram is where your cloud is stored, so it knows some data without content:</p>
+      <ul>
+        <li><strong>That you use Bento.</strong> The three private channels are called “Bento · Archivos”, “Bento · Sync” and “Bento · Bandeja”, sit in a chat folder called “Bento”, and their description says Bento created them.</li>
+        <li><strong>How much you store and when.</strong> The number and size of the encrypted parts, and the time of every upload and download.</li>
+        <li><strong>Your devices.</strong> Each computer with Bento is a session of your account, visible in Telegram › Settings › Devices with the app name, the computer’s model or system and its IP address, like any other Telegram app.</li>
+        <li><strong>Technical details of your cloud.</strong> A pinned message in “Bento · Sync” with internal identifiers, the creation date, how many times the keys were changed and a copy of your keys encrypted with your recovery code.</li>
+        <li><strong>What it already knows about your account.</strong> Your phone number, contacts and chats. Bento changes none of that.</li>
+      </ul>
+      <p>Telegram does <strong>not</strong> see the contents of your files, their names, types, dates or locations, your folders, albums and favorites, your searches or the recognized text.</p>
+      <p>Regular Telegram chats are encrypted between your app and Telegram’s servers, but Telegram can read them. That is why Bento encrypts your files before uploading them.</p>
+
+      <h2 id="unencrypted">What you choose to send unencrypted</h2>
+      <p>Some features use Telegram as it is. Bento always tells you first:</p>
+      <dl>
+        <dt>Share via Telegram</dt>
+        <dd>Sends a regular, unencrypted copy with its original name to the chat you pick. Telegram and the people in that chat can see it.</dd>
+        <dt>Telegram inbox</dt>
+        <dd>What you forward to “Bento · Bandeja” is a regular Telegram message. Bento imports it, encrypts it into your cloud and deletes the inbox message after 24 hours (you can change this). The original message stays where it was.</dd>
+        <dt>Import from Telegram</dt>
+        <dd>Bento copies files from the chats you choose into your cloud, encrypted. The original messages are left untouched.</dd>
+        <dt>Pairing without the relay</dt>
+        <dd>If the relay is not available, the new device posts a request in “Bento · Sync” with its name, system and public key, and deletes it when done. Your cloud’s keys never travel unencrypted.</dd>
+      </dl>
+
+      <h2 id="relay">What the pairing relay sees</h2>
+      <p>So two devices can find each other while pairing, Bento uses a relay: a small service on Cloudflare that forwards messages between them for a few minutes.</p>
+      <ul>
+        <li><strong>It sees</strong> the IP addresses of both devices (Cloudflare processes them to deliver the connection), the first four characters of the code, which name the “room”, the time, and how many encrypted messages pass and how large they are.</li>
+        <li><strong>It does not see</strong> the other eight characters of the code, which never leave your devices, or the contents of the messages, which are end-to-end encrypted. Nor can it impersonate one of your devices: without those eight characters every attempt fails and the code is cancelled.</li>
+        <li><strong>It keeps nothing</strong>: each room lasts at most 10 minutes and is then erased. Its logs contain only event names, counts and error codes. To prevent abuse it uses a fingerprint of your IP, never the IP itself.</li>
+      </ul>
+
+      <h2 id="pairing">Pairing devices safely</h2>
+      <p>A pairing code such as <span class="mono">K7Q2-MXR9-T4WA</span> has two parts: the first four characters identify the room on the relay and the remaining eight are a one-time password.</p>
+      <ul>
+        <li>With that password your two devices agree on a secret key using SPAKE2, a protocol designed for short passwords: anyone watching or controlling the connection cannot work out the password or try others without being noticed.</li>
+        <li>The four emojis come from that key. If they match on both screens, you are connected to your own device and not another one. If they don’t match, press “Not me”.</li>
+        <li>Only when you approve on the device you already use does it send your cloud’s keys to the new one, encrypted for that specific device.</li>
+        <li>The code expires after 10 minutes and works once.</li>
+        <li>The web link carries the code after the “#” sign: your browser never sends it to any server.</li>
+      </ul>
+
+      <h2 id="recovery-kit">Recovery kit</h2>
+      <ul>
+        <li>It is a 36-character code in 9 groups, with 160 random bits and a checksum that catches typing mistakes.</li>
+        <li>Your cloud in Telegram keeps a copy of your keys encrypted with that code. Without the code, that copy is useless: it cannot be guessed.</li>
+        <li>With your Telegram account and the code, anyone can open your cloud. Keep it away from your computers: printed or in a password manager.</li>
+        <li>Your devices do not store the code. If you lose it, create a new one from any computer with Bento; the old one stops working.</li>
+        <li>Bento cannot recover or reset it for you.</li>
+      </ul>
+
+      <h2 id="remove-device">Removing a device</h2>
+      <p>When you remove a device in Settings › Devices:</p>
+      <ol>
+        <li>Bento signs that device out of Telegram. If Telegram does not allow it yet (this happens when the computer you remove it from signed in recently), it asks you to end the session in Telegram › Settings › Devices.</li>
+        <li>It creates new keys for your cloud and gives them only to the remaining devices.</li>
+        <li>It shows you a new recovery kit; the old one stops working.</li>
+      </ol>
+      <p>Whatever the removed device had already downloaded stays on that device: it cannot be erased remotely.</p>
+
+      <h2 id="your-devices">Your devices</h2>
+      <p>Bento does not ask for a password when it opens. On each computer your library (names, thumbnails and downloaded files) is available to your system user: protect it with a sign-in password and, if you can, disk encryption.</p>
+
+      <h2 id="limits">What Bento cannot protect</h2>
+      <ul>
+        <li>A computer with malicious software, or in someone else’s hands with your session open.</li>
+        <li>Your cloud against someone who gets both your Telegram account and your recovery kit.</li>
+        <li>Your cloud if Telegram deletes or restricts your account, or if you delete Bento’s channels.</li>
+        <li>Copies you share unencrypted and what other people do with them.</li>
+        <li>The content-free data Telegram can see, described above.</li>
+      </ul>
+
+      <h2 id="updates">Updates</h2>
+      <p>Bento checks GitHub for new versions. It downloads them in the background, verifies their size and SHA-256 fingerprint before offering them and never installs without you pressing “Restart to update”. Published versions are signed on Windows and signed and notarized on macOS.</p>
+
+      <h2 id="website">This website</h2>
+      <ul>
+        <li>It uses no cookies, analytics, or third-party fonts or scripts. A strict content security policy stops its pages from loading or sending anything outside this domain.</li>
+        <li>The page for adding a device reads the code from the part of the address after “#”, which browsers never send to the server, and does not transmit it.</li>
+        <li>The site is hosted on Cloudflare Pages, which, like any web server, receives your IP and the technical details of each visit.</li>
+      </ul>
+
+      <h2 id="report">Reporting a security problem</h2>
+      <p>Write to [[COMPLETAR: correo para reportes de seguridad]]. Please don’t publish details until we have been able to fix it.</p>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a class="logo" href="/en/">Bento</a>
+        <p>Your private cloud, in order.</p>
+      </div>
+      <nav aria-label="Product">
+        <h2>Product</h2>
+        <ul>
+          <li><a href="/en/#download">Download</a></li>
+          <li><a href="/en/#how-it-works">How it works</a></li>
+          <li><a href="/en/#faq">FAQ</a></li>
+        </ul>
+      </nav>
+      <nav aria-label="Trust">
+        <h2>Trust</h2>
+        <ul>
+          <li><a href="/en/security/">Security</a></li>
+          <li><a href="/en/privacy/">Privacy</a></li>
+          <li><a href="/en/terms/">Terms of use</a></li>
+        </ul>
+      </nav>
+      <nav aria-label="Help">
+        <h2>Help</h2>
+        <ul>
+          <li><a href="https://github.com/invrnt/bento/blob/main/docs/user/en/README.md">User guides</a></li>
+          <li><a href="https://github.com/invrnt/bento/blob/main/docs/user/en/troubleshooting.md">Troubleshooting</a></li>
+          <li><a href="https://github.com/invrnt/bento">GitHub</a></li>
+        </ul>
+      </nav>
+    </div>
+    <p class="disclosure">Bento uses the Telegram API and is not affiliated with Telegram. Telegram is a trademark of its respective owners.</p>
+  </div>
+</footer>
+</body>
+</html>

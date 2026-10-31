@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f5f2ee" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0c0e15" media="(prefers-color-scheme: dark)">
+<meta name="referrer" content="no-referrer">
+<title>Privacy policy · Bento</title>
+<meta name="description" content="What data Bento processes, what Telegram sees, what the pairing relay sees and how to exercise your rights.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/site.css">
+<link rel="alternate" hreflang="es" href="/privacy/">
+<link rel="alternate" hreflang="en" href="/en/privacy/">
+</head>
+<body>
+<a class="skip-link" href="#content">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="logo" href="/en/">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect class="box" width="32" height="32" rx="9"/><rect class="cell" x="4.5" y="5" width="10.5" height="22" rx="3.5"/><rect class="cell" x="17" y="5" width="10.5" height="10" rx="3.5"/><rect class="cell" x="17" y="17" width="10.5" height="10" rx="3.5"/><circle class="ume" cx="22.25" cy="22" r="2.75"/></svg>
+      Bento
+    </a>
+    <nav class="site-nav" aria-label="Main">
+      <a href="/en/#how-it-works">How it works</a>
+      <a href="/en/#privacy">Privacy</a>
+      <a href="/en/#devices">Devices</a>
+      <a href="/en/#faq">FAQ</a>
+      <a href="/en/security/">Security</a>
+    </nav>
+    <div class="header-actions">
+      <a class="lang-switch" href="/privacy/" hreflang="es" lang="es">Español</a>
+      <a class="button button-primary button-sm" href="/en/#download">Download</a>
+    </div>
+  </div>
+</header>
+
+<main id="content">
+  <div class="wrap">
+    <header class="page-header narrow">
+      <span class="eyebrow">Privacy</span>
+      <h1 class="page-title">Privacy policy</h1>
+      <p class="updated">Last updated: [[COMPLETAR: fecha de entrada en vigor]]</p>
+    </header>
+
+    <div class="prose">
+      <p class="callout callout-warning draft-notice">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+        <span>Draft pending legal review: a professional must review it before it is published. [[COMPLETAR: eliminar este aviso tras la revisión legal]]</span>
+      </p>
+
+      <h2 id="summary">In short</h2>
+      <ul>
+        <li>Bento runs on your devices. There are no Bento accounts and none of our servers receive your files, their names or your Telegram credentials.</li>
+        <li>What Bento stores in your Telegram is encrypted on your computer. Telegram sees content-free data: that you use Bento, sizes, times and your devices’ sessions.</li>
+        <li>The pairing relay only passes encrypted messages between two devices for a few minutes.</li>
+        <li>No analytics, telemetry, ads or cookies. We don’t sell data or use it to train artificial intelligence.</li>
+        <li>Bento uses the Telegram API and is not affiliated with Telegram.</li>
+      </ul>
+
+      <h2 id="controller">1. Who is responsible</h2>
+      <p>Bento is offered by [[COMPLETAR: nombre legal del responsable]], located at [[COMPLETAR: domicilio del responsable]] (“we”). For any privacy matter, write to [[COMPLETAR: correo de contacto de privacidad]].</p>
+
+      <h2 id="what-it-is">2. What Bento is</h2>
+      <p>Bento is a desktop app that keeps your photo and file library on your devices and, if you connect your Telegram account, an encrypted copy in private channels of that account to sync your devices. Bento runs on your devices: we do not receive your files, their names or metadata, your phone number, your messages or your Telegram credentials.</p>
+
+      <h2 id="on-your-devices">3. Data that stays on your devices</h2>
+      <ul>
+        <li>Your library: files, thumbnails, previews, names, folders, albums, favorites, metadata (dates, camera, location) and the search index (recognized text and smart search data).</li>
+        <li>Each device’s Telegram session, your cloud’s keys and the device identity, encrypted with a key protected by the system.</li>
+        <li>Settings, technical logs and the state of background tasks. Logs do not include credentials or keys.</li>
+      </ul>
+      <p>You can delete them by uninstalling Bento and removing its data folder.</p>
+
+      <h2 id="in-telegram">4. Data stored in your Telegram account</h2>
+      <p>Telegram processes your account data under its own <a href="https://telegram.org/privacy">privacy policy</a>, as the provider of your account. Bento stores your files and library in three private channels of your account, encrypted on your computer before upload.</p>
+      <p>Telegram can see the title and description of those channels, the number and size of the encrypted parts, upload and download times, your devices’ sessions (app name, model or system and IP) and a technical message with internal identifiers, the creation date and an encrypted copy of your keys. What you choose to send unencrypted (sharing via Telegram, the inbox and pairing without the relay) is explained on the <a href="/en/security/#unencrypted">security page</a>.</p>
+
+      <h2 id="services">5. External services Bento connects to</h2>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th scope="col">Service</th><th scope="col">When</th><th scope="col">What it receives</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Telegram</td><td>While you use your cloud</td><td>What section 4 describes.</td></tr>
+            <tr><td>Pairing relay (operated by us on Cloudflare)</td><td>Only while you add a device</td><td>Both devices’ IP addresses, the first 4 characters of the code, the time, and the number and size of encrypted messages. Each room’s state lasts at most 10 minutes; logs contain no IP addresses or content.</td></tr>
+            <tr><td>GitHub</td><td>When checking for and downloading updates</td><td>Your IP and the version requested, under GitHub’s privacy statement.</td></tr>
+            <tr><td>Smart search model source</td><td>Only if you turn on smart search</td><td>Your IP when downloading the model from [[COMPLETAR: origen de descarga del modelo de búsqueda inteligente]].</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Cloudflare provides services to us for the relay and this website. Cloudflare and GitHub may process data outside your country. [[COMPLETAR: garantías aplicables a las transferencias internacionales]]</p>
+
+      <h2 id="website">6. This website</h2>
+      <p>This site is hosted on Cloudflare Pages. It uses no cookies, analytics or third-party content. Cloudflare processes the IP and technical details of each visit to serve the pages and protect them from abuse. The page for adding a device reads the pairing code in your browser, from the part of the address after “#”, which is not sent to the server.</p>
+
+      <h2 id="what-we-dont-do">7. What we don’t do</h2>
+      <ul>
+        <li>We don’t create user accounts or profiles.</li>
+        <li>We don’t include analytics, telemetry or ads.</li>
+        <li>We don’t sell or share data.</li>
+        <li>We don’t use your files or data obtained from Telegram to train artificial intelligence models. Text recognition and search run on your devices.</li>
+      </ul>
+
+      <h2 id="legal-bases">8. Legal bases</h2>
+      <p>We process the little data that reaches us (IP and technical details on the relay and the website) to provide the service you ask for and for our legitimate interest in keeping it secure and preventing abuse. [[COMPLETAR: confirmar las bases jurídicas según la ley aplicable]]</p>
+
+      <h2 id="retention">9. Retention</h2>
+      <ul>
+        <li>Relay: each room’s state, at most 10 minutes; technical logs, without IP addresses or content, for [[COMPLETAR: plazo de conservación de los registros del relay]].</li>
+        <li>Website: Cloudflare’s logs, under its policy.</li>
+        <li>On your devices and in your Telegram: until you delete it. The trash keeps deleted items for 30 days, and the inbox deletes imported messages after 24 hours (you can change this).</li>
+      </ul>
+
+      <h2 id="rights">10. Your rights</h2>
+      <p>Because we don’t receive your library, you control it directly: you can delete files and empty the trash, remove devices, delete Bento’s channels in Telegram or remove Bento’s data folder. Rights over the data Telegram processes are exercised with Telegram.</p>
+      <p>For any other request (access, rectification, erasure, objection, restriction or portability), write to [[COMPLETAR: correo de contacto de privacidad]]. You can also complain to [[COMPLETAR: autoridad de protección de datos competente]].</p>
+
+      <h2 id="children">11. Children</h2>
+      <p>Bento is not intended for people below the minimum age to use Telegram in their country.</p>
+
+      <h2 id="security">12. Security</h2>
+      <p>We explain how we protect your data, and the limits of that protection, on the <a href="/en/security/">security page</a>.</p>
+
+      <h2 id="changes">13. Changes</h2>
+      <p>If we change this policy, we will update the date above and, if the change is significant, announce it in the release notes.</p>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a class="logo" href="/en/">Bento</a>
+        <p>Your private cloud, in order.</p>
+      </div>
+      <nav aria-label="Product">
+        <h2>Product</h2>
+        <ul>
+          <li><a href="/en/#download">Download</a></li>
+          <li><a href="/en/#how-it-works">How it works</a></li>
+          <li><a href="/en/#faq">FAQ</a></li>
+        </ul>
+      </nav>
+      <nav aria-label="Trust">
+        <h2>Trust</h2>
+        <ul>
+          <li><a href="/en/security/">Security</a></li>
+          <li><a href="/en/privacy/">Privacy</a></li>
+          <li><a href="/en/terms/">Terms of use</a></li>
+        </ul>
+      </nav>
+      <nav aria-label="Help">
+        <h2>Help</h2>
+        <ul>
+          <li><a href="https://github.com/invrnt/bento/blob/main/docs/user/en/README.md">User guides</a></li>
+          <li><a href="https://github.com/invrnt/bento/blob/main/docs/user/en/troubleshooting.md">Troubleshooting</a></li>
+          <li><a href="https://github.com/invrnt/bento">GitHub</a></li>
+        </ul>
+      </nav>
+    </div>
+    <p class="disclosure">Bento uses the Telegram API and is not affiliated with Telegram. Telegram is a trademark of its respective owners.</p>
+  </div>
+</footer>
+</body>
+</html>

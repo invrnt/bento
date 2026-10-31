@@ -1,4 +1,4 @@
-import { Activity, FileText, FolderClosed, Heart, Images, Settings2, SquareLibrary } from "lucide-react";
+import { Activity, FileText, FolderClosed, Heart, Images, Settings2, SquareLibrary, Trash2 } from "lucide-react";
 
 import { t } from "../i18n/dictionary";
 import type { MessageKey } from "../i18n/dictionary";
@@ -17,6 +17,7 @@ export const navItems: SidebarItem[] = [
   { group: t("nav.group.files"), href: "/drive", icon: FolderClosed, label: t("nav.drive") },
   { group: t("nav.group.files"), href: "/documents", icon: FileText, label: t("nav.documents") },
   { group: t("nav.group.system"), href: "/jobs", icon: Activity, label: t("nav.jobs") },
+  { group: t("nav.group.system"), href: "/trash", icon: Trash2, label: t("nav.trash") },
   { group: t("nav.group.system"), href: "/settings", icon: Settings2, label: t("nav.settings") },
 ];
 
@@ -35,7 +36,10 @@ export const routeDefinitions: RouteDefinition[] = [
   },
   { bodyKey: "route.documents.body", pattern: /^\/documents\/?$/, titleKey: "route.documents.title" },
   { bodyKey: "route.jobs.body", pattern: /^\/jobs\/?$/, titleKey: "route.jobs.title" },
-  { bodyKey: "route.settings.body", pattern: /^\/settings\/?$/, titleKey: "route.settings.title" },
+  { bodyKey: "route.settings.body", pattern: /^\/settings(?:\/[a-z-]+)?\/?$/, titleKey: "route.settings.title" },
+  { bodyKey: "route.join.body", pattern: /^\/join\/?$/, titleKey: "route.join.title" },
+  { bodyKey: "route.activity.body", pattern: /^\/activity\/?$/, titleKey: "route.activity.title" },
+  { bodyKey: "route.trash.body", pattern: /^\/trash\/?$/, titleKey: "route.trash.title" },
 ];
 
 export function resolveRoute(pathname: string): RouteDefinition {

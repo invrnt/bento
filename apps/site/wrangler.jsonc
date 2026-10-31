@@ -1,0 +1,8 @@
+// Cloudflare Pages configuration for the static Bento site.
+// Deploy with `npm run deploy` (see docs/dev/site.md). This file is the source of truth
+// for the Pages project once it is used for a deployment.
+{
+  "name": "bento-site",
+  "pages_build_output_dir": "./dist",
+  "compatibility_date": "2026-10-15"
+}

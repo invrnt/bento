@@ -1,10 +1,13 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { LEGACY_SECRET_SETTING_KEYS } from "../src/main/secrets";
 import {
   validateDirectoryPicker,
   validateFilePicker,
+  validatePreferencesPatch,
   validateProbe,
   validateSafePath,
+  validateSavePdfRequest,
   validateSettingsApply,
 } from "../src/main/validation";
 
@@ -14,21 +17,20 @@ describe("desktop IPC payload validation", () => {
       validateSettingsApply({
         revision: 4,
         values: { worker_concurrency: 1, nested: { enabled: false } },
-        secrets: {
-          telegram_bot_token: { operation: "set", value: "new-secret" },
-          telegram_api_hash: { operation: "unchanged" },
-        },
+        secrets: {},
         runProbes: true,
       }),
     ).toEqual({
       revision: 4,
       values: { worker_concurrency: 1, nested: { enabled: false } },
-      secrets: {
-        telegram_bot_token: { operation: "set", value: "new-secret" },
-        telegram_api_hash: { operation: "unchanged" },
-      },
+      secrets: {},
       runProbes: true,
     });
+  });
+
+  it.each(LEGACY_SECRET_SETTING_KEYS)("rejects removed Bot API secret mutations: %s", (key) => {
+    expect(() => validateSettingsApply({ revision: 1, values: {}, secrets: { [key]: { operation: "set", value: "secret" } } })).toThrow(TypeError);
+    expect(() => validateSettingsApply({ revision: 1, values: {}, secrets: { [key]: { operation: "unchanged" } } })).toThrow(TypeError);
   });
 
   it("accepts only the two explicit data-directory migration choices", () => {
@@ -74,19 +76,19 @@ describe("desktop IPC payload validation", () => {
 
   it("allows only explicit, bounded probe kinds and absolute non-root paths", () => {
     const candidate = path.join(path.parse(process.cwd()).root, "tmp", "bento-data");
-    expect(validateProbe({ kind: "writable-directory", path: candidate, secrets: {} })).toEqual({
+    expect(validateProbe({ kind: "writable-directory", path: candidate })).toEqual({
       kind: "writable-directory",
       path: candidate,
-      secrets: {},
     });
+    expect(validateProbe({ kind: "ffmpeg" })).toEqual({ kind: "ffmpeg" });
 
     for (const payload of [
       { kind: "shell", path: candidate },
       { kind: "writable-directory", path: "../../etc" },
       { kind: "writable-directory", path: `${candidate}\0suffix` },
-      { kind: "telegram", secrets: { "bad-key": "secret" } },
-      { kind: "telegram", secrets: { token: "" } },
-      { kind: "telegram", extra: true },
+      { kind: "telegram" },
+      { kind: "ocr", secrets: { token: "secret" } },
+      { kind: "ocr", extra: true },
     ]) {
       expect(() => validateProbe(payload)).toThrow(TypeError);
     }
@@ -108,6 +110,52 @@ describe("desktop IPC payload validation", () => {
       { filters: [{ name: "Any", extensions: [], extra: true }] },
     ]) {
       expect(() => validateFilePicker(payload)).toThrow(TypeError);
+    }
+  });
+});
+
+describe("desktop preference and PDF payload validation", () => {
+  it("accepts only boolean values for the three known preferences", () => {
+    expect(validatePreferencesPatch({ launchAtLogin: true })).toEqual({ launchAtLogin: true });
+    expect(validatePreferencesPatch({ keepRunningInBackground: false, autoDownloadUpdates: true })).toEqual({
+      keepRunningInBackground: false,
+      autoDownloadUpdates: true,
+    });
+    for (const payload of [
+      undefined,
+      null,
+      [],
+      {},
+      { launchAtLogin: "yes" },
+      { launchAtLogin: 1 },
+      { launchAtLogin: true, backgroundNoticeShown: true },
+      { notifiedAttentionIds: [] },
+      { __proto__: { launchAtLogin: true } },
+    ]) {
+      expect(() => validatePreferencesPatch(payload)).toThrow(TypeError);
+    }
+  });
+
+  it("accepts only a plain file name suggestion for PDF saving", () => {
+    expect(validateSavePdfRequest(undefined)).toEqual({});
+    expect(validateSavePdfRequest({})).toEqual({});
+    expect(validateSavePdfRequest({ suggestedName: " Kit de recuperación de Bento.pdf " })).toEqual({
+      suggestedName: "Kit de recuperación de Bento.pdf",
+    });
+    for (const payload of [
+      { suggestedName: "../escape.pdf" },
+      { suggestedName: "/etc/passwd" },
+      { suggestedName: "C:\\Windows\\kit.pdf" },
+      { suggestedName: "kit\n.pdf" },
+      { suggestedName: ".hidden.pdf" },
+      { suggestedName: "CON.pdf" },
+      { suggestedName: "" },
+      { suggestedName: "x".repeat(121) },
+      { suggestedName: 42 },
+      { html: "<h1>owned</h1>" },
+      { path: "/tmp/out.pdf" },
+    ]) {
+      expect(() => validateSavePdfRequest(payload)).toThrow(TypeError);
     }
   });
 });

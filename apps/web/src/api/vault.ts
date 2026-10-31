@@ -1,5 +1,6 @@
 import { apiClient } from "./client";
 import type { ApiClient } from "./client";
+import type { QrMatrix } from "./qr";
 
 export type VaultState = "local_only" | "signed_out" | "no_vault" | "locked" | "bootstrapping" | "ready";
 
@@ -13,7 +14,7 @@ export type VaultStatus = {
   vault_id: string | null;
 };
 
-export type CreatedVault = { recovery_code: string; vault: VaultStatus };
+export type CreatedVault = { recovery_code: string; recovery_qr?: QrMatrix; vault: VaultStatus };
 
 export function getVault(client: ApiClient = apiClient): Promise<VaultStatus> {
   return client.request<VaultStatus>("/vault");
@@ -27,8 +28,10 @@ export function unlockVault(recoveryCode: string, client: ApiClient = apiClient)
   return client.request<VaultStatus>("/vault/unlock", { body: { recovery_code: recoveryCode }, method: "POST" });
 }
 
-export function rotateRecoveryCode(client: ApiClient = apiClient): Promise<{ recovery_code: string }> {
-  return client.request<{ recovery_code: string }>("/vault/recovery-code", { method: "POST" });
+export function rotateRecoveryCode(
+  client: ApiClient = apiClient,
+): Promise<{ recovery_code: string; recovery_qr?: QrMatrix }> {
+  return client.request<{ recovery_code: string; recovery_qr?: QrMatrix }>("/vault/recovery-code", { method: "POST" });
 }
 
 export function confirmRecoveryKit(lastGroup: string, client: ApiClient = apiClient): Promise<VaultStatus> {

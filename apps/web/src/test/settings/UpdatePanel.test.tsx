@@ -4,12 +4,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BentoDesktopBridge, DesktopPlatform, UpdateState } from "../../api/settingsDesktop";
 import { UpdatePanel } from "../../features/settings/UpdatePanel";
 
+// The dictionary picks the locale at import time and jsdom reports en-US: pin Spanish first.
+vi.hoisted(() => Object.defineProperty(navigator, "language", { configurable: true, value: "es-ES" }));
+
 const platform: DesktopPlatform = {
   arch: "x64",
   desktop: true,
   platform: "win32",
   recoveryMode: false,
-  secureStorage: "available",
+  secureStorage: "os",
   version: "0.4.0",
 };
 
@@ -35,7 +38,7 @@ describe("desktop update experience", () => {
 
     render(<UpdatePanel desktop={platform} />);
     expect(screen.getByText("0.4.0")).toBeInTheDocument();
-    expect(screen.getByText(/nunca descargará actualizaciones sin tu permiso/i)).toBeInTheDocument();
+    expect(screen.getByText(/cada pocas horas/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Buscar actualizaciones" }));
     expect(await screen.findByText(/Nueva versión disponible:/)).toBeInTheDocument();
@@ -49,7 +52,7 @@ describe("desktop update experience", () => {
     expect(screen.getByText("42,5%")).toBeInTheDocument();
     await act(async () => finishDownload?.(downloaded));
 
-    fireEvent.click(await screen.findByRole("button", { name: "Actualizar ahora" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Reiniciar para actualizar" }));
     expect(install).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog", { name: "¿Actualizar y reiniciar Bento?" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Actualizar y reiniciar" }));
@@ -67,10 +70,10 @@ describe("desktop update experience", () => {
     });
     render(<UpdatePanel desktop={{ ...platform, platform: "linux" }} />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "Mostrar instalador" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Instalar actualización…" }));
     expect(screen.getByRole("dialog", { name: "Instalar la actualización en Linux" })).toHaveTextContent("paquete descargado y verificado");
     expect(install).not.toHaveBeenCalled();
-    fireEvent.click(screen.getAllByRole("button", { name: "Mostrar instalador" })[1]);
+    fireEvent.click(screen.getByRole("button", { name: "Mostrar instalador" }));
     await waitFor(() => expect(install).toHaveBeenCalledOnce());
   });
 

@@ -1,27 +1,49 @@
 import { useEffect, useMemo, useState } from "react";
-import { Heart, Images, Search, Sparkles, X } from "lucide-react";
+import { Eye, Heart, Images, Import, Search, Send, Sparkles, Trash2, X } from "lucide-react";
 
+import { Button } from "../../components/Button";
 import { EmptyState, ErrorState, LoadingState } from "../../components/States";
 import { IconButton } from "../../components/IconButton";
 import { Input } from "../../components/Input";
+import type { MenuItem } from "../../components/Menu";
 import { PageHeader } from "../../components/PageHeader";
 import { Thumbnail } from "../../components/Thumbnail";
+import { driveApi } from "../../api/drive";
 import { photosApi } from "../../api/photos";
 import type { PhotoAsset, PhotoTimelineGroup, PhotosApi, SearchPhotoResult } from "../../api/photos";
+import { restoreTrash } from "../../api/trash";
 import { t } from "../../i18n/dictionary";
+import { ImportFromTelegramDialog } from "../import/ImportFromTelegramDialog";
+import type { ImportApi } from "../import/ImportFromTelegramDialog";
+import { ShareToTelegramDialog } from "../share/ShareToTelegramDialog";
+import type { ShareApi, ShareTarget } from "../share/ShareToTelegramDialog";
+import { deleteWithUndo, settleDeletes } from "../trash/undoableDelete";
 import { PhotoLightbox } from "./PhotoLightbox";
 import { PhotoTimeline } from "./PhotoTimeline";
 import { PhotoUploadButton } from "./PhotoUploadButton";
 
 export type PhotosPageProps = {
   api?: PhotosApi;
+  /** Moves an asset to trash (`DELETE /assets/{id}`). */
+  deleteAsset?: (assetId: string) => Promise<unknown>;
   favoritesOnly?: boolean;
+  importApi?: ImportApi;
   initialQuery?: string;
+  restoreFromTrash?: (ids: string[]) => Promise<unknown>;
+  shareApi?: ShareApi;
 };
 
 type LoadState = "idle" | "loading" | "ready" | "error";
 
-export function PhotosPage({ api = photosApi, favoritesOnly = false, initialQuery = "" }: PhotosPageProps) {
+export function PhotosPage({
+  api = photosApi,
+  deleteAsset = (assetId) => driveApi.deleteAsset(assetId),
+  favoritesOnly = false,
+  importApi,
+  initialQuery = "",
+  restoreFromTrash = restoreTrash,
+  shareApi,
+}: PhotosPageProps) {
   const [groups, setGroups] = useState<PhotoTimelineGroup[]>([]);
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -30,12 +52,15 @@ export function PhotosPage({ api = photosApi, favoritesOnly = false, initialQuer
   const [query, setQuery] = useState(initialQuery);
   const [searchResults, setSearchResults] = useState<SearchPhotoResult[]>([]);
   const [searchState, setSearchState] = useState<LoadState>("idle");
+  const [shareTarget, setShareTarget] = useState<ShareTarget | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
 
     async function loadTimeline() {
-      setLoadState("loading");
+      // Refreshes after a delete or undo keep the timeline on screen instead of flashing a loader.
+      setLoadState((current) => (current === "ready" ? "ready" : "loading"));
       setError(null);
       try {
         const response = await api.getTimeline();
@@ -123,6 +148,36 @@ export function PhotosPage({ api = photosApi, favoritesOnly = false, initialQuer
     setSelectedAsset(asset);
   }
 
+  function share(asset: PhotoAsset) {
+    setShareTarget({ id: asset.id, name: asset.filename });
+  }
+
+  async function remove(asset: PhotoAsset) {
+    if (selectedAsset?.id === asset.id) {
+      setSelectedAsset(nextAsset ?? previousAsset ?? null);
+    }
+
+    await deleteWithUndo({
+      onChange: refresh,
+      perform: () => settleDeletes([asset.id], deleteAsset),
+      restore: restoreFromTrash,
+    });
+  }
+
+  function menuFor(asset: PhotoAsset): MenuItem[] {
+    return [
+      { icon: <Eye />, id: "quicklook", label: t("quicklook.action"), onSelect: () => setSelectedAsset(asset) },
+      { icon: <Send />, id: "share", label: t("share.action"), onSelect: () => share(asset) },
+      {
+        icon: <Heart />,
+        id: "favorite",
+        label: asset.favorite ? t("photos.unfavorite") : t("photos.favorite"),
+        onSelect: () => void toggleFavorite(asset),
+      },
+      { icon: <Trash2 />, id: "delete", label: t("photos.delete"), onSelect: () => void remove(asset), separatorBefore: true, tone: "danger" },
+    ];
+  }
+
   const emptyTitle = favoritesOnly ? t("favorites.emptyTitle") : t("photos.emptyTitle");
   const emptyBody = favoritesOnly ? t("favorites.emptyBody") : t("photos.emptyBody");
   const refresh = () => setRefreshKey((value) => value + 1);
@@ -130,7 +185,16 @@ export function PhotosPage({ api = photosApi, favoritesOnly = false, initialQuer
   return (
     <div className="grid w-full content-start gap-8">
       <PageHeader
-        actions={!favoritesOnly ? <PhotoUploadButton api={api} onUploaded={refresh} /> : null}
+        actions={
+          !favoritesOnly ? (
+            <>
+              <Button leadingIcon={<Import />} onClick={() => setImportOpen(true)}>
+                {t("import.action")}
+              </Button>
+              <PhotoUploadButton api={api} onUploaded={refresh} />
+            </>
+          ) : null
+        }
         description={favoritesOnly ? t("favorites.subtitle") : t("photos.subtitle")}
         title={favoritesOnly ? t("favorites.title") : t("photos.title")}
       >
@@ -166,16 +230,21 @@ export function PhotosPage({ api = photosApi, favoritesOnly = false, initialQuer
         />
       ) : null}
       {loadState === "ready" && visibleGroups.length > 0 ? (
-        <PhotoTimeline groups={visibleGroups} onOpen={setSelectedAsset} showFavoriteMarkers={!favoritesOnly} />
+        <PhotoTimeline groups={visibleGroups} menuFor={menuFor} onOpen={setSelectedAsset} showFavoriteMarkers={!favoritesOnly} />
       ) : null}
 
       <PhotoLightbox
         asset={selectedAsset}
         onClose={() => setSelectedAsset(null)}
+        onDelete={(asset) => void remove(asset)}
         onNext={nextAsset ? () => setSelectedAsset(nextAsset) : undefined}
         onPrevious={previousAsset ? () => setSelectedAsset(previousAsset) : undefined}
+        onShare={share}
         onToggleFavorite={toggleFavorite}
+        position={selectedIndex >= 0 ? { index: selectedIndex, total: visibleAssets.length } : undefined}
       />
+      <ShareToTelegramDialog api={shareApi} onClose={() => setShareTarget(null)} target={shareTarget} />
+      <ImportFromTelegramDialog api={importApi} onClose={() => setImportOpen(false)} open={importOpen} />
     </div>
   );
 }

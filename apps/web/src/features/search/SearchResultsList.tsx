@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { File, FileStack, FileText, Film, Folder, Image, ScanText, Sparkles, SquareLibrary } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -16,6 +17,10 @@ import { groupSearchHits } from "./searchFilters";
 export type SearchResultsListProps = {
   className?: string;
   items: SearchHit[];
+  /** Makes each row open on click, Enter or Space (e.g. into Quick Look). */
+  onOpenItem?: (item: SearchHit) => void;
+  /** Controls at the end of each row, such as an actions menu. */
+  renderItemActions?: (item: SearchHit) => ReactNode;
 };
 
 const rowHeight = 128;
@@ -61,7 +66,7 @@ const stateTones: Record<SearchProcessingState, { pulse: boolean; tone: BadgeTon
   pending: { pulse: true, tone: "warning" },
 };
 
-export function SearchResultsList({ className, items }: SearchResultsListProps) {
+export function SearchResultsList({ className, items, onOpenItem, renderItemActions }: SearchResultsListProps) {
   const groups = groupSearchHits(items);
 
   return (
@@ -82,7 +87,9 @@ export function SearchResultsList({ className, items }: SearchResultsListProps) 
               getKey={(item) => item.id}
               height={Math.min(maxGroupHeight, group.items.length * rowHeight)}
               items={group.items}
-              renderItem={(item, index) => <SearchResultItem first={index === 0} item={item} />}
+              renderItem={(item, index) => (
+                <SearchResultItem actions={renderItemActions?.(item)} first={index === 0} item={item} onOpen={onOpenItem} />
+              )}
             />
           </Card>
         </section>
@@ -91,7 +98,17 @@ export function SearchResultsList({ className, items }: SearchResultsListProps) 
   );
 }
 
-function SearchResultItem({ first, item }: { first: boolean; item: SearchHit }) {
+function SearchResultItem({
+  actions,
+  first,
+  item,
+  onOpen,
+}: {
+  actions?: ReactNode;
+  first: boolean;
+  item: SearchHit;
+  onOpen?: (item: SearchHit) => void;
+}) {
   const state = stateTones[item.processing_state] ?? stateTones.partial;
   const stateKey = stateLabels[item.processing_state] ?? "search.state.partial";
   const TypeIcon = typeIcons[item.type] ?? File;
@@ -101,7 +118,7 @@ function SearchResultItem({ first, item }: { first: boolean; item: SearchHit }) 
     <article
       aria-label={`${item.title}. ${t(typeLabels[item.type])}. ${item.reason}`}
       className={cx(
-        "grid h-full grid-cols-[4rem_minmax(0,1fr)] gap-4 p-4 transition-colors duration-150 hover:bg-hover",
+        "relative grid h-full grid-cols-[4rem_minmax(0,1fr)] gap-4 p-4 transition-colors duration-150 hover:bg-hover",
         !first && "border-t border-line",
       )}
     >
@@ -111,12 +128,26 @@ function SearchResultItem({ first, item }: { first: boolean; item: SearchHit }) 
       <div className="min-w-0">
         <div className="flex min-w-0 items-start justify-between gap-4">
           <div className="min-w-0">
-            <h3 className="truncate text-base font-medium text-ink">{item.title}</h3>
+            <h3 className="truncate text-base font-medium text-ink">
+              {onOpen ? (
+                // The stretched button makes the whole row open; actions sit above it.
+                <button
+                  className="focus-ring rounded-xs text-left after:absolute after:inset-0 after:content-['']"
+                  onClick={() => onOpen(item)}
+                  type="button"
+                >
+                  {item.title}
+                </button>
+              ) : (
+                item.title
+              )}
+            </h3>
             {item.subtitle ? <p className="truncate text-sm text-ink-muted">{item.subtitle}</p> : null}
           </div>
           <div className="flex shrink-0 items-center gap-2 pt-1" title={t("search.relevance")}>
             {percent === null ? null : <ProgressBar className="w-16" value={percent} />}
             <span className="min-w-9 whitespace-nowrap text-right text-xs tabular-nums text-ink-muted">{formatScore(percent)}</span>
+            {actions ? <div className="relative z-10 -my-1.5">{actions}</div> : null}
           </div>
         </div>
         <p className="mt-1.5 flex min-w-0 items-center gap-1.5 text-sm text-ink">

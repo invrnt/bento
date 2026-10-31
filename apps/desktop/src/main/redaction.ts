@@ -1,4 +1,4 @@
-const SENSITIVE_KEY = /(?:authorization|cookie|password|secret|token|api[_-]?hash|chat[_-]?id)/iu;
+const SENSITIVE_KEY = /(?:authorization|cookie|password|secret|token|api[_-]?hash|chat[_-]?id|wrapping[_-]?key|recovery[_-]?code|session)/iu;
 const BEARER = /\bBearer\s+[A-Za-z0-9._~+/=-]+/giu;
 const QUERY_SECRET = /([?&](?:token|password|secret|api[_-]?hash)=)[^&\s]+/giu;
 

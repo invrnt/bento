@@ -36,6 +36,8 @@ from bento.domain.storage import BlobKind, BlobRef, StorageBackend
 from bento.infrastructure.settings import Settings
 from bento.interfaces.http.routes_account import router as account_router
 from bento.interfaces.http.routes_dev import router as dev_router
+from bento.interfaces.http.routes_devices import router as devices_router
+from bento.interfaces.http.routes_pairing import router as pairing_router
 from bento.interfaces.http.routes_search import router as search_router
 from bento.interfaces.http.routes_settings import router as settings_router
 from bento.interfaces.http.routes_telegram import router as telegram_router
@@ -48,6 +50,8 @@ router.include_router(dev_router)
 router.include_router(account_router)
 router.include_router(vault_router)
 router.include_router(telegram_router)
+router.include_router(pairing_router)
+router.include_router(devices_router)
 
 
 class HealthResponse(BaseModel):

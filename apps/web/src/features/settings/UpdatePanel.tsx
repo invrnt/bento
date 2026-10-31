@@ -74,7 +74,7 @@ function UpdateAction({ onCheck, onDownload, onInstall, state, supported }: { on
   if (state.status === "downloaded") {
     return (
       <Button className="self-start" leadingIcon={<Rocket />} onClick={onInstall} size="sm" variant="primary">
-        {state.installMode === "manual" ? t("settings.update.showPackage") : t("settings.update.install")}
+        {state.installMode === "manual" ? t("update.installManual") : t("update.restart")}
       </Button>
     );
   }
@@ -108,7 +108,7 @@ function StatusContent({ state, supported }: { state: UpdateState; supported: bo
           {state.error?.code ? <span className="mt-1 block font-mono text-xs">{`${t("settings.update.errorCode")} ${state.error.code}`}</span> : null}
         </Status>
       );
-    default: return <Status>{t("settings.update.idle")}</Status>;
+    default: return <Status>{t("update.idle")}</Status>;
   }
 }
 
@@ -148,7 +148,7 @@ function releaseDetails(state: UpdateState) {
 function updateErrorBody(code?: string): string {
   if (!code) return t("settings.update.errorBody");
   if (/network|download|response/u.test(code)) return t("settings.update.errorNetwork");
-  if (/checksum|digest|metadata|size/u.test(code)) return t("settings.update.errorVerification");
+  if (/checksum|digest|metadata|size|verif|signature|manifest|hash/u.test(code)) return t("settings.update.errorVerification");
   if (/development|platform_unsupported|install_unsupported/u.test(code)) return t("settings.update.errorUnsupported");
   if (/install|updater|package_manager/u.test(code)) return t("settings.update.errorInstall");
   return t("settings.update.errorBody");

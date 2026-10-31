@@ -73,6 +73,13 @@ jobs:
           (cd apps/api && uv run pytest)
           npm --prefix apps/web test
           npm --prefix apps/desktop test
+      - name: Write desktop build configuration (public values only)
+        # Unsigned validation builds never receive Telegram API credentials; Telegram sign-in reports it is unavailable.
+        shell: bash
+        env:
+          BENTO_RELAY_URL: ${{ vars.BENTO_RELAY_URL }}
+          BENTO_PUBLIC_SITE_URL: ${{ vars.BENTO_PUBLIC_SITE_URL }}
+        run: node apps/desktop/scripts/write-build-config.mjs
       - name: Build native sidecar and makers
         run: npm --prefix apps/desktop run make
       - name: Smoke packaged application twice
