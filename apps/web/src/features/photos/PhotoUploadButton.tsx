@@ -1,21 +1,26 @@
 import { useRef, useState } from "react";
 import type { ChangeEvent } from "react";
+import { Upload } from "lucide-react";
 
 import { Button } from "../../components/Button";
+import type { ButtonVariant } from "../../components/Button";
 import type { PhotosApi } from "../../api/photos";
 import { t } from "../../i18n/dictionary";
 
 export type PhotoUploadButtonProps = {
   api: PhotosApi;
+  label?: string;
   onUploaded: () => void;
+  variant?: ButtonVariant;
 };
 
-export function PhotoUploadButton({ api, onUploaded }: PhotoUploadButtonProps) {
+export function PhotoUploadButton({ api, label = t("photos.upload"), onUploaded, variant = "primary" }: PhotoUploadButtonProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
 
   async function onChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.currentTarget.files?.[0];
+    const input = event.currentTarget;
+    const file = input.files?.[0];
     if (!file) {
       return;
     }
@@ -26,7 +31,7 @@ export function PhotoUploadButton({ api, onUploaded }: PhotoUploadButtonProps) {
       onUploaded();
     } finally {
       setUploading(false);
-      event.currentTarget.value = "";
+      input.value = "";
     }
   }
 
@@ -38,10 +43,16 @@ export function PhotoUploadButton({ api, onUploaded }: PhotoUploadButtonProps) {
         className="sr-only"
         onChange={onChange}
         ref={inputRef}
+        tabIndex={-1}
         type="file"
       />
-      <Button disabled={uploading} onClick={() => inputRef.current?.click()} variant="primary">
-        {uploading ? t("photos.uploading") : t("photos.upload")}
+      <Button
+        leadingIcon={<Upload />}
+        loading={uploading}
+        onClick={() => inputRef.current?.click()}
+        variant={variant}
+      >
+        {uploading ? t("photos.uploading") : label}
       </Button>
     </>
   );

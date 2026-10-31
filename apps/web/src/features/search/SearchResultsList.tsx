@@ -1,13 +1,25 @@
+import { File, FileStack, FileText, Film, Folder, Image, ScanText, Sparkles, SquareLibrary } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
+import { Badge } from "../../components/Badge";
+import type { BadgeTone } from "../../components/Badge";
+import { Card } from "../../components/Card";
+import { ProgressBar } from "../../components/ProgressBar";
 import { Thumbnail } from "../../components/Thumbnail";
 import { VirtualList } from "../../components/VirtualList";
 import type { SearchHit, SearchProcessingState, SearchResultType } from "../../api/search";
 import { t } from "../../i18n/dictionary";
 import type { MessageKey } from "../../i18n/dictionary";
+import { cx } from "../../lib/cx";
 import { groupSearchHits } from "./searchFilters";
 
 export type SearchResultsListProps = {
+  className?: string;
   items: SearchHit[];
 };
+
+const rowHeight = 128;
+const maxGroupHeight = rowHeight * 4;
 
 const typeLabels: Record<SearchResultType, MessageKey> = {
   album: "search.type.album",
@@ -20,6 +32,17 @@ const typeLabels: Record<SearchResultType, MessageKey> = {
   video: "search.type.video",
 };
 
+const typeIcons: Record<SearchResultType, LucideIcon> = {
+  album: SquareLibrary,
+  asset: File,
+  document: FileText,
+  folder: Folder,
+  ocr_block: ScanText,
+  pdf_page: FileStack,
+  photo: Image,
+  video: Film,
+};
+
 const stateLabels: Record<SearchProcessingState, MessageKey> = {
   disabled: "search.state.disabled",
   failed: "search.state.failed",
@@ -29,70 +52,94 @@ const stateLabels: Record<SearchProcessingState, MessageKey> = {
   pending: "search.state.pending",
 };
 
-export function SearchResultsList({ items }: SearchResultsListProps) {
+const stateTones: Record<SearchProcessingState, { pulse: boolean; tone: BadgeTone }> = {
+  disabled: { pulse: false, tone: "neutral" },
+  failed: { pulse: false, tone: "danger" },
+  indexed: { pulse: false, tone: "success" },
+  indexing: { pulse: true, tone: "warning" },
+  partial: { pulse: false, tone: "warning" },
+  pending: { pulse: true, tone: "warning" },
+};
+
+export function SearchResultsList({ className, items }: SearchResultsListProps) {
   const groups = groupSearchHits(items);
 
   return (
-    <div className="grid gap-5" role="list" aria-label={t("search.results.label")}>
+    <section aria-label={t("search.results.label")} className={cx("grid gap-8", className)}>
       {groups.map((group) => (
         <section aria-labelledby={`search-group-${group.type}`} className="grid gap-3" key={group.type}>
-          <div className="flex items-center justify-between gap-3 border-b border-app-border/40 pb-1.5 px-1">
-            <h2 className="text-base font-bold tracking-tight text-app-text/90" id={`search-group-${group.type}`}>
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-base font-semibold text-ink" id={`search-group-${group.type}`}>
               {t(typeLabels[group.type])}
             </h2>
-            <span className="text-xs text-app-text-muted font-medium bg-slate-100 px-2 py-0.5 rounded-full select-none">
+            <Badge>
               {group.items.length} {t(group.items.length === 1 ? "search.resultCount.one" : "search.resultCount.many")}
-            </span>
+            </Badge>
           </div>
-          <VirtualList
-            estimateSize={104}
-            getKey={(item) => item.id}
-            height={Math.min(460, Math.max(124, group.items.length * 104))}
-            items={group.items}
-            renderItem={(item) => <SearchResultItem item={item} />}
-          />
+          <Card className="overflow-hidden" padding="none">
+            <VirtualList
+              estimateSize={rowHeight}
+              getKey={(item) => item.id}
+              height={Math.min(maxGroupHeight, group.items.length * rowHeight)}
+              items={group.items}
+              renderItem={(item, index) => <SearchResultItem first={index === 0} item={item} />}
+            />
+          </Card>
         </section>
       ))}
-    </div>
+    </section>
   );
 }
 
-function SearchResultItem({ item }: { item: SearchHit }) {
+function SearchResultItem({ first, item }: { first: boolean; item: SearchHit }) {
+  const state = stateTones[item.processing_state] ?? stateTones.partial;
   const stateKey = stateLabels[item.processing_state] ?? "search.state.partial";
+  const TypeIcon = typeIcons[item.type] ?? File;
+  const percent = scorePercent(item.score);
 
   return (
     <article
       aria-label={`${item.title}. ${t(typeLabels[item.type])}. ${item.reason}`}
-      className="grid h-full grid-cols-[5rem_minmax(0,1fr)] gap-4 border-b border-app-border bg-app-surface p-4 hover:bg-slate-50/50 transition-all duration-150 last:border-b-0"
+      className={cx(
+        "grid h-full grid-cols-[4rem_minmax(0,1fr)] gap-4 p-4 transition-colors duration-150 hover:bg-hover",
+        !first && "border-t border-line",
+      )}
     >
-      <Thumbnail alt={item.title} className="max-w-none rounded-lg shadow-3xs" src={item.thumbnail_url ?? undefined}>
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-app-text-muted/60">{t(typeLabels[item.type])}</span>
+      <Thumbnail alt={item.title} className="size-16 rounded-md" src={item.thumbnail_url ?? undefined}>
+        <TypeIcon aria-hidden="true" className="size-6 text-ink-subtle" strokeWidth={1.75} />
       </Thumbnail>
       <div className="min-w-0">
-        <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start justify-between gap-4">
           <div className="min-w-0">
-            <h3 className="truncate text-sm font-bold tracking-tight text-app-text">{item.title}</h3>
-            {item.subtitle ? <p className="mt-0.5 truncate text-xs text-app-text-muted/80">{item.subtitle}</p> : null}
+            <h3 className="truncate text-base font-medium text-ink">{item.title}</h3>
+            {item.subtitle ? <p className="truncate text-sm text-ink-muted">{item.subtitle}</p> : null}
           </div>
-          <span className="shrink-0 rounded-app-control border border-app-border bg-slate-50 px-2 py-0.5 text-xs font-bold text-app-accent shadow-3xs">
-            {formatScore(item.score)}
-          </span>
+          <div className="flex shrink-0 items-center gap-2 pt-1" title={t("search.relevance")}>
+            {percent === null ? null : <ProgressBar className="w-16" value={percent} />}
+            <span className="min-w-9 whitespace-nowrap text-right text-xs tabular-nums text-ink-muted">{formatScore(percent)}</span>
+          </div>
         </div>
-        <p className="mt-2 line-clamp-2 text-sm text-app-text/95 leading-relaxed font-medium">{item.reason}</p>
-        <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-app-text-muted">
-          <span className="text-app-accent/90">{t(typeLabels[item.type])}</span>
-          <span aria-hidden="true" className="opacity-30">/</span>
-          <span>{t(stateKey)}</span>
+        <p className="mt-1.5 flex min-w-0 items-center gap-1.5 text-sm text-ink">
+          <Sparkles aria-hidden="true" className="size-3.5 shrink-0 text-accent-ink" />
+          <span className="truncate">{item.reason}</span>
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <Badge icon={<TypeIcon aria-hidden="true" />} tone="accent">
+            {t(typeLabels[item.type])}
+          </Badge>
+          <Badge dot pulse={state.pulse} tone={state.tone}>
+            {t(stateKey)}
+          </Badge>
         </div>
       </div>
     </article>
   );
 }
 
-function formatScore(score: number | null | undefined): string {
-  if (!Number.isFinite(score)) {
-    return t("search.scoreUnavailable");
-  }
+function scorePercent(score: number | null | undefined): number | null {
+  return Number.isFinite(score) ? Math.round(Number(score) * 100) : null;
+}
 
-  return `${Math.round(Number(score) * 100)}%`;
+function formatScore(percent: number | null): string {
+  return percent === null ? t("search.scoreUnavailable") : `${percent} %`;
 }

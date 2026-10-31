@@ -26,6 +26,7 @@ const electron = vi.hoisted(() => {
 
 vi.mock("electron", () => ({
   BrowserWindow: electron.FakeWindow,
+  nativeTheme: { shouldUseDarkColors: false },
   session: {
     defaultSession: {
       setPermissionRequestHandler: electron.setPermissionRequestHandler,

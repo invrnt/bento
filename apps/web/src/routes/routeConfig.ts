@@ -1,3 +1,5 @@
+import { Activity, FileText, FolderClosed, Heart, Images, Settings2, SquareLibrary } from "lucide-react";
+
 import { t } from "../i18n/dictionary";
 import type { MessageKey } from "../i18n/dictionary";
 import type { SidebarItem } from "../components/Sidebar";
@@ -9,13 +11,13 @@ export type RouteDefinition = {
 };
 
 export const navItems: SidebarItem[] = [
-  { href: "/photos", label: t("nav.photos") },
-  { href: "/albums", label: t("nav.albums") },
-  { href: "/favorites", label: t("nav.favorites") },
-  { href: "/drive", label: t("nav.drive") },
-  { href: "/documents", label: t("nav.documents") },
-  { href: "/jobs", label: t("nav.jobs") },
-  { href: "/settings", label: t("nav.settings") },
+  { group: t("nav.group.library"), href: "/photos", icon: Images, label: t("nav.photos") },
+  { group: t("nav.group.library"), href: "/albums", icon: SquareLibrary, label: t("nav.albums") },
+  { group: t("nav.group.library"), href: "/favorites", icon: Heart, label: t("nav.favorites") },
+  { group: t("nav.group.files"), href: "/drive", icon: FolderClosed, label: t("nav.drive") },
+  { group: t("nav.group.files"), href: "/documents", icon: FileText, label: t("nav.documents") },
+  { group: t("nav.group.system"), href: "/jobs", icon: Activity, label: t("nav.jobs") },
+  { group: t("nav.group.system"), href: "/settings", icon: Settings2, label: t("nav.settings") },
 ];
 
 export const routeDefinitions: RouteDefinition[] = [

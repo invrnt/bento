@@ -78,6 +78,19 @@ describe("SearchView", () => {
     expect(window.location.search).toContain("date_from=2026-02-01");
   });
 
+  it("counts active filters and clears them while keeping the query", async () => {
+    window.history.pushState({}, "", "/search?q=factura&folder_id=folder-7&date_from=2026-02-01");
+
+    render(<SearchView client={makeClient({ facets: [], items: [], next_cursor: null })} />);
+
+    expect(await screen.findByText("2 filtros activos")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Limpiar filtros" }));
+
+    expect(screen.getByLabelText("Carpeta")).toHaveValue("");
+    expect(screen.queryByText(/filtros? activos?/)).not.toBeInTheDocument();
+    expect(window.location.search).toBe("?q=factura");
+  });
+
   it("renders pending and disabled indexing states", async () => {
     render(
       <SearchView
@@ -106,8 +119,8 @@ describe("SearchView", () => {
       />,
     );
 
-    expect(await screen.findByText("Indexacion pendiente")).toBeInTheDocument();
-    expect(screen.getByText("Indexacion desactivada")).toBeInTheDocument();
+    expect(await screen.findByText("Indexación pendiente")).toBeInTheDocument();
+    expect(screen.getByText("Indexación desactivada")).toBeInTheDocument();
   });
 
   it("focuses the global search input with Ctrl+K", () => {
@@ -115,7 +128,7 @@ describe("SearchView", () => {
 
     fireEvent.keyDown(document, { ctrlKey: true, key: "k" });
 
-    expect(screen.getByRole("searchbox", { name: "Busqueda global" })).toHaveFocus();
+    expect(screen.getByRole("searchbox", { name: "Búsqueda global" })).toHaveFocus();
   });
 });
 

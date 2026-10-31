@@ -86,7 +86,7 @@ describe("DriveBrowser", () => {
     render(<DriveBrowser api={api} />);
 
     expect(await screen.findByRole("heading", { name: "Drive" })).toBeInTheDocument();
-    expect(screen.getByRole("navigation", { name: "Ruta de Drive" })).toHaveTextContent("Raiz");
+    expect(screen.getByRole("navigation", { name: "Ruta de Drive" })).toHaveTextContent("Raíz");
     expect(await screen.findAllByText("Documentos")).not.toHaveLength(0);
     expect(screen.getByRole("complementary", { name: "Árbol de archivos de Drive" })).toBeInTheDocument();
     expect(screen.getByText("factura.pdf")).toBeInTheDocument();

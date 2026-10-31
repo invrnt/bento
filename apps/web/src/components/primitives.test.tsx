@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { RefreshCw } from "lucide-react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Button } from "./Button";
@@ -17,7 +18,7 @@ describe("UI primitives", () => {
     render(
       <div>
         <Button>Guardar</Button>
-        <IconButton icon="S" label="Sincronizar" />
+        <IconButton icon={<RefreshCw />} label="Sincronizar" />
         <Input label="Nombre" />
         <Select label="Tipo" options={[{ label: "Imagen", value: "image" }]} />
         <Checkbox label="Favorito" />

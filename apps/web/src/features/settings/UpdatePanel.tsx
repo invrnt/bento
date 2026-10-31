@@ -1,10 +1,15 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { CheckCircle2, Download, RefreshCw, Rocket, TriangleAlert } from "lucide-react";
+import { Download, RefreshCw, Rocket } from "lucide-react";
 
 import type { DesktopPlatform, UpdateState } from "../../api/settingsDesktop";
+import { Badge } from "../../components/Badge";
 import { Button } from "../../components/Button";
+import { Callout } from "../../components/Callout";
+import type { CalloutTone } from "../../components/Callout";
 import { Dialog } from "../../components/Dialog";
+import { ProgressBar } from "../../components/ProgressBar";
+import { Spinner } from "../../components/Spinner";
 import { t } from "../../i18n/dictionary";
 import { cx } from "../../lib/cx";
 import { useUpdateController } from "./useUpdateController";
@@ -14,76 +19,116 @@ export function UpdatePanel({ desktop }: { desktop: DesktopPlatform }) {
   const [confirmInstall, setConfirmInstall] = useState(false);
   const { state } = updater;
   const downloading = state.status === "downloading";
+  const manual = state.installMode === "manual";
 
   return (
-    <section aria-labelledby="desktop-update-title" className="border-b border-app-border bg-app-surface-muted/30 p-5">
+    <section aria-labelledby="desktop-update-title" className="grid gap-4 border-b border-line px-5 py-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-app-accent">{t("settings.update.eyebrow")}</p>
-          <h3 className="mt-1 text-base font-black text-app-text" id="desktop-update-title">{t("settings.update.title")}</h3>
-          <p className="mt-1 text-sm text-app-text-muted">
-            {t("settings.update.currentVersion")} <strong className="text-app-text">{state.currentVersion || desktop.version}</strong>
-          </p>
+        <div className="flex min-w-0 items-start gap-3">
+          <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-md bg-accent-soft text-accent-ink">
+            <Rocket className="size-[1.125rem]" strokeWidth={1.75} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-ink-muted">{t("settings.update.eyebrow")}</p>
+            <h3 className="text-base font-semibold text-ink" id="desktop-update-title">{t("settings.update.title")}</h3>
+            <p className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-ink-muted">
+              {t("settings.update.currentVersion")}
+              <Badge className="font-mono">{state.currentVersion || desktop.version}</Badge>
+            </p>
+          </div>
         </div>
         <UpdateAction state={state} supported={updater.supported} onCheck={updater.check} onDownload={updater.download} onInstall={() => setConfirmInstall(true)} />
       </div>
 
-      <div aria-atomic="true" aria-live={state.status === "error" ? "assertive" : "polite"} className="mt-4">
+      <div aria-atomic="true" aria-live={state.status === "error" ? "assertive" : "polite"}>
         <StatusContent state={state} supported={updater.supported} />
       </div>
 
       {downloading ? <DownloadProgress state={state} /> : null}
 
       <Dialog
-        actions={<><Button onClick={() => setConfirmInstall(false)}>{t("settings.update.installLater")}</Button><Button onClick={() => { setConfirmInstall(false); void updater.install(); }} variant="primary"><Rocket aria-hidden="true" size={16} />{state.installMode === "manual" ? t("settings.update.showPackage") : t("settings.update.installConfirm")}</Button></>}
+        actions={
+          <>
+            <Button onClick={() => setConfirmInstall(false)} variant="ghost">{t("settings.update.installLater")}</Button>
+            <Button leadingIcon={<Rocket />} onClick={() => { setConfirmInstall(false); void updater.install(); }} variant="primary">
+              {manual ? t("settings.update.showPackage") : t("settings.update.installConfirm")}
+            </Button>
+          </>
+        }
+        icon={<Rocket />}
         onOpenChange={setConfirmInstall}
         open={confirmInstall}
-        title={state.installMode === "manual" ? t("settings.update.manualTitle") : t("settings.update.installTitle")}
+        title={manual ? t("settings.update.manualTitle") : t("settings.update.installTitle")}
       >
-        <p>{state.installMode === "manual" ? t("settings.update.manualBody") : t("settings.update.installBody")}</p>
-        <p className="mt-3 font-semibold text-app-text">{state.installMode === "manual" ? t("settings.update.manualReminder") : t("settings.update.installReminder")}</p>
+        <p>{manual ? t("settings.update.manualBody") : t("settings.update.installBody")}</p>
+        <p className="mt-3 font-medium text-ink">{manual ? t("settings.update.manualReminder") : t("settings.update.installReminder")}</p>
       </Dialog>
     </section>
   );
 }
 
 function UpdateAction({ onCheck, onDownload, onInstall, state, supported }: { onCheck: () => Promise<void>; onDownload: () => Promise<void>; onInstall: () => void; state: UpdateState; supported: boolean }) {
-  if (state.status === "available") return <Button onClick={() => void onDownload()} variant="primary"><Download aria-hidden="true" size={16} />{t("settings.update.download")}</Button>;
-  if (state.status === "downloaded") return <Button onClick={onInstall} variant="primary"><Rocket aria-hidden="true" size={16} />{state.installMode === "manual" ? t("settings.update.showPackage") : t("settings.update.install")}</Button>;
+  if (state.status === "available") {
+    return <Button className="self-start" leadingIcon={<Download />} onClick={() => void onDownload()} size="sm" variant="primary">{t("settings.update.download")}</Button>;
+  }
+  if (state.status === "downloaded") {
+    return (
+      <Button className="self-start" leadingIcon={<Rocket />} onClick={onInstall} size="sm" variant="primary">
+        {state.installMode === "manual" ? t("settings.update.showPackage") : t("settings.update.install")}
+      </Button>
+    );
+  }
   const busy = state.status === "checking" || state.status === "downloading" || state.status === "installing";
-  return <Button disabled={!supported || busy} onClick={() => void onCheck()}><RefreshCw aria-hidden="true" className={cx(state.status === "checking" && "motion-safe:animate-spin")} size={16} />{state.status === "error" ? t("settings.update.retry") : t("settings.update.check")}</Button>;
+  return (
+    <Button
+      className="self-start"
+      disabled={!supported || busy}
+      leadingIcon={<RefreshCw className={cx(state.status === "checking" && "motion-safe:animate-spin")} />}
+      onClick={() => void onCheck()}
+      size="sm"
+    >
+      {state.status === "error" ? t("settings.update.retry") : t("settings.update.check")}
+    </Button>
+  );
 }
 
 function StatusContent({ state, supported }: { state: UpdateState; supported: boolean }) {
-  if (!supported) return <Status tone="muted">{t("settings.update.unsupported")}</Status>;
+  if (!supported) return <Status>{t("settings.update.unsupported")}</Status>;
   switch (state.status) {
-    case "checking": return <Status>{t("settings.update.checking")}</Status>;
-    case "available": return <Status icon={<Download aria-hidden="true" size={17} />} tone="accent"><strong>{t("settings.update.available")} {state.availableVersion}</strong>{releaseDetails(state)}</Status>;
-    case "not-available": return <Status icon={<CheckCircle2 aria-hidden="true" size={17} />} tone="success">{t("settings.update.upToDate")}</Status>;
-    case "downloading": return <Status>{t("settings.update.downloading")}</Status>;
-    case "downloaded": return <Status icon={<CheckCircle2 aria-hidden="true" size={17} />} tone="success"><strong>{t("settings.update.ready")} {state.availableVersion}</strong><span>{t("settings.update.readyBody")}</span></Status>;
-    case "installing": return <Status>{t("settings.update.installing")}</Status>;
-    case "error": return <Status icon={<TriangleAlert aria-hidden="true" size={17} />} tone="danger"><strong>{t("settings.update.error")}</strong><span>{updateErrorBody(state.error?.code)} {state.error?.code ? `${t("settings.update.errorCode")} ${state.error.code}` : ""}</span></Status>;
-    default: return <Status tone="muted">{t("settings.update.idle")}</Status>;
+    case "checking": return <Status busy>{t("settings.update.checking")}</Status>;
+    case "available": return <Status title={`${t("settings.update.available")} ${state.availableVersion ?? ""}`} tone="info">{releaseDetails(state)}</Status>;
+    case "not-available": return <Status title={t("settings.update.upToDate")} tone="success" />;
+    case "downloading": return <Status busy>{t("settings.update.downloading")}</Status>;
+    case "downloaded": return <Status title={`${t("settings.update.ready")} ${state.availableVersion ?? ""}`} tone="success">{t("settings.update.readyBody")}</Status>;
+    case "installing": return <Status busy>{t("settings.update.installing")}</Status>;
+    case "error":
+      return (
+        <Status title={t("settings.update.error")} tone="danger">
+          <span>{updateErrorBody(state.error?.code)}</span>
+          {state.error?.code ? <span className="mt-1 block font-mono text-xs">{`${t("settings.update.errorCode")} ${state.error.code}`}</span> : null}
+        </Status>
+      );
+    default: return <Status>{t("settings.update.idle")}</Status>;
   }
 }
 
-function Status({ children, icon, tone = "muted" }: { children: ReactNode; icon?: ReactNode; tone?: "accent" | "danger" | "muted" | "success" }) {
-  const tones = { accent: "border-teal-200 bg-teal-50 text-teal-900", danger: "border-red-200 bg-red-50 text-red-800", muted: "border-app-border bg-app-surface text-app-text-muted", success: "border-emerald-200 bg-emerald-50 text-emerald-800" };
-  return <div className={cx("flex items-start gap-2 rounded-app-control border px-3 py-2.5 text-sm", tones[tone])}>{icon}<span className="grid gap-1">{children}</span></div>;
+function Status({ busy = false, children, title, tone = "neutral" }: { busy?: boolean; children?: ReactNode; title?: string; tone?: CalloutTone }) {
+  return (
+    <Callout icon={busy ? <Spinner className="text-accent-ink" /> : undefined} title={title} tone={tone}>
+      {children}
+    </Callout>
+  );
 }
 
 function DownloadProgress({ state }: { state: UpdateState }) {
   const progress = state.progress;
   const percent = clamp(progress?.percent ?? 0, 0, 100);
   return (
-    <div className="mt-3">
-      <div className="mb-1.5 flex items-center justify-between gap-3 text-xs font-semibold text-app-text-muted">
+    <div className="grid gap-1.5">
+      <ProgressBar label={t("settings.update.progressLabel")} value={percent} />
+      <div className="flex items-center justify-between gap-3 text-xs font-medium tabular-nums text-ink-muted">
         <span>{formatBytes(progress?.transferredBytes ?? 0)} {t("settings.update.of")} {formatBytes(progress?.totalBytes ?? 0)}</span>
         <span>{new Intl.NumberFormat("es", { maximumFractionDigits: 1 }).format(percent)}%</span>
-      </div>
-      <div aria-label={t("settings.update.progressLabel")} aria-valuemax={100} aria-valuemin={0} aria-valuenow={Math.round(percent)} className="h-2.5 overflow-hidden rounded-full bg-slate-200" role="progressbar">
-        <div className="h-full rounded-full bg-app-accent transition-[width] motion-reduce:transition-none" style={{ width: `${percent}%` }} />
       </div>
     </div>
   );
@@ -91,7 +136,13 @@ function DownloadProgress({ state }: { state: UpdateState }) {
 
 function releaseDetails(state: UpdateState) {
   if (!state.releaseName && !state.releaseNotes) return null;
-  return <details className="mt-1"><summary className="cursor-pointer font-semibold outline-none focus-visible:ring-2 focus-visible:ring-app-accent">{t("settings.update.releaseNotes")}</summary>{state.releaseName ? <p className="mt-2 font-semibold">{state.releaseName}</p> : null}{state.releaseNotes ? <p className="mt-1 whitespace-pre-wrap text-app-text-muted">{state.releaseNotes}</p> : null}</details>;
+  return (
+    <details className="group/notes">
+      <summary className="focus-ring w-fit rounded-xs font-medium text-accent-ink hover:underline">{t("settings.update.releaseNotes")}</summary>
+      {state.releaseName ? <p className="mt-2 font-medium text-ink">{state.releaseName}</p> : null}
+      {state.releaseNotes ? <p className="mt-1 whitespace-pre-wrap text-sm">{state.releaseNotes}</p> : null}
+    </details>
+  );
 }
 
 function updateErrorBody(code?: string): string {

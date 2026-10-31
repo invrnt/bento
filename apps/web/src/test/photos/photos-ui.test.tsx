@@ -74,9 +74,9 @@ describe("Photos UI", () => {
 
     const { unmount } = render(<AlbumsPage api={api} />);
 
-    await screen.findByRole("heading", { name: "No hay albumes" });
-    fireEvent.change(screen.getByLabelText("Nuevo album"), { target: { value: "Viaje" } });
-    fireEvent.click(screen.getByRole("button", { name: "Crear album" }));
+    await screen.findByRole("heading", { name: "No hay álbumes" });
+    fireEvent.change(screen.getByLabelText("Nuevo álbum"), { target: { value: "Viaje" } });
+    fireEvent.click(screen.getByRole("button", { name: "Crear álbum" }));
 
     await waitFor(() => expect(api.createAlbum).toHaveBeenCalledWith("Viaje"));
     unmount();

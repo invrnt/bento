@@ -12,6 +12,7 @@ Implement Jobs, Settings, global status indicator, and final shared frontend API
 - `/orchestration/product/settings-recovery-security.md`
 - `/orchestration/api/jobs-events-contract.md`
 - `/orchestration/api/endpoint-map.md`
+- `/orchestration/design-system/brand.md`
 - `/orchestration/design-system/primitives.md`
 
 ## Retrieve First

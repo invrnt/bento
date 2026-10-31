@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { ReactNode, UIEvent } from "react";
 
 import { cx } from "../lib/cx";
+import { useElementSize } from "./useElementSize";
 
 export type VirtualGridProps<T> = {
+  ariaLabel?: string;
   className?: string;
+  /** Fill a positioned parent (absolute inset-0) instead of using a fixed `height`. */
+  fill?: boolean;
   gap?: number;
   getKey: (item: T, index: number) => string;
   height?: number;
@@ -16,7 +20,9 @@ export type VirtualGridProps<T> = {
 };
 
 export function VirtualGrid<T>({
+  ariaLabel,
   className,
+  fill = false,
   gap = 12,
   getKey,
   height = 420,
@@ -28,35 +34,21 @@ export function VirtualGrid<T>({
 }: VirtualGridProps<T>) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
-  const [width, setWidth] = useState(minColumnWidth * 2 + gap);
+  const size = useElementSize(containerRef, { height, width: minColumnWidth * 2 + gap });
+  const viewportHeight = fill ? size.height || height : height;
+  const width = size.width;
   const columns = Math.max(1, Math.floor((width + gap) / (minColumnWidth + gap)));
   const rowCount = Math.ceil(items.length / columns);
   const rowStride = rowHeight + gap;
   const totalSize = Math.max(0, rowCount * rowStride - gap);
   const startRow = Math.max(0, Math.floor(scrollTop / rowStride) - overscan);
-  const visibleRows = Math.ceil(height / rowStride) + overscan * 2;
+  const visibleRows = Math.ceil(viewportHeight / rowStride) + overscan * 2;
   const startIndex = startRow * columns;
   const visibleCount = visibleRows * columns;
   const visibleItems = useMemo(
     () => items.slice(startIndex, startIndex + visibleCount),
     [items, startIndex, visibleCount],
   );
-
-  useEffect(() => {
-    const element = containerRef.current;
-
-    if (!element || typeof ResizeObserver === "undefined") {
-      return;
-    }
-
-    const observer = new ResizeObserver(([entry]) => {
-      setWidth(entry.contentRect.width);
-    });
-
-    observer.observe(element);
-
-    return () => observer.disconnect();
-  }, []);
 
   function onScroll(event: UIEvent<HTMLDivElement>) {
     setScrollTop(event.currentTarget.scrollTop);
@@ -66,11 +58,12 @@ export function VirtualGrid<T>({
 
   return (
     <div
-      className={cx("relative overflow-y-auto rounded-app-card border border-app-border bg-app-surface", className)}
+      aria-label={ariaLabel}
+      className={cx("relative overflow-y-auto overscroll-contain", fill && "absolute inset-0", className)}
       onScroll={onScroll}
       ref={containerRef}
       role="grid"
-      style={{ height }}
+      style={fill ? undefined : { height }}
     >
       <div className="relative min-w-full" style={{ height: totalSize }}>
         {visibleItems.map((item, visibleIndex) => {

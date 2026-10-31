@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { Heart, Images, Search, Sparkles, X } from "lucide-react";
 
 import { EmptyState, ErrorState, LoadingState } from "../../components/States";
+import { IconButton } from "../../components/IconButton";
 import { Input } from "../../components/Input";
+import { PageHeader } from "../../components/PageHeader";
 import { Thumbnail } from "../../components/Thumbnail";
 import { photosApi } from "../../api/photos";
 import type { PhotoAsset, PhotoTimelineGroup, PhotosApi, SearchPhotoResult } from "../../api/photos";
@@ -122,46 +125,48 @@ export function PhotosPage({ api = photosApi, favoritesOnly = false, initialQuer
 
   const emptyTitle = favoritesOnly ? t("favorites.emptyTitle") : t("photos.emptyTitle");
   const emptyBody = favoritesOnly ? t("favorites.emptyBody") : t("photos.emptyBody");
+  const refresh = () => setRefreshKey((value) => value + 1);
 
   return (
-    <div className="grid w-full gap-5">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-app-border/80 pb-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-app-text">
-            {favoritesOnly ? t("favorites.title") : t("photos.title")}
-          </h1>
-          <p className="mt-1 text-sm text-app-text-muted">
-            {favoritesOnly ? t("favorites.subtitle") : t("photos.subtitle")}
-          </p>
-        </div>
-        {!favoritesOnly ? <PhotoUploadButton api={api} onUploaded={() => setRefreshKey((value) => value + 1)} /> : null}
-      </header>
-
-      <Input
-        label={t("photos.searchLabel")}
-        onChange={(event) => setQuery(event.currentTarget.value)}
-        placeholder={t("photos.searchPlaceholder")}
-        type="search"
-        value={query}
-      />
-
-      {query.trim() ? (
-        <SearchResults
-          items={searchResults}
-          onOpen={openSearchResult}
-          state={searchState}
+    <div className="grid w-full content-start gap-8">
+      <PageHeader
+        actions={!favoritesOnly ? <PhotoUploadButton api={api} onUploaded={refresh} /> : null}
+        description={favoritesOnly ? t("favorites.subtitle") : t("photos.subtitle")}
+        title={favoritesOnly ? t("favorites.title") : t("photos.title")}
+      >
+        <Input
+          hideLabel
+          label={t("photos.searchLabel")}
+          leadingIcon={<Search />}
+          onChange={(event) => setQuery(event.currentTarget.value)}
+          placeholder={t("photos.searchPlaceholder")}
+          trailing={
+            query ? <IconButton icon={<X />} label={t("photos.searchClear")} onClick={() => setQuery("")} size="sm" /> : null
+          }
+          type="search"
+          value={query}
+          wrapperClassName="max-w-md"
         />
-      ) : null}
+      </PageHeader>
+
+      {query.trim() ? <SearchResults items={searchResults} onOpen={openSearchResult} state={searchState} /> : null}
 
       {loadState === "loading" ? <LoadingState label={t("photos.loading")} /> : null}
-      {loadState === "error" ? (
-        <ErrorState body={error ?? t("photos.loadError")} onRetry={() => setRefreshKey((value) => value + 1)} />
-      ) : null}
+      {loadState === "error" ? <ErrorState body={error ?? t("photos.loadError")} onRetry={refresh} /> : null}
       {loadState === "ready" && visibleGroups.length === 0 ? (
-        <EmptyState body={emptyBody} title={emptyTitle} />
+        <EmptyState
+          action={
+            !favoritesOnly ? (
+              <PhotoUploadButton api={api} label={t("photos.uploadFirst")} onUploaded={refresh} variant="secondary" />
+            ) : null
+          }
+          body={emptyBody}
+          icon={favoritesOnly ? <Heart /> : <Images />}
+          title={emptyTitle}
+        />
       ) : null}
       {loadState === "ready" && visibleGroups.length > 0 ? (
-        <PhotoTimeline groups={visibleGroups} onOpen={setSelectedAsset} />
+        <PhotoTimeline groups={visibleGroups} onOpen={setSelectedAsset} showFavoriteMarkers={!favoritesOnly} />
       ) : null}
 
       <PhotoLightbox
@@ -185,7 +190,7 @@ function SearchResults({
   state: LoadState;
 }) {
   if (state === "loading") {
-    return <LoadingState label={t("photos.searching")} />;
+    return <LoadingState className="min-h-24" label={t("photos.searching")} />;
   }
 
   if (state === "error") {
@@ -193,7 +198,9 @@ function SearchResults({
   }
 
   if (state === "ready" && items.length === 0) {
-    return <EmptyState body={t("photos.searchEmptyBody")} title={t("photos.searchEmptyTitle")} />;
+    return (
+      <EmptyState body={t("photos.searchEmptyBody")} icon={<Search />} size="sm" title={t("photos.searchEmptyTitle")} />
+    );
   }
 
   if (items.length === 0) {
@@ -201,20 +208,28 @@ function SearchResults({
   }
 
   return (
-    <section aria-label={t("photos.searchResultsLabel")} className="grid gap-2">
-      <h2 className="text-sm font-semibold text-app-text">{t("photos.searchResults")}</h2>
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+    <section aria-label={t("photos.searchResultsLabel")} className="grid gap-3">
+      <div className="flex items-baseline gap-2">
+        <h2 className="text-base font-semibold text-ink">{t("photos.searchResults")}</h2>
+        <span className="text-sm tabular-nums text-ink-subtle">{items.length}</span>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
         {items.map((item) => (
           <button
-            className="grid min-h-28 grid-cols-[5rem_1fr] gap-4 rounded-app-card border border-app-border bg-app-surface p-3 text-left shadow-2xs transition-all duration-200 hover:shadow-sm hover:border-slate-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-accent"
+            className="focus-ring group/result grid grid-cols-[4rem_minmax(0,1fr)] items-center gap-3 rounded-lg border border-line bg-raised p-2 text-left shadow-xs transition-[border-color,box-shadow] duration-150 hover:border-line-strong hover:shadow-md"
             key={item.id}
             onClick={() => onOpen(item)}
             type="button"
           >
-            <Thumbnail alt={item.title} className="max-w-none" src={item.thumbnail_url ?? undefined} />
-            <span className="min-w-0 self-center">
-              <span className="block truncate text-sm font-medium text-app-text">{item.title}</span>
-              <span className="mt-1 block line-clamp-2 text-xs text-app-text-muted">{item.reason}</span>
+            <Thumbnail alt={item.title} className="rounded-sm" src={item.thumbnail_url ?? undefined}>
+              <Images aria-hidden="true" className="size-5" />
+            </Thumbnail>
+            <span className="min-w-0">
+              <span className="block truncate text-base font-medium text-ink">{item.title}</span>
+              <span className="mt-0.5 flex gap-1.5 text-sm text-ink-muted">
+                <Sparkles aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-accent-ink" />
+                <span className="line-clamp-2">{item.reason}</span>
+              </span>
             </span>
           </button>
         ))}

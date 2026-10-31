@@ -1,7 +1,8 @@
+import { Badge } from "../../components/Badge";
+import type { BadgeTone } from "../../components/Badge";
 import { t } from "../../i18n/dictionary";
 import type { MessageKey } from "../../i18n/dictionary";
 import type { PhotoProcessingState } from "../../api/photos";
-import { cx } from "../../lib/cx";
 
 const stateLabels: Record<PhotoProcessingState, MessageKey> = {
   blob_stored: "photos.state.blobStored",
@@ -18,38 +19,36 @@ const stateLabels: Record<PhotoProcessingState, MessageKey> = {
   thumbnail_ready: "photos.state.thumbnailReady",
 };
 
-const stateClasses: Record<PhotoProcessingState, string> = {
-  blob_stored: "border-slate-200 bg-slate-50 text-slate-600",
-  created: "border-slate-200 bg-slate-50 text-slate-600",
-  embedding_pending: "border-amber-200 bg-amber-50/70 text-amber-700",
-  embedding_ready: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  failed: "border-red-200 bg-red-50 text-red-700 font-semibold",
-  failed_partial: "border-red-200 bg-red-50/50 text-red-700",
-  indexed: "border-emerald-200 bg-emerald-50 text-emerald-700 font-semibold",
-  metadata_extracted: "border-slate-200 bg-slate-50 text-slate-600",
-  ocr_pending: "border-amber-200 bg-amber-50/70 text-amber-700",
-  ocr_ready: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  thumbnail_pending: "border-amber-200 bg-amber-50/70 text-amber-700",
-  thumbnail_ready: "border-emerald-200 bg-emerald-50 text-emerald-700",
+const stateTones: Record<PhotoProcessingState, BadgeTone> = {
+  blob_stored: "neutral",
+  created: "neutral",
+  embedding_pending: "warning",
+  embedding_ready: "success",
+  failed: "danger",
+  failed_partial: "warning",
+  indexed: "success",
+  metadata_extracted: "neutral",
+  ocr_pending: "warning",
+  ocr_ready: "success",
+  thumbnail_pending: "warning",
+  thumbnail_ready: "success",
 };
 
 export type ProcessingStateBadgeProps = {
+  className?: string;
   state: PhotoProcessingState | null;
 };
 
-export function ProcessingStateBadge({ state }: ProcessingStateBadgeProps) {
+export function ProcessingStateBadge({ className, state }: ProcessingStateBadgeProps) {
   if (!state) {
     return null;
   }
 
+  const tone = stateTones[state] ?? "neutral";
+
   return (
-    <span
-      className={cx(
-        "inline-flex h-5.5 max-w-full items-center rounded-app-control border px-2 text-[10px] uppercase font-bold tracking-wider select-none transition-all duration-200",
-        stateClasses[state],
-      )}
-    >
-      <span className="truncate">{t(stateLabels[state])}</span>
-    </span>
+    <Badge className={className} dot pulse={tone === "warning"} tone={tone}>
+      {t(stateLabels[state])}
+    </Badge>
   );
 }

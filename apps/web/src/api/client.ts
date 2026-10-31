@@ -118,3 +118,14 @@ function appendQuery(path: string, query?: QueryParams): string {
 
   return serialized ? `${path}?${serialized}` : path;
 }
+
+/** Resolves API-relative asset URLs (`/api/...`) against the configured API origin. */
+export function absoluteApiPath(path: string, client: Pick<ApiClient, "baseUrl"> = apiClient): string {
+  if (/^https?:\/\//.test(path)) {
+    return path;
+  }
+  if (path.startsWith("/api/") && client.baseUrl.endsWith("/api")) {
+    return `${client.baseUrl.slice(0, -4)}${path}`;
+  }
+  return `${client.baseUrl}${path}`;
+}

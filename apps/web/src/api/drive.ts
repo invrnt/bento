@@ -1,4 +1,4 @@
-import { apiClient } from "./client";
+import { absoluteApiPath, apiClient } from "./client";
 
 export type DriveAsset = {
   created_at: string;
@@ -175,12 +175,4 @@ export const driveApi: DriveApi = {
   },
 };
 
-export function absoluteApiPath(path: string): string {
-  if (/^https?:\/\//.test(path)) {
-    return path;
-  }
-  if (path.startsWith("/api/") && apiClient.baseUrl.endsWith("/api")) {
-    return `${apiClient.baseUrl.slice(0, -4)}${path}`;
-  }
-  return `${apiClient.baseUrl}${path}`;
-}
+export { absoluteApiPath };

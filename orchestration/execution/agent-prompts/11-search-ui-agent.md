@@ -10,6 +10,7 @@ Implement global Search UI and the Documents filtered view using the hybrid sear
 - `/orchestration/AGENTS.md`
 - `/orchestration/product/search.md`
 - `/orchestration/api/search-contract.md`
+- `/orchestration/design-system/brand.md`
 - `/orchestration/design-system/primitives.md`
 - `/orchestration/architecture/styling-design.md`
 - `/orchestration/architecture/i18n-a11y.md`

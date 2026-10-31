@@ -28,7 +28,7 @@ describe("SettingsPage", () => {
     expect(screen.getByText("Configurado")).toBeInTheDocument();
     expect(screen.getByText("Listo")).toBeInTheDocument();
     expect(screen.getAllByText("Pendiente").length).toBeGreaterThan(0);
-    expect(screen.getByText("En ejecucion")).toBeInTheDocument();
+    expect(screen.getByText("En ejecución")).toBeInTheDocument();
     expect(screen.getByText("cache, uploads")).toBeInTheDocument();
     expect(screen.queryByText("D:\\secret\\cache")).not.toBeInTheDocument();
   });

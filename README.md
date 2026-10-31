@@ -131,6 +131,10 @@ Do not commit real Telegram tokens, API hashes, chat IDs, or local secrets.
 - Manifest events persisted in SQLite and exported to `data/journal/manifest-events.jsonl`.
 - Telegram webhook and Telegram blob adapter wiring when Telegram mode is configured.
 
+## Brand And Design Language
+
+Bento's identity ("Todo en su lugar"), palette, typography, shapes, motion, voice and per-screen patterns are defined in the [brand book](orchestration/design-system/brand.md). The UI supports light, dark and system themes; tokens live in `apps/web/src/styles/tokens.css`.
+
 ## Known Limitations
 
 - OCR and embeddings are disabled by default; real providers require local runtime setup and model files.

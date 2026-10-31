@@ -13,6 +13,7 @@ import { PhotosRoute } from "../routes/photos";
 import { SearchRoute } from "../routes/search";
 import { SettingsRoute } from "../routes/settings";
 import { RoutePlaceholder } from "../routes/RoutePlaceholder";
+import { t } from "../i18n/dictionary";
 import { ConnectedGlobalJobStatusIndicator } from "./status";
 
 const defaultRoute = "/photos";
@@ -37,6 +38,10 @@ export function App() {
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
+  useEffect(() => {
+    document.title = `${t(route.titleKey)} · ${t("app.brand")}`;
+  }, [route.titleKey]);
+
   function navigate(href: string) {
     window.history.pushState({}, "", href);
     setLocation(currentLocation());
@@ -53,7 +58,7 @@ export function App() {
       navItems={navItems}
       onNavigate={navigate}
       onSearch={submitSearch}
-      status={<ConnectedGlobalJobStatusIndicator />}
+      status={<ConnectedGlobalJobStatusIndicator onNavigate={navigate} />}
     >
       <RouteContent pathname={pathname} routeKey={route.titleKey} urlKey={`${pathname}${location.search}`} />
     </AppShell>

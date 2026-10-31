@@ -14,15 +14,16 @@ export type JobStatusSummary = {
 
 export type GlobalJobStatusIndicatorProps = {
   jobs: JobRecord[];
+  onNavigate?: (href: string) => void;
 };
 
-export function ConnectedGlobalJobStatusIndicator() {
+export function ConnectedGlobalJobStatusIndicator({ onNavigate }: Pick<GlobalJobStatusIndicatorProps, "onNavigate">) {
   const jobs = useJobsController();
 
-  return <GlobalJobStatusIndicator jobs={jobs.jobs} />;
+  return <GlobalJobStatusIndicator jobs={jobs.jobs} onNavigate={onNavigate} />;
 }
 
-export function GlobalJobStatusIndicator({ jobs }: GlobalJobStatusIndicatorProps) {
+export function GlobalJobStatusIndicator({ jobs, onNavigate }: GlobalJobStatusIndicatorProps) {
   const summary = summarizeJobStatus(jobs);
   const detail = t("status.summary")
     .replace("{active}", String(summary.active))
@@ -31,7 +32,13 @@ export function GlobalJobStatusIndicator({ jobs }: GlobalJobStatusIndicatorProps
 
   return (
     <div aria-live="polite" role="status">
-      <StatusIndicator detail={detail} label={summary.label} tone={summary.tone} />
+      <StatusIndicator
+        detail={detail}
+        href={onNavigate ? "/jobs" : undefined}
+        label={summary.label}
+        onNavigate={onNavigate}
+        tone={summary.tone}
+      />
     </div>
   );
 }

@@ -9,6 +9,7 @@ const dateFormatter = new Intl.DateTimeFormat("es-CO", {
   day: "numeric",
   month: "long",
   timeZone: "UTC",
+  weekday: "long",
   year: "numeric",
 });
 
