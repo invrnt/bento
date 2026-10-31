@@ -1,0 +1,19 @@
+{
+  "name": "bento-site",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Static public website for Bento, deployed to Cloudflare Pages",
+  "type": "module",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node scripts/build.mjs && node --test \"test/*.test.mjs\"",
+    "preview": "node scripts/build.mjs && node scripts/serve.mjs",
+    "check:placeholders": "node scripts/check-placeholders.mjs",
+    "deploy": "node scripts/build.mjs && node scripts/check-placeholders.mjs && npx --yes wrangler@4.151.3 pages deploy",
+    "deploy:preview": "node scripts/build.mjs && npx --yes wrangler@4.151.3 pages deploy --branch preview"
+  }
+}

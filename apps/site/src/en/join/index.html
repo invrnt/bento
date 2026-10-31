@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f5f2ee" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0c0e15" media="(prefers-color-scheme: dark)">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>Add a computer · Bento</title>
+<meta name="description" content="Open Bento with the pairing code from your other device.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/site.css">
+<link rel="alternate" hreflang="es" href="/join/">
+<link rel="alternate" hreflang="en" href="/en/join/">
+<script type="module" src="/assets/join.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#content">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="logo" href="/en/">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect class="box" width="32" height="32" rx="9"/><rect class="cell" x="4.5" y="5" width="10.5" height="22" rx="3.5"/><rect class="cell" x="17" y="5" width="10.5" height="10" rx="3.5"/><rect class="cell" x="17" y="17" width="10.5" height="10" rx="3.5"/><circle class="ume" cx="22.25" cy="22" r="2.75"/></svg>
+      Bento
+    </a>
+    <nav class="site-nav" aria-label="Main">
+      <a href="/en/#how-it-works">How it works</a>
+      <a href="/en/#privacy">Privacy</a>
+      <a href="/en/#devices">Devices</a>
+      <a href="/en/#faq">FAQ</a>
+      <a href="/en/security/">Security</a>
+    </nav>
+    <div class="header-actions">
+      <a class="lang-switch" href="/join/" hreflang="es" lang="es" data-keep-fragment>Español</a>
+      <a class="button button-primary button-sm" href="/en/#download">Download</a>
+    </div>
+  </div>
+</header>
+
+<main id="content">
+  <div class="wrap">
+    <div class="join-shell">
+      <div class="join-card">
+        <h1>Add this computer to your Bento</h1>
+
+        <div data-join-state="ok" hidden>
+          <p class="page-lead">Your other device sent you this code. Open it in Bento to continue.</p>
+          <p class="join-code"><span class="sr-only">Code: </span><span data-join-code></span></p>
+          <div class="button-row">
+            <a class="button button-primary button-xl" data-join-open href="bento://join">Open Bento</a>
+            <button class="button button-secondary button-xl" type="button" data-join-copy hidden>
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+              Copy code
+            </button>
+          </div>
+          <p class="copy-status" role="status" data-join-copy-status data-copied="Code copied." data-copy-failed="Couldn’t copy. Select the code and copy it by hand."></p>
+          <p class="page-lead">The code expires 10 minutes after it was created and works once.</p>
+        </div>
+
+        <div data-join-state="missing" hidden>
+          <h2 class="join-state-title">This link doesn’t include a code.</h2>
+          <p class="page-lead">Create one on a device where you already use Bento: Settings › Devices › Add device.</p>
+        </div>
+
+        <div data-join-state="invalid" hidden>
+          <h2 class="join-state-title">This code isn’t valid.</h2>
+          <p class="page-lead">The link may have been copied incompletely. Ask your other device for a new code or type it into Bento by hand.</p>
+        </div>
+
+        <div data-join-state="unsupported" hidden>
+          <h2 class="join-state-title">This link is from a newer version of Bento.</h2>
+          <p class="page-lead">Update Bento on this computer and open the link again.</p>
+        </div>
+
+        <noscript>
+          <p class="page-lead">This page needs JavaScript to read the code from the link. You can also copy it from the address bar: it is the 12 characters after “c=”.</p>
+        </noscript>
+      </div>
+
+      <section class="compartment join-help" aria-labelledby="help-title">
+        <h2 id="help-title">Bento didn’t open?</h2>
+        <ol>
+          <li>Install Bento on this computer: <a href="/en/#download">download Bento</a>.</li>
+          <li>Open it and choose “I already use Bento on another device”.</li>
+          <li>Type the code and check that the four emojis match the ones on your other device. Then confirm there with “Add”.</li>
+        </ol>
+        <p class="callout">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
+          <span>There is no Bento mobile app yet: open this link on the computer you want to add.</span>
+        </p>
+      </section>
+
+      <p class="callout">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <span>The code comes after the “#” sign in the address, a part browsers never send to any server. This page reads it on your computer and sends it nowhere: no analytics, cookies or external requests. <a href="/en/security/#website">More about this site</a>.</span>
+      </p>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a class="logo" href="/en/">Bento</a>
+        <p>Your private cloud, in order.</p>
+      </div>
+      <nav aria-label="Product">
+        <h2>Product</h2>
+        <ul>
+          <li><a href="/en/#download">Download</a></li>
+          <li><a href="/en/#how-it-works">How it works</a></li>
+          <li><a href="/en/#faq">FAQ</a></li>
+        </ul>
+      </nav>
+      <nav aria-label="Trust">
+        <h2>Trust</h2>
+        <ul>
+          <li><a href="/en/security/">Security</a></li>
+          <li><a href="/en/privacy/">Privacy</a></li>
+          <li><a href="/en/terms/">Terms of use</a></li>
+        </ul>
+      </nav>
+      <nav aria-label="Help">
+        <h2>Help</h2>
+        <ul>
+          <li><a href="https://github.com/invrnt/bento/blob/main/docs/user/en/add-a-device.md">Add a device</a></li>
+          <li><a href="https://github.com/invrnt/bento/blob/main/docs/user/en/troubleshooting.md">Troubleshooting</a></li>
+          <li><a href="https://github.com/invrnt/bento">GitHub</a></li>
+        </ul>
+      </nav>
+    </div>
+    <p class="disclosure">Bento uses the Telegram API and is not affiliated with Telegram. Telegram is a trademark of its respective owners.</p>
+  </div>
+</footer>
+</body>
+</html>
