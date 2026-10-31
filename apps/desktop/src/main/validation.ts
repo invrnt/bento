@@ -1,11 +1,14 @@
 import path from "node:path";
 import {
+  DesktopPreferencesPatch,
   DirectoryPickerRequest,
   FilePickerRequest,
   ProbeRequest,
+  SavePdfRequest,
   SecretMutation,
   SettingsApplyRequest,
 } from "../shared/contracts";
+import { SECRET_SETTING_KEYS } from "./sidecars";
 
 const KEY = /^[a-z][a-z0-9_]{0,79}$/;
 const MAX_SECRET_LENGTH = 16_384;
@@ -106,7 +109,7 @@ export function validateSettingsApply(value: unknown): SettingsApplyRequest {
   if (Buffer.byteLength(JSON.stringify(values), "utf8") > MAX_DRAFT_BYTES) throw new TypeError("settings draft is too large");
   const secrets: Record<string, SecretMutation> = {};
   for (const [key, mutation] of Object.entries(secretsInput)) {
-    if (!KEY.test(key)) throw new TypeError("secret key is invalid");
+    if (!KEY.test(key) || !SECRET_SETTING_KEYS.includes(key)) throw new TypeError("secret key is invalid");
     secrets[key] = validateSecretMutation(mutation);
   }
   if (input.runProbes !== undefined && typeof input.runProbes !== "boolean") throw new TypeError("runProbes is invalid");
@@ -124,19 +127,42 @@ export function validateSettingsApply(value: unknown): SettingsApplyRequest {
 
 export function validateProbe(value: unknown): ProbeRequest {
   const input = record(value, "probe request");
-  onlyKeys(input, ["kind", "path", "secrets"], "probe request");
-  const kinds = ["writable-directory", "model-file", "ffmpeg", "ocr", "telegram"];
+  onlyKeys(input, ["kind", "path"], "probe request");
+  const kinds = ["writable-directory", "model-file", "ffmpeg", "ocr"];
   if (typeof input.kind !== "string" || !kinds.includes(input.kind)) throw new TypeError("probe kind is invalid");
-  if (input.path !== undefined) validateSafePath(input.path);
-  const secretsInput = input.secrets === undefined ? {} : record(input.secrets, "probe secrets");
-  const secrets: Record<string, string> = {};
-  for (const [key, secret] of Object.entries(secretsInput)) {
-    if (!KEY.test(key) || typeof secret !== "string" || !secret || secret.length > MAX_SECRET_LENGTH) {
-      throw new TypeError("probe secret is invalid");
-    }
-    secrets[key] = secret;
+  const result: ProbeRequest = { kind: input.kind as ProbeRequest["kind"] };
+  if (input.path !== undefined) result.path = validateSafePath(input.path);
+  return result;
+}
+
+const PREFERENCE_KEYS = ["keepRunningInBackground", "launchAtLogin", "autoDownloadUpdates"] as const;
+
+export function validatePreferencesPatch(value: unknown): DesktopPreferencesPatch {
+  const input = record(value, "preferences patch");
+  onlyKeys(input, PREFERENCE_KEYS, "preferences patch");
+  const patch: DesktopPreferencesPatch = {};
+  for (const key of PREFERENCE_KEYS) {
+    if (!Object.hasOwn(input, key)) continue;
+    if (typeof input[key] !== "boolean") throw new TypeError(`${key} must be a boolean`);
+    patch[key] = input[key] as boolean;
   }
-  return { kind: input.kind as ProbeRequest["kind"], path: input.path as string | undefined, secrets };
+  if (Object.keys(patch).length === 0) throw new TypeError("preferences patch is empty");
+  return patch;
+}
+
+const WINDOWS_RESERVED_NAME = /^(?:con|prn|aux|nul|com[0-9]|lpt[0-9])(?:\..*)?$/iu;
+
+export function validateSavePdfRequest(value: unknown): SavePdfRequest {
+  const input = record(value ?? {}, "PDF request");
+  onlyKeys(input, ["suggestedName"], "PDF request");
+  if (input.suggestedName === undefined) return {};
+  const name = input.suggestedName;
+  if (typeof name !== "string" || name.trim().length < 1 || name.length > 120 ||
+    /[\u0000-\u001f\u007f/\\:*?"<>|]/u.test(name) || name.trim().startsWith(".") ||
+    WINDOWS_RESERVED_NAME.test(name.trim())) {
+    throw new TypeError("suggestedName is invalid");
+  }
+  return { suggestedName: name.trim() };
 }
 
 export function validateSafePath(value: unknown): string {

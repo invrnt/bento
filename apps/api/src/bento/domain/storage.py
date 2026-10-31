@@ -5,11 +5,14 @@ from enum import StrEnum
 
 from bento.domain.errors import ValidationFailedError
 from bento.domain.security import EncryptionMetadata, EncryptionMode
+from bento.domain.telegram import RemotePart
 
 
 class StorageBackend(StrEnum):
     LOCAL = "local"
     TELEGRAM = "telegram"
+    # Configured runtime only: blobs stored through the simulator keep `TELEGRAM` refs.
+    FAKE = "fake"
 
 
 class BlobKind(StrEnum):
@@ -31,6 +34,13 @@ class BlobPart:
     def __post_init__(self) -> None:
         if self.index < 0 or self.size_bytes < 0:
             raise ValidationFailedError("Blob part index and size cannot be negative")
+
+    @classmethod
+    def from_remote(cls, index: int, part: RemotePart) -> BlobPart:
+        return cls(index=index, channel_id=str(part.channel_id), message_id=str(part.message_id), size_bytes=part.size_bytes)
+
+    def remote(self) -> RemotePart:
+        return RemotePart(channel_id=int(self.channel_id), message_id=int(self.message_id), size_bytes=self.size_bytes)
 
 
 @dataclass(frozen=True, slots=True)

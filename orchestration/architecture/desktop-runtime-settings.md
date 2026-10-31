@@ -1,3 +1,5 @@
+> Telegram-first update: the Bot API sidecar and Telegram secret fields were removed; runtime secrets (Telegram session, vault keyring, device key) live in the backend key store wrapped by `BENTO_DEVICE_WRAPPING_KEY`. See `desktop-bridge-telegram-first.md` and `telegram-first.md`.
+
 # Desktop Runtime And Editable Settings
 
 ## Decision
@@ -13,7 +15,6 @@ Electron main
   -> BrowserWindow (compiled React renderer)
   -> FastAPI sidecar on 127.0.0.1:<ephemeral>
   -> worker sidecar using the same data directory and settings snapshot
-  -> optional telegram-bot-api sidecar
 ```
 
 Electron main is an interface/infrastructure host, not a domain layer. It may manage windows, native dialogs, secure storage, child processes, logs, restarts, and desktop updates. Product rules remain in Python application/domain modules and React renders state returned by typed contracts.
@@ -23,7 +24,7 @@ Electron main is an interface/infrastructure host, not a domain layer. It may ma
 1. Acquire a single-instance lock and route subsequent launches to the existing window.
 2. Resolve the platform user-data directory and read only minimal bootstrap metadata: schema version, active data directory, and last-known-good settings revision.
 3. Allocate loopback ports, create an unguessable per-launch API token, and spawn API first.
-4. Wait for a bounded authenticated readiness check; then spawn worker and optional Telegram sidecar.
+4. Wait for a bounded authenticated readiness check; then spawn the worker.
 5. Load the bundled renderer only after API readiness. Show a native recovery window with safe diagnostics if startup fails.
 6. On quit, stop accepting work, terminate sidecars gracefully with a timeout, and only then force-kill owned child processes if required.
 

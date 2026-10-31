@@ -48,7 +48,7 @@ SETTINGS_REGISTRY: tuple[SettingDefinition, ...] = (
     _field("app_version", ("APP_VERSION",), "advanced", Type.STRING, "0.1.0", editable=False),
     _field("environment", ("ENVIRONMENT",), "advanced", Type.STRING, "local", editable=False),
     _field("runtime_mode", ("BENTO_RUNTIME_MODE",), "advanced", Type.CHOICE, "headless", editable=False, choices=("headless", "desktop")),
-    _field("storage_backend", ("STORAGE_BACKEND",), "storage", Type.CHOICE, "local", apply=Apply.RESTART_SERVICES, choices=("local", "telegram"), probe="storage"),
+    _field("storage_backend", ("STORAGE_BACKEND",), "storage", Type.CHOICE, "local", apply=Apply.RESTART_SERVICES, choices=("local", "telegram", "fake"), probe="storage"),
     _field("host", ("HOST",), "advanced", Type.STRING, "127.0.0.1", availability=Availability.HEADLESS, editable=False),
     _field("api_port", ("API_PORT",), "advanced", Type.INTEGER, 8000, availability=Availability.HEADLESS, editable=False, minimum=1, maximum=65535),
     _field("web_port", ("WEB_PORT",), "advanced", Type.INTEGER, 5173, availability=Availability.HEADLESS, editable=False, minimum=1, maximum=65535),
@@ -73,6 +73,16 @@ SETTINGS_REGISTRY: tuple[SettingDefinition, ...] = (
     _field("encryption_mode", ("ENCRYPTION_MODE",), "advanced", Type.CHOICE, "none", apply=Apply.RESTART_SERVICES, choices=("none", "aes_gcm")),
     _field("bento_encryption_key", ("BENTO_ENCRYPTION_KEY",), "advanced", Type.SECRET, None, apply=Apply.RESTART_SERVICES, secret=True),
     _field("bento_encryption_key_id", ("BENTO_ENCRYPTION_KEY_ID",), "advanced", Type.STRING, "primary", apply=Apply.RESTART_SERVICES),
+    _field("telegram_parallel_transfers", ("BENTO_TELEGRAM_PARALLEL_TRANSFERS",), "performance", Type.INTEGER, 1, apply=Apply.RESTART_SERVICES, minimum=1, maximum=4),
+    _field("telegram_part_size_mb", ("BENTO_TELEGRAM_PART_SIZE_MB",), "advanced", Type.INTEGER, 512, apply=Apply.RESTART_SERVICES, minimum=64, maximum=1950),
+    _field("relay_url", ("BENTO_RELAY_URL",), "advanced", Type.STRING, "", apply=Apply.RESTART_SERVICES),
+    _field("public_site_url", ("BENTO_PUBLIC_SITE_URL",), "advanced", Type.STRING, "", apply=Apply.RESTART_SERVICES),
+    _field("inbox_keep_hours", ("BENTO_INBOX_KEEP_HOURS",), "telegram", Type.INTEGER, 24, apply=Apply.RESTART_WORKER, minimum=0, maximum=720),
+    _field("trash_retention_days", ("BENTO_TRASH_RETENTION_DAYS",), "storage", Type.INTEGER, 30, apply=Apply.RESTART_WORKER, minimum=1, maximum=365),
+    _field("cache_max_gb", ("BENTO_CACHE_MAX_GB",), "storage", Type.NUMBER, 10, apply=Apply.RESTART_SERVICES, minimum=1, maximum=2048),
+    _field("backup_pause_on_battery", ("BENTO_BACKUP_PAUSE_ON_BATTERY",), "backup", Type.BOOLEAN, True),
+    _field("backup_bandwidth_limit_kbps", ("BENTO_BACKUP_BANDWIDTH_LIMIT_KBPS",), "backup", Type.INTEGER, 0, minimum=0, maximum=1_000_000),
+    _field("fake_telegram_dir", ("BENTO_FAKE_TELEGRAM_DIR",), "advanced", Type.PATH, "", apply=Apply.RESTART_SERVICES),
 )
 
 SETTINGS_BY_KEY = {item.key: item for item in SETTINGS_REGISTRY}

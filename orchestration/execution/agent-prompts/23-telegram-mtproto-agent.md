@@ -54,3 +54,12 @@ Telethon 1.45 docs/source for: `TelegramClient` construction (`device_model`, `s
 ## Handoff
 
 Commit on your branch. Report public services/factories, env vars, removed files, test counts, and anything other agents must adapt to.
+
+## Stage 14 Handoff Notes
+
+- Crypto adapters (all exported from `bento.adapters.security`): `StreamingBlobCipher(legacy_keys=None)`, `VaultCrypto()`, `PairingCryptoFactory()`, `WrappedFileKeyStore(directory, wrapping_key)`, `InMemoryKeyStore()`, `load_wrapping_key(os.environ, data_dir) -> WrappingKey(key, file_based, path)`. Production code never passes `random_bytes`.
+- Key store directory: `<data_dir>/secure`. Surface `file_based=True` as a `make doctor` warning.
+- Legacy Bot API blobs are not migrated; do not wire `legacy_keys` (the legacy encryption settings are removed).
+- Headers: MAC with the keyring's current epoch and keep `current_epoch` equal to it.
+- Resumed uploads: before reusing an `upload_sessions` row's `file_salt`/`nonce_prefix`, verify the source file's size and sha256 still match the blob ref; otherwise discard the session and start fresh (GCM nonce reuse).
+- Relay: `relay_url` is a ws(s) origin without path or trailing slash (e.g. `wss://bento-relay.<subdomain>.workers.dev`; local `ws://localhost:8787`).

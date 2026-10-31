@@ -44,3 +44,11 @@ Let a person add a device by typing or scanning one short code, approve it with 
 ## Handoff
 
 Commit on your branch. Report the endpoints' exact behavior, timeouts, test counts, and anything the web agent must know (polling intervals, states to render).
+
+## Stage 14 Handoff Notes
+
+- `PairingCryptoFactory` sessions produce/consume complete frames including the type byte (`0x01` start = 1+33 bytes, `0x02` confirmation = 1+32, `0x03` messages); counters are implicit; any failure poisons the session; messages require the peer confirmation to be verified first; frames ≤ 64 KiB.
+- Fallback pairing uses commit-then-reveal (`FallbackPairingKeysPort.commitment`, `pair_reveal` message, transcript-bound `sas_with`); see the updated architecture section.
+- Relay specifics (see `apps/relay/README.md`): nameplates must be upper-case; error frames are followed by close code `4001` with the error code as reason; on burn the peer gets `peer_left` then `{"type":"closed","reason":"burned"}` then close `1000`; `room_full` vs `room_not_found` semantics for burned rooms; `429` with `Retry-After: 60` before upgrade. Health: swap the scheme to `https://` and GET `/v1/health`.
+- For integration tests you may run the real relay with `cd apps/relay && npm run dev` only if it works offline in CI; otherwise use the Python relay double.
+- Fallback helpers: guest `FallbackPairingKeys.commitment(device_public_key=..., request_id=...)`; host `verify_commitment(commitment, eph_pub=..., device_public_key=..., request_id=...)` (abort on False before showing any SAS); both sides `sas_with(peer, request_id=..., guest_device_public_key=..., guest_ephemeral_public_key=..., host_ephemeral_public_key=...)`. The guest must not post `pair_reveal` before it has seen the host's `pair_offer`.
