@@ -18,6 +18,11 @@ class JobType(StrEnum):
     REINDEX = "reindex"
     TELEGRAM_IMPORT = "telegram_import"
     JOURNAL_EXPORT = "journal_export"
+    REMOTE_UPLOAD = "remote_upload"
+    BACKUP_SCAN = "backup_scan"
+    BACKUP_UPLOAD = "backup_upload"
+    TRASH_PURGE = "trash_purge"
+    CACHE_EVICT = "cache_evict"
 
 
 class JobStatus(StrEnum):
