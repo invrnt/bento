@@ -236,7 +236,11 @@ class FakeTelegramCloud:
         with self.locked():
             state = self._read_cloud()
             record = state["login_tokens"].get(encode_token(token))
-            if not any(item["id"] == approver_id for item in state["authorizations"]):
+            # The simulated phone can always scan QR codes, even after its session was terminated from Bento.
+            known = approver_id == PHONE_AUTHORIZATION_ID or any(
+                item["id"] == approver_id for item in state["authorizations"]
+            )
+            if not known:
                 raise TelegramAccountError("telegram_not_authorized", "This device is not signed in to Telegram")
             if record is None:
                 raise _login_token_error("invalid")

@@ -200,6 +200,24 @@ def test_fresh_sessions_can_be_configured_to_refuse_terminating_others(tmp_path:
 
         assert refused.value.code == "telegram_session_too_new"
 
+
+    run(scenario())
+
+
+def test_the_simulated_phone_still_approves_qr_logins_after_its_session_is_terminated(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        clock = ManualClock()
+        host = make_device(tmp_path, clock=clock, name="host")
+        await sign_in(host)
+        phone = next(item for item in await host.runtime.account.list_authorizations() if not item.current)
+        await host.runtime.account.terminate_authorization(phone.hash)
+        guest = make_device(tmp_path, clock=clock, name="guest")
+
+        await guest.runtime.account.start_qr_login()
+        clock.advance(2)
+
+        assert (await guest.runtime.account.poll_login()).authorized
+
     run(scenario())
 
 
