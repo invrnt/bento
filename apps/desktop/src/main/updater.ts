@@ -1,10 +1,11 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, KeyObject, randomBytes } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { chmod, lstat, mkdir, open, readdir, readFile, rename, rm, unlink, writeFile } from "node:fs/promises";
 import { createServer, Server } from "node:http";
 import path from "node:path";
 import { EventEmitter } from "node:events";
 import { UpdateInstallMode, UpdateInstallResult, UpdateState } from "../shared/contracts";
+import { MAX_UPDATE_SIGNATURE_BYTES, parseUpdatePublicKey, UPDATE_SIGNATURE_SUFFIX, verifyUpdateManifestSignature } from "./update-signature";
 
 const OWNER = "invrnt";
 const REPOSITORY = "bento";
@@ -111,6 +112,13 @@ export interface UpdateControllerOptions {
   beforeInstall: () => Promise<void>;
   recoverAfterInstallFailure?: () => Promise<void>;
   fetch?: typeof globalThis.fetch;
+  /**
+   * Ed25519 key embedded at build time (base64 of the raw 32 bytes). When present, every manifest
+   * must carry a valid `<manifest>.sig`; `null` means a key was configured but is unusable, which
+   * fails closed. Absent keeps hash-only verification and warns once.
+   */
+  updatePublicKey?: string | null;
+  warn?: (message: string) => void;
   now?: () => number;
   networkTimeoutMs?: number;
   inactivityTimeoutMs?: number;
@@ -125,12 +133,16 @@ export class UpdateController extends EventEmitter {
   private initialization: Promise<UpdateState> | null = null;
   private readonly fetchImpl: typeof globalThis.fetch;
   private readonly now: () => number;
+  private readonly trust: { key: KeyObject } | { key: null; configured: boolean };
+  private warnedUnsigned = false;
 
   constructor(private readonly options: UpdateControllerOptions) {
     super();
     if (!isStrictSemver(options.currentVersion)) throw new Error("The packaged application version is not valid semver");
     this.fetchImpl = options.fetch ?? globalThis.fetch;
     this.now = options.now ?? Date.now;
+    const key = typeof options.updatePublicKey === "string" ? parseUpdatePublicKey(options.updatePublicKey) : null;
+    this.trust = key ? { key } : { key: null, configured: options.updatePublicKey !== undefined };
     this.stateValue = {
       status: "idle",
       currentVersion: options.currentVersion,
@@ -300,6 +312,7 @@ export class UpdateController extends EventEmitter {
     const expectedManifestDigest = githubDigest(manifestAsset.digest);
     const manifestBytes = await this.fetchBytes(manifestAsset.browser_download_url, MAX_MANIFEST_BYTES, "asset");
     if (sha256(manifestBytes) !== expectedManifestDigest) throw updaterError("updates_manifest_checksum_mismatch");
+    await this.verifyManifestSignature(release, manifestAsset.name, version, manifestBytes);
     let manifest: unknown;
     try {
       manifest = JSON.parse(new TextDecoder().decode(manifestBytes));
@@ -315,6 +328,27 @@ export class UpdateController extends EventEmitter {
     }
     if (this.options.platform === "win32") validateSquirrel(validated, artifact);
     return { version, artifact, asset, release, expectedSha1: validated.squirrel?.nupkg.sha1 };
+  }
+
+  /** Signature check before the manifest is parsed; GitHub digests alone do not survive a release takeover. */
+  private async verifyManifestSignature(release: GitHubRelease, manifest: string, version: string, manifestBytes: Uint8Array): Promise<void> {
+    if (!this.trust.key) {
+      if (this.trust.configured) throw updaterError("updates_signature_key_invalid");
+      if (!this.warnedUnsigned) {
+        this.warnedUnsigned = true;
+        this.options.warn?.("update manifest signatures are not verified: this build has no update public key");
+      }
+      return;
+    }
+    const signatureName = `${manifest}${UPDATE_SIGNATURE_SUFFIX}`;
+    const matches = release.assets.filter((item) => item?.name === signatureName && item.state === "uploaded");
+    if (matches.length !== 1) throw updaterError("updates_signature_missing");
+    const asset = matches[0]!;
+    validateAssetMetadata(asset, MAX_UPDATE_SIGNATURE_BYTES, version);
+    const signature = await this.fetchBytes(asset.browser_download_url, MAX_UPDATE_SIGNATURE_BYTES, "asset");
+    if (sha256(signature) !== githubDigest(asset.digest) || !verifyUpdateManifestSignature(manifestBytes, signature, this.trust.key)) {
+      throw updaterError("updates_signature_invalid");
+    }
   }
 
   private async downloadArtifact(candidate: Candidate, temporary: string): Promise<{ sha1: string }> {

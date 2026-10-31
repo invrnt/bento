@@ -39,6 +39,7 @@
     "release:bump": "node scripts/bump-version.mjs",
     "release:collect": "node scripts/collect-release-assets.mjs",
     "release:manifest": "node scripts/generate-update-manifest.mjs",
+    "release:sign-manifest": "node scripts/sign-update-manifest.mjs",
     "sbom": "node scripts/generate-sbom.mjs",
     "checksums": "node scripts/checksums.mjs ../../dist/release",
     "build:config": "node scripts/write-build-config.mjs --keep-existing"

@@ -1,3 +1,4 @@
+import { generateKeyPairSync } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -8,6 +9,7 @@ import {
   parseBuildConfig,
   sidecarRuntimeEnvironment,
 } from "../src/main/build-config";
+import { encodeUpdatePublicKey } from "../src/main/update-signature";
 
 const roots: string[] = [];
 const VALID = {
@@ -129,5 +131,33 @@ describe("desktop build configuration", () => {
   it("redacts the API hash from desktop logs", () => {
     expect(buildConfigRedactions(VALID)).toEqual([VALID.BENTO_TELEGRAM_API_HASH]);
     expect(buildConfigRedactions({})).toEqual([]);
+  });
+});
+
+describe("update public key", () => {
+  const updatePublicKey = encodeUpdatePublicKey(generateKeyPairSync("ed25519").publicKey);
+
+  it("reads updatePublicKey for main only and never forwards it to sidecars", async () => {
+    const parsed = parseBuildConfig({ ...VALID, updatePublicKey }, { allowLoopbackInsecure: false });
+    expect(parsed).toEqual({ config: VALID, rejected: [], updatePublicKey });
+    const packaged = await loadBuildConfig({ packaged: true, resourcesPath: await resources(JSON.stringify({ updatePublicKey })), environment: {} });
+    expect(packaged).toMatchObject({ config: {}, rejected: [], updatePublicKey });
+    const runtime = sidecarRuntimeEnvironment({ packaged: true, buildConfig: packaged.config, environment: {} });
+    expect(Object.values(runtime.set)).not.toContain(updatePublicKey);
+  });
+
+  it("rejects malformed keys by name", () => {
+    for (const value of ["not-a-key", updatePublicKey.slice(1), Buffer.alloc(32).toString("base64url"), 42]) {
+      const parsed = parseBuildConfig({ updatePublicKey: value }, { allowLoopbackInsecure: false });
+      expect(parsed.rejected).toEqual(["updatePublicKey"]);
+      expect(parsed.updatePublicKey).toBeUndefined();
+    }
+  });
+
+  it("reads BENTO_UPDATE_PUBLIC_KEY in development and ignores it when packaged", async () => {
+    await expect(loadBuildConfig({ packaged: false, resourcesPath: "/nonexistent", environment: { BENTO_UPDATE_PUBLIC_KEY: updatePublicKey } }))
+      .resolves.toMatchObject({ updatePublicKey, source: "environment" });
+    const packaged = await loadBuildConfig({ packaged: true, resourcesPath: await resources("{}"), environment: { BENTO_UPDATE_PUBLIC_KEY: updatePublicKey } });
+    expect(packaged.updatePublicKey).toBeUndefined();
   });
 });

@@ -21,7 +21,7 @@ import {
 import { ActivityMonitor } from "./activity";
 import { WindowLifecycle } from "./background";
 import { BootstrapStore } from "./bootstrap";
-import { buildConfigRedactions, loadBuildConfig, sidecarRuntimeEnvironment } from "./build-config";
+import { buildConfigRedactions, loadBuildConfig, sidecarRuntimeEnvironment, UPDATE_PUBLIC_KEY_FIELD } from "./build-config";
 import { argumentsFromAdditionalData, DEEP_LINK_SCHEME, userArguments } from "./deep-links";
 import { provisionDeviceWrappingKey } from "./device-key";
 import { createStrings, MainStrings } from "./i18n";
@@ -166,6 +166,9 @@ async function startDesktop(): Promise<void> {
     arch: process.arch,
     isPackaged: app.isPackaged,
     stagingRoot: path.join(desktopData, "updates"),
+    // An invalid key (or an unreadable build configuration) is `null`: every update check fails closed.
+    updatePublicKey: buildConfig.rejected.some((key) => key === UPDATE_PUBLIC_KEY_FIELD || key === "_document") ? null : buildConfig.updatePublicKey,
+    warn: (message) => log.write("warn", message),
     autoUpdater,
     openPath: (filePath) => shell.openPath(filePath),
     beforeInstall: () => prepareForUpdateInstall(() => { quitting = true; }, () => sidecars.stop()),
