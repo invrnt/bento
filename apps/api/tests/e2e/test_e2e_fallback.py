@@ -1,14 +1,14 @@
-"""Journey 22: the relay is unreachable, so the new device asks for access through the Sync channel."""
+"""Journey 22 (the relay is unreachable, so the new device asks through the Sync channel) and the 24 h rule of 25."""
 
 from __future__ import annotations
 
 from collections.abc import Iterator
-from pathlib import Path
 
 import pytest
 
 from tests.e2e.harness import World, free_port, sigterm_as_interrupt, wait_until
 from tests.e2e.journey_support import (
+    assert_absent_for,
     unique_bytes,
     wait_for_named_asset,
     wait_for_pairing,
@@ -65,7 +65,7 @@ def test_22_relay_unavailable_pairs_through_the_sync_channel(world: World) -> No
     assert not a.get("/pairing/requests")["items"]
 
 
-def test_22_rejected_request_leaves_the_device_locked(world: World, tmp_path: Path) -> None:
+def test_22_rejected_request_leaves_the_device_locked(world: World) -> None:
     a = world.devices["a"]
     c = world.device("c")
     c.sign_in_with_qr()
@@ -74,3 +74,20 @@ def test_22_rejected_request_leaves_the_device_locked(world: World, tmp_path: Pa
     a.post(f"/pairing/requests/{request['id']}/reject")
     wait_for_pairing(c, asked["id"], {"rejected"}, timeout=30)
     assert c.get("/vault")["state"] == "locked"
+
+
+def test_25_removal_from_a_session_younger_than_24_hours_still_rotates_the_keys(world: World) -> None:
+    a, b = world.devices["a"], world.devices["b"]
+    a.stop()
+    a.extra_env["BENTO_FAKE_TELEGRAM_SESSION_TOO_NEW"] = "1"  # Telegram refuses to close other sessions
+    a.start()
+    target = next(item for item in a.get("/devices")["items"] if not item["current"])
+
+    removal = a.delete(f"/devices/{target['id']}")
+    assert removal["telegram_session_closed"] is False
+    assert removal["recovery_code"] and removal["recovery_qr"]["rows"]
+    assert a.post("/vault/recovery-code/verify", {"recovery_code": removal["recovery_code"]}) == {"valid": True}
+    assert b.get("/account")["step"] == "authorized"  # the session stays open; the keys no longer open new data
+    secret = a.upload("despues-de-24h.txt", unique_bytes("despues-de-24h"), "text/plain")
+    wait_for_remote_upload(a, secret["id"])
+    assert_absent_for(b, "despues-de-24h.txt", seconds=5)
