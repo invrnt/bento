@@ -54,6 +54,24 @@ Los certificados se decodifican únicamente en el directorio temporal efímero d
 
 Actualmente no hay certificados ni cuentas de desarrollador en el repositorio. Hasta configurarlos como GitHub Actions secrets, los tags de producción quedan intencionalmente bloqueados. No se debe afirmar que un build local/PR está firmado o notarizado.
 
+### Configuración de compilación de Bento
+
+Además de la firma, cada build empaquetado lleva la configuración que conecta Bento con Telegram, el relay y el sitio. El empaquetado la escribe en `resources/build-config.json` a partir del entorno y omite los valores ausentes; nunca se imprime en los logs.
+
+| Nombre | Tipo en GitHub Actions | Sin él |
+| --- | --- | --- |
+| `BENTO_TELEGRAM_API_ID` | secret | El inicio de sesión de Telegram devuelve `telegram_not_available`. |
+| `BENTO_TELEGRAM_API_HASH` | secret | Igual que el anterior. |
+| `BENTO_RELAY_URL` | variable | El emparejamiento usa el canal Sync de Telegram. |
+| `BENTO_PUBLIC_SITE_URL` | variable | El diálogo de emparejamiento no ofrece enlace web. |
+
+Cómo obtener cada valor: [credenciales de Telegram](../dev/telegram-credentials.md), [relay](../dev/relay.md) y [sitio público](../dev/site.md). Un release de producción debe llevar los cuatro.
+
+### Después de publicar
+
+1. Comprueba en la página del release que están los instaladores, los `SHA256SUMS-*` y los manifiestos del updater.
+2. Si quieres que los botones del sitio descarguen directamente los archivos de esta versión, copia sus nombres en `apps/site/site.config.json` y vuelve a desplegar el sitio ([instrucciones](../dev/site.md#download-links)). Sin ese paso, los botones abren la página del último release, que siempre funciona.
+
 ## Manifiestos del updater controlado
 
 Solo después de que las cuatro matrices firmen, prueben y reúnan sus assets, el release publica un manifiesto por destino:
