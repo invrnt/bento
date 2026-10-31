@@ -8,12 +8,12 @@ from bento.application.indexing.embedding import EmbeddingIndexingService
 from bento.application.indexing import OCRIndexingService
 from bento.application.media import MediaProcessingService
 from bento.domain.jobs import Job, JobStatus, JobType
-from bento.interfaces.worker.telegram import TelegramJobHandlers
 from bento.ports.jobs import JobQueuePort
 from bento.ports.repositories import ClockPort
 
 if TYPE_CHECKING:
     from bento.interfaces.worker.storage_pipeline import StoragePipelineJobHandler
+    from bento.interfaces.worker.telegram import TelegramJobHandlers
 
 
 LOGGER = logging.getLogger("bento.worker.dispatch")

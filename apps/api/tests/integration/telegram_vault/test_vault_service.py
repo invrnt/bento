@@ -362,3 +362,37 @@ def test_header_json_round_trip_is_stable(tmp_path: Path) -> None:
         assert VaultHeader.from_json(header.to_json()) == header
 
     run(scenario())
+
+
+def test_device_removal_rotates_keys_through_the_real_vault_session(tmp_path: Path) -> None:
+    from bento.application.devices import DeviceService
+
+    async def scenario() -> None:
+        first, old_code = await _first_device(tmp_path)
+        context = await first.vault.require()
+        guest = make_vault_device(tmp_path, tmp_path / "cloud", "guest")
+        await guest.sign_in()
+        await guest.vault.install(context.layout, context.keyring)
+        [guest_row] = await guest.devices.list()
+        await first.devices.save(replace(guest_row, current=False))
+        service = DeviceService(
+            devices=first.devices,
+            vault=first.vault,
+            account=first.runtime.account,
+            transport=first.runtime.transport,
+            crypto=first.crypto,
+        )
+
+        removal = await service.remove(guest_row.id)
+
+        assert removal.device.removed_at is not None and RECOVERY_CODE.match(removal.recovery_code)
+        # Telegram matched the guest's session by its announced "Bento (<suffix>)" name.
+        assert removal.telegram_session_closed is True
+        rotated = await first.vault.require()
+        assert rotated.keyring.current_epoch == 2
+        header = await first.vault.read_header()
+        assert header is not None and header.current_epoch == 2
+        assert await first.vault.verify_recovery_code(old_code) is False
+        assert await first.vault.verify_recovery_code(removal.recovery_code) is True
+
+    run(scenario())
