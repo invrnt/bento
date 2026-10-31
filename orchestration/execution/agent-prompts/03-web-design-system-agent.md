@@ -10,6 +10,7 @@ Create the frontend shell, design tokens, primitives, i18n, accessibility founda
 - `/orchestration/AGENTS.md`
 - `/orchestration/architecture/styling-design.md`
 - `/orchestration/architecture/i18n-a11y.md`
+- `/orchestration/design-system/brand.md`
 - `/orchestration/design-system/tokens.md`
 - `/orchestration/design-system/primitives.md`
 - `/orchestration/design-system/motion-interaction.md`

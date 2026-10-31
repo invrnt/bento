@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
+import { Plus, SquareLibrary } from "lucide-react";
 
+import { Badge } from "../../components/Badge";
 import { Button } from "../../components/Button";
 import { EmptyState, ErrorState, LoadingState } from "../../components/States";
 import { Input } from "../../components/Input";
-import { Thumbnail } from "../../components/Thumbnail";
+import { PageHeader } from "../../components/PageHeader";
 import { albumsApi } from "../../api/albums";
 import type { Album, AlbumsApi } from "../../api/albums";
 import { assetThumbnailUrl } from "../../api/photos";
 import { t } from "../../i18n/dictionary";
+import { AlbumCover } from "./AlbumCover";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
 
@@ -68,39 +71,41 @@ export function AlbumsPage({ api = albumsApi, onOpenAlbum }: AlbumsPageProps) {
   }
 
   return (
-    <div className="grid w-full gap-5">
-      <header className="flex flex-col gap-1 border-b border-app-border/80 pb-4">
-        <h1 className="text-2xl font-bold tracking-tight text-app-text">{t("albums.title")}</h1>
-        <p className="text-sm text-app-text-muted">{t("albums.subtitle")}</p>
-      </header>
-
-      <form
-        className="grid gap-3 rounded-app-card border border-app-border bg-app-surface p-4 shadow-2xs sm:grid-cols-[1fr_auto] sm:items-end transition-all duration-200"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void createAlbum();
-        }}
-      >
-        <Input
-          label={t("albums.createLabel")}
-          onChange={(event) => setTitle(event.currentTarget.value)}
-          placeholder={t("albums.createPlaceholder")}
-          value={title}
-        />
-        <Button disabled={creating || !title.trim()} type="submit" variant="primary">
-          {creating ? t("albums.creating") : t("albums.create")}
-        </Button>
-      </form>
+    <div className="grid w-full content-start gap-8">
+      <PageHeader description={t("albums.subtitle")} title={t("albums.title")}>
+        <form
+          className="flex w-full max-w-md items-end gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void createAlbum();
+          }}
+        >
+          <Input
+            hideLabel
+            label={t("albums.createLabel")}
+            onChange={(event) => setTitle(event.currentTarget.value)}
+            placeholder={t("albums.createPlaceholder")}
+            value={title}
+            wrapperClassName="flex-1"
+          />
+          <Button disabled={!title.trim()} leadingIcon={<Plus />} loading={creating} type="submit" variant="primary">
+            {creating ? t("albums.creating") : t("albums.create")}
+          </Button>
+        </form>
+      </PageHeader>
 
       {loadState === "loading" ? <LoadingState label={t("albums.loading")} /> : null}
       {loadState === "error" ? (
         <ErrorState body={error ?? t("albums.loadError")} onRetry={() => setRefreshKey((value) => value + 1)} />
       ) : null}
       {loadState === "ready" && albums.length === 0 ? (
-        <EmptyState body={t("albums.emptyBody")} title={t("albums.emptyTitle")} />
+        <EmptyState body={t("albums.emptyBody")} icon={<SquareLibrary />} title={t("albums.emptyTitle")} />
       ) : null}
       {albums.length > 0 ? (
-        <section aria-label={t("albums.listLabel")} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <section
+          aria-label={t("albums.listLabel")}
+          className="grid grid-cols-[repeat(auto-fill,minmax(13.5rem,1fr))] gap-4"
+        >
           {albums.map((album) => (
             <AlbumCard album={album} key={album.id} onOpenAlbum={onOpenAlbum} />
           ))}
@@ -111,28 +116,26 @@ export function AlbumsPage({ api = albumsApi, onOpenAlbum }: AlbumsPageProps) {
 }
 
 function AlbumCard({ album, onOpenAlbum }: { album: Album; onOpenAlbum?: (albumId: string) => void }) {
+  const count = album.asset_ids.length;
+
   return (
-    <article className="grid min-h-56 grid-rows-[1fr_auto] overflow-hidden rounded-app-card border border-app-border bg-app-surface shadow-2xs hover:shadow-md hover:border-slate-300 transition-all duration-300 group">
-      <div className="overflow-hidden relative aspect-video bg-slate-100 flex items-center justify-center">
-        <Thumbnail
-          alt={album.title}
-          className="w-full h-full rounded-none border-0 transition-transform duration-500 group-hover:scale-[1.03]"
-          src={album.cover_asset ? assetThumbnailUrl(album.cover_asset) : undefined}
-        >
-          <span className="text-app-text-muted/60 font-semibold tracking-wide text-xs">{t("albums.emptyCover")}</span>
-        </Thumbnail>
+    <article className="group/album relative overflow-hidden rounded-lg border border-line bg-raised shadow-xs transition-[border-color,box-shadow] duration-200 hover:border-line-strong hover:shadow-md">
+      <AlbumCover
+        className="aspect-[4/3] transition-transform duration-500 ease-out group-hover/album:scale-[1.03]"
+        src={album.cover_asset ? assetThumbnailUrl(album.cover_asset) : undefined}
+      />
+      <div className="flex items-center justify-between gap-3 border-t border-line px-3.5 py-3">
+        <h2 className="min-w-0 truncate text-base font-semibold text-ink">{album.title}</h2>
+        <Badge>
+          {count} {count === 1 ? t("photos.item") : t("photos.items")}
+        </Badge>
       </div>
-      <div className="grid gap-3 p-4 bg-app-surface border-t border-app-border/40">
-        <div className="min-w-0">
-          <h2 className="truncate text-sm font-bold tracking-tight text-app-text group-hover:text-app-accent transition-colors">{album.title}</h2>
-          <p className="text-xs text-app-text-muted mt-1 font-medium bg-slate-150 px-2 py-0.5 rounded-full inline-block select-none">
-            {album.asset_ids.length} {album.asset_ids.length === 1 ? t("photos.item") : t("photos.items")}
-          </p>
-        </div>
-        <Button onClick={() => onOpenAlbum?.(album.id)} variant="secondary" className="w-full cursor-pointer h-9 text-xs font-semibold">
-          {t("albums.open")}
-        </Button>
-      </div>
+      <button
+        aria-label={`${t("albums.open")} ${album.title}`}
+        className="focus-ring absolute inset-0 rounded-lg focus-visible:outline-offset-[-2px]"
+        onClick={() => onOpenAlbum?.(album.id)}
+        type="button"
+      />
     </article>
   );
 }

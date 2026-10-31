@@ -1,38 +1,187 @@
+/*
+ * Bento design tokens. Source of truth: orchestration/design-system/brand.md.
+ * Every color resolves through light-dark(), driven by `color-scheme` on <html>
+ * (see lib/theme.ts). Tailwind's default palette is disabled on purpose: only
+ * brand tokens can be used in components.
+ */
+
+@theme {
+  --color-*: initial;
+  --color-white: oklch(1 0 0);
+  --color-black: oklch(0 0 0);
+
+  /* Bandeja y compartimentos */
+  --color-tray: light-dark(oklch(0.962 0.006 80), oklch(0.165 0.014 268));
+  --color-surface: light-dark(oklch(0.993 0.002 80), oklch(0.2 0.015 268));
+  --color-raised: light-dark(oklch(1 0 0), oklch(0.235 0.016 268));
+  --color-subtle: light-dark(oklch(0.972 0.005 80), oklch(0.225 0.015 268));
+  --color-sunken: light-dark(oklch(0.945 0.007 80), oklch(0.175 0.014 268));
+  --color-hover: light-dark(oklch(0.235 0.012 70 / 0.055), oklch(1 0 0 / 0.06));
+  --color-pressed: light-dark(oklch(0.235 0.012 70 / 0.09), oklch(1 0 0 / 0.1));
+  --color-line: light-dark(oklch(0.905 0.007 80), oklch(0.285 0.016 268));
+  --color-line-strong: light-dark(oklch(0.86 0.009 80), oklch(0.35 0.018 268));
+  --color-scrim: light-dark(oklch(0.2 0.02 268 / 0.38), oklch(0.05 0.01 268 / 0.62));
+
+  /* Sumi: tinta */
+  --color-ink: light-dark(oklch(0.235 0.012 70), oklch(0.955 0.005 268));
+  --color-ink-muted: light-dark(oklch(0.49 0.013 70), oklch(0.735 0.014 268));
+  --color-ink-subtle: light-dark(oklch(0.58 0.012 70), oklch(0.6 0.015 268));
+  --color-ink-inverse: light-dark(oklch(0.98 0.003 80), oklch(0.18 0.015 268));
+  --color-tooltip: light-dark(oklch(0.235 0.012 70), oklch(0.93 0.006 268));
+
+  /* Ai: acento interactivo (índigo) */
+  --color-accent: light-dark(oklch(0.515 0.2 268), oklch(0.555 0.19 268));
+  --color-accent-hover: light-dark(oklch(0.465 0.2 268), oklch(0.6 0.19 268));
+  --color-accent-soft: light-dark(oklch(0.95 0.028 268), oklch(0.3 0.07 268));
+  --color-accent-soft-hover: light-dark(oklch(0.92 0.045 268), oklch(0.34 0.085 268));
+  --color-accent-ink: light-dark(oklch(0.47 0.19 268), oklch(0.8 0.11 268));
+  --color-on-accent: oklch(1 0 0);
+  --color-focus: light-dark(oklch(0.56 0.2 268), oklch(0.72 0.15 268));
+
+  /* Shu: chispa de marca (bermellón). Una sola por pantalla. */
+  --color-shu: light-dark(oklch(0.635 0.2 38), oklch(0.7 0.18 40));
+  --color-shu-soft: light-dark(oklch(0.955 0.03 45), oklch(0.3 0.07 38));
+  --color-shu-ink: light-dark(oklch(0.54 0.18 36), oklch(0.78 0.13 42));
+
+  /* Semánticos */
+  --color-success: light-dark(oklch(0.56 0.13 152), oklch(0.74 0.15 152));
+  --color-success-soft: light-dark(oklch(0.955 0.035 152), oklch(0.29 0.05 152));
+  --color-success-ink: light-dark(oklch(0.48 0.115 152), oklch(0.8 0.13 152));
+  --color-warning: light-dark(oklch(0.72 0.15 72), oklch(0.82 0.14 80));
+  --color-warning-soft: light-dark(oklch(0.962 0.045 85), oklch(0.31 0.055 75));
+  --color-warning-ink: light-dark(oklch(0.5 0.11 62), oklch(0.85 0.12 82));
+  --color-danger: light-dark(oklch(0.565 0.2 25), oklch(0.585 0.19 25));
+  --color-danger-hover: light-dark(oklch(0.51 0.2 25), oklch(0.63 0.19 25));
+  --color-danger-soft: light-dark(oklch(0.958 0.025 20), oklch(0.3 0.07 22));
+  --color-danger-ink: light-dark(oklch(0.5 0.19 25), oklch(0.78 0.13 22));
+  --color-on-danger: oklch(1 0 0);
+
+  /* Paleta de compartimentos: tipos de archivo */
+  --color-kind-folder: light-dark(oklch(0.72 0.15 75), oklch(0.8 0.14 80));
+  --color-kind-folder-soft: light-dark(oklch(0.955 0.05 85), oklch(0.3 0.06 78));
+  --color-kind-pdf: light-dark(oklch(0.565 0.2 25), oklch(0.74 0.15 22));
+  --color-kind-pdf-soft: light-dark(oklch(0.958 0.025 20), oklch(0.3 0.07 22));
+  --color-kind-doc: light-dark(oklch(0.515 0.2 268), oklch(0.75 0.13 268));
+  --color-kind-doc-soft: light-dark(oklch(0.95 0.028 268), oklch(0.3 0.07 268));
+  --color-kind-sheet: light-dark(oklch(0.56 0.13 152), oklch(0.74 0.15 152));
+  --color-kind-sheet-soft: light-dark(oklch(0.955 0.035 152), oklch(0.29 0.05 152));
+  --color-kind-slides: light-dark(oklch(0.635 0.2 38), oklch(0.74 0.16 42));
+  --color-kind-slides-soft: light-dark(oklch(0.955 0.03 45), oklch(0.3 0.07 38));
+  --color-kind-image: light-dark(oklch(0.55 0.17 330), oklch(0.75 0.13 330));
+  --color-kind-image-soft: light-dark(oklch(0.955 0.03 330), oklch(0.3 0.06 330));
+  --color-kind-video: light-dark(oklch(0.58 0.13 225), oklch(0.76 0.11 225));
+  --color-kind-video-soft: light-dark(oklch(0.955 0.03 225), oklch(0.3 0.05 225));
+  --color-kind-audio: light-dark(oklch(0.6 0.17 0), oklch(0.76 0.13 0));
+  --color-kind-audio-soft: light-dark(oklch(0.96 0.025 0), oklch(0.3 0.06 0));
+  --color-kind-archive: light-dark(oklch(0.55 0.07 60), oklch(0.74 0.06 65));
+  --color-kind-archive-soft: light-dark(oklch(0.95 0.02 70), oklch(0.29 0.025 65));
+  --color-kind-text: light-dark(oklch(0.49 0.013 70), oklch(0.735 0.014 268));
+  --color-kind-text-soft: light-dark(oklch(0.945 0.007 80), oklch(0.26 0.015 268));
+
+  /* Medios: el visor siempre es oscuro */
+  --color-media: oklch(0.13 0.01 268);
+  --color-media-raised: oklch(0.2 0.012 268);
+
+  /* Tipografía */
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "SFMono-Regular", "Cascadia Code", monospace;
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 0.875rem;
+  --text-base--line-height: 1.375rem;
+  --text-md: 0.9375rem;
+  --text-md--line-height: 1.5rem;
+  --text-lg: 1.0625rem;
+  --text-lg--line-height: 1.5rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 2rem;
+  --text-3xl: 2rem;
+  --text-3xl--line-height: 2.375rem;
+  --tracking-tight: -0.012em;
+  --tracking-tighter: -0.022em;
+  --tracking-caps: 0.06em;
+
+  /* Forma: radios anidados (exterior = interior + separación) */
+  --radius-xs: 0.375rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1.125rem;
+  --radius-2xl: 1.5rem;
+
+  /* Elevación: sombras teñidas de tinta, siempre suaves */
+  --shadow-xs: 0 1px 1px light-dark(oklch(0.25 0.02 70 / 0.05), oklch(0 0 0 / 0.25));
+  --shadow-sm: 0 1px 2px light-dark(oklch(0.25 0.02 70 / 0.07), oklch(0 0 0 / 0.3)),
+    0 1px 1px light-dark(oklch(0.25 0.02 70 / 0.04), oklch(0 0 0 / 0.2));
+  --shadow-md: 0 6px 16px -4px light-dark(oklch(0.25 0.02 70 / 0.1), oklch(0 0 0 / 0.45)),
+    0 2px 4px -1px light-dark(oklch(0.25 0.02 70 / 0.05), oklch(0 0 0 / 0.25));
+  --shadow-lg: 0 16px 40px -12px light-dark(oklch(0.25 0.02 70 / 0.18), oklch(0 0 0 / 0.6)),
+    0 4px 10px -4px light-dark(oklch(0.25 0.02 70 / 0.08), oklch(0 0 0 / 0.3));
+  --shadow-xl: 0 28px 72px -18px light-dark(oklch(0.25 0.02 70 / 0.28), oklch(0 0 0 / 0.7)),
+    0 8px 20px -8px light-dark(oklch(0.25 0.02 70 / 0.1), oklch(0 0 0 / 0.35));
+  --shadow-sheen: inset 0 1px 0 light-dark(oklch(1 0 0 / 0.7), oklch(1 0 0 / 0.05));
+  --shadow-sheen-accent: inset 0 1px 0 oklch(1 0 0 / 0.18), 0 1px 2px oklch(0.3 0.15 268 / 0.25);
+
+  /* Movimiento: tranquilo y preciso */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --animate-fade-in: fade-in 160ms var(--ease-out) both;
+  --animate-pop-in: pop-in 200ms var(--ease-out) both;
+  --animate-slide-up: slide-up 260ms var(--ease-out) both;
+  --animate-drawer-in: drawer-in 240ms var(--ease-out) both;
+  --animate-bento: bento-fill 1.4s var(--ease-in-out) infinite;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px) scale(0.97);
+    }
+  }
+
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+  }
+
+  @keyframes drawer-in {
+    from {
+      transform: translateX(-100%);
+    }
+  }
+
+  @keyframes bento-fill {
+    0%,
+    100% {
+      opacity: 0.25;
+    }
+    35% {
+      opacity: 1;
+    }
+  }
+}
+
 :root {
-  --color-bg: #f8fafc;
-  --color-surface: #ffffff;
-  --color-surface-muted: #f1f5f9;
-  --color-border: #e2e8f0;
-  --color-text: #0f172a;
-  --color-text-muted: #64748b;
-  --color-accent: #0d9488;
-  --color-accent-muted: #ccfbf1;
-  --color-danger: #ef4444;
-  --color-warning: #f59e0b;
-  --color-success: #10b981;
-  --shadow-dialog: 0 20px 25px -5px rgb(0 0 0 / 10%), 0 8px 10px -6px rgb(0 0 0 / 10%);
-  --radius-card: 12px;
-  --radius-control: 8px;
-  --size-control-dense: 32px;
-  --size-control: 36px;
+  --size-control-dense: 2rem;
+  --size-control: 2.25rem;
+  --size-control-lg: 2.75rem;
   --size-thumb-sm: 256px;
   --size-thumb-md: 512px;
   --size-preview: 1600px;
-}
-
-@theme {
-  --color-app-bg: var(--color-bg);
-  --color-app-surface: var(--color-surface);
-  --color-app-surface-muted: var(--color-surface-muted);
-  --color-app-border: var(--color-border);
-  --color-app-text: var(--color-text);
-  --color-app-text-muted: var(--color-text-muted);
-  --color-app-accent: var(--color-accent);
-  --color-app-accent-muted: var(--color-accent-muted);
-  --color-app-danger: var(--color-danger);
-  --color-app-warning: var(--color-warning);
-  --color-app-success: var(--color-success);
-  --shadow-app-dialog: var(--shadow-dialog);
-  --radius-app-card: var(--radius-card);
-  --radius-app-control: var(--radius-control);
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 260ms;
 }

@@ -1,33 +1,32 @@
+import type { ReactNode } from "react";
+import { ChevronRight } from "lucide-react";
+
 import { cx } from "../lib/cx";
 
 export type BreadcrumbItem = {
   current?: boolean;
   href?: string;
+  icon?: ReactNode;
   label: string;
   onNavigate?: (href: string) => void;
 };
 
 export type BreadcrumbProps = {
+  className?: string;
   items: BreadcrumbItem[];
   label: string;
 };
 
-export function Breadcrumb({ items, label }: BreadcrumbProps) {
+export function Breadcrumb({ className, items, label }: BreadcrumbProps) {
   return (
-    <nav aria-label={label}>
-      <ol className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm text-app-text-muted">
+    <nav aria-label={label} className={cx("min-w-0", className)}>
+      <ol className="flex min-w-0 flex-wrap items-center gap-0.5 text-base text-ink-muted">
         {items.map((item, index) => (
-          <li className="flex min-w-0 items-center gap-1.5" key={`${item.label}-${index}`}>
-            {index > 0 ? (
-              <span aria-hidden="true" className="text-app-text-muted/40 px-0.5 select-none">
-                <svg className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                  <path d="m9 18 6-6-6-6"/>
-                </svg>
-              </span>
-            ) : null}
+          <li className="flex min-w-0 items-center gap-0.5" key={`${item.label}-${index}`}>
+            {index > 0 ? <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 text-ink-subtle" /> : null}
             {item.href && !item.current ? (
               <a
-                className="truncate rounded-app-control px-1.5 py-0.5 text-app-text hover:bg-app-surface-muted hover:text-app-accent transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent"
+                className="focus-ring inline-flex h-7 min-w-0 items-center gap-1.5 rounded-xs px-1.5 transition-colors duration-150 hover:bg-hover hover:text-ink [&_svg]:size-3.5 [&_svg]:shrink-0"
                 href={item.href}
                 onClick={(event) => {
                   const href = item.href;
@@ -40,14 +39,19 @@ export function Breadcrumb({ items, label }: BreadcrumbProps) {
                   item.onNavigate(href);
                 }}
               >
-                {item.label}
+                {item.icon}
+                <span className="truncate">{item.label}</span>
               </a>
             ) : (
               <span
                 aria-current={item.current ? "page" : undefined}
-                className={cx("truncate px-1.5 py-0.5", item.current ? "font-bold text-app-text" : undefined)}
+                className={cx(
+                  "inline-flex h-7 min-w-0 items-center gap-1.5 px-1.5 [&_svg]:size-3.5 [&_svg]:shrink-0",
+                  item.current ? "font-medium text-ink" : undefined,
+                )}
               >
-                {item.label}
+                {item.icon}
+                <span className="truncate">{item.label}</span>
               </span>
             )}
           </li>

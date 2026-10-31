@@ -1,18 +1,19 @@
 # Styling And Design Architecture
 
-Use Tailwind with CSS variables for tokens. Shared UI primitives live in `apps/web/src/components`; feature-specific compositions live in `apps/web/src/features`.
+Use Tailwind v4 with brand tokens declared in `@theme` (`apps/web/src/styles/tokens.css`). The brand, palette and visual language are defined in `design-system/brand.md`. Shared UI primitives live in `apps/web/src/components`; feature-specific compositions live in `apps/web/src/features`.
 
 ## Layout
 
-- Persistent sidebar.
-- Persistent top global search bar.
-- Main content region with route-specific content.
-- Status/job indicator always visible.
+- Tray + compartments: the sidebar sits on the `tray` background; content lives in one raised, rounded main compartment.
+- Persistent sidebar grouped as Biblioteca / Archivos / Sistema, with the theme switcher at its foot; it becomes a drawer below `768px`.
+- Persistent top bar inside the compartment with global search and the job status pill (always visible, links to Jobs).
+- Main content region with route-specific content, each page starting with `PageHeader`.
 - Settings reachable from sidebar.
+- Light, dark and system themes.
 
 ## Product Feel
 
-This is a private local productivity app, not a marketing site. Use dense, calm, scan-friendly layouts. Avoid decorative hero sections and one-note color themes.
+This is a private local productivity app, not a marketing site. Use calm, scan-friendly layouts with generous negative space (*ma*). Avoid decorative hero sections and one-note color themes: neutrals carry the UI, Ai indigo marks interaction and a single Shu vermillion accent is the brand spark.
 
 ## UI Requirements
 
@@ -26,6 +27,6 @@ This is a private local productivity app, not a marketing site. Use dense, calm,
 - Shared primitives are generic and domain-neutral.
 - Feature modules own domain-specific components.
 - Use icon buttons with tooltips for common actions.
-- Cards use border radius `8px` or less.
+- Radii follow the nested rule in `design-system/tokens.md` (cards `14px`, main compartment and dialogs `18px`).
 - Stable dimensions are required for grids, thumbnails, icon buttons, and toolbars to avoid layout shift.
 - Text must not overflow buttons, cards, or sidebars at supported desktop/mobile widths.

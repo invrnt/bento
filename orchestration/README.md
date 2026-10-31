@@ -19,7 +19,7 @@ Assumption: the repository is currently empty, so agents must create a new Docke
 ## Directory Map
 
 - `architecture/`: system architecture, layers, data, routes, UI, integration, security, performance.
-- `design-system/`: UI tokens, primitives, interaction and motion rules.
+- `design-system/`: brand book (`brand.md`), UI tokens, primitives, interaction and motion rules.
 - `product/`: behavior contracts for every user-facing and backend module.
 - `api/`: HTTP, event, error, and external service contracts.
 - `testing/`: required test strategy, layers, critical journeys, merge gates.

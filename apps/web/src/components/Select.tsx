@@ -1,5 +1,6 @@
-import type { SelectHTMLAttributes } from "react";
+import type { ComponentProps } from "react";
 import { useId } from "react";
+import { ChevronDown } from "lucide-react";
 
 import { cx } from "../lib/cx";
 
@@ -8,32 +9,32 @@ export type SelectOption = {
   value: string;
 };
 
-export type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
+export type SelectProps = ComponentProps<"select"> & {
+  hideLabel?: boolean;
   label: string;
   options: SelectOption[];
+  wrapperClassName?: string;
 };
 
-export function Select({ className, id, label, options, ...props }: SelectProps) {
+export function Select({ className, hideLabel = false, id, label, options, wrapperClassName, ...props }: SelectProps) {
   const generatedId = useId();
   const selectId = id ?? generatedId;
 
   return (
-    <label className="grid gap-1.5 text-sm text-app-text" htmlFor={selectId}>
-      <span className="font-medium text-app-text/90">{label}</span>
-      <select
-        className={cx(
-          "h-10 w-full rounded-app-control border border-app-border bg-app-surface px-3 text-sm text-app-text outline-none transition-all duration-200 focus:border-app-accent focus:ring-4 focus:ring-app-accent/10 disabled:bg-app-surface-muted disabled:opacity-70 focus:shadow-2xs cursor-pointer",
-          className,
-        )}
-        id={selectId}
-        {...props}
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div className={cx("grid min-w-0 gap-1.5", wrapperClassName)}>
+      <label className={cx("text-sm font-medium text-ink", hideLabel && "sr-only")} htmlFor={selectId}>
+        {label}
+      </label>
+      <div className="relative flex min-w-0 items-center">
+        <select className={cx("field appearance-none pl-3 pr-9", className)} id={selectId} {...props}>
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-3 size-4 text-ink-subtle" />
+      </div>
+    </div>
   );
 }

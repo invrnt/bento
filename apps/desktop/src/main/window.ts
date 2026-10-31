@@ -1,4 +1,4 @@
-import { BrowserWindow, session } from "electron";
+import { BrowserWindow, nativeTheme, session } from "electron";
 import path from "node:path";
 import { BENTO_ORIGIN } from "../shared/contracts";
 import { isAllowedNavigation } from "./protocol";
@@ -15,7 +15,8 @@ export function createMainWindow(options: WindowOptions = {}): BrowserWindow {
     minWidth: 880,
     minHeight: 640,
     show: false,
-    backgroundColor: "#0b0d10",
+    // Matches the Bento tray token so the first frame never flashes.
+    backgroundColor: nativeTheme.shouldUseDarkColors ? "#0c0e15" : "#f5f2ee",
     title: "Bento",
     webPreferences: {
       preload: options.preloadPath ?? path.join(__dirname, "../preload/index.js"),

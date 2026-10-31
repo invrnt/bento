@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="lacquer" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b2520"/>
+      <stop offset="1" stop-color="#16120f"/>
+    </linearGradient>
+    <linearGradient id="washi" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fbf9f6"/>
+      <stop offset="1" stop-color="#efebe5"/>
+    </linearGradient>
+    <radialGradient id="ume" cx="0.38" cy="0.34" r="0.75">
+      <stop offset="0" stop-color="#ff7a45"/>
+      <stop offset="1" stop-color="#d9420f"/>
+    </radialGradient>
+  </defs>
+  <rect x="64" y="64" width="896" height="896" rx="252" fill="url(#lacquer)"/>
+  <rect x="64.5" y="64.5" width="895" height="895" rx="251.5" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="3"/>
+  <rect x="190" y="204" width="308" height="616" rx="110" fill="url(#washi)"/>
+  <rect x="554" y="204" width="280" height="280" rx="110" fill="url(#washi)"/>
+  <rect x="554" y="540" width="280" height="280" rx="110" fill="url(#washi)"/>
+  <circle cx="694" cy="680" r="77" fill="url(#ume)"/>
+</svg>

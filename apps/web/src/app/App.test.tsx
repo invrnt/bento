@@ -10,8 +10,8 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() => expect(window.location.pathname).toBe("/photos"));
-    expect(screen.getByRole("navigation", { name: "Navegacion principal" })).toBeInTheDocument();
-    expect(screen.getByRole("searchbox", { name: "Busqueda global" })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Navegación principal" })).toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: "Búsqueda global" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Fotos" })).toBeInTheDocument();
   });
 
@@ -31,20 +31,20 @@ describe("App", () => {
     render(<App />);
     fireEvent.keyDown(document, { ctrlKey: true, key: "k" });
 
-    expect(screen.getByRole("searchbox", { name: "Busqueda global" })).toHaveFocus();
+    expect(screen.getByRole("searchbox", { name: "Búsqueda global" })).toHaveFocus();
   });
 
   it("submits global search to the search route", () => {
     window.history.pushState({}, "", "/photos");
 
     render(<App />);
-    const search = screen.getByRole("searchbox", { name: "Busqueda global" });
+    const search = screen.getByRole("searchbox", { name: "Búsqueda global" });
 
     fireEvent.change(search, { target: { value: "factura" } });
     fireEvent.submit(search.closest("form")!);
 
     expect(window.location.pathname).toBe("/search");
     expect(window.location.search).toBe("?q=factura");
-    expect(screen.getByRole("heading", { name: "Busqueda" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Búsqueda" })).toBeInTheDocument();
   });
 });

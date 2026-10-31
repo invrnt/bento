@@ -3,12 +3,12 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 
 const desktopRoot = path.resolve(import.meta.dirname, "..");
-const source = path.resolve(desktopRoot, "../../docs/assets/readme-banner.png");
 const output = path.join(desktopRoot, "resources", "icons");
+const source = path.join(output, "bento-icon.svg");
 await mkdir(output, { recursive: true });
 
 const png = path.join(output, "bento.png");
-await run("magick", [source, "-crop", "300x300+920+160", "+repage", "-resize", "1024x1024", png]);
+await run("rsvg-convert", ["--width", "1024", "--height", "1024", source, "--output", png]);
 
 const sizes = [16, 32, 48, 64, 128, 256, 512];
 const iconPngs = [];

@@ -13,7 +13,7 @@ describe("release route smoke", () => {
   it.each([
     { heading: "Drive", path: "/drive" },
     { heading: "Fotos", path: "/photos" },
-    { heading: "Busqueda", path: "/search?q=factura" },
+    { heading: "Búsqueda", path: "/search?q=factura" },
     { heading: "Trabajos", path: "/jobs" },
     { heading: "Ajustes", path: "/settings" },
   ])("renders $heading at $path", async ({ heading, path }) => {

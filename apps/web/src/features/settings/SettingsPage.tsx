@@ -1,8 +1,13 @@
 import { useState } from "react";
 import { Cloud, CloudOff, HardDriveDownload } from "lucide-react";
 
+import { StatusDot } from "../../components/Badge";
+import type { BadgeTone } from "../../components/Badge";
 import { Button } from "../../components/Button";
+import { Callout } from "../../components/Callout";
+import { Card } from "../../components/Card";
 import { Dialog } from "../../components/Dialog";
+import { PageHeader } from "../../components/PageHeader";
 import { ErrorState, LoadingState } from "../../components/States";
 import type { PublicSettings, ProviderState, StorageReclaimResult, WorkerStatus } from "../../api/settings";
 import { t } from "../../i18n/dictionary";
@@ -32,11 +37,11 @@ type StatusItem = {
   value: string;
 };
 
-const toneClasses: Record<Tone, string> = {
-  danger: "border-red-200 bg-red-50 text-red-750",
-  idle: "border-slate-200 bg-app-surface text-app-text",
-  success: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  warning: "border-amber-200 bg-amber-50 text-amber-800",
+const toneDots: Record<Tone, BadgeTone> = {
+  danger: "danger",
+  idle: "neutral",
+  success: "success",
+  warning: "warning",
 };
 
 const providerLabels: Record<string, MessageKey> = {
@@ -52,8 +57,15 @@ const workerLabels: Record<string, MessageKey> = {
   stopped: "settings.worker.stopped",
 };
 
-export function SettingsPage({
-  controller,
+export function SettingsPage({ controller, ...props }: SettingsPageProps) {
+  if (controller) {
+    return <EditableSettingsPage controller={controller} />;
+  }
+
+  return <SettingsStatusPage {...props} />;
+}
+
+function SettingsStatusPage({
   error,
   isLoading = false,
   isReclaiming = false,
@@ -62,13 +74,11 @@ export function SettingsPage({
   reclaimError,
   reclaimResult,
   settings,
-}: SettingsPageProps) {
-  if (controller) {
-    return <EditableSettingsPage controller={controller} />;
-  }
+}: Omit<SettingsPageProps, "controller">) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const items = settings ? settingsItems(settings) : [];
   const maintenance = settings?.storage_maintenance;
+  const connected = maintenance?.connection_state === "connected";
 
   async function confirmReclaim() {
     setConfirmOpen(false);
@@ -76,11 +86,8 @@ export function SettingsPage({
   }
 
   return (
-    <div className="mx-auto grid w-full max-w-6xl gap-5">
-      <header className="flex flex-col gap-1 border-b border-app-border/80 pb-4">
-        <h1 className="text-2xl font-bold tracking-tight text-app-text">{t("settings.header.title")}</h1>
-        <p className="text-sm text-app-text-muted">{t("settings.header.body")}</p>
-      </header>
+    <div className="mx-auto grid w-full max-w-6xl gap-6">
+      <PageHeader description={t("settings.header.body")} title={t("settings.header.title")} />
 
       {error ? <ErrorState body={t("settings.settingsError.body")} onRetry={onRetry} /> : null}
       {isLoading ? <LoadingState /> : null}
@@ -88,54 +95,54 @@ export function SettingsPage({
       {!isLoading && settings ? (
         <>
           {maintenance ? (
-            <section className="overflow-hidden rounded-app-card border border-app-border bg-app-surface shadow-xs" aria-labelledby="cloud-storage-title">
+            <Card aria-labelledby="cloud-storage-title" as="section" className="overflow-hidden" padding="none">
               <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 gap-4">
-                  <div className={cx("grid size-11 shrink-0 place-items-center rounded-full", maintenance.connection_state === "connected" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700")}>
-                    {maintenance.connection_state === "connected" ? <Cloud aria-hidden="true" size={22} /> : <CloudOff aria-hidden="true" size={22} />}
-                  </div>
+                  <span
+                    aria-hidden="true"
+                    className={cx("grid size-10 shrink-0 place-items-center rounded-md", connected ? "bg-success-soft text-success-ink" : "bg-warning-soft text-warning-ink")}
+                  >
+                    {connected ? <Cloud className="size-5" strokeWidth={1.75} /> : <CloudOff className="size-5" strokeWidth={1.75} />}
+                  </span>
                   <div className="min-w-0">
-                    <h2 className="font-bold text-app-text" id="cloud-storage-title">{t("settings.space.title")}</h2>
-                    <p className="mt-1 text-sm text-app-text-muted">{maintenanceDescription(settings)}</p>
-                    <p className="mt-2 text-xs font-semibold text-app-text-muted">
+                    <h2 className="text-lg font-semibold text-ink" id="cloud-storage-title">{t("settings.space.title")}</h2>
+                    <p className="mt-0.5 text-base text-ink-muted">{maintenanceDescription(settings)}</p>
+                    <p className="mt-2 text-sm font-medium tabular-nums text-ink-muted">
                       {t("settings.space.reclaimable")}: {formatBytes(maintenance.reclaimable_bytes)} · {maintenance.reclaimable_files} {t("settings.space.files")}
                     </p>
                   </div>
                 </div>
                 <Button
-                  className="shrink-0"
-                  disabled={!maintenance.can_reclaim || isReclaiming}
+                  disabled={!maintenance.can_reclaim}
+                  leadingIcon={<HardDriveDownload />}
+                  loading={isReclaiming}
                   onClick={() => setConfirmOpen(true)}
                   variant="primary"
                 >
-                  <HardDriveDownload aria-hidden="true" size={17} />
                   {isReclaiming ? t("settings.space.reclaiming") : t("settings.space.action")}
                 </Button>
               </div>
-              <div className="border-t border-app-border bg-app-surface-muted/50 px-5 py-3 text-xs text-app-text-muted">
-                {t("settings.space.localMetadata")}
-              </div>
-            </section>
+              <p className="border-t border-line bg-subtle px-5 py-3 text-xs text-ink-muted">{t("settings.space.localMetadata")}</p>
+            </Card>
           ) : null}
 
           {reclaimResult ? (
-            <p className="rounded-app-control border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800" role="status">
+            <Callout role="status" tone="success">
               {t("settings.space.success")} {formatBytes(reclaimResult.freed_bytes)}.
-            </p>
+            </Callout>
           ) : null}
-          {reclaimError ? (
-            <p className="rounded-app-control border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-750" role="alert">
-              {t("settings.space.error")}
-            </p>
-          ) : null}
+          {reclaimError ? <Callout role="alert" tone="danger">{t("settings.space.error")}</Callout> : null}
 
-          <dl className="grid gap-4 md:grid-cols-2">
+          <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {items.map((item) => (
-              <div className={cx("rounded-app-card border p-5 shadow-2xs hover:shadow-xs transition-all duration-300", toneClasses[item.tone])} key={item.label}>
-                <dt className="text-[10px] font-bold uppercase tracking-wider text-app-text-muted/75">{item.label}</dt>
-                <dd className="mt-2 text-lg font-black tracking-tight">{item.value}</dd>
-                {item.detail ? <p className="mt-1.5 text-xs text-app-text-muted/80 font-medium">{item.detail}</p> : null}
-              </div>
+              <Card className="grid content-start gap-1.5" key={item.label} padding="sm">
+                <dt className="text-sm text-ink-muted">{item.label}</dt>
+                <dd className="flex items-center gap-2 font-semibold text-ink">
+                  <StatusDot className="size-2" tone={toneDots[item.tone]} />
+                  <span className="min-w-0 truncate">{item.value}</span>
+                </dd>
+                {item.detail ? <dd className="text-xs text-ink-muted">{item.detail}</dd> : null}
+              </Card>
             ))}
           </dl>
         </>
@@ -144,10 +151,11 @@ export function SettingsPage({
       <Dialog
         actions={
           <>
-            <Button onClick={() => setConfirmOpen(false)}>{t("common.close")}</Button>
-            <Button onClick={() => void confirmReclaim()} variant="primary">{t("settings.space.confirm")}</Button>
+            <Button onClick={() => setConfirmOpen(false)} variant="ghost">{t("common.close")}</Button>
+            <Button leadingIcon={<HardDriveDownload />} onClick={() => void confirmReclaim()} variant="primary">{t("settings.space.confirm")}</Button>
           </>
         }
+        icon={<HardDriveDownload />}
         onOpenChange={setConfirmOpen}
         open={confirmOpen}
         title={t("settings.space.dialogTitle")}

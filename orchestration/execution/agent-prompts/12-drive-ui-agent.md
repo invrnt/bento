@@ -10,6 +10,7 @@ Implement the Drive user interface for folder browsing, file actions, upload, pr
 - `/orchestration/AGENTS.md`
 - `/orchestration/product/drive.md`
 - `/orchestration/api/endpoint-map.md`
+- `/orchestration/design-system/brand.md`
 - `/orchestration/design-system/primitives.md`
 - `/orchestration/architecture/styling-design.md`
 - `/orchestration/architecture/i18n-a11y.md`
