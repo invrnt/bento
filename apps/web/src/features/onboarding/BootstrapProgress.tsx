@@ -5,13 +5,13 @@ import type { ApiClient } from "../../api/client";
 import { Callout } from "../../components/Callout";
 import { ProgressBar } from "../../components/ProgressBar";
 import { t } from "../../i18n/dictionary";
-import { formatNumber, tf } from "./format";
+import { formatCount, tf } from "./format";
 import type { BootstrapStatus } from "./useBootstrapStatus";
 import { useBootstrapStatus } from "./useBootstrapStatus";
 
 export function bootstrapLine(progress: BootstrapStatus): string {
   if (progress.total > 0) {
-    return tf("bootstrap.progress", { done: formatNumber(progress.done), total: formatNumber(progress.total) });
+    return tf("bootstrap.progress", { done: formatCount(progress.done), total: formatCount(progress.total) });
   }
   return t("bootstrap.starting");
 }

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "../components/AppShell";
 import { LoadingState } from "../components/States";
 import { BootstrapBanner } from "../features/onboarding/BootstrapProgress";
-import { onDeepLink, onNavigate } from "../features/onboarding/desktopHost";
+import { onDeepLink } from "../features/onboarding/desktopHost";
 import { FirstRun } from "../features/onboarding/FirstRun";
 import type { FirstRunProps } from "../features/onboarding/FirstRun";
 import { chooseLocalMode, forgetLocalMode } from "../features/onboarding/localMode";
@@ -12,6 +12,7 @@ import { JoinScreen } from "../features/pairing/JoinScreen";
 import { PairingRequestsBanner } from "../features/pairing/PairingRequestsBanner";
 import { resolveRoute, navItems } from "../routes/routeConfig";
 import { AlbumDetailRoute } from "../routes/albumsDetail";
+import { ActivityRoute } from "../routes/activity";
 import { AlbumsRoute } from "../routes/albums";
 import { DocumentsRoute } from "../routes/documents";
 import { DriveRoute } from "../routes/drive";
@@ -22,9 +23,10 @@ import { PhotoDetailRoute } from "../routes/photosDetail";
 import { PhotosRoute } from "../routes/photos";
 import { SearchRoute } from "../routes/search";
 import { SettingsRoute } from "../routes/settings";
+import { TrashRoute } from "../routes/trash";
 import { RoutePlaceholder } from "../routes/RoutePlaceholder";
 import { t } from "../i18n/dictionary";
-import { ConnectedGlobalJobStatusIndicator } from "./status";
+import { ConnectedActivityStatusPill, ConnectedSidebarStatus, useDesktopNavigation } from "./status";
 
 const defaultRoute = "/photos";
 
@@ -56,9 +58,9 @@ export function App() {
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
-  // Desktop: `bento://join?…` links and tray/notification navigation.
+  // Desktop: subscribe once at bootstrap (main buffers until then) to join links and notification clicks.
   useEffect(() => onDeepLink((link) => navigate(`/join?c=${encodeURIComponent(link.code)}`)), [navigate]);
-  useEffect(() => onNavigate(navigate), [navigate]);
+  useDesktopNavigation(navigate);
 
   const showingFirstRun = gate.kind === "first-run" && !onJoinRoute;
 
@@ -149,7 +151,8 @@ export function App() {
       navItems={navItems}
       onNavigate={navigate}
       onSearch={submitSearch}
-      status={<ConnectedGlobalJobStatusIndicator onNavigate={navigate} />}
+      sidebarStatus={<ConnectedSidebarStatus onNavigate={navigate} />}
+      status={<ConnectedActivityStatusPill onNavigate={navigate} />}
     >
       {vaultState === "bootstrapping" ? <BootstrapBanner /> : null}
       {vaultState === "ready" ? <PairingRequestsBanner /> : null}
@@ -158,6 +161,7 @@ export function App() {
         onStartSetup={startSetup}
         pathname={pathname}
         routeKey={route.titleKey}
+        search={location.search}
         urlKey={`${pathname}${location.search}`}
       />
     </AppShell>
@@ -177,12 +181,14 @@ function RouteContent({
   onStartSetup,
   pathname,
   routeKey,
+  search,
   urlKey,
 }: {
   onNavigate: (href: string) => void;
   onStartSetup: () => void;
   pathname: string;
   routeKey: string;
+  search: string;
   urlKey: string;
 }) {
   switch (routeKey) {
@@ -206,7 +212,11 @@ function RouteContent({
     case "route.jobs.title":
       return <JobsRoute />;
     case "route.settings.title":
-      return <SettingsRoute onNavigate={navigate} onStartSetup={onStartSetup} pathname={pathname} />;
+      return <SettingsRoute onNavigate={navigate} onStartSetup={onStartSetup} pathname={pathname} search={search} />;
+    case "route.activity.title":
+      return <ActivityRoute />;
+    case "route.trash.title":
+      return <TrashRoute />;
     default:
       return <RoutePlaceholder bodyKey="route.notFound.body" titleKey="route.notFound.title" />;
   }

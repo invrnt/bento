@@ -18,11 +18,12 @@ export const settingsSections: Array<{ icon: LucideIcon; id: SettingsSection; la
 export type SettingsLocation = { focus: "recovery" | null; section: SettingsSection };
 
 /**
- * `/settings` → General, `/settings/<section>`, and `/settings/recovery`
- * (Cuenta y nube with the recovery kit focused; the "Guardar kit" action and desktop "recovery-kit" target).
+ * `/settings` → General, `/settings/<section>` or `/settings?section=<section>`; `recovery`
+ * (path or `?section=recovery`, used by Actividad and desktop notifications) opens
+ * Cuenta y nube with the recovery kit focused.
  */
-export function settingsLocation(pathname: string): SettingsLocation {
-  const segment = pathname.replace(/\/+$/, "").split("/")[2] ?? "";
+export function settingsLocation(pathname: string, search = ""): SettingsLocation {
+  const segment = pathname.replace(/\/+$/, "").split("/")[2] || new URLSearchParams(search).get("section") || "";
   if (segment === "recovery") return { focus: "recovery", section: "account" };
   const match = settingsSections.find((section) => section.id === segment);
   return { focus: null, section: match?.id ?? "general" };

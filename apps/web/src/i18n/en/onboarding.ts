@@ -317,7 +317,7 @@ export const enOnboarding: Record<keyof typeof esOnboarding, string> & Partial<R
   "prefs.language.title": "Language",
   "prefs.language.body": "The window will reload to apply the change.",
   "prefs.language.label": "Bento language",
-  "prefs.language.es": "Español",
+  "prefs.language.es": "Spanish (Español)",
   "prefs.language.en": "English",
   "prefs.theme.title": "Theme",
   "prefs.theme.body": "Automatic follows your computer's light or dark mode.",

@@ -61,7 +61,8 @@ describe("App in English", () => {
     expect(await screen.findAllByRole("button", { name: "Upload files" })).not.toHaveLength(0);
     expect(screen.getByRole("heading", { name: "Empty folder" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Import from Telegram…" })).toBeInTheDocument();
-    expect(await screen.findByText("All up to date")).toBeInTheDocument();
+    // The same status shows in the top-bar pill and the sidebar footer.
+    expect(await screen.findAllByText("All up to date")).not.toHaveLength(0);
     expectNoSpanishCopy();
   });
 

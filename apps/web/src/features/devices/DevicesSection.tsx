@@ -16,7 +16,7 @@ import { IconButton } from "../../components/IconButton";
 import { EmptyState, ErrorState, LoadingState } from "../../components/States";
 import { t } from "../../i18n/dictionary";
 import { usePolledResource } from "../../lib/usePolledResource";
-import { formatDate, formatRelativeTime, tf } from "../onboarding/format";
+import { formatLongDate, formatRelativeTime, tf } from "../onboarding/format";
 import { AddDeviceDialog } from "../pairing/AddDeviceDialog";
 import { RecoveryKit } from "../recovery/RecoveryKit";
 import { recoveryQrFrom } from "../recovery/recoveryCode";
@@ -190,7 +190,7 @@ function DeviceRow({ client, device, onRemove, onRenamed }: { client: ApiClient;
     ? t("devices.activeNow")
     : device.last_seen_at
       ? tf("devices.lastSeen", { time: formatRelativeTime(device.last_seen_at) })
-      : tf("devices.addedOn", { date: formatDate(device.added_at) });
+      : tf("devices.addedOn", { date: formatLongDate(device.added_at) });
 
   return (
     <li className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:px-5">

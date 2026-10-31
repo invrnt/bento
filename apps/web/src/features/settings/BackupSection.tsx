@@ -32,7 +32,7 @@ import type { MessageKey } from "../../i18n/dictionary";
 import { usePolledResource } from "../../lib/usePolledResource";
 import { backupErrorKey, backupKindIcon, folderLabel } from "../onboarding/backupSources";
 import { canPickDirectory, pickDirectory } from "../onboarding/desktopHost";
-import { formatBytes, formatNumber, tf } from "../onboarding/format";
+import { formatBytes, formatCount, tf } from "../onboarding/format";
 import { SettingsCard, ToggleRow } from "./SettingsCard";
 
 /** Friendly upload speed presets, in kilobits per second (0 = no limit). */
@@ -238,7 +238,7 @@ export function BackupSection({ client = apiClient, pollIntervalMs = 5000, vault
 }
 
 function formatSpeed(kbps: number): string {
-  return kbps >= 1000 ? `${formatNumber(Math.round(kbps / 100) / 10)} Mbit/s` : `${formatNumber(kbps)} kbit/s`;
+  return kbps >= 1000 ? `${formatCount(Math.round(kbps / 100) / 10)} Mbit/s` : `${formatCount(kbps)} kbit/s`;
 }
 
 function AddFolderButton({ onAdd }: { onAdd: (path: string) => void }) {
@@ -330,9 +330,9 @@ function SourceRow({
               <ProgressBar label={tf("backup.source.progressLabel", { name: source.label })} value={progress} />
               <span className="text-xs tabular-nums text-ink-muted">
                 {tf("backup.source.progress", {
-                  done: formatNumber(source.files_done),
+                  done: formatCount(source.files_done),
                   pending: formatBytes(source.bytes_pending),
-                  total: formatNumber(source.files_total),
+                  total: formatCount(source.files_total),
                 })}
               </span>
             </div>
@@ -350,7 +350,7 @@ function SourceRow({
 function sourceStateLabel(source: BackupSource): string {
   switch (source.state) {
     case "uploading":
-      return tf("backup.state.uploading", { count: formatNumber(source.files_pending) });
+      return tf("backup.state.uploading", { count: formatCount(source.files_pending) });
     case "scanning":
       return t("backup.state.scanning");
     case "paused":

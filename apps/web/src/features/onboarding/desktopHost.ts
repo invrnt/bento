@@ -5,6 +5,7 @@ import type { DesktopPlatform } from "../../api/settingsDesktop";
  * Tiny typed adapter over the Telegram-first additions to `window.bento`
  * (orchestration/architecture/desktop-bridge-telegram-first.md). Every member is
  * feature-detected so browser mode and older desktop builds keep working.
+ * Notification navigation (`onNavigate`) is handled once by `useDesktopNavigation` in app/status.tsx.
  */
 
 export type DesktopPreferences = {
@@ -14,13 +15,10 @@ export type DesktopPreferences = {
 };
 
 export type DeepLink = { code: string; kind: "join" };
-export type NavigationTarget = "activity" | "drive" | "settings" | "recovery-kit";
-export type NavigateRequest = { attentionId?: string; target: NavigationTarget };
 export type SavePdfResult = { fileName?: string; saved: boolean };
 
 type TelegramFirstBridge = {
   onDeepLink?: (listener: (link: DeepLink) => void) => () => void;
-  onNavigate?: (listener: (request: NavigateRequest) => void) => () => void;
   pickDirectory?: (options?: { title?: string }) => Promise<{ canceled: boolean; path?: string }>;
   preferences?: {
     get(): Promise<DesktopPreferences>;
@@ -90,28 +88,6 @@ export function onDeepLink(listener: (link: DeepLink) => void): () => void {
     const code = typeof link?.code === "string" ? link.code.toUpperCase() : "";
     if (link?.kind === "join" && pairingCodePattern.test(code)) listener({ code, kind: "join" });
   });
-}
-
-/** Subscribes to notification clicks and turns each request into an in-app path. */
-export function onNavigate(listener: (path: string) => void): () => void {
-  const subscribe = bridge()?.onNavigate;
-  if (typeof subscribe !== "function") return noop;
-  return subscribe((request) => listener(navigationPath(request)));
-}
-
-/** Maps a desktop navigation request to a route; unknown targets fall back to Actividad. */
-export function navigationPath(request: unknown): string {
-  const { attentionId, target } = (request && typeof request === "object" ? request : {}) as Partial<NavigateRequest>;
-  switch (target) {
-    case "drive":
-      return "/drive";
-    case "settings":
-      return "/settings";
-    case "recovery-kit":
-      return "/settings/recovery";
-    default:
-      return typeof attentionId === "string" && attentionId ? `/activity?attention=${encodeURIComponent(attentionId)}` : "/activity";
-  }
 }
 
 /** `"os"` when device keys are wrapped by the OS store, `"file"` when the backend keeps a 0600 key file. */

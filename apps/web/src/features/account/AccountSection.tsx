@@ -12,7 +12,7 @@ import { Callout } from "../../components/Callout";
 import { Card } from "../../components/Card";
 import { Dialog } from "../../components/Dialog";
 import { t } from "../../i18n/dictionary";
-import { formatBytes, formatNumber } from "../onboarding/format";
+import { formatBytes, formatCount } from "../onboarding/format";
 import { rememberLocalMode } from "../onboarding/localMode";
 import { RecoverySection } from "../recovery/RecoverySection";
 import { AccountAvatar } from "./AccountAvatar";
@@ -72,8 +72,8 @@ export function AccountSection({ account, client = apiClient, onChanged, onConne
           {vault && hasCloud ? (
             <dl className="grid gap-4 border-t border-line bg-subtle px-5 py-4 sm:grid-cols-3">
               <Stat label={t("account.usage.space")} value={formatBytes(vault.usage?.bytes ?? 0)} />
-              <Stat label={t("account.usage.files")} value={formatNumber(vault.usage?.files ?? 0)} />
-              <Stat label={t("account.usage.devices")} value={formatNumber(vault.devices_count ?? 0)} />
+              <Stat label={t("account.usage.files")} value={formatCount(vault.usage?.files ?? 0)} />
+              <Stat label={t("account.usage.devices")} value={formatCount(vault.devices_count ?? 0)} />
             </dl>
           ) : null}
         </Card>

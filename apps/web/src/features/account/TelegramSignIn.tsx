@@ -10,7 +10,7 @@ import { Input } from "../../components/Input";
 import { QrCode } from "../../components/QrCode";
 import { Spinner } from "../../components/Spinner";
 import { t } from "../../i18n/dictionary";
-import { formatClock, formatWait, tf } from "../onboarding/format";
+import { formatClock, formatDuration, tf } from "../onboarding/format";
 import { retryAfterSeconds } from "../onboarding/apiErrors";
 import { useSecondsLeft } from "../onboarding/useNow";
 import { loginErrorKey } from "./loginErrors";
@@ -51,7 +51,10 @@ export function TelegramSignIn({ client, onAuthorized, pollIntervalMs, qrRefresh
         login.error.code === "telegram_flood_wait" ? (
           <Callout icon={<Hourglass />} role="status" title={t("signIn.flood.title")} tone="warning">
             {waiting
-              ? tf("signIn.flood.body", { time: formatWait(retryAfterSeconds(login.error) ?? secondsLeft), clock: formatClock(secondsLeft) })
+              ? tf("signIn.flood.body", {
+                  clock: formatClock(secondsLeft),
+                  time: formatDuration(retryAfterSeconds(login.error) ?? secondsLeft) ?? formatClock(secondsLeft),
+                })
               : t("signIn.flood.ready")}
           </Callout>
         ) : (

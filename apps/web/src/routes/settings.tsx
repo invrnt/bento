@@ -6,11 +6,12 @@ export type SettingsRouteProps = {
   onNavigate: (href: string) => void;
   onStartSetup?: () => void;
   pathname: string;
+  search?: string;
 };
 
-export function SettingsRoute({ onNavigate, onStartSetup, pathname }: SettingsRouteProps) {
+export function SettingsRoute({ onNavigate, onStartSetup, pathname, search = "" }: SettingsRouteProps) {
   const settings = useSettingsController();
-  const location = settingsLocation(pathname);
+  const location = settingsLocation(pathname, search);
   return <SettingsPage controller={settings} focus={location.focus} onNavigate={onNavigate} onStartSetup={onStartSetup} section={location.section} />;
 }
 

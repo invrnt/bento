@@ -4,7 +4,7 @@ import type { QrMatrix } from "../../api/qr";
 import { BrandMark } from "../../components/BrandMark";
 import { QrCode } from "../../components/QrCode";
 import { t } from "../../i18n/dictionary";
-import { formatDate, tf } from "../onboarding/format";
+import { formatLongDate, tf } from "../onboarding/format";
 import { recoveryGroups } from "./recoveryCode";
 
 // Printing (browser) and `savePageAsPdf` (desktop) render only this sheet, always in light colors.
@@ -28,7 +28,7 @@ export type RecoveryKitSheetProps = {
 /** The printable "Kit de recuperación de Bento" page. Hidden on screen. */
 export function RecoveryKitSheet({ accountName, code, createdAt, qr = null }: RecoveryKitSheetProps) {
   if (typeof document === "undefined") return null;
-  const created = formatDate(createdAt);
+  const created = formatLongDate(createdAt);
 
   return createPortal(
     <div data-bento-print-root="" data-testid="recovery-kit-sheet">
@@ -55,7 +55,7 @@ export function RecoveryKitSheet({ accountName, code, createdAt, qr = null }: Re
             </>
           ) : null}
           <dt className="text-ink-muted">{t("recovery.sheet.printed")}</dt>
-          <dd className="font-medium">{formatDate(new Date().toISOString())}</dd>
+          <dd className="font-medium">{formatLongDate(new Date().toISOString())}</dd>
         </dl>
         <section className="mt-8">
           <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-ink-muted">{t("recovery.code.label")}</h2>

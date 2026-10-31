@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { decideGate } from "../../features/onboarding/useAppGate";
-import { navigationPath, onDeepLink, onNavigate, savePageAsPdf, secureStorageMode, setDesktopPreferences, isLaunchAtLoginError } from "../../features/onboarding/desktopHost";
+import { onDeepLink, savePageAsPdf, secureStorageMode, setDesktopPreferences, isLaunchAtLoginError } from "../../features/onboarding/desktopHost";
 import { formatPairingInput, isCompletePairingCode, pairingCodeFromLocation } from "../../features/pairing/pairingCode";
 import { pairingProblem } from "../../features/pairing/pairingErrors";
 import { formatRecoveryInput, isCompleteRecoveryCode, matchesLastGroup, recoveryErrorKey, recoveryGroups, recoveryQrFrom } from "../../features/recovery/recoveryCode";
@@ -99,7 +99,6 @@ describe("first-run gate", () => {
 describe("desktop bridge adapter", () => {
   it("is inert in the browser", async () => {
     expect(onDeepLink(vi.fn())()).toBeUndefined();
-    expect(onNavigate(vi.fn())()).toBeUndefined();
     await expect(savePageAsPdf("Kit")).resolves.toBeNull();
     await expect(setDesktopPreferences({ launchAtLogin: true })).resolves.toBeNull();
   });
@@ -114,14 +113,6 @@ describe("desktop bridge adapter", () => {
     emit({ code: "K7Q2-MXR9-T4WA", kind: "other" });
     expect(listener).toHaveBeenCalledTimes(1);
     expect(listener).toHaveBeenCalledWith({ code: "K7Q2-MXR9-T4WA", kind: "join" });
-  });
-
-  it("maps notification targets to routes", () => {
-    expect(navigationPath({ target: "recovery-kit" })).toBe("/settings/recovery");
-    expect(navigationPath({ target: "settings" })).toBe("/settings");
-    expect(navigationPath({ target: "drive" })).toBe("/drive");
-    expect(navigationPath({ attentionId: "att 1", target: "activity" })).toBe("/activity?attention=att%201");
-    expect(navigationPath({ target: "something-new" })).toBe("/activity");
   });
 
   it("normalizes PDF results, secure storage modes and login item errors", async () => {

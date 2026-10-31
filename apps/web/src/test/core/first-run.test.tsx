@@ -101,6 +101,19 @@ describe("first run", () => {
     expect(onFinish).toHaveBeenCalledOnce();
   });
 
+  it("refreshes the Telegram QR by itself while waiting", async () => {
+    const api = fakeApi({
+      "GET /account": status({ qr: qrMatrix, step: "qr_pending" }),
+      "POST /account/login/qr": status({ qr: qrMatrix, step: "qr_pending" }),
+    });
+    render(
+      <FirstRun client={api.client} initialStep="telegram" loginPollIntervalMs={1000} onExistingVault={vi.fn()} onFinish={vi.fn()} onJoin={vi.fn()} onLocalOnly={vi.fn()} qrRefreshMs={20} />,
+    );
+    await screen.findByRole("img", { name: "Código QR para vincular tu cuenta de Telegram" });
+    await waitFor(() => expect(api.callsTo("POST /account/login/qr").length).toBeGreaterThanOrEqual(2));
+    expect(screen.getByText("El código se renueva solo")).toBeInTheDocument();
+  });
+
   it("signs in by phone with a code and the two-step password", async () => {
     const { api } = setup({
       "GET /account": status(),
