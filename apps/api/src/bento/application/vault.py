@@ -606,7 +606,10 @@ class VaultService:
             LOGGER.debug("Vault header unavailable for the recovery kit state: %s", exc.code)
             header = None
         if header is None:
-            return await self._state.get_value(RECOVERY_KIT_SAVED_KEY) == "1"
+            # Cached as well, so an unreachable or rate-limited Telegram is not asked again on every status call.
+            saved = await self._state.get_value(RECOVERY_KIT_SAVED_KEY) == "1"
+            self._kit = _CachedKit(vault_id=layout.vault_id, saved=saved, at=self._monotonic())
+            return saved
         return await self._mirror_kit(header)
 
     async def _mirror_kit(self, header: VaultHeader) -> bool:
