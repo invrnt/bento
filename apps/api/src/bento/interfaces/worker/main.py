@@ -25,6 +25,13 @@ from bento.infrastructure.db.engine import create_session_factory, sqlite_url
 from bento.infrastructure.settings import Settings, get_settings
 from bento.infrastructure.storage.factory import create_blob_store
 from bento.interfaces.worker.dispatch import WorkerDispatcher
+from bento.adapters.sync import configure_change_capture
+from bento.interfaces.worker.sync_loop import (
+    SyncSnapshotJobHandler,
+    create_asset_index_recorder,
+    start_sync_loop,
+    stop_sync_loop,
+)
 
 LOGGER = logging.getLogger("bento.worker")
 
@@ -37,7 +44,9 @@ async def run_worker(stop_event: asyncio.Event | None = None) -> None:
         settings.worker_concurrency,
     )
     event = stop_event or asyncio.Event()
+    configure_change_capture(settings.storage_backend != "local")
     dispatcher = _create_dispatcher(worker_id=f"worker-{os.getpid()}", settings=settings)
+    sync_task = start_sync_loop(settings, event)
     while not event.is_set():
         processed = await dispatcher.process_one()
         if processed:
@@ -46,6 +55,7 @@ async def run_worker(stop_event: asyncio.Event | None = None) -> None:
             await asyncio.wait_for(event.wait(), timeout=1.0)
         except TimeoutError:
             continue
+    await stop_sync_loop(sync_task)
 
 
 def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> WorkerDispatcher:
@@ -90,6 +100,7 @@ def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> Work
         clock=clock,
         pdf_renderer=Pypdfium2PDFPageRenderer(data_dir / "cache" / "ocr" / "pdf-pages"),
         pdf_pages=SQLitePDFPageTextCatalog(session_factory, clock),
+        index_recorder=create_asset_index_recorder(settings, session_factory),
     )
     embedding = EmbeddingIndexingService(
         assets=assets,
@@ -100,8 +111,17 @@ def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> Work
         manifest=manifest,
         clock=clock,
         text_catalog=SQLiteEmbeddingTextCatalog(session_factory),
+        index_recorder=create_asset_index_recorder(settings, session_factory),
     )
-    return WorkerDispatcher(jobs=jobs, media=media, clock=clock, worker_id=worker_id, ocr=ocr, embedding=embedding)
+    return WorkerDispatcher(
+        jobs=jobs,
+        media=media,
+        clock=clock,
+        worker_id=worker_id,
+        ocr=ocr,
+        embedding=embedding,
+        sync_snapshot=SyncSnapshotJobHandler(session_factory),
+    )
 
 
 def _embedding_provider(data_dir: Path, settings: Settings) -> DisabledEmbeddingProvider | MockEmbeddingProvider | JinaOmniNanoGgufAdapter:

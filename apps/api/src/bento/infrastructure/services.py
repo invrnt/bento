@@ -7,6 +7,7 @@ ports only, so features can be wired before every implementation lands.
 
 from __future__ import annotations
 
+import threading
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -51,10 +52,36 @@ def get_asset_content(settings: Settings) -> AssetContentPort:
     raise NotImplementedError("get_asset_content is implemented by the backup agent")
 
 
+_sync_status_lock = threading.Lock()
+_sync_status_providers: dict[tuple[str, str], SyncStatusProviderPort] = {}
+
+
 def get_sync_status_provider(settings: Settings) -> SyncStatusProviderPort:
-    """Owner: sync agent."""
-    raise NotImplementedError("get_sync_status_provider is implemented by the sync agent")
+    """Owner: sync agent. Reads only the local sync state the worker loop persists (no Telegram calls);
+    reports `disabled` for local storage. `request_sync()` writes the cross-process "sync now" marker."""
+    from bento.adapters.sync import SQLiteSyncOutbox, SQLiteSyncStateStore
+    from bento.application.sync import SyncStatusService
+    from bento.infrastructure.db.clock import SystemClock
+    from bento.infrastructure.db.engine import create_session_factory, sqlite_url
+    from bento.infrastructure.settings import settings_database_path
+
+    database = settings_database_path(settings)
+    key = (settings.storage_backend, str(database.resolve()))
+    with _sync_status_lock:
+        provider = _sync_status_providers.get(key)
+        if provider is None:
+            factory = create_session_factory(sqlite_url(database))
+            provider = SyncStatusService(
+                enabled=settings.storage_backend != "local",
+                state=SQLiteSyncStateStore(factory),
+                outbox=SQLiteSyncOutbox(factory),
+                clock=SystemClock(),
+            )
+            _sync_status_providers[key] = provider
+        return provider
 
 
 def reset_services() -> None:
     """Drop cached instances (tests, account reloads). Each owner clears its own caches here."""
+    with _sync_status_lock:
+        _sync_status_providers.clear()

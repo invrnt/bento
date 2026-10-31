@@ -37,6 +37,7 @@ from bento.infrastructure.settings import Settings
 from bento.interfaces.http.routes_dev import router as dev_router
 from bento.interfaces.http.routes_search import router as search_router
 from bento.interfaces.http.routes_settings import router as settings_router
+from bento.interfaces.http.routes_sync import router as sync_router
 from bento.interfaces.telegram.routes import router as telegram_router
 
 router = APIRouter()
@@ -44,6 +45,7 @@ router.include_router(search_router)
 router.include_router(settings_router)
 router.include_router(telegram_router)
 router.include_router(dev_router)
+router.include_router(sync_router)
 
 
 class HealthResponse(BaseModel):
