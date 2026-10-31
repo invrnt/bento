@@ -135,6 +135,7 @@ export function App() {
           setGate({ kind: "app", vault: null });
           navigate(defaultRoute);
         }}
+        reconnect={gate.reconnect}
       />
     );
   }

@@ -16,6 +16,11 @@ export const esOnboarding = {
 
   "firstRun.documentTitle": "Bienvenida",
   "firstRun.welcome.eyebrow": "Te damos la bienvenida a Bento",
+  "firstRun.reconnect.closed.title": "Tu sesión de Telegram se cerró en este equipo",
+  "firstRun.reconnect.closed.body": "Tu biblioteca local sigue aquí. Conecta tu Telegram otra vez para seguir sincronizando con tus otros dispositivos.",
+  "firstRun.reconnect.removed.title": "Este equipo se quitó de tu nube",
+  "firstRun.reconnect.removed.body": "Otro de tus dispositivos lo quitó. Tu biblioteca local sigue aquí. Para volver a sincronizar, conecta tu Telegram y une este equipo otra vez.",
+  "firstRun.reconnect.connect": "Conectar Telegram",
   "firstRun.welcome.title": "Tu nube privada, sin límite de espacio, guardada en tu Telegram.",
   "firstRun.welcome.body": "Tus fotos y archivos se cifran en este equipo antes de salir. Solo tú puedes abrirlos.",
   "firstRun.welcome.point1.title": "Cifrado de extremo a extremo",

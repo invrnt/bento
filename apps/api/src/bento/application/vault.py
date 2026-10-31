@@ -44,6 +44,7 @@ from bento.domain.security import DeviceIdentity, RecoveryWrap, VaultKeyring
 from bento.domain.sync import SyncMessageKind, SyncState, SyncStatus
 from bento.domain.vault import (
     DEVICE_REMOVED_REASON,
+    SESSION_CLOSED_REASON,
     VaultHeader,
     VaultLayout,
     VaultState,
@@ -245,6 +246,13 @@ class VaultService:
             return VaultStatus(state=VaultState.LOCAL_ONLY)
         account = await ports.account.status()
         if not account.authorized or account.account is None:
+            # A device that was attached to a vault and lost its Telegram session (logged out, or closed from
+            # another device) is not a new user: the app offers to reconnect instead of the first-run welcome.
+            if await self._state.get_value(LAYOUT_KEY) is not None:
+                removed = await self._removal_flag() is not None
+                return VaultStatus(
+                    state=VaultState.SIGNED_OUT, reason=DEVICE_REMOVED_REASON if removed else SESSION_CLOSED_REASON
+                )
             return VaultStatus(state=VaultState.SIGNED_OUT)
         local = await self._local(account.account)
         if local is not None:

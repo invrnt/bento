@@ -23,6 +23,14 @@ export function isRemovedDevice(vault: Pick<VaultStatus, "reason" | "state"> | n
   return vault?.state === "locked" && vault.reason === "device_removed";
 }
 
+export type ReconnectReason = "session_closed" | "device_removed";
+
+/** A signed-out device that was attached to a cloud before: offer to reconnect, not the first-run welcome. */
+export function reconnectReason(vault: Pick<VaultStatus, "reason" | "state"> | null | undefined): ReconnectReason | null {
+  if (vault?.state !== "signed_out") return null;
+  return vault.reason === "session_closed" || vault.reason === "device_removed" ? vault.reason : null;
+}
+
 export type CreatedVault = { recovery_code: string; recovery_qr?: QrMatrix; vault: VaultStatus };
 
 export function getVault(client: ApiClient = apiClient): Promise<VaultStatus> {

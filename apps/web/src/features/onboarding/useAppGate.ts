@@ -2,13 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 
 import { apiClient } from "../../api/client";
 import type { ApiClient } from "../../api/client";
-import { getVault, isRemovedDevice } from "../../api/vault";
-import type { VaultStatus } from "../../api/vault";
+import { getVault, isRemovedDevice, reconnectReason } from "../../api/vault";
+import type { ReconnectReason, VaultStatus } from "../../api/vault";
 import { hasChosenLocalMode } from "./localMode";
 
 export type Gate =
   | { kind: "loading" }
-  | { kind: "first-run" }
+  /** `reconnect`: this device was attached to a cloud and lost its Telegram session. */
+  | { kind: "first-run"; reconnect?: ReconnectReason }
   /** `removed`: another device removed this one; it can join again with a new identity. */
   | { kind: "locked"; removed?: true }
   | { kind: "app"; vault: VaultStatus | null };
@@ -18,7 +19,11 @@ const cacheKey = "bento:gate";
 /** Decides what the window shows from the vault state and the local-mode choice. */
 export function decideGate(vault: VaultStatus | null, localChosen: boolean): Gate {
   switch (vault?.state) {
-    case "signed_out":
+    case "signed_out": {
+      if (localChosen) return { kind: "app", vault };
+      const reconnect = reconnectReason(vault);
+      return reconnect ? { kind: "first-run", reconnect } : { kind: "first-run" };
+    }
     case "no_vault":
       return localChosen ? { kind: "app", vault } : { kind: "first-run" };
     case "locked":

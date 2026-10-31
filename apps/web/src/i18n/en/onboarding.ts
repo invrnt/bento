@@ -18,6 +18,11 @@ export const enOnboarding: Record<keyof typeof esOnboarding, string> & Partial<R
 
   "firstRun.documentTitle": "Welcome",
   "firstRun.welcome.eyebrow": "Welcome to Bento",
+  "firstRun.reconnect.closed.title": "Your Telegram session ended on this computer",
+  "firstRun.reconnect.closed.body": "Your local library is still here. Connect your Telegram again to keep syncing with your other devices.",
+  "firstRun.reconnect.removed.title": "This computer was removed from your cloud",
+  "firstRun.reconnect.removed.body": "One of your other devices removed it. Your local library is still here. To sync again, connect your Telegram and join this computer again.",
+  "firstRun.reconnect.connect": "Connect Telegram",
   "firstRun.welcome.title": "Your private cloud, with no storage limit, kept in your Telegram.",
   "firstRun.welcome.body": "Your photos and files are encrypted on this computer before they leave. Only you can open them.",
   "firstRun.welcome.point1.title": "End-to-end encrypted",

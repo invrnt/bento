@@ -95,6 +95,10 @@ describe("first-run gate", () => {
     // Removed by another device: the gate explains it before offering to join again.
     expect(decideGate({ ...vault("locked"), reason: "device_removed" }, true)).toEqual({ kind: "locked", removed: true });
     expect(decideGate({ ...vault("locked"), reason: "something_new" }, false)).toEqual({ kind: "locked" });
+    // Signed out after being attached to a cloud: reconnect instead of the first-run welcome.
+    expect(decideGate({ ...vault("signed_out"), reason: "session_closed" }, false)).toEqual({ kind: "first-run", reconnect: "session_closed" });
+    expect(decideGate({ ...vault("signed_out"), reason: "device_removed" }, false)).toEqual({ kind: "first-run", reconnect: "device_removed" });
+    expect(decideGate({ ...vault("signed_out"), reason: "session_closed" }, true).kind).toBe("app");
     expect(decideGate(vault("ready"), false).kind).toBe("app");
     expect(decideGate(vault("bootstrapping"), false).kind).toBe("app");
     expect(decideGate(vault("local_only"), false).kind).toBe("app");

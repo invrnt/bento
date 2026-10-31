@@ -211,10 +211,11 @@ class VaultStatus:
     recovery_kit_stale: bool = False
     """The pinned header carries a recovery wrap of an older key epoch: a new kit must be generated."""
     reason: str | None = None
-    """Why the vault is `locked` on this device, e.g. `device_removed`."""
+    """Why the vault is `locked` (`device_removed`) or `signed_out` (`session_closed`, `device_removed`) here."""
 
 
 DEVICE_REMOVED_REASON = "device_removed"
+SESSION_CLOSED_REASON = "session_closed"
 
 
 def _recovery_payload(recovery: RecoveryWrap) -> dict[str, Any]:

@@ -20,7 +20,7 @@ const source = (path: string, label: string) => ({
   bytes_pending: 0, enabled: true, error: null, files_done: 0, files_pending: 0, files_total: 0, id: `src_${label}`, label, last_scan_at: null, path, state: "scanning",
 });
 
-function setup(routes: Record<string, unknown> = {}) {
+function setup(routes: Record<string, unknown> = {}, reconnect?: "session_closed" | "device_removed") {
   const api = fakeApi({
     "GET /account": sequence(status(), status({ qr: qrMatrix, step: "qr_pending" }), authorized),
     "GET /backup/sources": { items: [] },
@@ -38,7 +38,7 @@ function setup(routes: Record<string, unknown> = {}) {
     ...routes,
   });
   const handlers = { onExistingVault: vi.fn(), onFinish: vi.fn(), onJoin: vi.fn(), onLocalOnly: vi.fn() };
-  render(<FirstRun client={api.client} loginPollIntervalMs={10} qrRefreshMs={60_000} {...handlers} />);
+  render(<FirstRun client={api.client} loginPollIntervalMs={10} qrRefreshMs={60_000} reconnect={reconnect} {...handlers} />);
   return { api, ...handlers };
 }
 
@@ -191,6 +191,21 @@ describe("first run", () => {
     fireEvent.click(screen.getByRole("button", { name: "Empezar" }));
     await waitFor(() => expect(onExistingVault).toHaveBeenCalledOnce());
     expect(api.callsTo("POST /vault")).toHaveLength(0);
+  });
+
+  it("offers to reconnect instead of the welcome when this device lost its Telegram session", async () => {
+    const { api, onExistingVault } = setup({ "GET /account": authorized, "GET /vault": vault({ state: "locked" }) }, "session_closed");
+    expect(screen.getByRole("heading", { name: "Tu sesión de Telegram se cerró en este equipo" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Empezar" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Conectar Telegram" }));
+    await waitFor(() => expect(onExistingVault).toHaveBeenCalledOnce());
+    expect(api.callsTo("POST /vault")).toHaveLength(0);
+  });
+
+  it("explains a removal when the removed device is also signed out", () => {
+    setup({}, "device_removed");
+    expect(screen.getByRole("heading", { name: "Este equipo se quitó de tu nube" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Usar solo en este equipo" })).toBeInTheDocument();
   });
 
   it("lets the person save the kit later", async () => {

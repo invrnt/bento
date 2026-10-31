@@ -6,7 +6,7 @@ import type { ApiClient } from "../../api/client";
 import { getAccount } from "../../api/account";
 import type { TelegramAccount } from "../../api/account";
 import { createVault, getVault } from "../../api/vault";
-import type { VaultStatus } from "../../api/vault";
+import type { ReconnectReason, VaultStatus } from "../../api/vault";
 import type { QrMatrix } from "../../api/qr";
 import { BentoLoader, BrandMark } from "../../components/BrandMark";
 import { Button } from "../../components/Button";
@@ -37,6 +37,8 @@ export type FirstRunProps = {
   onJoin: () => void;
   onLocalOnly: () => void;
   qrRefreshMs?: number;
+  /** This device was attached to a cloud and lost its Telegram session: offer to reconnect instead of welcoming. */
+  reconnect?: ReconnectReason;
 };
 
 const numbered: Partial<Record<FirstRunStep, number>> = { backup: 3, creating: 2, done: 5, kit: 4, telegram: 1 };
@@ -52,6 +54,7 @@ export function FirstRun({
   onJoin,
   onLocalOnly,
   qrRefreshMs,
+  reconnect,
 }: FirstRunProps) {
   const [step, setStep] = useState<FirstRunStep>(initialStep);
   const [account, setAccount] = useState<TelegramAccount | null>(null);
@@ -71,6 +74,10 @@ export function FirstRun({
   function finish() {
     forgetLocalMode();
     onFinish();
+  }
+
+  if (step === "welcome" && reconnect) {
+    return <ReconnectStep leaving={leaving} onConnect={() => setStep("telegram")} onLocalOnly={() => void keepLocal()} reason={reconnect} />;
   }
 
   if (step === "welcome") {
@@ -180,6 +187,39 @@ function WelcomeStep({ leaving, onJoin, onLocalOnly, onStart }: { leaving: boole
         </Button>
         <Button className="w-full" onClick={onJoin} size="lg">
           {t("firstRun.welcome.join")}
+        </Button>
+        <Button className="justify-self-center" loading={leaving} onClick={onLocalOnly} size="sm" variant="ghost">
+          {t("firstRun.welcome.localOnly")}
+        </Button>
+      </div>
+    </SetupFrame>
+  );
+}
+
+function ReconnectStep({
+  leaving,
+  onConnect,
+  onLocalOnly,
+  reason,
+}: {
+  leaving: boolean;
+  onConnect: () => void;
+  onLocalOnly: () => void;
+  reason: ReconnectReason;
+}) {
+  const removed = reason === "device_removed";
+  return (
+    <SetupFrame
+      description={t(removed ? "firstRun.reconnect.removed.body" : "firstRun.reconnect.closed.body")}
+      hero={<BrandMark className="size-14" />}
+      showLogo={false}
+      stepKey="welcome"
+      title={t(removed ? "firstRun.reconnect.removed.title" : "firstRun.reconnect.closed.title")}
+      width="md"
+    >
+      <div className="grid gap-2.5">
+        <Button className="w-full" onClick={onConnect} size="lg" variant="primary">
+          {t("firstRun.reconnect.connect")}
         </Button>
         <Button className="justify-self-center" loading={leaving} onClick={onLocalOnly} size="sm" variant="ghost">
           {t("firstRun.welcome.localOnly")}

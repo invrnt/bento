@@ -105,7 +105,10 @@ def test_logout_keeps_the_local_vault_for_the_same_account(tmp_path: Path) -> No
         status = await service.log_out()
 
         assert status.step == LoginStep.SIGNED_OUT and await _reloads(jobs) == 2 and len(changes) == 2
-        assert (await device.vault.status()).state == VaultState.SIGNED_OUT
+        signed_out = await device.vault.status()
+        assert signed_out.state == VaultState.SIGNED_OUT
+        # A previously attached device offers to reconnect instead of the first-run welcome.
+        assert signed_out.reason == "session_closed"
         assert await device.vault.current() is None
         await service.start_phone_login("+57 300 000 0001")
         await service.submit_code(FAKE_LOGIN_CODE)
