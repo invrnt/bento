@@ -12,7 +12,8 @@ from bento.adapters.embeddings import (
 )
 from bento.adapters.jobs import SQLiteJobQueue
 from bento.adapters.manifest import SQLiteManifestJournal
-from bento.adapters.media import BlobSourceMaterializer, LocalBlobPathResolver, LocalMediaGenerator, SQLiteBlobRefCatalog, SQLiteThumbnailCatalog
+from bento.adapters.backup.watcher import WatchdogFolderWatcher
+from bento.adapters.media import LocalMediaGenerator, SQLiteBlobRefCatalog, SQLiteThumbnailCatalog
 from bento.adapters.ocr import DisabledOCRAdapter, MockOCRAdapter, Pypdfium2PDFPageRenderer, RapidOCRAdapter, SQLitePDFPageTextCatalog
 from bento.adapters.repositories import SQLiteAssetRepository
 from bento.adapters.search.sqlite_fts import SQLiteFTSSearchIndex
@@ -23,9 +24,10 @@ from bento.application.indexing import OCRIndexingService
 from bento.infrastructure.db.clock import SystemClock
 from bento.infrastructure.db.engine import create_session_factory, sqlite_url
 from bento.infrastructure.settings import Settings, get_settings
-from bento.infrastructure.storage.factory import create_blob_store
+from bento.infrastructure.storage_pipeline import get_storage_pipeline
 from bento.interfaces.worker.dispatch import WorkerDispatcher
 from bento.interfaces.worker.telegram import TelegramJobHandlers, run_inbox_loop
+from bento.interfaces.worker.storage_pipeline import StoragePipelineJobHandler, StoragePipelineLoop
 
 LOGGER = logging.getLogger("bento.worker")
 
@@ -40,6 +42,9 @@ async def run_worker(stop_event: asyncio.Event | None = None) -> None:
     event = stop_event or asyncio.Event()
     dispatcher = _create_dispatcher(worker_id=f"worker-{os.getpid()}", settings=settings)
     inbox_loop = asyncio.create_task(run_inbox_loop(settings, event))
+    pipeline_loop = asyncio.create_task(
+        StoragePipelineLoop(get_storage_pipeline(settings), watcher=WatchdogFolderWatcher()).run(event)
+    )
     try:
         while not event.is_set():
             processed = await dispatcher.process_one()
@@ -52,6 +57,7 @@ async def run_worker(stop_event: asyncio.Event | None = None) -> None:
     finally:
         event.set()
         await asyncio.gather(inbox_loop, return_exceptions=True)
+        await pipeline_loop
 
 
 def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> WorkerDispatcher:
@@ -63,22 +69,19 @@ def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> Work
     assets = SQLiteAssetRepository(session_factory)
     blob_refs = SQLiteBlobRefCatalog(session_factory, clock)
     thumbnails = SQLiteThumbnailCatalog(session_factory, clock, blob_refs)
-    resolver = LocalBlobPathResolver(data_dir / "uploads")
     manifest = SQLiteManifestJournal(session_factory, clock, data_dir / "journal")
-    blob_store = create_blob_store(settings)
+    pipeline = get_storage_pipeline(settings)
+    resolver = pipeline.resolver
     media = MediaProcessingService(
         assets=assets,
         blob_refs=blob_refs,
         thumbnails=thumbnails,
-        blob_store=blob_store,
-        materializer=BlobSourceMaterializer(
-            blob_store=blob_store,
-            local_resolver=resolver,
-            temp_dir=data_dir / "cache" / "worker-sources",
-        ),
+        blob_store=pipeline.local_store,
+        materializer=pipeline.materializer,
         generator=LocalMediaGenerator(data_dir / "cache" / "media"),
         manifest=manifest,
         clock=clock,
+        remote_uploads=pipeline.pipeline,
     )
     if settings.ocr_provider == "rapidocr":
         provider = RapidOCRAdapter()
@@ -115,6 +118,7 @@ def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> Work
         ocr=ocr,
         embedding=embedding,
         telegram=TelegramJobHandlers(settings),
+        storage_pipeline=StoragePipelineJobHandler(pipeline),
     )
 
 

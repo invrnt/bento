@@ -60,7 +60,9 @@ def get_remote_blob_store(settings: Settings) -> RemoteBlobStorePort | None:
 
 def get_asset_content(settings: Settings) -> AssetContentPort:
     """Owner: storage-pipeline (backup) agent."""
-    raise NotImplementedError("get_asset_content is implemented by the backup agent")
+    from bento.infrastructure.storage_pipeline import get_storage_pipeline
+
+    return get_storage_pipeline(settings).content
 
 
 def get_sync_status_provider(settings: Settings) -> SyncStatusProviderPort:
@@ -71,5 +73,7 @@ def get_sync_status_provider(settings: Settings) -> SyncStatusProviderPort:
 def reset_services() -> None:
     """Drop cached instances (tests, account reloads). Each owner clears its own caches here."""
     from bento.infrastructure.mtproto import wiring
+    from bento.infrastructure.storage_pipeline import reset_storage_pipeline
 
     wiring.reset()
+    reset_storage_pipeline()

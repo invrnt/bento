@@ -20,6 +20,11 @@ class JobType(StrEnum):
     JOURNAL_EXPORT = "journal_export"
     ACCOUNT_RELOAD = "account_reload"
     INBOX_IMPORT = "inbox_import"
+    REMOTE_UPLOAD = "remote_upload"
+    BACKUP_SCAN = "backup_scan"
+    BACKUP_UPLOAD = "backup_upload"
+    TRASH_PURGE = "trash_purge"
+    CACHE_EVICT = "cache_evict"
 
 
 class JobStatus(StrEnum):
