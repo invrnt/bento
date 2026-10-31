@@ -96,6 +96,18 @@ class VaultCryptoPort(Protocol):
 
     def open_sealed(self, identity: DeviceIdentity, sealed: bytes, *, aad: bytes = b"") -> bytes: ...
 
+    def grant_auth(self, identity: DeviceIdentity, recipient_public_key: bytes, payload: bytes) -> str:
+        """b64url `HMAC-SHA256(HKDF(X25519(identity, recipient), salt = sorted public keys,
+        info="bento/v1/keys-grant-auth"), payload)`: proves the grant comes from `identity`'s device.
+
+        Raises `ValidationFailedError` for an unusable recipient key.
+        """
+        ...
+
+    def verify_grant_auth(self, identity: DeviceIdentity, sender_public_key: bytes, payload: bytes, tag: str) -> bool:
+        """Constant-time check of a `grant_auth` tag the sender computed for `identity`'s device."""
+        ...
+
 
 class PairingCryptoSessionPort(Protocol):
     """SPAKE2 session for one side of a relay pairing."""

@@ -6,7 +6,7 @@
 
 1. En Telegram, reenvía o envía una foto, un vídeo o un archivo al canal **«Bento · Bandeja»** (está en la carpeta de chats «Bento»).
 2. En segundos aparece en tu biblioteca de Bento, ya cifrado en tu nube.
-3. Bento marca el mensaje con ✅ cuando lo ha importado. Si algo falla, lo marca con ⚠️ y te lo muestra en **Actividad**.
+3. Bento reacciona al mensaje en tu nombre para que sepas en qué va: 👀 mientras lo importa, ✅ cuando ya está en tu nube y ⚠️ si algo falló (también lo verás en **Actividad**). Esas reacciones solo las ves tú, porque la Bandeja es un canal privado tuyo.
 
 > Consejo: para conservar la calidad original de una foto, envíala desde Telegram **como archivo**. Las fotos que se envían como foto llegan comprimidas por Telegram.
 
@@ -20,4 +20,5 @@
 
 - Hace falta que al menos uno de tus equipos con Bento esté encendido y conectado. Si no hay ninguno, lo que mandes espera en la Bandeja hasta que uno se conecte.
 - La Bandeja está pensada para fotos, vídeos y archivos.
+- Lo que llega desde Telegram (Bandeja o importación) no pasa por la búsqueda inteligente ni por el reconocimiento de texto: las condiciones de Telegram no permiten usar sus datos con modelos de IA. Lo encontrarás por nombre, tipo y fecha.
 - La Bandeja viene silenciada para no molestarte. No la borres: sin ella, Bento no puede recibir nada por este camino.

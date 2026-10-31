@@ -30,7 +30,7 @@ import { ErrorState, LoadingState } from "../../components/States";
 import { t } from "../../i18n/dictionary";
 import type { MessageKey } from "../../i18n/dictionary";
 import { usePolledResource } from "../../lib/usePolledResource";
-import { backupErrorKey, backupKindIcon, folderLabel } from "../onboarding/backupSources";
+import { backupErrorKey, backupKindIcon, backupSuggestionLabel, folderLabel } from "../onboarding/backupSources";
 import { canPickDirectory, pickDirectory } from "../onboarding/desktopHost";
 import { formatBytes, formatCount, tf } from "../onboarding/format";
 import { SettingsCard, ToggleRow } from "./SettingsCard";
@@ -142,7 +142,7 @@ export function BackupSection({ client = apiClient, pollIntervalMs = 5000, vault
               const Icon = backupKindIcon(suggestion.kind);
               return (
                 <Button key={suggestion.path} leadingIcon={<Icon />} onClick={() => void addFolder(suggestion.path)} size="sm" variant="secondary">
-                  {suggestion.label}
+                  {backupSuggestionLabel(suggestion)}
                 </Button>
               );
             })}

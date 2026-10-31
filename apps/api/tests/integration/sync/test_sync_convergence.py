@@ -373,20 +373,22 @@ def test_keys_grant_updates_the_keyring_and_old_epoch_batches_after_rotation_are
     first, second = pair
 
     async def scenario() -> None:
-        from bento.application.sync.codec import b64url_encode
+        from bento.application.sync.keys import build_keys_message
         from bento.domain.security import SealPurpose
         from bento.domain.sync import SyncBatch
-        from bento.domain.vault import canonical_json
         from tests.integration.sync.support import CRYPTO
 
+        await first.register()
+        await first.push()
+        await second.pull()
         context = await first.context()
         old_keyring = context.keyring
         rotated = CRYPTO.rotate_keyring(old_keyring)
-        grant = CRYPTO.seal_for_device(
-            second.vault.identity.public_key, CRYPTO.keyring_to_bytes(rotated), aad=context.layout.vault_id.encode()
+        message = build_keys_message(
+            CRYPTO, first.vault.identity, rotated, {second.device_id: second.vault.identity.public_key},
+            removed_device_ids=["dev_removed"],
         )
-        message = {"bento": "keys", "v": 1, "vault_id": context.layout.vault_id, "epoch": 2, "grants": {second.device_id: b64url_encode(grant)}}
-        await first.runtime.transport.post_sync_document(context.layout, SyncMessageKind.KEYS, canonical_json(message))
+        await first.runtime.transport.post_sync_document(context.layout, SyncMessageKind.KEYS, message)
         await first.vault.update_keyring(rotated)
 
         # A removed device still holding epoch 1 posts after the rotation: rejected by the floor.

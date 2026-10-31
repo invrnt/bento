@@ -14,11 +14,11 @@ There are no public links yet for sharing with someone who doesn’t use Telegra
 
 If you keep photos or documents in **Saved Messages** or other chats, you can bring them into Bento:
 
-1. In Settings, choose **Import from Saved Messages or another chat**.
+1. In **Photos** or **Files**, open the add menu and choose **Import from Telegram…**.
 2. Pick the chat.
 3. Select the photos, videos and files you want, or all of them.
 4. Bento imports them in the background. You can follow progress in **Activity**.
 
 Imported files are encrypted in your cloud like any other. **The original messages are not touched**: they stay in that chat as they were. If you want them only in Bento, delete them yourself in Telegram once the import finishes.
 
-Bento only opens the chats you choose to import from.
+Bento only opens the chats you choose to import from. Imported items are not processed by smart search or text recognition (Telegram's terms do not allow it); you can find them by name, type, and date.

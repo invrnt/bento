@@ -33,6 +33,7 @@ from bento.adapters.security import (
 from bento.adapters.security.primitives import b64url_decode, vault_subkey
 from bento.adapters.security.stream_aead import blob_file_key, encode_blob_header
 from bento.adapters.security.vault_crypto import recovery_wrap_key
+from bento.application.sync.keys import build_keys_message, grant_auth_payload, parse_keys_message
 from bento.domain.security import BlobCipherParams, KeyPurpose, RecoveryWrap, SealPurpose, VaultKeyring
 from bento.domain.vault import canonical_json
 from tests.unit.security.crypto_support import DeterministicRandom
@@ -43,6 +44,7 @@ VAULT_ID = "vlt_kat"
 PAIRING_PASSWORD = b"MXR9T4WA"
 FALLBACK_REQUEST_ID = "req_kat_ñ"
 WRAPPING_KEY = bytes(range(64, 96))
+REMOVED_DEVICE_ID = "dev_removed_kat"
 
 
 def _keyring() -> VaultKeyring:
@@ -134,6 +136,18 @@ def _compute_vectors(tmp_path: Path) -> dict[str, Any]:
     }
     vectors["sealed_box"] = crypto.seal_for_device(identity.public_key, b"sealed keyring", aad=VAULT_ID.encode()).hex()
 
+    grants = VaultCrypto(random_bytes=DeterministicRandom(b"keys-grant"))
+    sender, recipient = grants.generate_device_identity(), grants.generate_device_identity()
+    vectors["grant_auth"] = {
+        "sender": grants.device_identity_to_bytes(sender).decode(),
+        "recipient": grants.device_identity_to_bytes(recipient).decode(),
+        "payload": "keys grant payload",
+        "auth": grants.grant_auth(sender, recipient.public_key, b"keys grant payload"),
+    }
+    vectors["keys_message"] = build_keys_message(
+        grants, sender, keyring, {recipient.device_id: recipient.public_key}, removed_device_ids=[REMOVED_DEVICE_ID]
+    ).decode()
+
     pairing = PairingCryptoFactory(random_bytes=DeterministicRandom(b"pairing"))
     host = pairing.host_session(PAIRING_PASSWORD)
     guest = pairing.guest_session(PAIRING_PASSWORD)
@@ -224,6 +238,18 @@ def test_published_vectors_still_decrypt(tmp_path: Path) -> None:
     assert (
         crypto.open_sealed(identity, bytes.fromhex(fixture["sealed_box"]), aad=VAULT_ID.encode()) == b"sealed keyring"
     )
+
+    grant_vector = fixture["grant_auth"]
+    sender = crypto.device_identity_from_bytes(grant_vector["sender"].encode())
+    recipient = crypto.device_identity_from_bytes(grant_vector["recipient"].encode())
+    assert crypto.verify_grant_auth(recipient, sender.public_key, grant_vector["payload"].encode(), grant_vector["auth"])
+    message = parse_keys_message(fixture["keys_message"].encode())
+    assert (message.sender_device_id, message.removed_device_ids) == (sender.device_id, (REMOVED_DEVICE_ID,))
+    grant = message.grants[recipient.device_id]
+    payload = grant_auth_payload(message, recipient_device_id=recipient.device_id, sealed=grant.sealed)
+    assert crypto.verify_grant_auth(recipient, sender.public_key, payload, grant.auth)
+    opened = crypto.open_sealed(recipient, b64url_decode(grant.sealed), aad=VAULT_ID.encode())
+    assert crypto.keyring_from_bytes(opened) == keyring
 
     blob = fixture["blob_v2"]["ciphertexts"]["1"]["hex"]
     (tmp_path / "blob").write_bytes(bytes.fromhex(blob))
@@ -325,6 +351,40 @@ def test_published_vectors_follow_spec_formulas() -> None:
     shared = private.exchange(X25519PublicKey.from_public_bytes(ephemeral_public))
     box_key = _hkdf(shared, ephemeral_public + recipient_public, b"bento/v1/sealed-box")
     assert AESGCM(box_key).decrypt(nonce, sealed[49:], sealed[:49] + salt) == b"sealed keyring"
+
+    grant_vector = fixture["grant_auth"]
+    sender_private = b64url_decode(json.loads(grant_vector["sender"])["private_key"])
+    recipient_private = b64url_decode(json.loads(grant_vector["recipient"])["private_key"])
+    grant_sender_public = X25519PrivateKey.from_private_bytes(sender_private).public_key().public_bytes_raw()
+    grant_recipient_key = X25519PrivateKey.from_private_bytes(recipient_private)
+    grant_recipient_public = grant_recipient_key.public_key().public_bytes_raw()
+    static_shared = grant_recipient_key.exchange(X25519PublicKey.from_public_bytes(grant_sender_public))
+    grant_auth_key = _hkdf(static_shared, min(grant_sender_public, grant_recipient_public) + max(grant_sender_public, grant_recipient_public),
+                           b"bento/v1/keys-grant-auth")
+    assert b64url_decode(grant_vector["auth"]) == _hmac(grant_auth_key, grant_vector["payload"].encode())
+
+    keys = json.loads(fixture["keys_message"])
+    assert fixture["keys_message"].encode() == canonical_json(keys)
+    recipient_id = json.loads(grant_vector["recipient"])["device_id"]
+    assert keys == {
+        "bento": "keys", "v": 2, "vault_id": VAULT_ID, "epoch": 2,
+        "sender_device_id": json.loads(grant_vector["sender"])["device_id"],
+        "removed_device_ids": [REMOVED_DEVICE_ID],
+        "grants": {recipient_id: {"sealed": keys["grants"][recipient_id]["sealed"],
+                                  "auth": keys["grants"][recipient_id]["auth"]}},
+    }
+    grant = keys["grants"][recipient_id]
+    auth_payload = canonical_json({
+        "bento": "keys-grant", "v": 2, "vault_id": VAULT_ID, "epoch": 2,
+        "sender_device_id": keys["sender_device_id"], "recipient_device_id": recipient_id,
+        "removed_device_ids": [REMOVED_DEVICE_ID], "sealed": grant["sealed"],
+    })
+    assert b64url_decode(grant["auth"]) == _hmac(grant_auth_key, auth_payload)
+    grant_box = b64url_decode(grant["sealed"])
+    grant_shared = grant_recipient_key.exchange(X25519PublicKey.from_public_bytes(grant_box[5:37]))
+    grant_box_key = _hkdf(grant_shared, grant_box[5:37] + grant_recipient_public, b"bento/v1/sealed-box")
+    granted = AESGCM(grant_box_key).decrypt(grant_box[37:49], grant_box[49:], grant_box[:49] + salt)
+    assert granted.decode() == fixture["keyring_json"]
 
     pairing = fixture["pairing"]
     entropy = DeterministicRandom(b"pairing")

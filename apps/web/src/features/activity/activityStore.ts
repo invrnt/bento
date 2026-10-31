@@ -32,6 +32,7 @@ export function createActivityStore(
   let snapshot = initialSnapshot;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let inFlight: Promise<void> | null = null;
+  let inFlightGeneration = -1;
   let generation = 0;
 
   function emit(next: ActivitySnapshot) {
@@ -42,27 +43,35 @@ export function createActivityStore(
   }
 
   function fetchOnce(): Promise<void> {
-    if (inFlight) {
+    // A request started before the last unsubscribe belongs to a dead generation and would be discarded.
+    if (inFlight && inFlightGeneration === generation) {
       return inFlight;
     }
 
     const current = generation;
-    inFlight = (async () => {
-      try {
-        const activity = normalizeActivity(await fetcher());
-        if (current === generation) {
-          emit({ activity, error: null, isLoading: false });
-        }
-      } catch (caught) {
-        if (current === generation) {
-          emit({ ...snapshot, error: caught instanceof Error ? caught : new Error(String(caught)), isLoading: false });
-        }
-      } finally {
+    inFlightGeneration = current;
+    const request = load(current);
+    inFlight = request;
+    void request.finally(() => {
+      if (inFlight === request) {
         inFlight = null;
       }
-    })();
+    });
 
-    return inFlight;
+    return request;
+  }
+
+  async function load(current: number): Promise<void> {
+    try {
+      const activity = normalizeActivity(await fetcher());
+      if (current === generation) {
+        emit({ activity, error: null, isLoading: false });
+      }
+    } catch (caught) {
+      if (current === generation) {
+        emit({ ...snapshot, error: caught instanceof Error ? caught : new Error(String(caught)), isLoading: false });
+      }
+    }
   }
 
   function isHidden() {

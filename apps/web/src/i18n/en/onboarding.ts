@@ -3,6 +3,10 @@ import type { esOnboarding } from "../es/onboarding";
 
 // English strings owned by the Stage 16 web-onboarding agent. Every key in `esOnboarding` must exist here.
 export const enOnboarding: Record<keyof typeof esOnboarding, string> & Partial<Record<MessageKey, string>> = {
+  "backup.kind.pictures": "Pictures",
+  "backup.kind.documents": "Documents",
+  "backup.kind.desktop": "Desktop",
+  "backup.kind.downloads": "Downloads",
   "route.join.title": "Join your cloud",
   "route.join.body": "Connect this computer to your other Bento devices.",
 
