@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import replace
@@ -8,7 +9,7 @@ from typing import ParamSpec, TypeVar
 
 from bento.adapters.fake_telegram.cloud import FakeTelegramCloud
 from bento.adapters.fake_telegram.options import FakeTelegramOptions
-from bento.domain.errors import TelegramAccountError
+from bento.domain.errors import TelegramAccountError, TelegramFloodWaitError
 from bento.ports.key_store import TELEGRAM_SESSION, KeyStorePort
 
 SESSION_PREFIX = b"bento-fake-session:v1:"
@@ -57,6 +58,7 @@ class FakeTelegramSession:
         return authorization_id if record is not None else None
 
     async def require(self) -> str:
+        self._raise_injected_fault()
         authorization_id = await self.authorization_id()
         if authorization_id is None:
             raise TelegramAccountError("telegram_not_authorized", "This device is not signed in to Telegram")
@@ -64,6 +66,15 @@ class FakeTelegramSession:
             self._touched_at = time.monotonic()
             await self.run(self.cloud.touch_authorization, authorization_id)
         return authorization_id
+
+    def _raise_injected_fault(self) -> None:
+        fault = self.cloud.active_fault()
+        if fault is None:
+            return
+        kind, remaining = fault
+        if kind == "flood_wait":
+            raise TelegramFloodWaitError(max(1, math.ceil(remaining)))
+        raise TelegramAccountError("telegram_network", "Telegram could not be reached")
 
     async def store(self, authorization_id: str) -> None:
         await self._key_store.put(TELEGRAM_SESSION, SESSION_PREFIX + authorization_id.encode("ascii"))
