@@ -1,5 +1,6 @@
 import { apiClient } from "./client";
 import type { ApiClient } from "./client";
+import type { QrMatrix } from "./qr";
 
 export type DevicePlatform = "linux" | "macos" | "windows" | "other";
 
@@ -13,7 +14,12 @@ export type Device = {
   removed_at: string | null;
 };
 
-export type DeviceRemoval = { device: Device; recovery_code: string; telegram_session_closed: boolean };
+export type DeviceRemoval = {
+  device: Device;
+  recovery_code: string;
+  recovery_qr?: QrMatrix;
+  telegram_session_closed: boolean;
+};
 
 export function listDevices(client: ApiClient = apiClient): Promise<{ items: Device[] }> {
   return client.request<{ items: Device[] }>("/devices");

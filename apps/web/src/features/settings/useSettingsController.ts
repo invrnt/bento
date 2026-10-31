@@ -23,9 +23,11 @@ import type {
   StorageReclaimResult,
 } from "../../api/settings";
 import { desktopBridge, detectDesktopPlatform } from "../../api/settingsDesktop";
-import type { ApplyProgress, DesktopPlatform, SecretOperation } from "../../api/settingsDesktop";
+import type { ApplyProgress, DesktopPlatform } from "../../api/settingsDesktop";
 
-export type SecretEdit = { operation: "clear" } | { operation: "set"; value: string };
+/** Probe kinds the desktop bridge accepts (the Bot API connection test is gone). */
+export const desktopProbeKinds: ReadonlySet<string> = new Set(["writable-directory", "model-file", "ffmpeg", "ocr"]);
+
 export type ApplyOutcome = { restartPlan: RestartPlan | null; rolledBack: boolean };
 
 export type SettingsController = {
@@ -58,8 +60,6 @@ export type SettingsController = {
   resetGroup: (group: string) => void;
   save: () => Promise<void>;
   schema: SettingsSchema | null;
-  secretEdits: Record<string, SecretEdit>;
-  setSecret: (key: string, edit: SecretEdit | null) => void;
   setDataMigration: (choice: "copy" | "use-empty" | null) => void;
   setValue: (key: string, value: unknown) => void;
   validate: (runProbes?: boolean) => Promise<SettingsValidation | null>;
@@ -72,7 +72,6 @@ export function useSettingsController(client: ApiClient = apiClient): SettingsCo
   const [values, setValues] = useState<SettingsValues | null>(null);
   const [publicSettings, setPublicSettings] = useState<PublicSettings | null>(null);
   const [draft, setDraft] = useState<Record<string, unknown>>({});
-  const [secretEdits, setSecretEdits] = useState<Record<string, SecretEdit>>({});
   const [desktop, setDesktop] = useState<DesktopPlatform | null>(null);
   const [dataMigration, setDataMigration] = useState<"copy" | "use-empty" | null>(null);
   const [error, setError] = useState<Error | null>(null);
@@ -102,7 +101,6 @@ export function useSettingsController(client: ApiClient = apiClient): SettingsCo
       setValues(nextValues);
       setPublicSettings(nextPublic);
       setDraft(snapshotDraft(nextValues));
-      setSecretEdits({});
       setValidation(null);
       setConflict(false);
       setDataMigration(null);
@@ -118,13 +116,12 @@ export function useSettingsController(client: ApiClient = apiClient): SettingsCo
 
   const dirty = useMemo(() => {
     if (!values) return false;
-    return Object.keys(secretEdits).length > 0 || Object.entries(draft).some(([key, value]) => !sameValue(value, values.values[key]?.value));
-  }, [draft, secretEdits, values]);
+    return Object.entries(draft).some(([key, value]) => !sameValue(value, values.values[key]?.value));
+  }, [draft, values]);
 
   const discard = useCallback(() => {
     if (!values) return;
     setDraft(snapshotDraft(values));
-    setSecretEdits({});
     setValidation(null);
     setApplyOutcome(null);
     setConflict(false);
@@ -136,16 +133,6 @@ export function useSettingsController(client: ApiClient = apiClient): SettingsCo
     setValidation((current) => current ? { ...current, errors: current.errors.filter((issue) => issue.key !== key) } : null);
   }, []);
 
-  const setSecret = useCallback((key: string, edit: SecretEdit | null) => {
-    setSecretEdits((current) => {
-      const next = { ...current };
-      if (edit) next[key] = edit;
-      else delete next[key];
-      return next;
-    });
-    setValidation(null);
-  }, []);
-
   const changedValues = useCallback(() => {
     if (!values) return {};
     return Object.fromEntries(Object.entries(draft).filter(([key, value]) => !sameValue(value, values.values[key]?.value)));
@@ -155,7 +142,7 @@ export function useSettingsController(client: ApiClient = apiClient): SettingsCo
     setIsValidating(true);
     setConflict(false);
     try {
-      const result = await validateSettings({ run_probes: runProbes, secret_references: secretMarkers(secretEdits), values: changedValues() }, client);
+      const result = await validateSettings({ run_probes: runProbes, values: changedValues() }, client);
       setValidation(result);
       return result;
     } catch (caught) {
@@ -164,7 +151,7 @@ export function useSettingsController(client: ApiClient = apiClient): SettingsCo
     } finally {
       setIsValidating(false);
     }
-  }, [changedValues, client, secretEdits]);
+  }, [changedValues, client]);
 
   const save = useCallback(async () => {
     if (!values || !dirty) return;
@@ -178,9 +165,8 @@ export function useSettingsController(client: ApiClient = apiClient): SettingsCo
     try {
       if (bridge) {
         unsubscribe = bridge.settings.onProgress((event) => setApplyProgress((current) => [...current, event]));
-        const secrets: Record<string, SecretOperation> = {};
-        for (const [key, edit] of Object.entries(secretEdits)) secrets[key] = edit;
-        const result = await bridge.settings.apply({ dataMigration: dataMigration ?? undefined, revision: values.revision, runProbes: true, secrets, values: changedValues() });
+        // Desktop secrets are gone: Telegram sessions and keys live in the backend key store.
+        const result = await bridge.settings.apply({ dataMigration: dataMigration ?? undefined, revision: values.revision, runProbes: true, secrets: {}, values: changedValues() });
         if (!result.ok) {
           const errors = result.errors ?? [];
           setValidation(emptyValidation(errors));
@@ -189,7 +175,6 @@ export function useSettingsController(client: ApiClient = apiClient): SettingsCo
         }
         setApplyOutcome({ restartPlan: normalizeRestartPlan(result.restartPlan), rolledBack: false });
       } else {
-        if (Object.keys(secretEdits).length > 0) throw new Error("desktop_secret_capability_required");
         const checked = await validateSettings({ run_probes: true, values: changedValues() }, client);
         setValidation(checked);
         if (!checked.valid) return;
@@ -202,10 +187,9 @@ export function useSettingsController(client: ApiClient = apiClient): SettingsCo
       else setError(asError(caught));
     } finally {
       unsubscribe();
-      setSecretEdits({});
       setIsApplying(false);
     }
-  }, [changedValues, client, dataMigration, dirty, refresh, secretEdits, values]);
+  }, [changedValues, client, dataMigration, dirty, refresh, values]);
 
   const resetGroup = useCallback((group: string) => {
     if (!schema) return;
@@ -226,17 +210,16 @@ export function useSettingsController(client: ApiClient = apiClient): SettingsCo
 
   const probe = useCallback(async (key: string, kind: string) => {
     const bridge = desktopBridge();
-    if (!bridge || kind === "storage") return;
-    const normalized = kind.replaceAll("_", "-") as "model-file" | "telegram" | "writable-directory";
+    const normalized = kind.replaceAll("_", "-");
+    if (!bridge || !desktopProbeKinds.has(normalized)) return;
     const path = typeof draft[key] === "string" ? draft[key] as string : undefined;
-    const secrets = Object.fromEntries(Object.entries(secretEdits).filter(([, edit]) => edit.operation === "set").map(([secretKey, edit]) => [secretKey, edit.operation === "set" ? edit.value : ""]));
-    const result = await bridge.settings.probe({ kind: normalized, path, secrets });
+    const result = await bridge.settings.probe({ kind: normalized as "ffmpeg" | "model-file" | "ocr" | "writable-directory", path });
     setValidation((current) => ({
       ...(current ?? emptyValidation([])),
       probes: [...(current?.probes.filter((item) => item.key !== key) ?? []), { key, message: null, status: result.status }],
       valid: result.status === "ok" && (current?.valid ?? true),
     }));
-  }, [draft, secretEdits]);
+  }, [draft]);
 
   const importPreviewFromFile = useCallback(async (file: File) => {
     const content = await file.text();
@@ -271,7 +254,7 @@ export function useSettingsController(client: ApiClient = apiClient): SettingsCo
     return all;
   }, {}), [validation]);
 
-  return { applyOutcome, applyProgress, conflict, dataMigration, desktop, dirty, discard, dismissImport: () => setImportPreview(null), draft, error, exportSafe, fieldErrors, importPreview, importPreviewFromFile, importValues, isApplying, isLoading, isReclaiming, isValidating, pickPath, probe, publicSettings, reclaim, reclaimError, reclaimResult, refresh, resetGroup, save, schema, secretEdits, setDataMigration, setSecret, setValue, validate, validation, values };
+  return { applyOutcome, applyProgress, conflict, dataMigration, desktop, dirty, discard, dismissImport: () => setImportPreview(null), draft, error, exportSafe, fieldErrors, importPreview, importPreviewFromFile, importValues, isApplying, isLoading, isReclaiming, isValidating, pickPath, probe, publicSettings, reclaim, reclaimError, reclaimResult, refresh, resetGroup, save, schema, setDataMigration, setValue, validate, validation, values };
 }
 
 function snapshotDraft(snapshot: SettingsValues): Record<string, unknown> {
@@ -283,7 +266,4 @@ function emptyValidation(errors: FieldIssue[]): SettingsValidation { return { er
 function normalizeRestartPlan(plan: { affectedKeys?: string[]; affected_keys?: string[]; mode: string; services: string[] } | undefined): RestartPlan | null {
   if (!plan) return null;
   return { affected_keys: plan.affected_keys ?? plan.affectedKeys ?? [], mode: plan.mode as RestartPlan["mode"], services: plan.services };
-}
-function secretMarkers(edits: Record<string, SecretEdit>) {
-  return Object.fromEntries(Object.entries(edits).map(([key, edit]) => [key, edit.operation === "set" ? { configured: true, reference: `desktop-secret:pending-${key}` } : { configured: false, reference: null }]));
 }

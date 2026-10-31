@@ -84,4 +84,12 @@ describe("BrowserWindow security", () => {
     expect(callback).toHaveBeenCalledWith(false);
     expect((electron.setPermissionCheckHandler.mock.calls.at(-1)?.[0] as () => boolean)()).toBe(false);
   });
+
+  it("keeps the window hidden for tray/login starts", () => {
+    const window = createMainWindow({ showOnReady: false }) as unknown as InstanceType<typeof electron.FakeWindow>;
+    expect(window.once).not.toHaveBeenCalledWith("ready-to-show", expect.any(Function));
+    expect(window.loadURL).toHaveBeenCalledWith("bento://app/");
+    const visible = createMainWindow() as unknown as InstanceType<typeof electron.FakeWindow>;
+    expect(visible.once).toHaveBeenCalledWith("ready-to-show", expect.any(Function));
+  });
 });

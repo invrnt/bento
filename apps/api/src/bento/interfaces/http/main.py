@@ -22,7 +22,8 @@ def create_app(
     app.state.settings = resolved_settings
     app.state.settings_database_path = settings_database_path(resolved_settings)
 
-    allowed_origins = ["http://127.0.0.1:5173", "http://localhost:5173"]
+    web_port = resolved_settings.web_port
+    allowed_origins = [f"http://127.0.0.1:{web_port}", f"http://localhost:{web_port}"]
     if resolved_settings.runtime_mode == "desktop":
         security = DesktopSecurityConfig.from_environ(os.environ if desktop_environ is None else desktop_environ)
         allowed_origins = [security.origin]

@@ -1,6 +1,6 @@
 # System Overview
 
-Telegram Private Cloud MVP Lite is a local-first web app that uses Telegram only as optional remote blob storage. Product state, metadata, indexes, jobs, previews, thumbnails, folders, albums, and manifests live locally in SQLite and local volumes.
+Bento is a local-first private cloud that uses the user's own Telegram account (MTProto) as end-to-end encrypted storage and as the replication log between devices. Each device keeps product state, metadata, indexes, jobs, previews, thumbnails, folders, and albums in its local SQLite replica. See `architecture/telegram-first.md`.
 
 ## Runtime Processes
 
@@ -8,9 +8,9 @@ Telegram Private Cloud MVP Lite is a local-first web app that uses Telegram only
 - `web`: React + Vite UI served locally.
 - `api`: FastAPI HTTP interface, local settings, upload orchestration, use-case boundary.
 - `worker`: Python background process using the same backend package as `api`.
-- `telegram-bot-api`: local Telegram Bot API server in `--local` mode.
+- `relay` (hosted, optional): stateless Cloudflare Worker that relays encrypted pairing frames for a few minutes (`apps/relay`).
 
-In packaged desktop builds, Electron loads the compiled React renderer and supervises packaged `api` and `worker` sidecars on loopback-only ephemeral ports. Docker Compose remains a supported development and headless deployment path; it is not a runtime dependency for desktop users. `telegram-bot-api` is started only when Telegram storage is enabled.
+In packaged desktop builds, Electron loads the compiled React renderer and supervises packaged `api` and `worker` sidecars on loopback-only ephemeral ports. Docker Compose remains a supported development and headless deployment path; it is not a runtime dependency for desktop users. Telegram access is an in-process Telethon client in the API and worker; no extra local server is needed.
 
 See `architecture/desktop-runtime-settings.md` for lifecycle, configuration precedence, IPC, secrets, and packaging rules.
 

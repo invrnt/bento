@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { SearchX } from "lucide-react";
 
 import { PageHeader } from "../../components/PageHeader";
 import { ErrorState, EmptyState, LoadingState } from "../../components/States";
-import type { SearchApi } from "../../api/search";
+import type { SearchApi, SearchHit } from "../../api/search";
 import { t } from "../../i18n/dictionary";
 import { cx } from "../../lib/cx";
 import { SearchFiltersBar } from "./SearchFiltersBar";
@@ -14,10 +15,12 @@ import { useSearchResults } from "./useSearchResults";
 
 export type SearchViewProps = {
   client?: SearchApi;
+  /** Replaces the default results list (Documents adds Quick Look and sharing). */
+  renderResults?: (items: SearchHit[]) => ReactNode;
   scope?: SearchScope;
 };
 
-export function SearchView({ client, scope = "global" }: SearchViewProps) {
+export function SearchView({ client, renderResults, scope = "global" }: SearchViewProps) {
   const initialFilters = useMemo(() => parseSearchFilters(window.location.search, scope), [scope]);
   const [filters, setFilters] = useState<SearchFilters>(initialFilters);
   const results = useSearchResults(filters, client);
@@ -46,7 +49,7 @@ export function SearchView({ client, scope = "global" }: SearchViewProps) {
       ) : null}
       {!results.error && items.length > 0 ? (
         <div aria-busy={refreshing || undefined} className={cx("transition-opacity duration-150", refreshing && "opacity-60")}>
-          <SearchResultsList items={items} />
+          {renderResults ? renderResults(items) : <SearchResultsList items={items} />}
         </div>
       ) : null}
     </div>
