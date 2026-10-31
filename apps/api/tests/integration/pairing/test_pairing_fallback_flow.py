@@ -4,16 +4,18 @@ from __future__ import annotations
 
 import asyncio
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from bento.adapters.fake_telegram import FakeTelegramCloud
 from bento.adapters.security import FallbackPairingKeys
-from bento.application.pairing import b64url_encode
+from bento.application.pairing import b64url_decode, b64url_encode
 from bento.domain.errors import TelegramAccountError
 from bento.domain.pairing import PairingError, PairingRole, PairingState, PairingTransport
 from bento.domain.sync import SyncMessageKind
+from bento.domain.vault import VaultHeader
 from bento.domain.vault import VaultState
 from tests.integration.pairing.pairing_support import PairingDevice, make_pairing_device, wait_for_state
 
@@ -186,6 +188,69 @@ def test_rejecting_an_unreviewed_request(tmp_path: Path) -> None:
             assert host.vault.layout is not None
             texts = _pairing_texts(FakeTelegramCloud(tmp_path / "cloud"), host.vault.layout.sync_channel_id)
             assert [text["bento"] for text in texts] == ["pair_reject"], "the guest removed its own request"
+        finally:
+            await host.pairing.close()
+            await guest.pairing.close()
+
+    asyncio.run(scenario())
+
+
+def test_guest_ignores_a_grant_forged_by_a_channel_writer(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        host, guest = await _devices(tmp_path)
+        assert host.vault.layout is not None
+        layout = host.vault.layout
+        cloud = FakeTelegramCloud(tmp_path / "cloud")
+        try:
+            requested = await guest.pairing.request_access()
+            [request] = await host.pairing.list_requests()
+            reviewed = await host.pairing.review_request(request.id)
+            assert reviewed.session.state == PairingState.AWAITING_APPROVAL
+
+            # Everything a channel writer can read: the request, the host offer, and the guest reveal.
+            texts = {item["bento"]: item for item in _pairing_texts(cloud, layout.sync_channel_id)}
+            guest_eph = b64url_decode(texts["pair_reveal"]["eph_pub"], max_bytes=32)
+            host_eph = b64url_decode(texts["pair_offer"]["eph_pub"], max_bytes=32)
+            device_key = b64url_decode(texts["pair_request"]["public_key"], max_bytes=32)
+            attacker_keyring = guest.crypto.generate_keyring(layout.vault_id)
+            # The attacker also pins a header MACed with its own keyring, so the header check alone would pass.
+            genuine_header = await host.runtime.transport.read_header_text(layout)
+            assert genuine_header is not None
+            header = VaultHeader.from_json(genuine_header)
+            forged_header = replace(
+                header, mac=guest.crypto.header_mac(attacker_keyring, header.canonical_unsigned_bytes())
+            )
+            await host.runtime.transport.publish_header_text(layout, forged_header.to_json())
+            sealed = guest.crypto.seal_for_device(
+                device_key, guest.crypto.keyring_to_bytes(attacker_keyring), aad=request.id.encode()
+            )
+            intruder = FallbackPairingKeys()
+            forged = intruder.seal_grant(
+                guest_eph,
+                sealed,
+                request_id=request.id,
+                guest_device_public_key=device_key,
+                guest_ephemeral_public_key=guest_eph,
+                host_ephemeral_public_key=intruder.public_key(),
+            )
+            for payload in (
+                {"bento": "pair_grant", "v": 1, "request_id": request.id, "grant": b64url_encode(forged)},
+                {"bento": "pair_grant", "v": 1, "request_id": request.id, "grant": b64url_encode(b"\x00" * 64)},
+                {"bento": "pair_grant", "v": 1, "request_id": request.id, "sealed_keyring": b64url_encode(sealed)},
+            ):
+                await host.runtime.transport.post_sync_text(layout, SyncMessageKind.PAIRING, json.dumps(payload))
+            assert host_eph != intruder.public_key()
+
+            await asyncio.sleep(0.5)  # several guest polls
+            waiting = await guest.pairing.get(requested.session.id)
+            assert waiting.session.state == PairingState.AWAITING_APPROVAL
+            assert guest.vault.installs == [] and await guest.vault.keyring() is None
+
+            # The genuine host can still complete the pairing once the real header is pinned again.
+            await host.runtime.transport.publish_header_text(layout, genuine_header)
+            await host.pairing.approve(reviewed.session.id)
+            await wait_for_state(lambda: guest.pairing.get(requested.session.id), PairingState.COMPLETED)
+            assert await guest.vault.keyring() == await host.vault.keyring() != attacker_keyring
         finally:
             await host.pairing.close()
             await guest.pairing.close()

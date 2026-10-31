@@ -170,6 +170,12 @@ def _compute_vectors(tmp_path: Path) -> dict[str, Any]:
         "commitment": first.commitment(device_public_key=identity.public_key, request_id=FALLBACK_REQUEST_ID),
         "sas": list(guest_sas),
     }
+    grant_key = first.grant_key_with(second.public_key(), **transcript)
+    assert grant_key == second.grant_key_with(first.public_key(), **transcript)
+    vectors["fallback_grant"] = {
+        "grant_key": grant_key.hex(),
+        "grant": second.seal_grant(first.public_key(), b"sealed keyring", **transcript).hex(),
+    }
 
     store = WrappedFileKeyStore(tmp_path / "secure", WRAPPING_KEY, random_bytes=DeterministicRandom(b"keystore"))
     asyncio.run(store.put("vault.keyring", b"key store secret"))
@@ -357,6 +363,10 @@ def test_published_vectors_follow_spec_formulas() -> None:
     sas_bits = _hkdf(fallback_shared, transcript_salt, b"bento/v1/pairing/fallback-sas", 3)
     fallback_value = int.from_bytes(sas_bits, "big")
     assert fallback["sas"] == [SAS_EMOJIS[(fallback_value >> shift) & 63] for shift in (18, 12, 6, 0)]
+    grant_key = _hkdf(fallback_shared, transcript_salt, b"bento/v1/pairing/fallback-grant")
+    assert grant_key.hex() == fixture["fallback_grant"]["grant_key"]
+    grant = bytes.fromhex(fixture["fallback_grant"]["grant"])
+    assert AESGCM(grant_key).decrypt(grant[:12], grant[12:], request_id) == b"sealed keyring"
 
     stored = bytes.fromhex(fixture["key_store_file"])
     assert stored[:4] == b"BKEY" and stored[4] == 1
