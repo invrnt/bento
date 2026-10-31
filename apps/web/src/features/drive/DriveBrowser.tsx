@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { DragEvent, FormEvent, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
-import { createPortal } from "react-dom";
+import type { DragEvent, FormEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
+  ChevronDown,
   CornerDownLeft,
   Download,
   Eye,
@@ -10,12 +10,14 @@ import {
   FolderPlus,
   FolderUp,
   HardDrive,
+  Import,
   LayoutGrid,
   List,
   MoreHorizontal,
   PencilLine,
   Search,
   SearchX,
+  Send,
   Trash2,
   Upload,
   X,
@@ -23,6 +25,7 @@ import {
 
 import type { DriveApi, DriveBreadcrumb } from "../../api/drive";
 import { driveApi } from "../../api/drive";
+import { restoreTrash } from "../../api/trash";
 import { Badge } from "../../components/Badge";
 import { Breadcrumb } from "../../components/Breadcrumb";
 import { Button } from "../../components/Button";
@@ -39,16 +42,18 @@ import { SegmentedControl } from "../../components/SegmentedControl";
 import { EmptyState, ErrorState, LoadingState } from "../../components/States";
 import { VirtualGrid } from "../../components/VirtualGrid";
 import { VirtualList } from "../../components/VirtualList";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from "../../components/ui/context-menu";
 import { cx } from "../../lib/cx";
 import { t } from "../../i18n/dictionary";
 import type { MessageKey } from "../../i18n/dictionary";
+import { ImportFromTelegramDialog } from "../import/ImportFromTelegramDialog";
+import type { ImportApi } from "../import/ImportFromTelegramDialog";
+import { QuickLook } from "../quicklook/QuickLook";
+import { quickLookKeyHandlers, quickLookKind, useQuickLook } from "../quicklook/quickLookModel";
+import type { QuickLookItem } from "../quicklook/quickLookModel";
+import { ShareToTelegramDialog } from "../share/ShareToTelegramDialog";
+import type { ShareApi, ShareTarget } from "../share/ShareToTelegramDialog";
+import { deleteWithUndo } from "../trash/undoableDelete";
+import { ActionContextMenu } from "./ActionContextMenu";
 import { entryFromItem, entryFromSearchItem, formatBytes, isIndexingState, isPartialFailureState } from "./driveModel";
 import type { DriveEntry } from "./driveModel";
 import { FileTypeIcon } from "./FileTypeIcon";
@@ -57,19 +62,26 @@ import type { FileTypeKind } from "./fileType";
 import { FolderTree } from "./FolderTree";
 import { selectionFromDataTransfer, selectionFromFiles, uploadSelection } from "./folderUpload";
 import type { UploadProgress, UploadSummary } from "./folderUpload";
-import { deleteDriveEntries, downloadDriveEntries, downloadableDriveEntries, moveDriveEntries } from "./bulkOperations";
+import { downloadDriveEntries, downloadableDriveEntries, moveDriveEntries, trashDriveEntries } from "./bulkOperations";
 import { useDriveItems, useDriveSearch } from "./useDriveQueries";
 
 type LayoutMode = "grid" | "list";
 
 type PendingAction =
   | { type: "create-folder" }
-  | { entries: DriveEntry[]; type: "bulk-delete" }
   | { entries: DriveEntry[]; type: "bulk-move" }
-  | { entry: DriveEntry; type: "delete" }
   | { entry: DriveEntry; type: "move" }
-  | { entry: DriveEntry; type: "rename" }
-  | { entry: DriveEntry; type: "preview" };
+  | { entry: DriveEntry; type: "rename" };
+
+/** Everything an item card can do; built once per render by `DriveBrowser`. */
+type EntryHandlers = {
+  delete: (entry: DriveEntry) => void;
+  download: (entry: DriveEntry) => void;
+  navigate: (folderId: string | null) => void;
+  openAction: (action: PendingAction) => void;
+  quickLook: (entry: DriveEntry) => void;
+  share: (entry: DriveEntry) => void;
+};
 
 const kindLabels: Record<FileTypeKind, MessageKey> = {
   archive: "drive.kind.archive",
@@ -90,11 +102,22 @@ const listColumns =
 
 export type DriveBrowserProps = {
   api?: DriveApi;
+  importApi?: ImportApi;
   initialFolderId?: string | null;
   onNavigate?: (folderId: string | null) => void;
+  /** Undo for deletes (`POST /trash/restore`). */
+  restoreFromTrash?: (ids: string[]) => Promise<unknown>;
+  shareApi?: ShareApi;
 };
 
-export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigate }: DriveBrowserProps) {
+export function DriveBrowser({
+  api = driveApi,
+  importApi,
+  initialFolderId = null,
+  onNavigate,
+  restoreFromTrash = restoreTrash,
+  shareApi,
+}: DriveBrowserProps) {
   const [folderId, setFolderId] = useState<string | null>(initialFolderId);
   const [layout, setLayout] = useState<LayoutMode>("grid");
   const [reloadKey, setReloadKey] = useState(0);
@@ -108,6 +131,8 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
   const [dialogValue, setDialogValue] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [shareTarget, setShareTarget] = useState<ShareTarget | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const dragDepthRef = useRef(0);
@@ -128,6 +153,11 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
   const someVisibleSelected = selectedEntries.length > 0 && !allVisibleSelected;
   const selectionMode = selectedEntries.length > 0;
   const canSubmitSearch = query.trim().length > 0 && query.trim() !== submittedQuery.trim();
+  const quickLookItems = useMemo(
+    () => visibleEntries.filter((entry) => entry.kind === "asset").map((entry) => driveQuickLookItem(api, entry)),
+    [api, visibleEntries],
+  );
+  const quickLook = useQuickLook(quickLookItems);
   const breadcrumbs = useMemo(
     () => normalizeBreadcrumbs(itemsState.data?.breadcrumbs, folderId),
     [folderId, itemsState.data?.breadcrumbs],
@@ -281,21 +311,8 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
         }
       }
 
-      if (pendingAction.type === "delete") {
-        if (pendingAction.entry.kind === "folder") {
-          await api.deleteFolder(pendingAction.entry.id);
-        } else {
-          await api.deleteAsset(pendingAction.entry.id);
-        }
-      }
-
       if (pendingAction.type === "bulk-move") {
         await moveDriveEntries(api, pendingAction.entries, value || null);
-        clearSelection();
-      }
-
-      if (pendingAction.type === "bulk-delete") {
-        await deleteDriveEntries(api, pendingAction.entries);
         clearSelection();
       }
 
@@ -306,17 +323,64 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
     }
   }
 
-  const uploadButtons = (
+  /** Reversible: moves to trash at once and offers "Deshacer" instead of asking first. */
+  async function removeEntries(targets: DriveEntry[]) {
+    clearSelection();
+    await deleteWithUndo({ onChange: reload, perform: () => trashDriveEntries(api, targets), restore: restoreFromTrash });
+  }
+
+  function removeFromQuickLook(item: QuickLookItem) {
+    const entry = visibleEntries.find((candidate) => candidate.kind === "asset" && candidate.id === item.id);
+    const index = quickLook.index ?? -1;
+    const neighbor = quickLook.items[index + 1] ?? quickLook.items[index - 1];
+    if (neighbor) {
+      quickLook.open(neighbor.id);
+    } else {
+      quickLook.close();
+    }
+    if (entry) {
+      void removeEntries([entry]);
+    }
+  }
+
+  const handlers: EntryHandlers = {
+    delete: (entry) => void removeEntries([entry]),
+    download: (entry) => openInNewTab(api.downloadUrl(entry.id)),
+    navigate,
+    openAction,
+    quickLook: (entry) => quickLook.open(entry.id),
+    share: (entry) => setShareTarget({ id: entry.id, name: entry.name }),
+  };
+
+  const pickFiles = () => fileInputRef.current?.click();
+  const pickFolder = () => folderInputRef.current?.click();
+
+  const headerActions = (
+    <div className="flex items-center gap-1">
+      <Button disabled={uploading} leadingIcon={<Upload />} onClick={pickFiles} variant="primary">
+        {t("drive.upload.pick")}
+      </Button>
+      <Menu
+        items={[
+          { disabled: uploading, icon: <FolderUp />, id: "folder", label: t("drive.upload.pickFolder"), onSelect: pickFolder },
+          { icon: <Import />, id: "import", label: t("import.action"), onSelect: () => setImportOpen(true) },
+        ]}
+        label={t("drive.add.more")}
+        trigger={<ChevronDown aria-hidden="true" />}
+        triggerClassName="size-9 rounded-md"
+      />
+    </div>
+  );
+
+  const emptyActions = (
     <>
-      <Button
-        disabled={uploading}
-        leadingIcon={<FolderUp />}
-        onClick={() => folderInputRef.current?.click()}
-        variant="secondary"
-      >
+      <Button leadingIcon={<Import />} onClick={() => setImportOpen(true)} variant="ghost">
+        {t("import.action")}
+      </Button>
+      <Button disabled={uploading} leadingIcon={<FolderUp />} onClick={pickFolder} variant="secondary">
         {t("drive.upload.pickFolder")}
       </Button>
-      <Button disabled={uploading} leadingIcon={<Upload />} onClick={() => fileInputRef.current?.click()} variant="primary">
+      <Button disabled={uploading} leadingIcon={<Upload />} onClick={pickFiles} variant="primary">
         {t("drive.upload.pick")}
       </Button>
     </>
@@ -347,7 +411,7 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
       {dragActive ? <DropOverlay /> : null}
 
       <PageHeader
-        actions={uploadButtons}
+        actions={headerActions}
         description={
           <Breadcrumb
             className="-ml-1.5"
@@ -487,7 +551,7 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
                     {t("drive.search.clear")}
                   </Button>
                 ) : (
-                  uploadButtons
+                  emptyActions
                 )
               }
               body={showingSearch ? t("drive.empty.searchBody") : t("drive.empty.body")}
@@ -516,10 +580,8 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
                     minColumnWidth={168}
                     renderItem={(entry) => (
                       <DriveGridCard
-                        api={api}
                         entry={entry}
-                        onNavigate={navigate}
-                        onOpenAction={openAction}
+                        handlers={handlers}
                         onToggleSelection={toggleSelection}
                         searchMode={showingSearch}
                         selected={selectedKeys.has(entryKey(entry))}
@@ -536,10 +598,8 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
                     items={visibleEntries}
                     renderItem={(entry) => (
                       <DriveListRow
-                        api={api}
                         entry={entry}
-                        onNavigate={navigate}
-                        onOpenAction={openAction}
+                        handlers={handlers}
                         onToggleSelection={toggleSelection}
                         searchMode={showingSearch}
                         selected={selectedKeys.has(entryKey(entry))}
@@ -557,7 +617,7 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
       {selectionMode ? (
         <SelectionBar
           downloadableCount={downloadableEntries.length}
-          onBulkDelete={() => openAction({ entries: selectedEntries, type: "bulk-delete" })}
+          onBulkDelete={() => void removeEntries(selectedEntries)}
           onBulkDownload={() => downloadDriveEntries(api, selectedEntries, openInNewTab)}
           onBulkMove={() => openAction({ entries: selectedEntries, type: "bulk-move" })}
           onClear={clearSelection}
@@ -575,9 +635,34 @@ export function DriveBrowser({ api = driveApi, initialFolderId = null, onNavigat
         summary={uploadSummary}
       />
 
+      <QuickLook
+        actions={(item) => (
+          <>
+            <IconButton
+              icon={<Send />}
+              label={t("share.action")}
+              onClick={() => setShareTarget({ id: item.id, name: item.name })}
+              size="lg"
+              tooltipSide="bottom"
+              variant="overlay"
+            />
+            <IconButton
+              icon={<Trash2 />}
+              label={t("drive.action.delete")}
+              onClick={() => removeFromQuickLook(item)}
+              size="lg"
+              tooltipSide="bottom"
+              variant="overlay"
+            />
+          </>
+        )}
+        controller={quickLook}
+      />
+      <ShareToTelegramDialog api={shareApi} onClose={() => setShareTarget(null)} target={shareTarget} />
+      <ImportFromTelegramDialog api={importApi} onClose={() => setImportOpen(false)} open={importOpen} />
+
       <ActionDialog
         action={pendingAction}
-        api={api}
         error={actionError}
         onOpenChange={closeAction}
         onSubmit={submitAction}
@@ -798,28 +883,17 @@ function SelectionBar({
 }
 
 type EntryCardProps = {
-  api: DriveApi;
   entry: DriveEntry;
-  onNavigate: (folderId: string | null) => void;
-  onOpenAction: (action: PendingAction) => void;
+  handlers: EntryHandlers;
   onToggleSelection: (entry: DriveEntry) => void;
   searchMode: boolean;
   selected: boolean;
   selectionMode: boolean;
 };
 
-function DriveGridCard({
-  api,
-  entry,
-  onNavigate,
-  onOpenAction,
-  onToggleSelection,
-  searchMode,
-  selected,
-  selectionMode,
-}: EntryCardProps) {
+function DriveGridCard({ entry, handlers, onToggleSelection, searchMode, selected, selectionMode }: EntryCardProps) {
   return (
-    <DriveContextMenu api={api} entry={entry} onOpenAction={onOpenAction}>
+    <ActionContextMenu items={getDriveEntryActions(entry, handlers)} label={`${t("drive.action.menu")} ${entry.name}`}>
       <article
         className={cx(
           "group/card relative flex h-full min-h-0 flex-col rounded-lg p-1.5 transition-colors duration-150",
@@ -829,8 +903,9 @@ function DriveGridCard({
         <button
           aria-label={`${t("drive.action.open")} ${entry.name}`}
           className="focus-ring flex min-h-0 min-w-0 flex-1 flex-col rounded-md text-left"
-          onClick={() => openEntry({ api, entry, onNavigate, onOpenAction })}
+          onClick={() => openEntry(entry, handlers)}
           type="button"
+          {...entryKeyHandlers(entry, handlers)}
         >
           <span className="relative grid min-h-0 w-full flex-1 place-items-center overflow-hidden rounded-md bg-sunken">
             <FileTypeIcon mimeType={entry.mimeType} name={entry.name} previewSrc={entry.thumbnailUrl} type={entry.kind} />
@@ -855,18 +930,18 @@ function DriveGridCard({
           selected={selected}
         />
         <div className="absolute bottom-2 right-1.5">
-          <DriveEntryMenu api={api} entry={entry} onOpenAction={onOpenAction} />
+          <DriveEntryMenu entry={entry} handlers={handlers} />
         </div>
       </article>
-    </DriveContextMenu>
+    </ActionContextMenu>
   );
 }
 
-function DriveListRow({ api, entry, onNavigate, onOpenAction, onToggleSelection, searchMode, selected }: EntryCardProps) {
+function DriveListRow({ entry, handlers, onToggleSelection, searchMode, selected }: EntryCardProps) {
   const meta = [entryKindLabel(entry), formatBytes(entry.sizeBytes)].filter(Boolean).join(" · ");
 
   return (
-    <DriveContextMenu api={api} entry={entry} onOpenAction={onOpenAction}>
+    <ActionContextMenu items={getDriveEntryActions(entry, handlers)} label={`${t("drive.action.menu")} ${entry.name}`}>
       <article
         className={cx(
           "grid h-full items-center gap-3 border-b border-line px-3 transition-colors duration-150",
@@ -878,8 +953,9 @@ function DriveListRow({ api, entry, onNavigate, onOpenAction, onToggleSelection,
         <button
           aria-label={`${t("drive.action.open")} ${entry.name}`}
           className="focus-ring flex h-11 min-w-0 items-center gap-3 rounded-sm text-left"
-          onClick={() => openEntry({ api, entry, onNavigate, onOpenAction })}
+          onClick={() => openEntry(entry, handlers)}
           type="button"
+          {...entryKeyHandlers(entry, handlers)}
         >
           <FileTypeIcon mimeType={entry.mimeType} name={entry.name} previewSrc={entry.thumbnailUrl} size="list" type={entry.kind} />
           <span className="grid min-w-0 gap-0.5">
@@ -894,9 +970,9 @@ function DriveListRow({ api, entry, onNavigate, onOpenAction, onToggleSelection,
         <span className="hidden truncate text-sm text-ink-muted sm:block">{entryKindLabel(entry)}</span>
         <span className="hidden text-right text-sm tabular-nums text-ink-muted sm:block">{formatBytes(entry.sizeBytes) || "—"}</span>
         <span className="hidden truncate text-sm text-ink-muted lg:block">{formatDate(entry.updatedAt)}</span>
-        <DriveEntryMenu api={api} entry={entry} onOpenAction={onOpenAction} />
+        <DriveEntryMenu entry={entry} handlers={handlers} />
       </article>
-    </DriveContextMenu>
+    </ActionContextMenu>
   );
 }
 
@@ -969,143 +1045,80 @@ function entryKey(entry: DriveEntry): string {
   return `${entry.kind}:${entry.id}`;
 }
 
-function isInlinePreviewable(entry: DriveEntry): boolean {
-  if (entry.kind !== "asset") {
-    return false;
-  }
-
-  const kind = getFileTypeKind("asset", entry.name, entry.mimeType);
-  return kind === "pdf" || kind === "text";
-}
-
-function isPreviewable(entry: DriveEntry): boolean {
-  if (entry.kind !== "asset") {
-    return false;
-  }
-
-  return ["image", "pdf", "text", "video"].includes(getFileTypeKind("asset", entry.name, entry.mimeType));
-}
-
-function openEntry({
-  api,
-  entry,
-  onNavigate,
-  onOpenAction,
-}: {
-  api: DriveApi;
-  entry: DriveEntry;
-  onNavigate: (folderId: string | null) => void;
-  onOpenAction: (action: PendingAction) => void;
-}) {
+/** Folders open on click; files open in Quick Look (click, Enter or Space). */
+function openEntry(entry: DriveEntry, handlers: EntryHandlers) {
   if (entry.kind === "folder") {
-    onNavigate(entry.id);
-  } else if (isPreviewable(entry)) {
-    onOpenAction({ entry, type: "preview" });
+    handlers.navigate(entry.id);
   } else {
-    openInNewTab(api.downloadUrl(entry.id));
+    handlers.quickLook(entry);
   }
+}
+
+/** Space is Quick Look for files and does nothing for folders (Enter opens them). */
+function entryKeyHandlers(entry: DriveEntry, handlers: EntryHandlers) {
+  return quickLookKeyHandlers(() => {
+    if (entry.kind === "asset") {
+      handlers.quickLook(entry);
+    }
+  });
+}
+
+function driveQuickLookItem(api: DriveApi, entry: DriveEntry): QuickLookItem {
+  return {
+    downloadUrl: api.downloadUrl(entry.id),
+    id: entry.id,
+    kind: quickLookKind(entry.name, entry.mimeType),
+    name: entry.name,
+    posterUrl: entry.thumbnailUrl,
+    previewUrl: api.previewUrl(entry.id),
+    sizeBytes: entry.sizeBytes ?? null,
+  };
 }
 
 function openInNewTab(url: string) {
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
-function getDriveEntryActions({
-  api,
-  entry,
-  onOpenAction,
-}: {
-  api: DriveApi;
-  entry: DriveEntry;
-  onOpenAction: (action: PendingAction) => void;
-}): MenuItem[] {
+function getDriveEntryActions(entry: DriveEntry, handlers: EntryHandlers): MenuItem[] {
+  const fileActions: MenuItem[] =
+    entry.kind === "asset"
+      ? [
+          { icon: <Eye />, id: "quicklook", label: t("quicklook.action"), onSelect: () => handlers.quickLook(entry) },
+          { icon: <Send />, id: "share", label: t("share.action"), onSelect: () => handlers.share(entry) },
+          { icon: <Download />, id: "download", label: t("drive.action.download"), onSelect: () => handlers.download(entry) },
+        ]
+      : [];
+
   return [
+    ...fileActions,
     {
       icon: <PencilLine />,
       id: "rename",
       label: t("drive.action.rename"),
-      onSelect: () => onOpenAction({ entry, type: "rename" }),
+      onSelect: () => handlers.openAction({ entry, type: "rename" }),
+      separatorBefore: fileActions.length > 0,
     },
     {
       icon: <FolderInput />,
       id: "move",
       label: t("drive.action.move"),
-      onSelect: () => onOpenAction({ entry, type: "move" }),
+      onSelect: () => handlers.openAction({ entry, type: "move" }),
     },
-    ...(entry.kind === "asset" && isPreviewable(entry)
-      ? [
-          {
-            icon: <Eye />,
-            id: "preview",
-            label: t("drive.action.preview"),
-            onSelect: () => onOpenAction({ entry, type: "preview" }),
-          },
-        ]
-      : []),
-    ...(entry.kind === "asset"
-      ? [
-          {
-            icon: <Download />,
-            id: "download",
-            label: t("drive.action.download"),
-            onSelect: () => openInNewTab(api.downloadUrl(entry.id)),
-          },
-        ]
-      : []),
     {
       icon: <Trash2 />,
       id: "delete",
       label: t("drive.action.delete"),
-      onSelect: () => onOpenAction({ entry, type: "delete" }),
+      onSelect: () => handlers.delete(entry),
       separatorBefore: true,
       tone: "danger",
     },
   ];
 }
 
-function DriveContextMenu({
-  api,
-  children,
-  entry,
-  onOpenAction,
-}: {
-  api: DriveApi;
-  children: ReactNode;
-  entry: DriveEntry;
-  onOpenAction: (action: PendingAction) => void;
-}) {
-  const items = getDriveEntryActions({ api, entry, onOpenAction });
-
-  return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
-      <ContextMenuContent aria-label={`${t("drive.action.menu")} ${entry.name}`}>
-        {items.map((item) => (
-          <div className="contents" key={item.id}>
-            {item.separatorBefore ? <ContextMenuSeparator /> : null}
-            <ContextMenuItem onSelect={item.onSelect} variant={item.tone === "danger" ? "destructive" : "default"}>
-              {item.icon}
-              {item.label}
-            </ContextMenuItem>
-          </div>
-        ))}
-      </ContextMenuContent>
-    </ContextMenu>
-  );
-}
-
-function DriveEntryMenu({
-  api,
-  entry,
-  onOpenAction,
-}: {
-  api: DriveApi;
-  entry: DriveEntry;
-  onOpenAction: (action: PendingAction) => void;
-}) {
+function DriveEntryMenu({ entry, handlers }: { entry: DriveEntry; handlers: EntryHandlers }) {
   return (
     <Menu
-      items={getDriveEntryActions({ api, entry, onOpenAction })}
+      items={getDriveEntryActions(entry, handlers)}
       label={`${t("drive.action.menu")} ${entry.name}`}
       trigger={<MoreHorizontal aria-hidden="true" />}
       triggerVariant="ghost"
@@ -1115,7 +1128,6 @@ function DriveEntryMenu({
 
 type ActionDialogProps = {
   action: PendingAction | null;
-  api: DriveApi;
   error: string | null;
   onOpenChange: (open: boolean) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -1123,40 +1135,11 @@ type ActionDialogProps = {
   value: string;
 };
 
-function ActionDialog({ action, api, error, onOpenChange, onSubmit, setValue, value }: ActionDialogProps) {
+function ActionDialog({ action, error, onOpenChange, onSubmit, setValue, value }: ActionDialogProps) {
   if (!action) {
     return null;
   }
 
-  if (action.type === "preview" && action.entry.kind === "asset") {
-    if (getFileTypeKind("asset", action.entry.name, action.entry.mimeType) === "image") {
-      return <ImageViewerDialog api={api} entry={action.entry} onOpenChange={onOpenChange} />;
-    }
-
-    if (isInlinePreviewable(action.entry)) {
-      return <AssetPreviewDialog api={api} entry={action.entry} onOpenChange={onOpenChange} />;
-    }
-
-    return (
-      <Dialog
-        actions={<DownloadAction api={api} entry={action.entry} />}
-        icon={<Eye />}
-        onOpenChange={onOpenChange}
-        open
-        size="xl"
-        title={action.entry.name}
-      >
-        <img
-          alt={action.entry.name}
-          className="max-h-[64vh] w-full rounded-lg bg-sunken object-contain"
-          src={api.previewUrl(action.entry.id)}
-        />
-      </Dialog>
-    );
-  }
-
-  const isBulkDelete = action.type === "bulk-delete";
-  const isDelete = isBulkDelete || action.type === "delete";
   const isBulkMove = action.type === "bulk-move";
   const isMove = isBulkMove || action.type === "move";
   const titleKey: MessageKey =
@@ -1166,17 +1149,12 @@ function ActionDialog({ action, api, error, onOpenChange, onSubmit, setValue, va
         ? "drive.dialog.renameTitle"
         : isBulkMove
           ? "drive.dialog.bulkMoveTitle"
-          : isMove
-            ? "drive.dialog.moveTitle"
-            : isBulkDelete
-              ? "drive.dialog.bulkDeleteTitle"
-              : "drive.dialog.deleteTitle";
-  const icon =
-    action.type === "create-folder" ? <FolderPlus /> : action.type === "rename" ? <PencilLine /> : isMove ? <FolderInput /> : <Trash2 />;
+          : "drive.dialog.moveTitle";
+  const icon = action.type === "create-folder" ? <FolderPlus /> : action.type === "rename" ? <PencilLine /> : <FolderInput />;
   const description =
-    action.type === "bulk-move" || action.type === "bulk-delete"
+    action.type === "bulk-move"
       ? `${action.entries.length} ${t(action.entries.length === 1 ? "drive.count.one" : "drive.count.many")}`
-      : action.type === "move" || action.type === "delete"
+      : action.type === "move"
         ? action.entry.name
         : undefined;
 
@@ -1187,8 +1165,8 @@ function ActionDialog({ action, api, error, onOpenChange, onSubmit, setValue, va
           <Button onClick={() => onOpenChange(false)} variant="ghost">
             {t("drive.dialog.cancel")}
           </Button>
-          <Button form="drive-action-form" type="submit" variant={isDelete ? "danger" : "primary"}>
-            {isDelete ? t("drive.dialog.deleteConfirm") : t("drive.dialog.save")}
+          <Button form="drive-action-form" type="submit" variant="primary">
+            {t("drive.dialog.save")}
           </Button>
         </>
       }
@@ -1197,7 +1175,6 @@ function ActionDialog({ action, api, error, onOpenChange, onSubmit, setValue, va
       onOpenChange={onOpenChange}
       open
       title={t(titleKey)}
-      tone={isDelete ? "danger" : "default"}
     >
       <form className="grid gap-3" id="drive-action-form" onSubmit={onSubmit}>
         {action.type === "rename" || action.type === "create-folder" ? (
@@ -1223,7 +1200,6 @@ function ActionDialog({ action, api, error, onOpenChange, onSubmit, setValue, va
             value={value}
           />
         ) : null}
-        {isDelete ? <p>{t(isBulkDelete ? "drive.dialog.bulkDeleteBody" : "drive.dialog.deleteBody")}</p> : null}
         {error ? (
           <Callout role="alert" tone="danger">
             {error}
@@ -1232,207 +1208,6 @@ function ActionDialog({ action, api, error, onOpenChange, onSubmit, setValue, va
       </form>
     </Dialog>
   );
-}
-
-function DownloadAction({ api, entry }: { api: DriveApi; entry: DriveEntry }) {
-  return (
-    <Button leadingIcon={<Download />} onClick={() => openInNewTab(api.downloadUrl(entry.id))}>
-      {t("drive.action.download")}
-    </Button>
-  );
-}
-
-const viewerFocusable = "button:not(:disabled)";
-
-function ImageViewerDialog({
-  api,
-  entry,
-  onOpenChange,
-}: {
-  api: DriveApi;
-  entry: DriveEntry;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-
-  useEffect(() => {
-    const previousFocus = document.activeElement as HTMLElement | null;
-    closeButtonRef.current?.focus();
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onOpenChange(false);
-      }
-
-      if (event.key === "Tab") {
-        const focusable = Array.from(rootRef.current?.querySelectorAll<HTMLElement>(viewerFocusable) ?? []);
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        if (event.shiftKey && document.activeElement === first) {
-          event.preventDefault();
-          last?.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault();
-          first?.focus();
-        }
-      }
-    }
-
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      previousFocus?.focus();
-    };
-  }, [onOpenChange]);
-
-  function closeOnBackdrop(event: React.MouseEvent<HTMLElement>) {
-    if (event.target === event.currentTarget) {
-      onOpenChange(false);
-    }
-  }
-
-  return createPortal(
-    <div
-      aria-labelledby="drive-image-viewer-title"
-      aria-modal="true"
-      className="fixed inset-0 z-50 flex animate-fade-in flex-col bg-media/95 backdrop-blur-sm"
-      onClick={closeOnBackdrop}
-      ref={rootRef}
-      role="dialog"
-    >
-      <div className="flex shrink-0 items-center gap-3 px-4 py-3 text-white sm:px-6 sm:py-4">
-        <h2 className="min-w-0 flex-1 truncate text-base font-medium" id="drive-image-viewer-title">
-          {entry.name}
-        </h2>
-        <IconButton
-          icon={<Download />}
-          label={t("drive.action.download")}
-          onClick={() => openInNewTab(api.downloadUrl(entry.id))}
-          tooltipSide="bottom"
-          variant="overlay"
-        />
-        <IconButton
-          icon={<X />}
-          label={t("common.close")}
-          onClick={() => onOpenChange(false)}
-          ref={closeButtonRef}
-          tooltipSide="bottom"
-          variant="overlay"
-        />
-      </div>
-      <div className="flex min-h-0 flex-1 items-center justify-center px-4 pb-4 sm:px-8 sm:pb-8" onClick={closeOnBackdrop}>
-        <img
-          alt={entry.name}
-          className="max-h-full max-w-full animate-pop-in rounded-lg object-contain shadow-xl"
-          src={api.previewUrl(entry.id)}
-        />
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
-type AssetPreviewState =
-  | { status: "error" }
-  | { status: "loading" }
-  | { content: string; status: "text" }
-  | { status: "pdf"; url: string };
-
-function AssetPreviewDialog({
-  api,
-  entry,
-  onOpenChange,
-}: {
-  api: DriveApi;
-  entry: DriveEntry;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const kind = getFileTypeKind("asset", entry.name, entry.mimeType);
-  const [state, setState] = useState<AssetPreviewState>({ status: "loading" });
-
-  useEffect(() => {
-    const controller = new AbortController();
-    let objectUrl: string | null = null;
-    let cancelled = false;
-
-    setState({ status: "loading" });
-    void (async () => {
-      try {
-        const response = await fetch(api.downloadUrl(entry.id), { signal: controller.signal });
-        if (!response.ok) {
-          throw new Error(`Preview request failed with status ${response.status}`);
-        }
-
-        if (kind === "text") {
-          const content = await response.text();
-          if (!cancelled) {
-            setState({ content, status: "text" });
-          }
-          return;
-        }
-
-        const blob = await response.blob();
-        if (typeof URL.createObjectURL !== "function") {
-          throw new Error("PDF preview is not supported in this browser");
-        }
-        objectUrl = URL.createObjectURL(blob);
-        if (cancelled) {
-          revokeObjectUrl(objectUrl);
-          return;
-        }
-        setState({ status: "pdf", url: objectUrl });
-      } catch {
-        if (!controller.signal.aborted && !cancelled) {
-          setState({ status: "error" });
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-      if (objectUrl) {
-        revokeObjectUrl(objectUrl);
-      }
-    };
-  }, [api, entry.id, kind]);
-
-  return (
-    <Dialog
-      actions={<DownloadAction api={api} entry={entry} />}
-      icon={<FileTypeIcon className="size-9 rounded-md" mimeType={entry.mimeType} name={entry.name} size="list" type="asset" />}
-      onOpenChange={onOpenChange}
-      open
-      size="xl"
-      title={entry.name}
-    >
-      {state.status === "loading" ? <LoadingState label={t("drive.preview.loading")} /> : null}
-      {state.status === "error" ? <ErrorState body={t("drive.preview.error")} title={t("drive.error.title")} /> : null}
-      {state.status === "text" ? (
-        <pre
-          aria-label={entry.name}
-          className="max-h-[62vh] overflow-auto whitespace-pre-wrap rounded-lg border border-line bg-sunken p-4 font-mono text-sm leading-relaxed text-ink"
-        >
-          {state.content || t("drive.preview.empty")}
-        </pre>
-      ) : null}
-      {state.status === "pdf" ? (
-        <iframe
-          className="h-[min(68vh,48rem)] w-full rounded-lg border border-line bg-sunken"
-          src={state.url}
-          title={`${entry.name} · ${t("drive.action.preview")}`}
-        />
-      ) : null}
-    </Dialog>
-  );
-}
-
-function revokeObjectUrl(url: string) {
-  if (typeof URL.revokeObjectURL === "function") {
-    URL.revokeObjectURL(url);
-  }
 }
 
 function normalizeBreadcrumbs(items: DriveBreadcrumb[] | undefined, folderId: string | null): DriveBreadcrumb[] {

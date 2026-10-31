@@ -3,22 +3,28 @@ import { Heart, Play } from "lucide-react";
 
 import { assetPreviewUrl, assetThumbnailUrl } from "../../api/photos";
 import type { PhotoAsset } from "../../api/photos";
+import type { MenuItem } from "../../components/Menu";
 import { t } from "../../i18n/dictionary";
 import { cx } from "../../lib/cx";
+import { formatMessage } from "../../lib/format";
+import { ActionContextMenu } from "../drive/ActionContextMenu";
 
 export type PhotoCardProps = {
   asset: PhotoAsset;
+  /** Right-click actions (Vista rápida, Enviar por Telegram…, Eliminar). */
+  menuItems?: MenuItem[];
   onOpen: (asset: PhotoAsset) => void;
   showFavoriteMarker?: boolean;
 };
 
-export function PhotoCard({ asset, onOpen, showFavoriteMarker = true }: PhotoCardProps) {
+/** Space, Enter or a click open the photo in Quick Look (the native button activation). */
+export function PhotoCard({ asset, menuItems, onOpen, showFavoriteMarker = true }: PhotoCardProps) {
   const isVideo = asset.kind === "video";
   const src = isVideo ? assetThumbnailUrl(asset) : assetPreviewUrl(asset);
   // Justified rows: each tile grows in proportion to its aspect ratio, read once the image loads.
   const [ratio, setRatio] = useState(isVideo ? 16 / 9 : 4 / 3);
 
-  return (
+  const card = (
     <button
       aria-label={asset.filename}
       className="group/photo focus-ring relative block h-(--row-h) overflow-hidden rounded-md bg-sunken"
@@ -62,5 +68,13 @@ export function PhotoCard({ asset, onOpen, showFavoriteMarker = true }: PhotoCar
         </span>
       ) : null}
     </button>
+  );
+
+  return menuItems?.length ? (
+    <ActionContextMenu items={menuItems} label={formatMessage("photos.actions", { name: asset.filename })}>
+      {card}
+    </ActionContextMenu>
+  ) : (
+    card
   );
 }

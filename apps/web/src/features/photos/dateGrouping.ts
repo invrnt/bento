@@ -1,11 +1,12 @@
 import type { PhotoTimelineGroup } from "../../api/photos";
+import { appLocale } from "../../lib/format";
 
 export type TimelineMonthGroup = {
   days: PhotoTimelineGroup[];
   monthLabel: string;
 };
 
-const dateFormatter = new Intl.DateTimeFormat("es-CO", {
+const dateFormatter = new Intl.DateTimeFormat(appLocale(), {
   day: "numeric",
   month: "long",
   timeZone: "UTC",
@@ -13,7 +14,7 @@ const dateFormatter = new Intl.DateTimeFormat("es-CO", {
   year: "numeric",
 });
 
-const monthFormatter = new Intl.DateTimeFormat("es-CO", {
+const monthFormatter = new Intl.DateTimeFormat(appLocale(), {
   month: "long",
   timeZone: "UTC",
   year: "numeric",
