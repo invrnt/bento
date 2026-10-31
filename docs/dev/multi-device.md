@@ -45,10 +45,10 @@ uv run --project apps/api python -m bento.interfaces.worker.main
 VITE_API_BASE_URL=http://127.0.0.1:8000/api npm --prefix apps/web run dev -- --port 5173 --strictPort
 ```
 
-**Device B** (API on port 8001), the same with its own data directory:
+**Device B** (API on port 8001, UI on 5174), the same with its own data directory:
 
 ```sh
-export DATA_DIR="$PWD/data/dev/device-b" API_PORT=8001
+export DATA_DIR="$PWD/data/dev/device-b" API_PORT=8001 WEB_PORT=5174
 uv run --project apps/api python -m bento.interfaces.desktop.launcher migrate
 uv run --project apps/api python -m bento.interfaces.http.main
 ```
@@ -64,7 +64,7 @@ VITE_API_BASE_URL=http://127.0.0.1:8001/api npm --prefix apps/web run dev -- --p
 
 Each instance needs its own `DATA_DIR` (database, cache and key store) and its own API port; only `BENTO_FAKE_TELEGRAM_DIR` is shared. In headless mode each instance generates its device wrapping key in `<DATA_DIR>/secure/wrapping.key` unless you set `BENTO_DEVICE_WRAPPING_KEY`; never export the same wrapping key for both.
 
-> **Browser origin for the second UI.** In headless mode the API currently allows cross-origin requests only from `http://127.0.0.1:5173` and `http://localhost:5173`, so device B’s UI on port 5174 is blocked by CORS until the API derives its allowed origin from `WEB_PORT`. Until then, keep both APIs and workers running (sync between them keeps working) and switch the single UI on port 5173 between them by restarting Vite with the other `VITE_API_BASE_URL`.
+> **Browser origin.** Each API accepts cross-origin requests only from its own UI, `http://127.0.0.1:$WEB_PORT` and `http://localhost:$WEB_PORT` (default 5173). That is why device B’s API runs with `WEB_PORT=5174`.
 
 ### Pairing through a local relay
 
@@ -80,6 +80,25 @@ To test the web link, also run the site preview (`npm --prefix apps/site run pre
 ### Using the desktop shell as one device
 
 Unpackaged desktop runs forward `STORAGE_BACKEND=fake` when started with `BENTO_DEV_STORAGE_BACKEND=fake`, so one of the two devices can be the Electron app (`npm --prefix apps/desktop start`). Make sure the same `BENTO_FAKE_TELEGRAM_DIR` reaches its sidecars.
+
+### Scripted: both devices in one command
+
+`scripts/smoke/two_devices.py` starts the same processes (real `migrate`, API and worker entrypoints) for devices `a` and `b` under `data/dev/smoke/`, with a shared fake cloud and an in-process relay double, and prints each device’s API URL and the matching Vite command (`--web` starts the Vite servers too):
+
+```sh
+uv run --project apps/api python scripts/smoke/two_devices.py                  # fresh devices: try onboarding and pairing
+uv run --project apps/api python scripts/smoke/two_devices.py --setup paired   # a has a vault and samples, b is paired
+uv run --project apps/api python scripts/smoke/two_devices.py --web --reset    # start over and run both UIs (5173, 5174)
+```
+
+Options: `--devices 3` adds device `c` (API 8002, UI 5175), `--no-relay` forces the Sync-channel fallback, `--relay-url ws://127.0.0.1:8787` uses `wrangler dev`, `--manual-login` keeps the second device’s own QR from approving itself. Ctrl+C stops everything; state survives until `--reset`. While it runs, another terminal can simulate Telegram trouble or a forwarded file:
+
+```sh
+uv run --project apps/api python scripts/smoke/two_devices.py fault flood_wait 90   # Activity explains waits longer than 60 s
+uv run --project apps/api python scripts/smoke/two_devices.py fault network 30      # Telegram unreachable
+uv run --project apps/api python scripts/smoke/two_devices.py fault clear
+uv run --project apps/api python scripts/smoke/two_devices.py inbox ~/Pictures/foto.jpg
+```
 
 ## A journey to try
 
@@ -97,4 +116,10 @@ Stop every process and delete `data/dev/` (it is inside the git-ignored `data/` 
 
 ## Automated tests
 
-The fake cloud has its own contract and multi-process tests under `apps/api/tests/integration/fake_telegram`, and the critical journeys in [critical-journeys.md](../../orchestration/testing/critical-journeys.md) run against it. Run the whole backend suite with `cd apps/api && uv run pytest`.
+The fake cloud has its own contract and multi-process tests under `apps/api/tests/integration/fake_telegram`. The critical journeys 20–29 of [critical-journeys.md](../../orchestration/testing/critical-journeys.md) run end to end in `apps/api/tests/e2e`: real API and worker processes per device, one shared fake cloud and the relay double, driven over HTTP only. They take about two minutes, so the default backend run (`cd apps/api && uv run pytest`) skips them; run them with:
+
+```sh
+cd apps/api && uv run pytest -m e2e      # or: make e2e
+```
+
+Set `BENTO_E2E_TRACE=1` to print how long each wait took; a failing journey attaches the device logs to its report and skips the journeys that build on it.

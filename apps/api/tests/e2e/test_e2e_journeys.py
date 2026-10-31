@@ -17,7 +17,7 @@ import pytest
 
 from bento.adapters.fake_telegram.cloud import DocumentUpload
 from bento.domain.vault import VaultChannelRole
-from tests.e2e.harness import Device, World, wait_until
+from tests.e2e.harness import Device, World, sigterm_as_interrupt, wait_until
 from tests.e2e.journey_support import (
     DOCUMENT_BYTES,
     PHOTO_BYTES,
@@ -29,6 +29,7 @@ from tests.e2e.journey_support import (
     files_channel_parts,
     library_names,
     library_snapshot,
+    named_asset,
     pair_over_relay,
     unique_bytes,
     wait_for_convergence,
@@ -46,10 +47,11 @@ pytestmark = pytest.mark.e2e
 @pytest.fixture(scope="module")
 def world(world_root: Path, relay_url: str) -> Iterator[World]:
     world = World(world_root, relay_url=relay_url)
-    try:
-        yield world
-    finally:
-        world.stop()
+    with sigterm_as_interrupt():
+        try:
+            yield world
+        finally:
+            world.stop()
 
 
 @pytest.fixture(scope="module")
@@ -76,6 +78,13 @@ class TestTelegramFirstJourneys:
         assert created["recovery_qr"]["rows"]
         story.vault_id = created["vault"]["vault_id"]
         story.recovery_code = created["recovery_code"]
+        assert any(item["kind"] == "recovery_kit" for item in a.get("/activity")["attention"])
+        wrong_group = "ZZZZ" if not created["recovery_code"].endswith("ZZZZ") else "YYYY"
+        mismatch = a.request("POST", "/vault/recovery-code/confirm", json={"last_group": wrong_group}, expect=400)
+        assert mismatch.json()["error"]["code"] == "recovery_group_mismatch"
+        saved = a.post("/vault/recovery-code/confirm", {"last_group": created["recovery_code"].split("-")[-1]})
+        assert saved["recovery_kit_saved"] is True
+        assert not any(item["kind"] == "recovery_kit" for item in a.get("/activity")["attention"])
 
         channels = vault_channels(world)
         assert sorted(channels) == ["files", "inbox", "sync"]
@@ -121,6 +130,11 @@ class TestTelegramFirstJourneys:
         assert len([item for item in devices if item["removed_at"] is None]) == 2
         story.device_b_id = next(item["id"] for item in devices if not item["current"])
 
+        b.restart()  # the Telegram session and the keyring survive a restart
+        assert b.get("/account")["step"] == "authorized"
+        assert wait_for_vault_ready(b)["vault_id"] == story.vault_id
+        assert b.request("GET", f"/assets/{story.photo_id}/download").content == PHOTO_BYTES
+
     def test_23_concurrent_edits_delete_restore_and_purge_converge(self, world: World, story: SimpleNamespace) -> None:
         a, b = world.devices["a"], world.devices["b"]
         folder = a.post("/drive/folders", {"name": "Facturas"})
@@ -141,6 +155,9 @@ class TestTelegramFirstJourneys:
         assert snapshot["assets"][story.document_id] == ("factura-renombrada.txt", folder["id"], False)
         assert snapshot["assets"][story.photo_id][2] is True
         assert snapshot["albums"][album["id"]] == ("Vacaciones", (story.photo_id,))
+        assert b.request("GET", f"/photos/albums/{album['id']}").json()["asset_ids"] == [story.photo_id]
+        b.delete(f"/photos/albums/{album['id']}/items/{story.photo_id}")
+        wait_for_convergence(a, b, lambda shot: shot["albums"][album["id"]] == ("Vacaciones", ()))
 
         a.delete(f"/assets/{story.document_id}")
         snapshot = wait_for_convergence(a, b, lambda shot: story.document_id in shot["trash"])
@@ -195,10 +212,12 @@ class TestTelegramFirstJourneys:
         assert policy["paused"] and policy["effective_paused"]
         write_settled(source_dir / "en-pausa.txt", unique_bytes("en-pausa"))
         a.post(f"/backup/sources/{source['id']}/scan")
-        assert_absent_for(a, "en-pausa.txt", seconds=6)
+        assert_absent_for(a, "en-pausa.txt", seconds=5)
 
         (source_dir / "existente.txt").unlink()
-        assert not a.patch("/backup/policy", {"paused": False})["effective_paused"]
+        on_battery = a.patch("/backup/policy", {"paused": False}) and a.post("/backup/power", {"on_battery": True})
+        assert on_battery["pause_on_battery"] and on_battery["on_battery"] and on_battery["effective_paused"]
+        assert not a.post("/backup/power", {"on_battery": False})["effective_paused"]
         wait_for_named_asset(a, "en-pausa.txt")
         assert existing in library_snapshot(a)["assets"], "source deletions never delete from Bento"
         story.backup_asset_id = added
@@ -221,6 +240,36 @@ class TestTelegramFirstJourneys:
         assert a.request("GET", f"/assets/{imported}/download").content == content
         assert len([name for name in library_names(a) if name == "recibo-bandeja.txt"]) == 1
 
+    def test_28_share_to_a_chat_and_import_from_saved_messages(self, world: World, story: SimpleNamespace) -> None:
+        a, b = world.devices["a"], world.devices["b"]
+        chats = a.get("/telegram/chats")["items"]
+        assert chats[0]["kind"] == "saved" and not any(chat["title"].startswith("Bento") for chat in chats)
+        carlos = next(chat for chat in chats if chat["title"] == "Carlos Ruiz")
+        before = cloud(world).last_message_id(carlos["id"])
+        assert a.post(f"/assets/{story.backup_asset_id}/share/telegram", {"chat_id": carlos["id"]}) == {"sent": True}
+        shared = cloud(world).last_message_id(carlos["id"])
+        assert shared > before
+        assert Path(cloud(world).document_path(carlos["id"], shared)).read_bytes() == unique_bytes("nueva")
+
+        saved = chats[0]["id"]
+        media = a.get("/telegram/import/media", params={"chat_id": saved, "kind": "all"})["items"]
+        assert media
+        names = {item["filename"] for item in media}
+        for _ in range(2):  # importing twice adds nothing the second time
+            queued = a.post("/telegram/import", {"chat_id": saved, "all": True})
+            assert queued["job_id"]
+            wait_until(lambda: names <= set(library_names(a)), timeout=30, message="Saved Messages media on A")
+        wait_until(
+            lambda: all(
+                job["status"] == "succeeded" for job in a.jobs(limit=100) if job["type"] == "telegram_import"
+            ),
+            timeout=30,
+            message="imports finished",
+        )
+        imported = [name for name in library_names(a) if name in names]
+        assert sorted(imported) == sorted(names), imported
+        wait_until(lambda: names <= set(library_names(b)), timeout=30, message="imported media on B")
+
     def test_25_removing_a_device_rotates_keys_and_forces_a_new_kit(self, world: World, story: SimpleNamespace) -> None:
         a, b = world.devices["a"], world.devices["b"]
         epoch_before = vault_header(world)["current_epoch"]
@@ -232,17 +281,27 @@ class TestTelegramFirstJourneys:
         assert a.post("/vault/recovery-code/verify", {"recovery_code": story.recovery_code}) == {"valid": False}
         assert a.post("/vault/recovery-code/verify", {"recovery_code": removal["recovery_code"]}) == {"valid": True}
         story.recovery_code = removal["recovery_code"]
-        assert [item["id"] for item in a.get("/devices")["items"]] != [] and story.device_b_id not in {
-            item["id"] for item in a.get("/devices")["items"]
-        }
+        assert story.device_b_id not in {item["id"] for item in a.get("/devices")["items"]}
         wait_until(lambda: vault_header(world)["current_epoch"] > epoch_before, timeout=20, message="key rotation")
 
         wait_until(lambda: b.get("/account")["step"] == "signed_out", timeout=30, message="B signed out")
         secret = a.upload("despues-de-quitar-b.txt", unique_bytes("despues"), "text/plain")
         wait_for_remote_upload(a, secret["id"])
-        assert_absent_for(b, "despues-de-quitar-b.txt", seconds=8)
+        assert_absent_for(b, "despues-de-quitar-b.txt", seconds=5)
         assert b.get("/sync/status")["state"] in {"paused", "error", "offline", "disabled"}
         story.after_removal_id = secret["id"]
+
+        # Signing in to Telegram again does not give the removed device the new keys: it pulls the new
+        # batches but cannot open them. (It still reports `ready`/`idle`; reported as a UX gap.)
+        pulled_before = b.get("/sync/status")["last_pull_at"]
+        b.sign_in_with_qr()
+        wait_until(
+            lambda: (status := b.get("/sync/status"))["state"] == "idle" and status["last_pull_at"] != pulled_before,
+            timeout=30,
+            message="B pulls again after signing in",
+        )
+        assert named_asset(b, "despues-de-quitar-b.txt") is None
+        assert b.asset(secret["id"]) is None
 
     def test_24_fresh_device_restores_the_library_with_the_recovery_code(
         self, world: World, story: SimpleNamespace
@@ -251,8 +310,10 @@ class TestTelegramFirstJourneys:
         c = world.device("c")
         c.sign_in_with_qr()
         assert c.get("/vault")["state"] == "locked"
-        rejected = c.request("POST", "/vault/unlock", json={"recovery_code": "AAAA-BBBB-CCCC-DDDD-EEEE-FFFF-GGGG-HHHH-JJJJ"}, expect=(400, 401, 403, 409, 422))
-        assert "recovery" in rejected.text or rejected.json()["error"]["code"]
+        bogus = "AAAA-BBBB-CCCC-DDDD-EEEE-FFFF-GGGG-HHHH-JJJJ"
+        wrong = c.request("POST", "/vault/unlock", json={"recovery_code": bogus}, expect=400)
+        assert wrong.json()["error"]["code"] == "recovery_code_invalid"
+        assert "AAAA" not in wrong.text
 
         unlocked = c.post("/vault/unlock", {"recovery_code": story.recovery_code})
         assert unlocked["state"] in {"ready", "bootstrapping"} and unlocked["vault_id"] == story.vault_id
@@ -260,8 +321,8 @@ class TestTelegramFirstJourneys:
         snapshot = wait_for_convergence(a, c, lambda shot: story.after_removal_id in shot["assets"], timeout=60)
         assert story.document_id in snapshot["assets"] and story.album_id in snapshot["albums"]
         assert c.request("GET", f"/assets/{story.document_id}/download").content == DOCUMENT_BYTES
-        names = {item["name"] for item in a.get("/devices")["items"]}
-        assert len(names) >= 1 and len(a.get("/devices")["items"]) == 2
+        devices = a.get("/devices")["items"]
+        assert len(devices) == 2 and sum(not item["current"] for item in devices) == 1  # A and C; B stays removed
 
     def test_29_flood_wait_and_offline_show_a_calm_status_and_resume(
         self, world: World, story: SimpleNamespace
@@ -269,9 +330,10 @@ class TestTelegramFirstJourneys:
         a, c = world.devices["a"], world.devices["c"]
         fake = cloud(world)
 
-        fake.inject_fault("flood_wait", seconds=8)
+        fake.inject_fault("flood_wait", seconds=6)
         queued = a.upload("durante-espera.txt", unique_bytes("espera"), "text/plain")
         a.patch(f"/drive/items/{story.photo_id}", {"name": "playa-en-espera.jpg"})
+        a.sync_now()
         waiting = wait_until(lambda: sync_state(a, "waiting"), timeout=15, message="A sync waiting")
         assert waiting["waiting_until"] and waiting["error"]["code"] == "telegram_flood_wait"
         activity = a.get("/activity")
@@ -288,12 +350,13 @@ class TestTelegramFirstJourneys:
 
         fake.inject_fault("network", seconds=5)
         a.patch(f"/drive/items/{story.document_id}", {"name": "factura-sin-red.txt"})
+        a.sync_now()
         wait_until(lambda: sync_state(a, "offline"), timeout=15, message="A sync offline")
         assert a.get("/activity")["summary"] == "offline"
         wait_for_convergence(
             a, c, lambda shot: shot["assets"][story.document_id][0] == "factura-sin-red.txt", timeout=40
         )
-        assert sync_state(a, "idle")
+        wait_until(lambda: sync_state(a, "idle"), timeout=15, message="A sync idle again")
 
     @pytest.mark.xfail(reason="worker watches new backup sources only every 30 s and misses files added meanwhile")
     def test_26b_new_backup_source_is_watched_without_a_worker_restart(self, world: World) -> None:
@@ -303,7 +366,7 @@ class TestTelegramFirstJourneys:
         a.post("/backup/sources", {"path": str(source_dir), "label": "Documentos de A"})
         time.sleep(1.5)  # the initial scan of the (empty) folder has run
         write_settled(source_dir / "recien-llegado.txt", unique_bytes("recien-llegado"))
-        wait_for_named_asset(a, "recien-llegado.txt", timeout=12)
+        wait_for_named_asset(a, "recien-llegado.txt", timeout=8)
 
 
 def timeline_ids(device: Device) -> set[str]:

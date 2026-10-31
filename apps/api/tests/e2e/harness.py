@@ -16,6 +16,7 @@ import signal
 import socket
 import subprocess
 import sys
+import threading
 import time
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
@@ -33,7 +34,7 @@ TRACE = os.environ.get("BENTO_E2E_TRACE", "") == "1"
 API_MODULE = "bento.interfaces.http.main"
 WORKER_MODULE = "bento.interfaces.worker.main"
 LAUNCHER_MODULE = "bento.interfaces.desktop.launcher"
-# Inherited variables that would leak another configuration into a device (settings aliases are added below).
+# Inherited variables that would leak another configuration into a device, besides every settings alias.
 _DROPPED_PREFIXES = ("BENTO_", "VITE_")
 _DROPPED = {"DATA_DIR", "API_PORT", "WEB_PORT", "HOST", "STORAGE_BACKEND", "ENVIRONMENT", "PYTHONPATH"}
 
@@ -261,7 +262,9 @@ class Device:
 
         return wait_until(authorized, timeout=timeout, interval=0.3, message=f"{self.name} QR sign-in")
 
-    def upload(self, filename: str, content: bytes, mime: str, *, mode: str = "drive", folder_id: str | None = None) -> dict[str, Any]:
+    def upload(
+        self, filename: str, content: bytes, mime: str, *, mode: str = "drive", folder_id: str | None = None
+    ) -> dict[str, Any]:
         data = {"mode": mode}
         if folder_id is not None:
             data["folder_id"] = folder_id
@@ -278,7 +281,8 @@ class Device:
         return {item["asset"]["id"]: item["asset"] for item in self.drive_items(folder_id) if item["type"] == "asset"}
 
     def drive_folders(self, folder_id: str | None = None) -> dict[str, dict[str, Any]]:
-        return {item["folder"]["id"]: item["folder"] for item in self.drive_items(folder_id) if item["type"] == "folder"}
+        items = self.drive_items(folder_id)
+        return {item["folder"]["id"]: item["folder"] for item in items if item["type"] == "folder"}
 
     def asset(self, asset_id: str) -> dict[str, Any] | None:
         response = self.http.get(f"/assets/{asset_id}")
@@ -340,6 +344,24 @@ class World:
                 if tail:
                     sections.append(f"----- {device.name} {role} -----\n{tail}")
         return "\n".join(sections)
+
+
+@contextlib.contextmanager
+def sigterm_as_interrupt() -> Iterator[None]:
+    """Turn SIGTERM into `KeyboardInterrupt` so cleanup still stops the device processes (own sessions)."""
+    if threading.current_thread() is not threading.main_thread():
+        yield
+        return
+
+    def interrupt(signum: int, frame: object) -> None:
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)  # a repeated SIGTERM must not cut the cleanup short
+        raise KeyboardInterrupt
+
+    previous = signal.signal(signal.SIGTERM, interrupt)
+    try:
+        yield
+    finally:
+        signal.signal(signal.SIGTERM, previous)
 
 
 @contextlib.contextmanager

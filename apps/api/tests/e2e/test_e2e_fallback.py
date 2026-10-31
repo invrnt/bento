@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.e2e.harness import World, free_port, wait_until
+from tests.e2e.harness import World, free_port, sigterm_as_interrupt, wait_until
 from tests.e2e.journey_support import (
     unique_bytes,
     wait_for_named_asset,
@@ -23,10 +23,11 @@ pytestmark = pytest.mark.e2e
 def world(tmp_path_factory: pytest.TempPathFactory) -> Iterator[World]:
     # Nothing listens on this port: the configured relay is unavailable.
     world = World(tmp_path_factory.mktemp("e2e-fallback"), relay_url=f"ws://127.0.0.1:{free_port()}")
-    try:
-        yield world
-    finally:
-        world.stop()
+    with sigterm_as_interrupt():
+        try:
+            yield world
+        finally:
+            world.stop()
 
 
 def test_22_relay_unavailable_pairs_through_the_sync_channel(world: World) -> None:

@@ -1,7 +1,12 @@
-"""Fixtures for the multi-process end-to-end journeys (`-m e2e`)."""
+"""Fixtures for the multi-process end-to-end journeys.
+
+They take about two minutes, so the default run deselects them. Run them with any of
+`uv run pytest -m e2e`, `uv run pytest tests/e2e` or `BENTO_E2E=1 uv run pytest`.
+"""
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -16,6 +21,26 @@ _FAILED_JOURNEYS: dict[str, str] = {}
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "e2e: multi-process journeys against the fake Telegram cloud")
     config.addinivalue_line("markers", "incremental: later tests in the class are skipped once one fails")
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    if _e2e_requested(config):
+        return
+    selected = [item for item in items if item.get_closest_marker("e2e") is None]
+    if len(selected) != len(items):
+        config.hook.pytest_deselected(items=[item for item in items if item.get_closest_marker("e2e") is not None])
+        items[:] = selected
+
+
+def _e2e_requested(config: pytest.Config) -> bool:
+    if "e2e" in (config.option.markexpr or "") or os.environ.get("BENTO_E2E") == "1":
+        return True
+    here = Path(__file__).resolve().parent
+    for arg in config.args:
+        target = (config.invocation_params.dir / arg.split("::", 1)[0]).resolve()
+        if target == here or here in target.parents:
+            return True
+    return False
 
 
 def pytest_runtest_setup(item: pytest.Item) -> None:
