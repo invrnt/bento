@@ -17,6 +17,7 @@ session; callers must abort and burn the code.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from typing import Any, NoReturn
@@ -27,7 +28,14 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.constant_time import bytes_eq
 from spake2 import SPAKE2_A, SPAKE2_B
 
-from bento.adapters.security.primitives import KEY_BYTES, TAG_BYTES, RandomBytes, hkdf_sha256, hmac_sha256
+from bento.adapters.security.primitives import (
+    KEY_BYTES,
+    TAG_BYTES,
+    RandomBytes,
+    b64url_encode,
+    hkdf_sha256,
+    hmac_sha256,
+)
 from bento.domain.errors import IntegrityError, ValidationFailedError
 from bento.domain.pairing import PairingRole
 from bento.domain.vault import canonical_json
@@ -113,6 +121,7 @@ _CONFIRM_LABELS = {PairingRole.HOST: b"host-confirm", PairingRole.GUEST: b"guest
 _DIRECTION_INFO = {PairingRole.HOST: b"bento/v1/pairing/h2g", PairingRole.GUEST: b"bento/v1/pairing/g2h"}
 _SAS_INFO = b"bento/v1/pairing/sas"
 _FALLBACK_SAS_INFO = b"bento/v1/pairing/fallback-sas"
+_COMMIT_PREFIX = b"bento/v1/pair-commit"
 _COUNTER_LIMIT = 1 << 64
 _NONCE_PAD = bytes(4)
 
@@ -270,11 +279,39 @@ class PairingCryptoSession:
         return aead
 
 
-class FallbackPairingKeys:
-    """Ephemeral X25519 key for Sync-channel pairing (`FallbackPairingKeysPort`).
+def pairing_commitment(*, eph_pub: bytes, device_public_key: bytes, request_id: str) -> str:
+    """`b64url(SHA-256("bento/v1/pair-commit" || eph_guest_pub || device_public_key || request_id_utf8))`."""
+    eph, device = bytes(eph_pub), bytes(device_public_key)
+    if len(eph) != KEY_BYTES or len(device) != KEY_BYTES:
+        raise ValidationFailedError("Pairing keys must be 32 bytes")
+    if not isinstance(request_id, str) or not request_id:
+        raise ValidationFailedError("Pairing request id is required")
+    digest = hashlib.sha256(_COMMIT_PREFIX + eph + device + request_id.encode("utf-8")).digest()
+    return b64url_encode(digest)
 
-    SAS = 4 x 6 bits of HKDF-SHA256(X25519(own, peer), salt=min(pubA, pubB) || max(pubA, pubB),
-    info="bento/v1/pairing/fallback-sas", length=3).
+
+def verify_commitment(commitment: str, *, eph_pub: bytes, device_public_key: bytes, request_id: str) -> bool:
+    """Host side: constant-time check that a revealed guest ephemeral key matches its earlier commitment."""
+    if not isinstance(commitment, str) or not commitment.isascii():
+        return False
+    try:
+        expected = pairing_commitment(eph_pub=eph_pub, device_public_key=device_public_key, request_id=request_id)
+    except ValidationFailedError:
+        return False
+    return bytes_eq(expected.encode("ascii"), commitment.encode("ascii"))
+
+
+class FallbackPairingKeys:
+    """Ephemeral X25519 key for Sync-channel pairing (`FallbackPairingKeysPort`), commit-then-reveal.
+
+    ```txt
+    commitment = b64url(SHA-256("bento/v1/pair-commit" || eph_guest_pub || guest_device_public_key || request_id))
+    salt       = SHA-256(request_id || guest_device_public_key || eph_guest_pub || eph_host_pub)
+    SAS        = 4 x 6 bits of HKDF-SHA256(X25519(own, peer), salt, info="bento/v1/pairing/fallback-sas", length=3)
+    ```
+
+    `request_id` is UTF-8 encoded. The guest publishes only `commitment(...)` until it has seen the
+    host's ephemeral key; the host must check `verify_commitment` on the reveal before showing a SAS.
     """
 
     def __init__(self, *, random_bytes: RandomBytes = os.urandom) -> None:
@@ -287,15 +324,35 @@ class FallbackPairingKeys:
     def public_key(self) -> bytes:
         return self._public
 
-    def sas_with(self, peer_public_key: bytes) -> tuple[str, str, str, str]:
+    def commitment(self, *, device_public_key: bytes, request_id: str) -> str:
+        return pairing_commitment(eph_pub=self._public, device_public_key=device_public_key, request_id=request_id)
+
+    def sas_with(
+        self,
+        peer_public_key: bytes,
+        *,
+        request_id: str,
+        guest_device_public_key: bytes,
+        guest_ephemeral_public_key: bytes,
+        host_ephemeral_public_key: bytes,
+    ) -> tuple[str, str, str, str]:
         peer = bytes(peer_public_key)
-        if len(peer) != KEY_BYTES or bytes_eq(peer, self._public):
+        device = bytes(guest_device_public_key)
+        guest_eph = bytes(guest_ephemeral_public_key)
+        host_eph = bytes(host_ephemeral_public_key)
+        if any(len(key) != KEY_BYTES for key in (peer, device, guest_eph, host_eph)):
+            raise IntegrityError("pairing")
+        if not isinstance(request_id, str) or not request_id or bytes_eq(guest_eph, host_eph):
+            raise IntegrityError("pairing")
+        own_is_guest = bytes_eq(self._public, guest_eph) and bytes_eq(peer, host_eph)
+        own_is_host = bytes_eq(self._public, host_eph) and bytes_eq(peer, guest_eph)
+        if not (own_is_guest or own_is_host):
             raise IntegrityError("pairing")
         try:
             shared = self._private.exchange(X25519PublicKey.from_public_bytes(peer))
         except ValueError:
             raise IntegrityError("pairing") from None
-        salt = b"".join(sorted((self._public, peer)))
+        salt = hashlib.sha256(request_id.encode("utf-8") + device + guest_eph + host_eph).digest()
         return sas_from_bits(hkdf_sha256(shared, salt=salt, info=_FALLBACK_SAS_INFO, length=3))
 
 
