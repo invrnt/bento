@@ -45,3 +45,7 @@ Local-first upload returns before remote upload; remote upload success/failure/r
 ## Handoff
 
 Commit on your branch. Report behavior changes to existing endpoints, job types, settings used, test counts, and what the web agent should render.
+
+## Stage 14 Handoff Notes
+
+- The remote store (mtproto agent) owns upload resume and its safety check; your pipeline only enqueues `remote_upload` with the blob id and must never mutate local cache files in place (content-addressed, immutable).
