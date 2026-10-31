@@ -3,15 +3,22 @@
 Binding protocol: `orchestration/architecture/telegram-first.md` § Sync Protocol and § Integration Rules.
 Application code depends on ports only; every Sync document leaves the device sealed.
 
-Everything read from the Sync channel is untrusted until opened: documents are size-checked before download,
-batches below the epoch floor are rejected from their public prefix without decrypting, remote clocks are
-bounded by the message date and the local clock, and permanently invalid messages are counted and passed over
-(the cursor never stops on them).
+Everything read from the Sync channel is untrusted until opened: edited messages are invalid (Bento never edits
+Sync messages), documents are size-checked before download, the snapshot must match the digest in the
+MAC-covered header, batches below the epoch floor are rejected from their public prefix without decrypting,
+remote clocks are bounded by the message date and the local clock, and permanently invalid messages are counted
+and passed over (the cursor never stops on them).
+
+Telegram dates every message it receives, so the date of a message this device just posted measures how far its
+own wall clock runs ahead of (or behind) Telegram's: beyond 5 minutes peers drop its ops (or it drops theirs),
+and `sync_state["clock_skew"]` makes status and Activity say so.
 """
 
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import hmac
 import logging
 import time
 import uuid
@@ -28,6 +35,7 @@ from bento.application.sync.batching import (
     plan_flush,
     released_asset_id,
 )
+from bento.application.sync.codec import b64url_encode
 from bento.application.sync.envelope import envelope_epoch
 from bento.application.sync.keys import KeysGrantApplier, KeysMessage, parse_keys_message
 from bento.application.sync.ports import (
@@ -42,6 +50,7 @@ from bento.application.sync.snapshot import parse_snapshot, snapshot_payload, tr
 from bento.application.sync.state import (
     BOOTSTRAP,
     CAPTURE,
+    CLOCK_SKEW,
     CURSOR,
     DEVICE_REMOVED,
     EPOCH_FLOOR,
@@ -63,6 +72,7 @@ from bento.domain.errors import IntegrityError, ValidationFailedError
 from bento.domain.security import SealPurpose, VaultKeyring
 from bento.domain.sync import (
     MAX_CLOCK_SKEW_MS,
+    SYNC_MESSAGE_EDITED,
     SyncBatch,
     SyncMessageKind,
     SyncMessageRef,
@@ -71,7 +81,7 @@ from bento.domain.sync import (
     hlc_limit_ms,
     hlc_within,
 )
-from bento.domain.vault import SnapshotPointer, VaultHeader
+from bento.domain.vault import SnapshotPointer, VaultHeader, canonical_json
 from bento.ports.pairing import DeviceRepositoryPort
 from bento.ports.repositories import ClockPort
 from bento.ports.security import VaultCryptoPort
@@ -82,6 +92,12 @@ from bento.ports.vault import VaultContext, VaultSessionPort
 LOGGER = logging.getLogger("bento.sync")
 
 MIB = 1024 * 1024
+EDITED = "edited"
+"""Skip reason of an edited Sync message."""
+_PULLED_KINDS = frozenset({SyncMessageKind.BATCH, SyncMessageKind.KEYS, SyncMessageKind.HEADER})
+"""Kinds the pull reads; snapshots are read at bootstrap through the header, pairing by the pairing service."""
+_SKEW_UPDATE_MS = 60_000
+"""A stored clock skew is rewritten (and logged) only when it changes direction or by more than this."""
 
 
 @runtime_checkable
@@ -248,9 +264,15 @@ class SyncEngine:
 
     async def _apply_snapshot_message(self, context: VaultContext, pointer: SnapshotPointer) -> tuple[int, int]:
         """Apply the snapshot the header points to; returns `(covers_through_message_id, sealed epoch)`."""
+        if pointer.sha256 is None:
+            # Written before pointers carried a digest: nothing binds the document to the MAC-covered header.
+            raise IntegrityError("snapshot_sha256_missing")
         envelope = await self._transport.download_sync_document(
             context.layout, pointer.message_id, max_bytes=self._policy.max_snapshot_document_bytes
         )
+        # Checked before decrypting: an edited or swapped document never gets to cost a decryption.
+        if not hmac.compare_digest(_digest(envelope), pointer.sha256):
+            raise IntegrityError("snapshot_sha256")
         epoch = envelope_epoch(envelope)
         payload = self._crypto.open_json(context.keyring, SealPurpose.SNAPSHOT, envelope, aad=_aad(context))
         snapshot = parse_snapshot(payload)
@@ -343,10 +365,9 @@ class SyncEngine:
 
         published = 0
         for batch in plan.batches:
-            await self._post_batch(context, batch)
+            published += await self._post_batch(context, batch)
             for entry in batch:
                 self._held.pop(entry.seq, None)
-            published += len(batch)
         return published, len(fresh) >= self._policy.outbox_page_size
 
     async def _outbox_entries(self, seqs: tuple[int, ...]) -> tuple[OutboxEntry, ...]:
@@ -364,15 +385,28 @@ class SyncEngine:
             after = page[-1].seq
         return tuple(found)
 
-    async def _post_batch(self, context: VaultContext, entries: tuple[OutboxEntry, ...]) -> None:
+    async def _post_batch(self, context: VaultContext, entries: tuple[OutboxEntry, ...]) -> int:
+        """Post `entries` as one batch, or split, so that receivers accept it; returns the ops published."""
         context = await self._latest_keyring(context)
         batch = SyncBatch(
             batch_id=str(uuid.uuid4()),
             device_id=context.device.device_id,
             ops=tuple(entry.operation for entry in entries),
         )
-        envelope = self._crypto.seal_json(context.keyring, SealPurpose.SYNC, batch.to_dict(), aad=_aad(context))
+        payload = batch.to_dict()
+        envelope = None
+        if len(canonical_json(payload)) <= self._policy.max_batch_json_bytes:
+            envelope = self._crypto.seal_json(context.keyring, SealPurpose.SYNC, payload, aad=_aad(context))
+        if envelope is None or len(envelope) > self._policy.max_batch_document_bytes:
+            # Planning keeps batches far below both limits; this only guards against a misconfigured policy.
+            if len(entries) > 1:
+                half = len(entries) // 2
+                return await self._post_batch(context, entries[:half]) + await self._post_batch(context, entries[half:])
+            LOGGER.warning("Dropped a %s op that no receiver would accept", entries[0].operation.entity.value)
+            await self._outbox.remove((entries[0].seq,))
+            return 0
         await self._pace()
+        sent_at = self._clock.now()
         ref = await self._transport.post_sync_document(context.layout, SyncMessageKind.BATCH, envelope)
         self._last_post_at = self._monotonic()
         self._caught_up = False
@@ -382,6 +416,8 @@ class SyncEngine:
         await self._outbox.remove(tuple(entry.seq for entry in entries))
         await self._values.set_datetime(LAST_PUSH_AT, self._clock.now())
         await self._values.set_int(OPS_SINCE_SNAPSHOT, await self._values.get_int(OPS_SINCE_SNAPSHOT) + len(entries))
+        await self._measure_clock(sent_at, ref)
+        return len(entries)
 
     async def _latest_keyring(self, context: VaultContext) -> VaultContext:
         """A rotation by another process (device removal in the API) must not be sealed over with the old epoch."""
@@ -407,6 +443,7 @@ class SyncEngine:
             own = await self._own_batches()
             messages = batches = fields = 0
             removed = False
+            latest: datetime | None = None
             while not removed:
                 refs = await self._transport.list_sync_messages(
                     context.layout, after_message_id=cursor, limit=self._policy.list_page_size
@@ -414,6 +451,7 @@ class SyncEngine:
                 for ref in refs:
                     if ref.message_id <= cursor:
                         continue
+                    latest = ref.created_at if latest is None or ref.created_at > latest else latest
                     try:
                         processed = await self._process(context, ref, floor, own=ref.message_id in own)
                     except _Skip as skip:
@@ -435,6 +473,8 @@ class SyncEngine:
                         await self._values.set_json(OWN_BATCHES, sorted(own))
                 if len(refs) < self._policy.list_page_size:
                     break
+            if latest is not None:
+                await self._observe_clock(latest)
             if removed:
                 return context, PullResult(messages=messages, applied_batches=batches, applied_fields=fields, device_removed=True)
             await self._values.set_datetime(LAST_PULL_AT, self._clock.now())
@@ -446,6 +486,9 @@ class SyncEngine:
     async def _process(
         self, context: VaultContext, ref: SyncMessageRef, floor: EpochFloor | None, *, own: bool
     ) -> _Processed:
+        if ref.edited and ref.kind in _PULLED_KINDS:
+            # Bento never edits Sync messages: the content is not what its author posted.
+            raise _Skip(EDITED)
         if ref.kind == SyncMessageKind.BATCH:
             return _Processed(context, floor, await self._apply_batch_message(context, ref, floor, own=own))
         if ref.kind == SyncMessageKind.KEYS:
@@ -462,6 +505,9 @@ class SyncEngine:
             return await self._transport.download_sync_document(context.layout, ref.message_id, max_bytes=max_bytes)
         except ValidationFailedError:
             raise _Skip("too_large") from None
+        except IntegrityError as exc:
+            # Edited after it was listed: the transport reads the message again before downloading.
+            raise _Skip(_reason(exc)) from None
 
     async def _apply_batch_message(
         self, context: VaultContext, ref: SyncMessageRef, floor: EpochFloor | None, *, own: bool
@@ -615,6 +661,41 @@ class SyncEngine:
         own.add(int(message_id))
         await self._values.set_json(OWN_BATCHES, sorted(own))
 
+    # Clock skew
+
+    async def _measure_clock(self, sent_at: datetime, ref: SyncMessageRef) -> None:
+        """Telegram dated the message this device just posted when it arrived, right after `sent_at`."""
+        await self._record_clock_skew(datetime_ms(sent_at) - datetime_ms(ref.created_at), ref.message_id, fresh=True)
+
+    async def _observe_clock(self, latest: datetime) -> None:
+        """A listed message's date is at most Telegram's current time: one dated beyond this device's clock plus
+        the allowed skew proves the clock is behind, and a recent one proves it is not ahead."""
+        skew = datetime_ms(self._clock.now()) - datetime_ms(latest)
+        if skew < -MAX_CLOCK_SKEW_MS:
+            await self._record_clock_skew(skew, None, fresh=False)
+        elif skew <= MAX_CLOCK_SKEW_MS:
+            stored = await self._values.get_json(CLOCK_SKEW)
+            if isinstance(stored, dict) and isinstance(stored.get("skew_ms"), int) and stored["skew_ms"] > 0:
+                await self._values.delete(CLOCK_SKEW)
+
+    async def _record_clock_skew(self, skew_ms: int, message_id: int | None, *, fresh: bool) -> None:
+        stored = await self._values.get_json(CLOCK_SKEW)
+        if abs(skew_ms) <= MAX_CLOCK_SKEW_MS:
+            if fresh and stored is not None:
+                await self._values.delete(CLOCK_SKEW)
+            return
+        previous = stored.get("skew_ms") if isinstance(stored, dict) else None
+        if isinstance(previous, int) and (previous > 0) == (skew_ms > 0) and abs(previous - skew_ms) <= _SKEW_UPDATE_MS:
+            return  # already reported; pulls observe it again every cycle
+        LOGGER.warning(
+            "This device's clock runs %s s %s of Telegram's; fix it so peers and this device keep each other's changes",
+            abs(skew_ms) // 1000,
+            "ahead" if skew_ms > 0 else "behind",
+        )
+        await self._values.set_json(
+            CLOCK_SKEW, {"skew_ms": skew_ms, "message_id": message_id, "at": format_timestamp(self._clock.now())}
+        )
+
     # Snapshots
 
     async def snapshot_due(self) -> bool:
@@ -653,9 +734,12 @@ class SyncEngine:
         )
         envelope = self._crypto.seal_json(context.keyring, SealPurpose.SNAPSHOT, payload, aad=_aad(context))
         await self._pace()
+        sent_at = self._clock.now()
         ref = await self._transport.post_sync_document(context.layout, SyncMessageKind.SNAPSHOT, envelope)
         self._last_post_at = self._monotonic()
-        pointer = SnapshotPointer(message_id=ref.message_id, covers_through_message_id=cursor, created_at=now)
+        pointer = SnapshotPointer(
+            message_id=ref.message_id, covers_through_message_id=cursor, created_at=now, sha256=_digest(envelope)
+        )
         await self._pace()
         await self._vault.update_header(lambda header: replace(header, snapshot=pointer))
         self._last_post_at = self._monotonic()
@@ -663,6 +747,7 @@ class SyncEngine:
         await self._values.set_datetime(LAST_SNAPSHOT_AT, now)
         await self._values.set_int(OPS_SINCE_SNAPSHOT, 0)
         await self._values.delete(SNAPSHOT_REQUESTED_AT)
+        await self._measure_clock(sent_at, ref)
         LOGGER.info("Published a sync snapshot with %s entities", len(states))
 
     async def request_snapshot(self) -> None:
@@ -682,9 +767,14 @@ def _aad(context: VaultContext) -> bytes:
     return context.layout.vault_id.encode("utf-8")
 
 
+def _digest(document: bytes) -> str:
+    """Unpadded base64url SHA-256 of a Sync document's bytes (the header's snapshot pointer carries it)."""
+    return b64url_encode(hashlib.sha256(document).digest())
+
+
 def _reason(exc: IntegrityError | ValidationFailedError) -> str:
     what = exc.details.get("what") if isinstance(exc, IntegrityError) else None
-    return str(what or exc.code)
+    return EDITED if what == SYNC_MESSAGE_EDITED else str(what or exc.code)
 
 
 def _below_floor(envelope: bytes, message_id: int, floor: EpochFloor | None) -> bool:

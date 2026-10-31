@@ -66,6 +66,7 @@ Error codes: `telegram_not_available` (no build credentials), `telegram_login_ex
 |---|---|---|
 | GET | `/sync/status` | `{state: "disabled|idle|syncing|bootstrapping|offline|paused|waiting|error", pending_ops, last_push_at, last_pull_at, bootstrap: {done, total} | null, waiting_until: ISO | null, error: Error | null}` |
 | | | A removed device reports `state: "paused"` with `error.code = "device_removed"` until it joins again. |
+| | | A device clock more than 5 min off Telegram's reports `error: {code: "clock_skew", message, details: {direction: "ahead" \| "behind", skew_seconds}}` while `state` stays what the loop reports (`idle`, `syncing`, …); a loop error (offline, flood wait, failure) is reported instead while it lasts. |
 | POST | `/sync/now` | `{accepted: true}` |
 
 ## Devices — owner: pairing agent
@@ -150,7 +151,7 @@ Pairing sessions live in API memory; restarting the API cancels them.
 {"summary": "up_to_date|uploading|downloading|syncing|paused|offline|attention",
  "uploads": {"active": 1, "queued": 11, "bytes_total": 1000, "bytes_done": 400, "eta_seconds": 180},
  "downloads": {"active": 0, "queued": 0, "bytes_total": 0, "bytes_done": 0, "eta_seconds": null},
- "attention": [{"id": "…", "kind": "upload_failed|sync_error|flood_wait|recovery_kit|inbox_failed|new_device|device_removed", "title_key": "i18n key", "params": {}, "action": "retry|open_settings|save_recovery_kit|open_devices|none"}]}
+ "attention": [{"id": "…", "kind": "upload_failed|sync_error|flood_wait|recovery_kit|inbox_failed|new_device|device_removed|clock_skew", "title_key": "i18n key", "params": {}, "action": "retry|open_settings|save_recovery_kit|open_devices|none"}]}
 ```
 
 Security attention items (Stage 17):
@@ -158,6 +159,7 @@ Security attention items (Stage 17):
 - `new_device` (id `new_device:<device_id>`, `title_key` `activity.attention.new_device`, action `open_devices`, params `{device_id, name, first_seen_at}`): "Se añadió «{name}» a tu nube". Cleared by `POST /devices/{id}/acknowledge` or by removing the device.
 - `device_removed` (id `device_removed`, `title_key` `activity.attention.device_removed`, action `open_settings`): another device removed this one; the vault is `locked` with `reason: "device_removed"` and re-joining goes through pairing (with a fresh device identity) or the recovery code.
 - `recovery_kit` with `params.reason = "stale"`: the pinned header still wraps an older key epoch ("genera un nuevo kit"): `POST /vault/recovery-code` (rotate) fixes it.
+- `clock_skew` (id `clock_skew`, `title_key` `activity.attention.clock_skew`, action `none`, params `{direction: "ahead" | "behind", skew_seconds, skew_minutes}`): this device's clock is more than 5 minutes off Telegram's, so other devices ignore its changes (`ahead`) or it ignores theirs (`behind`): "Ajusta la fecha y hora de este equipo (automática)". It clears by itself once the clock is fixed and the device posts or sees a recent message.
 
 ## Trash and cache — owner: backup agent
 

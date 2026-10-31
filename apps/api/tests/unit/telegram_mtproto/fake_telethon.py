@@ -42,6 +42,7 @@ class FakeMessage:
     sticker: Any = None
     action: Any = None
     reactions: Any = None
+    edit_date: datetime | None = None
 
     @property
     def document(self) -> Any:

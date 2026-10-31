@@ -287,15 +287,18 @@ class TestTelegramFirstJourneys:
         assert b.get("/sync/status")["state"] in {"paused", "error", "offline", "disabled"}
         story.after_removal_id = secret["id"]
 
-        # Signing in to Telegram again does not give the removed device the new keys: it pulls the new
-        # batches but cannot open them. (It still reports `ready`/`idle`; reported as a UX gap.)
-        pulled_before = b.get("/sync/status")["last_pull_at"]
+        # Signing in to Telegram again does not give the removed device the new keys: the rotation that left
+        # it out locks it (keys dropped, local library kept) until it joins again under a new identity.
         b.sign_in_with_qr()
         wait_until(
-            lambda: (status := b.get("/sync/status"))["state"] == "idle" and status["last_pull_at"] != pulled_before,
+            lambda: (status := b.get("/sync/status"))["state"] == "paused"
+            and (status["error"] or {}).get("code") == "device_removed",
             timeout=30,
-            message="B pulls again after signing in",
+            message="B learns it was removed",
         )
+        vault = b.get("/vault")
+        assert vault["state"] == "locked" and vault["reason"] == "device_removed"
+        assert "device_removed" in {item["kind"] for item in b.get("/activity")["attention"]}
         assert named_asset(b, "despues-de-quitar-b.txt") is None
         assert b.asset(secret["id"]) is None
 

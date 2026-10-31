@@ -278,6 +278,11 @@ def fields_to_apply(op: SyncOperation, clocks: Mapping[str, str]) -> dict[str, A
     return {name: value for name, value in op.fields.items() if clocks.get(name, "") < op.hlc}
 
 
+SYNC_MESSAGE_EDITED = "sync_message_edited"
+"""`IntegrityError` subject of an edited Sync message. Bento never edits Sync messages, so an edit (a removed
+device can still edit channel posts, including replacing a document) makes the message invalid."""
+
+
 @dataclass(frozen=True, slots=True)
 class SyncMessageRef:
     message_id: int
@@ -286,6 +291,8 @@ class SyncMessageRef:
     size_bytes: int
     created_at: datetime
     text: str | None = None
+    edited: bool = False
+    """Telegram reports an edit date for this message; readers pass it over as invalid."""
 
 
 class SyncState(StrEnum):
@@ -314,3 +321,6 @@ class SyncStatus:
     bootstrap: BootstrapProgress | None = None
     waiting_until: datetime | None = None
     error_code: str | None = None
+    clock_skew_ms: int | None = None
+    """Set while this device's wall clock is more than `MAX_CLOCK_SKEW_MS` off Telegram's: positive when ahead
+    (peers drop its ops), negative when behind (it drops peers' ops), until the clock is fixed."""

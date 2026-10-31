@@ -51,6 +51,9 @@ without this device (or listed it as removed). The vault reports `locked` (`reas
 paused, and re-joining installs a fresh device identity."""
 OWN_BATCHES = "own_batch_message_ids"
 """Message ids of batches this device posted and has not pulled yet (re-published if they land below the floor)."""
+CLOCK_SKEW = "clock_skew"
+"""`{"skew_ms", "message_id", "at"}` while this device's wall clock is more than 5 minutes ahead of Telegram's
+(`skew_ms > 0`, peers drop its ops) or behind it (`skew_ms < 0`, it drops peers' ops)."""
 
 VAULT_SCOPED_KEYS = (
     INITIAL_PUBLISH,

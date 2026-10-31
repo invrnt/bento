@@ -14,11 +14,13 @@ from bento.adapters.fake_telegram import FakeTelegramCloud
 from bento.adapters.security import FallbackPairingKeys
 from bento.application.pairing import b64url_decode, b64url_encode
 from bento.domain.devices import Device, DevicePlatform
-from bento.domain.errors import TelegramAccountError
+from bento.domain.errors import TelegramAccountError, VaultNotFoundError
 from bento.domain.pairing import PairingError, PairingRole, PairingState, PairingTransport, PairingVaultInfo
+from bento.domain.security import VaultKeyring
 from bento.domain.sync import SyncMessageKind
 from bento.domain.vault import VaultHeader
 from bento.domain.vault import VaultState
+from bento.ports.key_store import VAULT_KEYRING
 from tests.integration.pairing.pairing_support import PairingDevice, make_pairing_device, wait_for_state
 
 
@@ -512,6 +514,60 @@ def test_a_removed_device_cannot_rejoin_through_the_sync_channel(tmp_path: Path)
             assert guest.vault.installs == []
             assert await host.devices.get(guest.device_id) == removed, "pairing never clears removed_at"
             assert await host.pairing.list_requests() == ()
+        finally:
+            await host.pairing.close()
+            await guest.pairing.close()
+
+    asyncio.run(scenario())
+
+
+def test_guest_refuses_a_grant_whose_keyring_is_newer_than_the_pinned_header(tmp_path: Path) -> None:
+    """A removed device keeps older epochs and can pin an older-epoch header: it proves nothing about the grant."""
+
+    async def scenario() -> None:
+        host, guest = await _devices(tmp_path)
+        keyring = await host.vault.keyring()
+        assert keyring is not None
+        rotated = VaultKeyring(vault_id=keyring.vault_id, current_epoch=2, keys={**keyring.keys, 2: b"\x05" * 32})
+        await host.key_store.put(VAULT_KEYRING, host.crypto.keyring_to_bytes(rotated))  # header stays at epoch 1
+        try:
+            requested = await guest.pairing.request_access()
+            [request] = await host.pairing.list_requests()
+            await host.pairing.review_request(request.id)
+            await wait_for_state(lambda: guest.pairing.get(requested.session.id), PairingState.AWAITING_APPROVAL)
+            await host.pairing.approve_request(request.id)
+            await guest.pairing.confirm(requested.session.id)
+
+            failed = await wait_for_state(lambda: guest.pairing.get(requested.session.id), PairingState.FAILED)
+            assert failed.session.error_code == "pairing_grant_invalid"
+            assert guest.vault.installs == [] and await guest.vault.keyring() is None
+        finally:
+            await host.pairing.close()
+            await guest.pairing.close()
+
+    asyncio.run(scenario())
+
+
+def test_edited_pairing_messages_and_headers_are_ignored(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        host, guest = await _devices(tmp_path)
+        assert host.vault.layout is not None
+        layout = host.vault.layout
+        cloud = FakeTelegramCloud(tmp_path / "cloud")
+        try:
+            await guest.pairing.request_access()
+            _, messages = cloud.read_chat(layout.sync_channel_id)
+            [request] = [item for item in messages if item.text and '"pair_request"' in item.text]
+            # Same text, but edited: Bento never edits pairing messages, so the request is not listed.
+            cloud.edit_message(layout.sync_channel_id, request.id, text=request.text)
+            assert await host.pairing.list_requests() == ()
+
+            pinned = cloud.chat(layout.sync_channel_id).pinned_message_id
+            header = await host.runtime.transport.read_header_text(layout)
+            assert pinned is not None and header is not None
+            cloud.edit_message(layout.sync_channel_id, pinned, text=header)
+            with pytest.raises(VaultNotFoundError):
+                await guest.pairing.request_access()
         finally:
             await host.pairing.close()
             await guest.pairing.close()

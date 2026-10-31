@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 
 from bento.adapters.fake_telegram import DocumentUpload, FakeTelegramCloud
-from bento.domain.errors import StorageUnavailableError, ValidationFailedError
-from bento.domain.sync import SyncMessageKind
+from bento.domain.errors import IntegrityError, StorageUnavailableError, ValidationFailedError
+from bento.domain.sync import SYNC_MESSAGE_EDITED, SyncMessageKind
 from bento.domain.telegram import RemotePart, TelegramMediaKind
 from bento.domain.vault import CHANNEL_TITLES, channel_about, VaultChannelRole, VaultLayout
 from tests.integration.fake_telegram.support import make_device, run, sign_in
@@ -136,6 +136,35 @@ def test_sync_documents_and_text_are_listed_in_order_with_kinds(tmp_path: Path) 
             await transport.download_sync_document(layout, batch.message_id)
         with pytest.raises(StorageUnavailableError):
             await transport.download_sync_document(layout, pairing.message_id)
+
+    run(scenario())
+
+
+def test_edited_sync_messages_are_flagged_refused_and_never_read_as_the_header(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        device, layout = await _vault(tmp_path)
+        transport = device.runtime.transport
+        cloud = FakeTelegramCloud(tmp_path)
+        batch = await transport.post_sync_document(layout, SyncMessageKind.BATCH, b"sealed-batch")
+        header = await transport.publish_header_text(layout, '{"bento":"vault-header","v":1}')
+        assert not any(ref.edited for ref in await transport.list_sync_messages(layout, after_message_id=0))
+
+        edited = cloud.edit_message(
+            layout.sync_channel_id,
+            batch.message_id,
+            document=DocumentUpload(b"other bytes", "x.bsync", "application/octet-stream", TelegramMediaKind.DOCUMENT),
+        )
+        cloud.edit_message(layout.sync_channel_id, header, text='{"bento":"vault-header","v":1}')
+
+        assert edited.edit_date is not None and edited.media is not None and edited.media.size_bytes == 11
+        listed = {ref.message_id: ref for ref in await transport.list_sync_messages(layout, after_message_id=0)}
+        assert listed[batch.message_id].edited and listed[header].edited
+        with pytest.raises(IntegrityError) as refused:
+            await transport.download_sync_document(layout, batch.message_id)
+        assert refused.value.details == {"what": SYNC_MESSAGE_EDITED}
+        assert await transport.read_header_text(layout) is None
+        with pytest.raises(StorageUnavailableError):
+            cloud.edit_message(layout.sync_channel_id, 999, text="{}")
 
     run(scenario())
 

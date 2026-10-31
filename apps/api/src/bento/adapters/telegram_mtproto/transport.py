@@ -2,6 +2,9 @@
 
 Text is always sent with `parse_mode=None`: headers and pairing messages are JSON whose base64url values contain
 `__`, which Markdown would otherwise eat.
+
+Bento never edits Sync messages. Any message with an `edit_date` is reported as edited, its document is refused,
+and an edited pinned header reads as absent (architecture § Sync Protocol).
 """
 
 from __future__ import annotations
@@ -17,9 +20,15 @@ from telethon import errors, events, functions, types, utils
 
 from bento.adapters.telegram_mtproto.media import message_media, own_reactions
 from bento.adapters.telegram_mtproto.session import MtprotoSession
-from bento.domain.errors import DomainError, StorageUnavailableError, TelegramFloodWaitError, ValidationFailedError
+from bento.domain.errors import (
+    DomainError,
+    IntegrityError,
+    StorageUnavailableError,
+    TelegramFloodWaitError,
+    ValidationFailedError,
+)
 from bento.domain.storage import StorageBackend
-from bento.domain.sync import SyncMessageKind, SyncMessageRef
+from bento.domain.sync import SYNC_MESSAGE_EDITED, SyncMessageKind, SyncMessageRef
 from bento.domain.telegram import InboxItem
 from bento.domain.vault import (
     CHANNEL_TITLES,
@@ -66,6 +75,9 @@ class MtprotoVaultTransport:
                 return None
             message = await client.get_messages(channel, ids=pinned)
             if message is None or message.media is not None or getattr(message, "action", None) is not None:
+                return None
+            if _edited(message):
+                LOGGER.warning("Integrity: the pinned vault header %s was edited; it is ignored", message.id)
                 return None
             return message.message or None
 
@@ -153,7 +165,7 @@ class MtprotoVaultTransport:
     async def download_sync_document(self, layout: VaultLayout, message_id: int, *, max_bytes: int | None = None) -> bytes:
         async def download(client: Any) -> bytes:
             channel = await self._session.input_peer(client, layout.sync_channel_id)
-            data = await download_message(client, channel, message_id, bytes, max_bytes=max_bytes)
+            data = await download_message(client, channel, message_id, bytes, max_bytes=max_bytes, reject_edited=True)
             if max_bytes is not None and len(data) > max_bytes:
                 raise ValidationFailedError("Sync document exceeds the size limit", {"max_bytes": max_bytes})
             return bytes(data)
@@ -352,15 +364,26 @@ class MtprotoVaultTransport:
         )
 
 
-async def download_message(client: Any, peer: Any, message_id: int, file: Any, *, max_bytes: int | None = None) -> Any:
+async def download_message(
+    client: Any,
+    peer: Any,
+    message_id: int,
+    file: Any,
+    *,
+    max_bytes: int | None = None,
+    reject_edited: bool = False,
+) -> Any:
     """`download_media` of one message, re-fetching it when its file reference expired.
 
-    With `max_bytes`, a document the message reports as larger is refused before anything is downloaded.
+    With `max_bytes`, a document the message reports as larger is refused before anything is downloaded; with
+    `reject_edited`, so is the document of an edited message (`IntegrityError`).
     """
     for attempt in range(FILE_REFERENCE_RETRIES + 1):
         message = await client.get_messages(peer, ids=message_id)
         if message is None or message.media is None:
             raise StorageUnavailableError(StorageBackend.TELEGRAM.value)
+        if reject_edited and _edited(message):
+            raise IntegrityError(SYNC_MESSAGE_EDITED)
         if max_bytes is not None:
             size = getattr(getattr(message, "file", None), "size", None)
             if not isinstance(size, int) or size > max_bytes:
@@ -391,6 +414,7 @@ def _sync_ref(message: Any) -> SyncMessageRef | None:
             filename=filename,
             size_bytes=int(getattr(message.file, "size", 0) or 0),
             created_at=message.date,
+            edited=_edited(message),
         )
     text = getattr(message, "message", None)
     if not text or getattr(message, "media", None) is not None:
@@ -405,7 +429,13 @@ def _sync_ref(message: Any) -> SyncMessageRef | None:
         size_bytes=len(text.encode("utf-8")),
         created_at=message.date,
         text=text,
+        edited=_edited(message),
     )
+
+
+def _edited(message: Any) -> bool:
+    """Telegram sets `edit_date` on every edit (even with `edit_hide`); Bento itself never edits Sync messages."""
+    return getattr(message, "edit_date", None) is not None
 
 
 def _filter_title(item: Any) -> str:

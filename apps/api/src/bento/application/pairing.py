@@ -1298,24 +1298,24 @@ class PairingService:
         return self._open_grant(identity, sealed, layout.vault_id, aad=request_id)
 
     async def _verify_granted_keyring(self, layout: VaultLayout, shown: VaultHeader, keyring: VaultKeyring) -> None:
-        """Defence in depth: the granted keyring must MAC the pinned header of the vault the user was shown."""
-        text = await self._transport.read_header_text(layout)
+        """Defence in depth: the granted keyring must MAC the pinned header of the vault the user was shown.
+
+        Only at the keyring's current epoch (architecture § Header): a removed device keeps older epochs and can
+        MAC and pin an older header, so an older-epoch header proves nothing about the grant.
+        """
+        text = await self._transport.read_header_text(layout)  # None when the pinned header was edited
         if text is None:
             raise _Abort(PairingState.FAILED, "pairing_grant_invalid")
         try:
             header = VaultHeader.from_json(text)
         except ValidationFailedError:
             raise _Abort(PairingState.FAILED, "pairing_grant_invalid") from None
-        # The header is MACed with the epoch it declares, which a fresh grant always contains.
         valid = (
             header.vault_id == layout.vault_id
             and header.layout == layout
             and header.created_at == shown.created_at
-            and header.current_epoch in keyring.keys
-            and header.current_epoch <= keyring.current_epoch
-            and self._vault_crypto.verify_header_mac(
-                replace(keyring, current_epoch=header.current_epoch), header.canonical_unsigned_bytes(), header.mac
-            )
+            and header.current_epoch == keyring.current_epoch
+            and self._vault_crypto.verify_header_mac(keyring, header.canonical_unsigned_bytes(), header.mac)
         )
         if not valid:
             raise _Abort(PairingState.FAILED, "pairing_grant_invalid")
@@ -1478,6 +1478,10 @@ class PairingService:
     async def _read_fallback(self, layout: VaultLayout, ref: SyncMessageRef) -> FallbackMessage | None:
         if ref.kind is not SyncMessageKind.PAIRING:
             return None
+        if ref.edited:
+            # Bento never edits pairing messages; an edited one may say anything (an offer swapped for another).
+            logger.warning("Integrity: ignored the edited pairing message %s", ref.message_id)
+            return None
         text = ref.text
         if text is None:
             if not ref.filename.endswith(SyncMessageKind.PAIRING.suffix):
@@ -1506,7 +1510,9 @@ class PairingService:
                 header = VaultHeader.from_json(text) if text is not None else None
             except ValidationFailedError:
                 header = None
-            if header is not None and header.vault_id == layout.vault_id:
+            # Same rules as `VaultService` discovery: the parser refuses naive timestamps, `created_at` orders
+            # nothing, and the header must name the layout it is pinned in.
+            if header is not None and header.vault_id == layout.vault_id and header.layout == layout:
                 candidates.append((layout, header))
         if not candidates:
             raise VaultNotFoundError()

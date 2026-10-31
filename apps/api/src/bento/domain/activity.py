@@ -23,6 +23,7 @@ class AttentionKind(StrEnum):
     INBOX_FAILED = "inbox_failed"
     NEW_DEVICE = "new_device"
     DEVICE_REMOVED = "device_removed"
+    CLOCK_SKEW = "clock_skew"
 
 
 class AttentionAction(StrEnum):
