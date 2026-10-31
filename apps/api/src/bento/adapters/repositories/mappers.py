@@ -4,13 +4,19 @@ from datetime import UTC, datetime
 from typing import Any
 
 from bento.domain.assets import Asset, AssetKind, AssetMetadata, AssetMode, ProcessingState
+from bento.domain.devices import Device, DevicePlatform
 from bento.domain.drive import Folder
 from bento.domain.jobs import Job, JobStatus, JobType
 from bento.domain.manifest import ManifestEntityType, ManifestEvent, ManifestEventType
 from bento.domain.photos import Album
+from bento.domain.security import EncryptionMetadata, EncryptionMode
+from bento.domain.storage import BlobKind, BlobPart, BlobRef, StorageBackend
 from bento.infrastructure.db.models import (
     AlbumModel,
     AssetModel,
+    BlobPartModel,
+    BlobRefModel,
+    DeviceModel,
     FolderModel,
     JobModel,
     ManifestEventModel,
@@ -166,4 +172,102 @@ def manifest_event_from_model(model: ManifestEventModel) -> ManifestEvent:
         entity_id=model.entity_id,
         payload=payload,
         created_at=require_aware(model.created_at),
+    )
+
+
+def blob_ref_from_model(model: BlobRefModel) -> BlobRef:
+    return BlobRef(
+        id=model.id,
+        asset_id=model.asset_id,
+        backend=StorageBackend(model.backend),
+        kind=BlobKind(model.kind),
+        object_key=model.object_key,
+        size_bytes=model.size_bytes,
+        sha256=model.sha256,
+        chat_id=model.chat_id,
+        message_id=model.message_id,
+        file_id=model.file_id,
+        file_unique_id=model.file_unique_id,
+        encryption=EncryptionMetadata(
+            mode=EncryptionMode(model.encryption_mode),
+            key_id=model.encryption_key_id,
+            nonce=model.encryption_nonce,
+            tag=model.encryption_tag,
+            key_epoch=model.key_epoch,
+            format_version=model.format_version if model.format_version is not None else 1,
+        ),
+        parts=tuple(
+            BlobPart(
+                index=part.part_index,
+                channel_id=part.channel_id,
+                message_id=part.message_id,
+                size_bytes=part.size_bytes,
+            )
+            for part in sorted(model.parts, key=lambda item: item.part_index)
+        ),
+    )
+
+
+def blob_ref_to_model(blob_ref: BlobRef, *, created_at: datetime) -> BlobRefModel:
+    return BlobRefModel(
+        id=blob_ref.id,
+        asset_id=blob_ref.asset_id,
+        backend=blob_ref.backend.value,
+        kind=blob_ref.kind.value,
+        object_key=blob_ref.object_key,
+        size_bytes=blob_ref.size_bytes,
+        sha256=blob_ref.sha256,
+        chat_id=blob_ref.chat_id,
+        message_id=blob_ref.message_id,
+        file_id=blob_ref.file_id,
+        file_unique_id=blob_ref.file_unique_id,
+        encryption_mode=blob_ref.encryption.mode.value,
+        encryption_key_id=blob_ref.encryption.key_id,
+        encryption_nonce=blob_ref.encryption.nonce,
+        encryption_tag=blob_ref.encryption.tag,
+        key_epoch=blob_ref.encryption.key_epoch,
+        format_version=blob_ref.encryption.format_version,
+        created_at=created_at,
+        parts=[
+            BlobPartModel(
+                blob_ref_id=blob_ref.id,
+                part_index=part.index,
+                channel_id=part.channel_id,
+                message_id=part.message_id,
+                size_bytes=part.size_bytes,
+            )
+            for part in blob_ref.parts
+        ],
+    )
+
+
+def device_from_model(model: DeviceModel) -> Device:
+    try:
+        platform = DevicePlatform(model.platform)
+    except ValueError:
+        platform = DevicePlatform.OTHER
+    return Device(
+        id=model.id,
+        name=model.name,
+        platform=platform,
+        public_key=model.public_key,
+        added_at=require_aware(model.added_at),
+        telegram_auth_hash=model.telegram_auth_hash,
+        last_seen_at=aware(model.last_seen_at),
+        removed_at=aware(model.removed_at),
+        current=model.is_current,
+    )
+
+
+def device_to_model(device: Device) -> DeviceModel:
+    return DeviceModel(
+        id=device.id,
+        name=device.name,
+        platform=device.platform.value,
+        public_key=device.public_key,
+        telegram_auth_hash=device.telegram_auth_hash,
+        added_at=device.added_at,
+        last_seen_at=device.last_seen_at,
+        removed_at=device.removed_at,
+        is_current=device.current,
     )
