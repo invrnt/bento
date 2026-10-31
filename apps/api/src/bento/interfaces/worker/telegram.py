@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from pathlib import Path
 
@@ -171,7 +172,10 @@ async def _wait_for_activity(settings: Settings, stop_event: asyncio.Event) -> N
     finally:
         stopper.cancel()
         if not waiter.done():
+            # `cancel()` only requests it; the waiter has no result until it has actually finished.
             waiter.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await waiter
     if not waiter.cancelled():
         waiter.result()
 
