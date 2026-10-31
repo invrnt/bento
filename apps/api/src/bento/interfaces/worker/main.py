@@ -22,12 +22,19 @@ from bento.application.indexing.embedding import EmbeddingIndexingService
 from bento.application.media import MediaProcessingService
 from bento.application.indexing import OCRIndexingService
 from bento.infrastructure.db.clock import SystemClock
-from bento.infrastructure.db.engine import create_session_factory, sqlite_url
+from bento.infrastructure.db.engine import create_app_session_factory
 from bento.infrastructure.settings import Settings, get_settings
 from bento.infrastructure.storage_pipeline import get_storage_pipeline
 from bento.interfaces.worker.dispatch import WorkerDispatcher
+from bento.adapters.sync import configure_change_capture
 from bento.interfaces.worker.telegram import TelegramJobHandlers, run_inbox_loop
 from bento.interfaces.worker.storage_pipeline import StoragePipelineJobHandler, StoragePipelineLoop
+from bento.interfaces.worker.sync_loop import (
+    SyncSnapshotJobHandler,
+    create_asset_index_recorder,
+    start_sync_loop,
+    stop_sync_loop,
+)
 
 LOGGER = logging.getLogger("bento.worker")
 
@@ -40,11 +47,13 @@ async def run_worker(stop_event: asyncio.Event | None = None) -> None:
         settings.worker_concurrency,
     )
     event = stop_event or asyncio.Event()
+    configure_change_capture(settings.storage_backend != "local")
     dispatcher = _create_dispatcher(worker_id=f"worker-{os.getpid()}", settings=settings)
     inbox_loop = asyncio.create_task(run_inbox_loop(settings, event))
     pipeline_loop = asyncio.create_task(
         StoragePipelineLoop(get_storage_pipeline(settings), watcher=WatchdogFolderWatcher()).run(event)
     )
+    sync_task = start_sync_loop(settings, event)
     try:
         while not event.is_set():
             processed = await dispatcher.process_one()
@@ -58,13 +67,14 @@ async def run_worker(stop_event: asyncio.Event | None = None) -> None:
         event.set()
         await asyncio.gather(inbox_loop, return_exceptions=True)
         await pipeline_loop
+        await stop_sync_loop(sync_task)
 
 
 def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> WorkerDispatcher:
     settings = settings or get_settings()
     data_dir = Path(settings.data_dir)
     clock = SystemClock()
-    session_factory = create_session_factory(sqlite_url(data_dir / "db" / "bento.sqlite3"))
+    session_factory = create_app_session_factory(settings)
     jobs = SQLiteJobQueue(session_factory, clock)
     assets = SQLiteAssetRepository(session_factory)
     blob_refs = SQLiteBlobRefCatalog(session_factory, clock)
@@ -99,6 +109,7 @@ def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> Work
         clock=clock,
         pdf_renderer=Pypdfium2PDFPageRenderer(data_dir / "cache" / "ocr" / "pdf-pages"),
         pdf_pages=SQLitePDFPageTextCatalog(session_factory, clock),
+        index_recorder=create_asset_index_recorder(settings, session_factory),
     )
     embedding = EmbeddingIndexingService(
         assets=assets,
@@ -109,6 +120,7 @@ def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> Work
         manifest=manifest,
         clock=clock,
         text_catalog=SQLiteEmbeddingTextCatalog(session_factory),
+        index_recorder=create_asset_index_recorder(settings, session_factory),
     )
     return WorkerDispatcher(
         jobs=jobs,
@@ -119,6 +131,7 @@ def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> Work
         embedding=embedding,
         telegram=TelegramJobHandlers(settings),
         storage_pipeline=StoragePipelineJobHandler(pipeline),
+        sync_snapshot=SyncSnapshotJobHandler(session_factory),
     )
 
 

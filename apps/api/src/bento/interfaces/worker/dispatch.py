@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -29,6 +30,7 @@ class WorkerDispatcher:
     embedding: EmbeddingIndexingService | None = None
     telegram: TelegramJobHandlers | None = None
     storage_pipeline: StoragePipelineJobHandler | None = None
+    sync_snapshot: Callable[[Job], Awaitable[None]] | None = None
 
     async def process_one(self) -> bool:
         job = await self.jobs.claim_next(self.worker_id)
@@ -66,6 +68,9 @@ class WorkerDispatcher:
                 raise RuntimeError("No embedding handler registered")
             asset_id = job.asset_id or _payload_asset_id(job)
             await self.embedding.process_asset_embedding(asset_id)
+            return
+        if job.type == JobType.SYNC_SNAPSHOT and self.sync_snapshot is not None:
+            await self.sync_snapshot(job)
             return
         raise RuntimeError(f"No handler registered for job type {job.type.value}")
 

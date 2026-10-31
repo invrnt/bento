@@ -64,6 +64,10 @@
       "🦁"
     ]
   },
+  "fallback_grant": {
+    "grant": "a30acb614ebf4daa00e39afd74837aacd847218a6f095e2b1f248ce043af374deae7d477aab0fcba0ddd",
+    "grant_key": "bb96d82b09e78decc63492fc678b5313e36e38ab8cb1dc2ad756f307fe3246b5"
+  },
   "header_mac": {
     "mac": "H678AZ9cQX3RfFHNVIc3fqzHtAeg2Snk7MxDXRcVubE",
     "unsigned": "{\"bento\":\"vault-header\",\"current_epoch\":2,\"v\":1,\"vault_id\":\"vlt_kat\"}"

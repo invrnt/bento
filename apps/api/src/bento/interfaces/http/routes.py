@@ -43,6 +43,7 @@ from bento.interfaces.http.routes_pairing import router as pairing_router
 from bento.interfaces.http.routes_trash import router as trash_router
 from bento.interfaces.http.routes_search import router as search_router
 from bento.interfaces.http.routes_settings import router as settings_router
+from bento.interfaces.http.routes_sync import router as sync_router
 from bento.interfaces.http.routes_telegram import router as telegram_router
 from bento.interfaces.http.routes_vault import router as vault_router
 
@@ -59,6 +60,7 @@ router.include_router(content_router)
 router.include_router(backup_router)
 router.include_router(trash_router)
 router.include_router(activity_router)
+router.include_router(sync_router)
 
 
 class HealthResponse(BaseModel):
@@ -629,12 +631,12 @@ def _product_dependencies(request: Request) -> ProductRouteDependencies:
     from bento.adapters.manifest import SQLiteManifestJournal
     from bento.adapters.repositories import SQLiteAlbumRepository, SQLiteAssetRepository, SQLiteFolderRepository
     from bento.infrastructure.db.clock import SystemClock
-    from bento.infrastructure.db.engine import create_session_factory, sqlite_url
+    from bento.infrastructure.db.engine import create_app_session_factory
 
     settings = _settings(request)
     data_dir = _data_dir(settings)
     clock = SystemClock()
-    session_factory = create_session_factory(sqlite_url(data_dir / "db" / "bento.sqlite3"))
+    session_factory = create_app_session_factory(settings)
     assets = SQLiteAssetRepository(session_factory)
     folders = SQLiteFolderRepository(session_factory)
     albums = SQLiteAlbumRepository(session_factory)

@@ -56,7 +56,7 @@ from bento.domain.storage import StorageBackend
 from bento.domain.sync import SyncStatus
 from bento.domain.vault import VaultStatus
 from bento.infrastructure.db.clock import SystemClock
-from bento.infrastructure.db.engine import create_session_factory, sqlite_url
+from bento.infrastructure.db.engine import create_app_session_factory
 from bento.infrastructure.settings import Settings
 from bento.ports.blob_store import RemoteBlobStorePort
 
@@ -142,7 +142,7 @@ def build_storage_pipeline(
     cache_grace_seconds: int = 600,
 ) -> StoragePipelineComponents:
     data_dir = Path(settings.data_dir)
-    factory = session_factory or create_session_factory(sqlite_url(data_dir / "db" / "bento.sqlite3"))
+    factory = session_factory or create_app_session_factory(settings)
     clock = SystemClock()
     remote = remote or remote_store_provider(settings)
     jobs = SQLiteJobQueue(factory, clock)

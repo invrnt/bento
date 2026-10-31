@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from bento.adapters.sync import configure_change_capture
 from bento.infrastructure.settings import Settings, get_settings, settings_database_path
 from bento.interfaces.desktop.routes import router as desktop_router
 from bento.interfaces.desktop.security import DesktopSecurityConfig, DesktopSecurityMiddleware
@@ -16,6 +17,7 @@ def create_app(
     desktop_environ: Mapping[str, str] | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
+    configure_change_capture(resolved_settings.storage_backend != "local")
     app = FastAPI(title=resolved_settings.app_name, version=resolved_settings.app_version)
     app.state.settings = resolved_settings
     app.state.settings_database_path = settings_database_path(resolved_settings)

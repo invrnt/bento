@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Protocol
 
 from bento.application.media.service import BlobPathResolverPort, BlobRefCatalogPort
+from bento.application.sync.ports import AssetIndexRecorderPort
 from bento.domain.assets import Asset, AssetKind, ProcessingState
 from bento.domain.errors import AssetNotFoundError, ValidationFailedError
 from bento.domain.indexing import EmbeddingRecord
@@ -13,6 +15,7 @@ from bento.domain.storage import BlobKind
 from bento.ports.manifest import ManifestJournalPort
 from bento.ports.repositories import AssetRepositoryPort, ClockPort
 
+LOGGER = logging.getLogger("bento.indexing.embedding")
 
 Vector = tuple[float, ...]
 
@@ -45,6 +48,7 @@ class EmbeddingIndexingService:
         manifest: ManifestJournalPort,
         clock: ClockPort,
         text_catalog: EmbeddingTextCatalogPort | None = None,
+        index_recorder: AssetIndexRecorderPort | None = None,
     ) -> None:
         self._assets = assets
         self._blob_refs = blob_refs
@@ -54,6 +58,7 @@ class EmbeddingIndexingService:
         self._manifest = manifest
         self._clock = clock
         self._text_catalog = text_catalog
+        self._index_recorder = index_recorder
 
     async def process_asset_embedding(self, asset_id: str) -> EmbeddingRecord | None:
         asset = await self._assets.get(asset_id)
@@ -88,7 +93,19 @@ class EmbeddingIndexingService:
         except Exception:
             await self._mark_partial_failure(pending_asset)
             raise
+        await self._record_index(record, vector)
         return record
+
+    async def _record_index(self, record: EmbeddingRecord, vector: Vector) -> None:
+        """Publish the embedding to other devices (`asset_index` op); sync failures never fail indexing."""
+        if self._index_recorder is None:
+            return
+        try:
+            await self._index_recorder.record_embedding(
+                record.asset_id, provider=record.provider, dimensions=record.dimensions, vector=vector
+            )
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.warning("Could not queue the embedding for sync: %s", exc.__class__.__name__)
 
     async def _embed_asset(self, asset: Asset, source_path: Path) -> tuple[EmbeddingRecord, Vector]:
         if asset.kind == AssetKind.IMAGE:
