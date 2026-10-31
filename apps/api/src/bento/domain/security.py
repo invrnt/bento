@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import IntEnum, StrEnum
 
 from bento.domain.errors import ValidationFailedError
@@ -63,11 +64,16 @@ class VaultKeyring:
 
 @dataclass(frozen=True, slots=True)
 class RecoveryWrap:
-    """Keyring wrapped with a recovery code, as stored in the vault header (base64url strings)."""
+    """Keyring wrapped with a recovery code, as stored in the vault header (base64url strings).
+
+    `confirmed_at` is set (MAC-covered, vault-wide) once someone proved they saved this code; every new wrap
+    starts without it.
+    """
 
     alg: str
     nonce: str
     wrapped_keyring: str
+    confirmed_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)

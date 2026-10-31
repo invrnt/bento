@@ -109,12 +109,13 @@ The Sync channel's pinned message is a JSON text message (≤ 4096 chars):
 {"bento": "vault-header", "v": 1, "vault_id": "vlt_...", "created_at": "ISO-8601",
  "layout": {"files": <channel_id>, "sync": <channel_id>, "inbox": <channel_id>},
  "current_epoch": 1,
- "recovery": {"alg": "hkdf-aesgcm-v1", "nonce": "b64url", "wrapped_keyring": "b64url"},
+ "recovery": {"alg": "hkdf-aesgcm-v1", "nonce": "b64url", "wrapped_keyring": "b64url", "confirmed_at": "ISO-8601 (optional)"},
  "snapshot": {"message_id": 123, "covers_through_message_id": 456, "created_at": "ISO-8601"} | null,
  "mac": "b64url HMAC-SHA256(header-mac subkey, canonical JSON without mac)"}
 ```
 
-- New headers are posted and pinned; the previous header is unpinned (not deleted).
+- New headers are posted and pinned; older header messages are then deleted (best effort, resumable cursor per device) because they carry the keyring wrapped by superseded recovery codes. The current header and newer ones are never deleted.
+- `recovery.confirmed_at` (optional ISO-8601, MAC-covered, omitted while unset) records that the current recovery code was saved (kit confirmation or an unlock with the code). It is vault-wide: every device reports `recovery_kit_saved` from it, and every new wrap (rotation, device removal) starts without it.
 - Devices with a keyring verify the MAC and ignore headers with invalid MACs. A device that unlocks via recovery code verifies the MAC after unwrapping.
 
 ## Sync Protocol
