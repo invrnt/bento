@@ -6,7 +6,7 @@
 
 1. In Telegram, forward or send a photo, video or file to the **“Bento · Bandeja”** channel (it is in the “Bento” chat folder).
 2. Within seconds it appears in your Bento library, already encrypted in your cloud.
-3. Bento marks the message with ✅ once it has been imported. If something fails, it marks it with ⚠️ and shows it in **Activity**.
+3. Bento reacts to the message on your behalf so you can see its progress: 👀 while importing, ✅ once it is in your cloud, and ⚠️ if something failed (also shown in **Activity**). Only you see these reactions, because the Inbox is your own private channel.
 
 > Tip: to keep a photo’s original quality, send it from Telegram **as a file**. Photos sent as photos are compressed by Telegram.
 
@@ -21,3 +21,5 @@
 - At least one of your computers with Bento must be on and connected. If none is, what you send waits in the inbox until one connects.
 - The inbox is meant for photos, videos and files.
 - The inbox comes muted so it doesn’t bother you. Don’t delete it: without it, Bento can’t receive anything this way.
+
+- Items that arrive from Telegram (Inbox or import) are not processed by smart search or text recognition: Telegram's terms do not allow using its data with AI models. You can still find them by name, type, and date.
