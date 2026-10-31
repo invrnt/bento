@@ -138,7 +138,7 @@ def test_oversized_frame_from_the_peer_ends_the_room() -> None:
         guest = await client.open_room("BG01", PairingRole.GUEST)
         await host.wait_for_peer(1)
         # Bypass the client-side guard: the relay answers with `message_too_large` and burns the room.
-        await host._connection.send(b"x" * (MAX_FRAME_BYTES + 10))  # noqa: SLF001
+        await host._connection.send(b"x" * (MAX_FRAME_BYTES + 10))
         with pytest.raises(PairingError) as rejected:
             await host.receive(2)
         assert rejected.value.code == "pairing_protocol"
@@ -184,5 +184,21 @@ def test_health_and_configuration() -> None:
         assert rejected.value.details == {"reason": "relay_url_invalid"}
         with pytest.raises(ValidationFailedError):
             await client.open_room("k7q2", PairingRole.HOST)
+
+    _run(scenario)
+
+
+def test_a_relay_that_forwards_oversized_frames_is_a_protocol_error() -> None:
+    async def scenario(relay: RelayDouble, client: WebSocketPairingRelay) -> None:
+        relay.max_frame_bytes = 10 * MAX_FRAME_BYTES  # a misbehaving relay
+        host = await client.open_room("WX01", PairingRole.HOST)
+        guest = await client.open_room("WX01", PairingRole.GUEST)
+        await guest.wait_for_peer(1)
+        await guest._connection.send(b"x" * (MAX_FRAME_BYTES + 1))
+        with pytest.raises(PairingError) as rejected:
+            await host.receive(2)
+        assert rejected.value.code == "pairing_protocol"
+        await host.close()
+        await guest.close()
 
     _run(scenario)

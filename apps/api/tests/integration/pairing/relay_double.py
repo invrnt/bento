@@ -8,6 +8,7 @@ followed by close `4001`, expiry with close `4000`, 64 KiB / 128 frame limits, a
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import re
 import threading
@@ -255,10 +256,8 @@ def relay_in_thread(**options: object) -> Iterator[RelayDouble]:
 
 
 async def _send(ws: ServerConnection, payload: dict[str, object]) -> None:
-    try:
+    with contextlib.suppress(ConnectionClosed):
         await ws.send(json.dumps(payload, separators=(",", ":")))
-    except ConnectionClosed:
-        pass
 
 
 def _welcome(role: str, room: Room) -> dict[str, object]:

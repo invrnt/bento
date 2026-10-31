@@ -743,23 +743,33 @@ class PairingService:
         return await self.approve(self._request_session(request_id).id)
 
     async def reject_request(self, request_id: str) -> PairingView:
+        """Host: decline a fallback request (`pair_reject`), whether or not it was reviewed."""
+        self._prune()
         session = self._index.subscribers.get(request_id)
         if session is not None and session.state is PairingState.AWAITING_APPROVAL:
             return await self.reject(session.id)
-        if session is not None and not session.state.terminal:
-            await self.cancel(session.id)
         context = await self._vault.require()
         request = self._index.requests.get(request_id)
-        if request is None:
+        if request is None and session is None:
             raise PairingError("pairing_request_not_found", "Pairing request not found")
-        await self._post_fallback(context.layout, fallback_payload(FallbackKind.REJECT, request_id))
+        await self._post_reject(context.layout, request_id)
+        if session is None:
+            assert request is not None
+            session = self._new_session(PairingRole.HOST, PairingTransport.TELEGRAM, 0.0, request_id=request_id)
+            session.peer = PairingPeer(device_name=request.device_name, platform=request.platform.value)
+        if not session.state.terminal:
+            self._finish(session, PairingState.REJECTED)
+            if session.task is not None:
+                session.task.cancel()
+        return self._view(session)
+
+    async def _post_reject(self, layout: VaultLayout, request_id: str) -> None:
+        """Tell the guest (best effort) and hide the request on this device."""
         self._index.answered.add(request_id)
-        if session is not None:
-            return self._view(session)
-        rejected = self._new_session(PairingRole.HOST, PairingTransport.TELEGRAM, 0.0, request_id=request_id)
-        rejected.peer = PairingPeer(device_name=request.device_name, platform=request.platform.value)
-        self._finish(rejected, PairingState.REJECTED)
-        return self._view(rejected)
+        try:
+            await self._post_fallback(layout, fallback_payload(FallbackKind.REJECT, request_id))
+        except DomainError as exc:
+            logger.warning("could not post a pairing rejection: %s", exc.code)
 
     async def close(self) -> None:
         """Cancel every running session (API shutdown)."""
@@ -796,7 +806,8 @@ class PairingService:
             if isinstance(event, _Command):
                 if event.kind == "approve":
                     break
-                await self._send(channel, crypto, {"type": MessageType.REJECTED.value})
+                with contextlib.suppress(DomainError):
+                    await self._send(channel, crypto, {"type": MessageType.REJECTED.value})
                 raise _Abort(PairingState.REJECTED)
             message = self._peer_message(session, event)
             if message.type is MessageType.LOGIN_TOKEN:
@@ -1228,8 +1239,7 @@ class PairingService:
             if not isinstance(event, _Command):
                 continue
             if event.kind == "reject":
-                await self._post_fallback(context.layout, fallback_payload(FallbackKind.REJECT, request.request_id))
-                self._index.answered.add(request.request_id)
+                await self._post_reject(context.layout, request.request_id)
                 raise _Abort(PairingState.REJECTED)
             context = await self._vault.require()
             sealed = self._vault_crypto.seal_for_device(
@@ -1432,25 +1442,31 @@ class PairingService:
                 asyncio.get_running_loop().create_task(self._cleanup(session))
 
     async def _run(self, session: _Session, flow: Coroutine[Any, Any, None]) -> None:
+        """Run a flow; cleanup (channel close, Sync message deletion) happens before the final state is shown."""
         session.started = True
+        outcome: tuple[PairingState, str | None, str | None] | None = None
         try:
             await flow
-            if not session.state.terminal:
-                self._finish(session, PairingState.FAILED, "pairing_internal")
         except _Abort as abort:
-            self._finish(session, abort.state, abort.code)
+            outcome = (abort.state, abort.code, None)
         except asyncio.CancelledError:
-            self._finish(session, PairingState.CANCELLED)
+            outcome = (PairingState.CANCELLED, None, None)
         except PairingError as exc:
             expired = exc.code in {"pairing_expired", "pairing_request_expired"}
-            self._finish(session, PairingState.EXPIRED if expired else PairingState.FAILED, exc.code, exc.message)
+            outcome = (PairingState.EXPIRED if expired else PairingState.FAILED, exc.code, exc.message)
         except DomainError as exc:
-            self._finish(session, PairingState.FAILED, exc.code, exc.message)
+            outcome = (PairingState.FAILED, exc.code, exc.message)
         except Exception:
             logger.exception("pairing %s failed unexpectedly", session.id)
-            self._finish(session, PairingState.FAILED, "pairing_internal")
+            outcome = (PairingState.FAILED, "pairing_internal", None)
         finally:
-            await self._cleanup(session)
+            try:
+                await self._cleanup(session)
+            finally:
+                if outcome is not None:
+                    self._finish(session, *outcome)
+                elif not session.state.terminal:
+                    self._finish(session, PairingState.FAILED, "pairing_internal")
 
     async def _cleanup(self, session: _Session) -> None:
         if session.pump is not None:

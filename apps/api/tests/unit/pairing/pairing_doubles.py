@@ -109,7 +109,7 @@ class MemoryRelay:
             self.rooms[nameplate] = room
             return room.host
         room = self.rooms.get(nameplate)
-        if room is None or room.burned and not room.guest:
+        if room is None or (room.burned and room.guest is None):
             raise PairingError("pairing_room_not_found", "missing")
         if room.guest is not None:
             raise PairingError("pairing_room_full", "full")

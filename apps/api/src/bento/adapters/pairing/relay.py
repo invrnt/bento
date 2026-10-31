@@ -40,6 +40,7 @@ from bento.domain.errors import ValidationFailedError
 from bento.domain.pairing import PairingError, PairingRole
 
 logger = logging.getLogger("bento.pairing.relay")
+CLOSE_MESSAGE_TOO_BIG = 1009
 
 Connect = Callable[..., Any]
 
@@ -87,6 +88,7 @@ class WebSocketPairingChannel:
         self._ended: _Ended | None = None
         self._ended_event = asyncio.Event()
         self._sent_frames = 0
+        self._received_frames = 0
         self._closed = False
         self._reader = asyncio.create_task(self._read(), name="pairing-relay-reader")
         self.expires_at: datetime | None = None
@@ -172,9 +174,11 @@ class WebSocketPairingChannel:
         try:
             async for message in self._connection:
                 if isinstance(message, bytes):
-                    if not self._welcome.done() or not self._peer_joined.is_set():
+                    # The relay forwards at most 128 frames per side; anything else is a misbehaving relay.
+                    if not self._peer_joined.is_set() or self._received_frames >= MAX_FRAMES_PER_SIDE:
                         code = "pairing_protocol"
                         return
+                    self._received_frames += 1
                     self._inbox.put_nowait(message)
                     continue
                 try:
@@ -188,7 +192,9 @@ class WebSocketPairingChannel:
                     return
         except ConnectionClosed as exc:
             received = exc.rcvd
-            if received is not None and received.code == CLOSE_EXPIRED:
+            if exc.sent is not None and exc.sent.code == CLOSE_MESSAGE_TOO_BIG:
+                code = "pairing_protocol"
+            elif received is not None and received.code == CLOSE_EXPIRED:
                 code = "pairing_expired"
             elif received is not None and received.reason in RELAY_ERROR_CODES:
                 code = pairing_error_code(received.reason)

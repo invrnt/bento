@@ -31,15 +31,15 @@ async def _until(get: Callable[[], Awaitable[PairingView]], *states: PairingStat
 def _states_of(service: PairingService, pairing_id: str) -> list[PairingState]:
     """Record every state a session passes through."""
     seen: list[PairingState] = []
-    session = service._sessions[pairing_id]  # noqa: SLF001 - observing the state machine
-    original = service._notify  # noqa: SLF001
+    session = service._sessions[pairing_id]  # observing the state machine
+    original = service._notify
 
     def notify(target: object) -> None:
         if target is session:
             seen.append(session.state)
         original(target)  # type: ignore[arg-type]
 
-    service._notify = notify  # type: ignore[method-assign]  # noqa: SLF001
+    service._notify = notify  # type: ignore[method-assign]
     return seen
 
 

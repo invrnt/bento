@@ -168,3 +168,26 @@ def test_rejected_request_ends_the_guest_session(tmp_path: Path) -> None:
             await guest.pairing.close()
 
     asyncio.run(scenario())
+
+
+def test_rejecting_an_unreviewed_request(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        host, guest = await _devices(tmp_path)
+        try:
+            requested = await guest.pairing.request_access()
+            [request] = await host.pairing.list_requests()
+            rejected = await host.pairing.reject_request(request.id)
+            assert rejected.session.state == PairingState.REJECTED and rejected.session.role == PairingRole.HOST
+            assert rejected.session.peer is not None and rejected.session.peer.device_name == "guest · Linux"
+            await wait_for_state(lambda: guest.pairing.get(requested.session.id), PairingState.REJECTED)
+            with pytest.raises(PairingError) as gone:
+                await host.pairing.review_request(request.id)
+            assert gone.value.code == "pairing_request_not_found"
+            assert host.vault.layout is not None
+            texts = _pairing_texts(FakeTelegramCloud(tmp_path / "cloud"), host.vault.layout.sync_channel_id)
+            assert [text["bento"] for text in texts] == ["pair_reject"], "the guest removed its own request"
+        finally:
+            await host.pairing.close()
+            await guest.pairing.close()
+
+    asyncio.run(scenario())
