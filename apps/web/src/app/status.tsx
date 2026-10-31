@@ -1,88 +1,227 @@
-import { StatusIndicator } from "../components/StatusIndicator";
-import type { StatusTone } from "../components/StatusIndicator";
-import type { JobRecord } from "../api/jobs";
-import { useJobsController } from "../features/jobs/useJobsController";
+import { useEffect, useRef, useState } from "react";
+import { HardDrive } from "lucide-react";
+
+import { absoluteApiPath } from "../api/client";
+import { accountAvatarPath, getAccount } from "../api/account";
+import type { AccountStatus, TelegramAccount } from "../api/account";
+import { getVault } from "../api/vault";
+import type { VaultStatus } from "../api/vault";
+import { StatusDot } from "../components/Badge";
+import { StatusIndicator, statusToneMap } from "../components/StatusIndicator";
+import { appRoutes, describeActivity } from "../features/activity/activityModel";
+import type { ActivityStatus } from "../features/activity/activityModel";
+import { activityStore, useActivity } from "../features/activity/activityStore";
+import type { ActivityStore } from "../features/activity/activityStore";
 import { t } from "../i18n/dictionary";
+import { formatBytes, formatMessage } from "../lib/format";
+import { cx } from "../lib/cx";
+import { usePolledResource } from "../lib/usePolledResource";
 
-export type JobStatusSummary = {
-  active: number;
-  failed: number;
-  label: string;
-  pending: number;
-  tone: StatusTone;
-};
-
-export type GlobalJobStatusIndicatorProps = {
-  jobs: JobRecord[];
+type NavigateProps = {
   onNavigate?: (href: string) => void;
 };
 
-export function ConnectedGlobalJobStatusIndicator({ onNavigate }: Pick<GlobalJobStatusIndicatorProps, "onNavigate">) {
-  const jobs = useJobsController();
+/* ------------------------------------------------------------------------------------------------
+ * Top-bar pill
+ * --------------------------------------------------------------------------------------------- */
 
-  return <GlobalJobStatusIndicator jobs={jobs.jobs} onNavigate={onNavigate} />;
-}
+export type ActivityStatusPillProps = NavigateProps & {
+  status: ActivityStatus;
+};
 
-export function GlobalJobStatusIndicator({ jobs, onNavigate }: GlobalJobStatusIndicatorProps) {
-  const summary = summarizeJobStatus(jobs);
-  const detail = t("status.summary")
-    .replace("{active}", String(summary.active))
-    .replace("{pending}", String(summary.pending))
-    .replace("{failed}", String(summary.failed));
-
+/** The always-visible pill in the top bar. One polite live region for the whole shell. */
+export function ActivityStatusPill({ onNavigate, status }: ActivityStatusPillProps) {
   return (
     <div aria-live="polite" role="status">
       <StatusIndicator
-        detail={detail}
-        href={onNavigate ? "/jobs" : undefined}
-        label={summary.label}
+        detail={status.detail}
+        href={appRoutes.activity}
+        label={status.label}
         onNavigate={onNavigate}
-        tone={summary.tone}
+        tone={status.tone}
       />
     </div>
   );
 }
 
-export function summarizeJobStatus(jobs: JobRecord[]): JobStatusSummary {
-  const active = jobs.filter((job) => job.status === "running").length;
-  const pending = jobs.filter((job) => job.status === "queued" || job.status === "retrying").length;
-  const failed = jobs.filter((job) => job.status === "failed").length;
+export function ConnectedActivityStatusPill({ onNavigate, store = activityStore }: NavigateProps & { store?: ActivityStore }) {
+  const { activity, error } = useActivity(store);
+  return <ActivityStatusPill onNavigate={onNavigate} status={describeActivity(activity, error)} />;
+}
 
-  if (failed > 0) {
-    return {
-      active,
-      failed,
-      label: `${failed} ${t("status.failed")}`,
-      pending,
-      tone: "danger",
-    };
+/**
+ * @deprecated Kept so `App.tsx` keeps compiling unchanged; it now shows the `/activity` summary.
+ * Switch the import to `ConnectedActivityStatusPill`.
+ */
+export const ConnectedGlobalJobStatusIndicator = ConnectedActivityStatusPill;
+
+/* ------------------------------------------------------------------------------------------------
+ * Sidebar footer
+ * --------------------------------------------------------------------------------------------- */
+
+export type SidebarUsage = { bytes: number; scope: "cloud" | "device" };
+
+export type SidebarStatusProps = NavigateProps & {
+  account: TelegramAccount | null;
+  avatarUrl?: string | null;
+  status: ActivityStatus;
+  usage: SidebarUsage | null;
+};
+
+/** Avatar, usage and one status line. The whole block opens Activity. */
+export function SidebarStatus({ account, avatarUrl, onNavigate, status, usage }: SidebarStatusProps) {
+  const name = account?.display_name || t("statusFooter.thisDevice");
+  const usageText = usage
+    ? formatMessage(usage.scope === "cloud" ? "statusFooter.usageCloud" : "statusFooter.usageDevice", {
+        size: formatBytes(usage.bytes),
+      })
+    : null;
+
+  return (
+    <a
+      aria-label={[name, usageText, status.label, t("statusFooter.open")].filter(Boolean).join(". ")}
+      className="focus-ring group/status -mx-1 flex items-center gap-3 rounded-lg p-2 transition-colors duration-150 hover:bg-hover"
+      href={appRoutes.activity}
+      onClick={(event) => {
+        if (!onNavigate) {
+          return;
+        }
+        event.preventDefault();
+        onNavigate(appRoutes.activity);
+      }}
+    >
+      <Avatar account={account} src={avatarUrl ?? null} />
+      <span className="grid min-w-0 flex-1 leading-tight">
+        <span className="truncate text-sm font-medium text-ink">{name}</span>
+        {usageText ? <span className="mt-0.5 truncate text-xs tabular-nums text-ink-muted">{usageText}</span> : null}
+        <span className="mt-1.5 flex min-w-0 items-center gap-1.5 text-xs text-ink-muted group-hover/status:text-ink">
+          <StatusDot pulse={status.tone === "active"} tone={statusToneMap[status.tone]} />
+          <span className="truncate">{status.label}</span>
+        </span>
+      </span>
+    </a>
+  );
+}
+
+function Avatar({ account, src }: { account: TelegramAccount | null; src: string | null }) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const base = "grid size-9 shrink-0 place-items-center overflow-hidden rounded-full ring-1 ring-line";
+
+  if (!account) {
+    return (
+      <span aria-hidden="true" className={cx(base, "bg-sunken text-ink-subtle")}>
+        <HardDrive className="size-4" strokeWidth={1.75} />
+      </span>
+    );
   }
 
-  if (active > 0) {
-    return {
-      active,
-      failed,
-      label: `${active} ${t("status.active")}`,
-      pending,
-      tone: "warning",
-    };
+  if (src && src !== failedSrc) {
+    return (
+      <span aria-hidden="true" className={cx(base, "bg-sunken")}>
+        <img alt="" className="size-full object-cover" draggable={false} onError={() => setFailedSrc(src)} src={src} />
+      </span>
+    );
   }
 
-  if (pending > 0) {
-    return {
-      active,
-      failed,
-      label: `${pending} ${t("status.pending")}`,
-      pending,
-      tone: "warning",
-    };
+  return (
+    <span aria-hidden="true" className={cx(base, "bg-accent-soft text-sm font-semibold text-accent-ink")}>
+      {initials(account.display_name)}
+    </span>
+  );
+}
+
+function initials(name: string): string {
+  const letters = name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => Array.from(part)[0] ?? "")
+    .join("");
+  return letters.toLocaleUpperCase() || "·";
+}
+
+export type SidebarStatusApi = {
+  getAccount: () => Promise<AccountStatus>;
+  getVault: () => Promise<VaultStatus>;
+};
+
+const defaultSidebarApi: SidebarStatusApi = { getAccount: () => getAccount(), getVault: () => getVault() };
+
+export function ConnectedSidebarStatus({
+  api = defaultSidebarApi,
+  onNavigate,
+  store = activityStore,
+}: NavigateProps & { api?: SidebarStatusApi; store?: ActivityStore }) {
+  const { activity, error } = useActivity(store);
+  const account = usePolledResource(api.getAccount, 300_000);
+  const vault = usePolledResource(api.getVault, 60_000);
+  const signedIn = account.data?.step === "authorized" ? account.data.account : null;
+  const usage: SidebarUsage | null = vault.data
+    ? { bytes: vault.data.usage.bytes, scope: signedIn && vault.data.state !== "local_only" ? "cloud" : "device" }
+    : null;
+
+  return (
+    <SidebarStatus
+      account={signedIn}
+      avatarUrl={signedIn ? absoluteApiPath(accountAvatarPath) : null}
+      onNavigate={onNavigate}
+      status={describeActivity(activity, error)}
+      usage={usage}
+    />
+  );
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * Desktop notifications → in-app routes
+ * --------------------------------------------------------------------------------------------- */
+
+const desktopTargets: Record<string, string> = {
+  activity: appRoutes.activity,
+  drive: "/drive",
+  "recovery-kit": appRoutes.recoveryKit,
+  settings: appRoutes.settings,
+  trash: appRoutes.trash,
+};
+
+/** Maps a desktop `NavigateRequest` (`{target}`) to a route; unknown targets are ignored. */
+export function desktopNavigationHref(request: unknown): string | null {
+  const target = typeof request === "string" ? request : isRecord(request) ? request.target : null;
+  return typeof target === "string" && Object.prototype.hasOwnProperty.call(desktopTargets, target) ? desktopTargets[target] : null;
+}
+
+type NavigateBridge = { onNavigate?: (listener: (request: unknown) => void) => unknown };
+
+/**
+ * Subscribes to `window.bento.onNavigate` when the desktop bridge offers it. In a plain browser,
+ * or with an older desktop build, this is a no-op.
+ */
+export function subscribeDesktopNavigation(
+  listener: (href: string) => void,
+  bridge: unknown = typeof window !== "undefined" ? window.bento : undefined,
+): () => void {
+  const candidate = isRecord(bridge) ? (bridge as NavigateBridge).onNavigate : undefined;
+  if (typeof candidate !== "function") {
+    return () => undefined;
   }
 
-  return {
-    active,
-    failed,
-    label: t("status.idle"),
-    pending,
-    tone: "success",
-  };
+  const unsubscribe = candidate.call(bridge, (request) => {
+    const href = desktopNavigationHref(request);
+    if (href) {
+      listener(href);
+    }
+  });
+
+  return typeof unsubscribe === "function" ? (unsubscribe as () => void) : () => undefined;
+}
+
+/** Routes the renderer when the user clicks a desktop notification. Call once from `App`. */
+export function useDesktopNavigation(navigate: (href: string) => void): void {
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
+
+  useEffect(() => subscribeDesktopNavigation((href) => navigateRef.current(href)), []);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
