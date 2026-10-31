@@ -128,7 +128,8 @@ describe("native packaging scaffold", () => {
     expect(forgeSource).toContain('LSItemContentTypes: ["public.data"]');
     expect(forgeSource).toContain('"x-scheme-handler/bento"');
     expect(forgeSource).toContain("mimeType: linuxMimeTypes");
-    for (const mime of ["image/jpeg", "video/mp4", "application/pdf"]) expect(forgeSource).toContain(`"${mime}"`);
+    expect(forgeSource).toContain('const linuxMimeTypes = ["x-scheme-handler/bento"];');
+    for (const mime of ["image/jpeg", "video/mp4", "application/pdf"]) expect(forgeSource).not.toContain(`"${mime}"`);
     // The deb desktop entry is named after the package; Electron must use the same name on Linux.
     expect(packageJson.desktopName).toBe("bento-desktop.desktop");
   });

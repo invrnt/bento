@@ -8,39 +8,9 @@ const iconRoot = path.join(__dirname, "resources", "icons", "bento");
 const buildConfig = path.join(__dirname, "resources", "build-config.json");
 const trayIcons = path.join(__dirname, "resources", "tray");
 
-// "Send to Bento" targets on Linux; `%U` in the desktop entry also receives bento:// links.
-const linuxMimeTypes = [
-  "x-scheme-handler/bento",
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-  "image/heic",
-  "image/heif",
-  "image/tiff",
-  "image/bmp",
-  "image/svg+xml",
-  "video/mp4",
-  "video/quicktime",
-  "video/webm",
-  "video/x-matroska",
-  "video/x-msvideo",
-  "application/pdf",
-  "text/plain",
-  "text/markdown",
-  "text/csv",
-  "application/rtf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/vnd.ms-powerpoint",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-  "application/vnd.oasis.opendocument.text",
-  "application/vnd.oasis.opendocument.spreadsheet",
-  "application/vnd.oasis.opendocument.presentation",
-  "application/zip",
-];
+// Linux registers only the bento:// scheme. Declaring image/document MIME types could make Bento the
+// default opener on some desktops; files still reach Bento via "Open with" (`%U`) and drag and drop.
+const linuxMimeTypes = ["x-scheme-handler/bento"];
 const isMacSigning = process.env.BENTO_MAC_SIGNING === "1";
 const isWindowsSigning = process.env.BENTO_WINDOWS_SIGNING === "1";
 
