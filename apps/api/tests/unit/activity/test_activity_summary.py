@@ -102,6 +102,27 @@ def test_short_flood_waits_and_sync_waits() -> None:
     assert waiting.summary.value == "attention"
 
 
+def test_telegram_client_flood_waits_join_the_single_flood_wait_item() -> None:
+    long_wait = _activity(ActivitySnapshot(telegram_flood_wait_until=NOW + timedelta(seconds=150)))
+    [item] = long_wait.attention
+    assert item.id == "flood_wait" and item.kind.value == "flood_wait"
+    assert item.params == {"retry_after_seconds": 150, "retry_after_minutes": 3}
+    assert long_wait.summary.value == "attention"
+
+    assert _activity(ActivitySnapshot(telegram_flood_wait_until=NOW + timedelta(seconds=60))).attention == ()
+    assert _activity(ActivitySnapshot(telegram_flood_wait_until=NOW - timedelta(minutes=5))).attention == ()
+
+    everywhere = _activity(
+        ActivitySnapshot(
+            flood_wait_until=NOW + timedelta(minutes=4),
+            telegram_flood_wait_until=NOW + timedelta(minutes=9),
+        ),
+        sync=SyncStatus(state=SyncState.WAITING, waiting_until=NOW + timedelta(minutes=2)),
+    )
+    [deduped] = [item for item in everywhere.attention if item.kind.value == "flood_wait"]
+    assert deduped.params == {"retry_after_seconds": 540, "retry_after_minutes": 9}
+
+
 def test_recovery_kit_reminder_only_for_ready_vaults() -> None:
     assert _activity(vault=VaultStatus(state=VaultState.LOCKED)).attention == ()
     assert _activity(vault=VaultStatus(state=VaultState.LOCAL_ONLY)).attention == ()

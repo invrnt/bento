@@ -218,6 +218,27 @@ def test_flood_wait_reschedules_without_consuming_an_attempt(tmp_path: Path) -> 
     run(scenario())
 
 
+def test_long_waits_reported_by_the_telegram_client_reach_activity(tmp_path: Path) -> None:
+    from bento.adapters.sync.store import SQLiteSyncStateStore
+    from bento.application.account import FLOOD_WAIT_UNTIL_KEY
+
+    async def scenario() -> None:
+        components = pipeline_for(migrated_data_dir(tmp_path), RemoteSwitch(None))
+        state = SQLiteSyncStateStore(components.session_factory)
+
+        await state.set_value(FLOOD_WAIT_UNTIL_KEY, (datetime.now(UTC) + timedelta(minutes=12)).isoformat())
+        [item] = (await components.activity.current()).attention
+        assert item.kind.value == "flood_wait" and item.params["retry_after_minutes"] == 12
+        assert 710 <= item.params["retry_after_seconds"] <= 720
+
+        await state.set_value(FLOOD_WAIT_UNTIL_KEY, (datetime.now(UTC) - timedelta(minutes=1)).isoformat())
+        assert (await components.activity.current()).attention == ()
+        await state.set_value(FLOOD_WAIT_UNTIL_KEY, "not a time")
+        assert (await components.activity.current()).attention == ()
+
+    run(scenario())
+
+
 def test_trashed_assets_are_deferred_and_purged_refs_are_skipped(tmp_path: Path) -> None:
     async def scenario() -> None:
         store = await vault_remote_store(tmp_path)
