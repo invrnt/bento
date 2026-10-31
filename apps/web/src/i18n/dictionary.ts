@@ -1,4 +1,7 @@
-export const es = {
+import { esEveryday } from "./es/everyday";
+import { esOnboarding } from "./es/onboarding";
+
+const esBase = {
   "app.brand": "Bento",
   "app.locale": "es",
   "app.status.idle": "Listo",
@@ -614,6 +617,8 @@ export const es = {
   "onboarding.next": "Continuar",
   "onboarding.finish": "Terminar configuración",
 } as const;
+
+export const es = { ...esBase, ...esOnboarding, ...esEveryday } as const;
 
 export const dictionaries = {
   es,
