@@ -10,6 +10,7 @@ import { Sidebar } from "./Sidebar";
 import type { SidebarItem } from "./Sidebar";
 import { StatusIndicator } from "./StatusIndicator";
 import { ThemeSwitcher } from "./ThemeSwitcher";
+import { ToastViewport } from "./Toast";
 import { TopSearch } from "./TopSearch";
 
 export type AppShellProps = {
@@ -18,6 +19,9 @@ export type AppShellProps = {
   navItems: SidebarItem[];
   onNavigate: (href: string) => void;
   onSearch: (query: string) => void;
+  /** Sidebar footer above the theme switcher: account, usage and a one-line status. */
+  sidebarStatus?: ReactNode;
+  /** Top-bar status pill. */
   status?: ReactNode;
 };
 
@@ -25,7 +29,7 @@ export type AppShellProps = {
  * The tray (app background) holds two compartments: the sidebar and the raised
  * main panel. On small screens the sidebar becomes a drawer.
  */
-export function AppShell({ activePath, children, navItems, onNavigate, onSearch, status }: AppShellProps) {
+export function AppShell({ activePath, children, navItems, onNavigate, onSearch, sidebarStatus, status }: AppShellProps) {
   const [navOpen, setNavOpen] = useState(false);
   const mainRef = useRef<HTMLElement | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -72,7 +76,17 @@ export function AppShell({ activePath, children, navItems, onNavigate, onSearch,
           navOpen ? "fixed inset-y-0 left-0 z-50 flex animate-drawer-in bg-tray shadow-xl" : "hidden",
           "md:static md:z-auto md:flex md:animate-none md:shadow-none",
         )}
-        footer={<ThemeSwitcher />}
+        footer={
+          <>
+            {sidebarStatus ? (
+              // The status block navigates on its own; close the mobile drawer when it does.
+              <div className="contents" onClick={() => setNavOpen(false)}>
+                {sidebarStatus}
+              </div>
+            ) : null}
+            <ThemeSwitcher />
+          </>
+        }
         id="app-sidebar"
         items={navItems}
         onNavigate={navigate}
@@ -108,6 +122,7 @@ export function AppShell({ activePath, children, navItems, onNavigate, onSearch,
           </main>
         </div>
       </div>
+      <ToastViewport />
     </div>
   );
 }

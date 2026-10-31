@@ -1,10 +1,12 @@
 import type { DriveApi } from "../../api/drive";
+import { settleDeletes } from "../trash/undoableDelete";
 import type { DriveEntry } from "./driveModel";
 
-export async function deleteDriveEntries(api: DriveApi, entries: DriveEntry[]): Promise<void> {
-  await Promise.all(
-    entries.map((entry) => (entry.kind === "folder" ? api.deleteFolder(entry.id) : api.deleteAsset(entry.id))),
-  );
+/** Moves entries to trash one by one and reports which ids moved (for a partial-failure undo). */
+export function trashDriveEntries(api: DriveApi, entries: DriveEntry[]): Promise<{ failed: number; trashedIds: string[] }> {
+  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+
+  return settleDeletes(Array.from(byId.keys()), (id) => (byId.get(id)?.kind === "folder" ? api.deleteFolder(id) : api.deleteAsset(id)));
 }
 
 export async function moveDriveEntries(api: DriveApi, entries: DriveEntry[], targetFolderId: string | null): Promise<void> {

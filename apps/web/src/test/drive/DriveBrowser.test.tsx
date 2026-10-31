@@ -1,8 +1,10 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { DriveApi, DriveAsset, DriveFolder, DriveItemsResponse, DriveSearchResponse } from "../../api/drive";
+import { clearToasts, ToastViewport } from "../../components/Toast";
 import { DriveBrowser } from "../../features/drive/DriveBrowser";
+import type { DriveBrowserProps } from "../../features/drive/DriveBrowser";
 
 const folder: DriveFolder = {
   created_at: "2026-01-01T00:00:00Z",
@@ -80,7 +82,21 @@ function createApi(overrides: Partial<DriveApi> = {}): DriveApi {
   };
 }
 
+function renderDrive(props: DriveBrowserProps) {
+  return render(
+    <>
+      <DriveBrowser {...props} />
+      <ToastViewport />
+    </>,
+  );
+}
+
 describe("DriveBrowser", () => {
+  afterEach(() => {
+    act(() => clearToasts());
+    vi.unstubAllGlobals();
+  });
+
   it("renders folder listings with breadcrumbs and toggles list layout", async () => {
     const api = createApi();
     render(<DriveBrowser api={api} />);
@@ -191,27 +207,48 @@ describe("DriveBrowser", () => {
     folderView.unmount();
   });
 
-  it("deletes assets and folders from the action menu", async () => {
+  it("moves assets and folders to trash at once and undoes from the toast", async () => {
     const api = createApi();
-    const assetView = render(<DriveBrowser api={api} />);
+    const restoreFromTrash = vi.fn(async () => ({ restored: 1 }));
+    const assetView = renderDrive({ api, restoreFromTrash });
     await screen.findByText("factura.pdf");
 
     openMenu("Acciones factura.pdf");
     fireEvent.click(screen.getByRole("menuitem", { name: "Eliminar" }));
-    submitDialog("Eliminar");
 
     await waitFor(() => expect(api.deleteAsset).toHaveBeenCalledWith("asset_invoice"));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    const toasts = screen.getByRole("region", { name: "Notificaciones" });
+    expect(await within(toasts).findByText("Movido a la papelera")).toBeInTheDocument();
+
+    fireEvent.click(within(toasts).getByRole("button", { name: "Deshacer" }));
+    await waitFor(() => expect(restoreFromTrash).toHaveBeenCalledWith(["asset_invoice"]));
+    expect(await within(toasts).findByText("Listo, está otra vez en su sitio")).toBeInTheDocument();
     assetView.unmount();
 
-    const folderView = render(<DriveBrowser api={api} />);
+    const folderView = renderDrive({ api, restoreFromTrash });
     await screen.findAllByText("Documentos");
 
     openMenu("Acciones Documentos");
     fireEvent.click(screen.getByRole("menuitem", { name: "Eliminar" }));
-    submitDialog("Eliminar");
 
     await waitFor(() => expect(api.deleteFolder).toHaveBeenCalledWith("folder_docs"));
     folderView.unmount();
+  });
+
+  it("undoes the latest delete with Ctrl+Z", async () => {
+    const api = createApi();
+    const restoreFromTrash = vi.fn(async () => ({ restored: 1 }));
+    renderDrive({ api, restoreFromTrash });
+    await screen.findByText("factura.pdf");
+
+    openMenu("Acciones factura.pdf");
+    fireEvent.click(screen.getByRole("menuitem", { name: "Eliminar" }));
+    await screen.findByText("Movido a la papelera");
+
+    fireEvent.keyDown(document.body, { ctrlKey: true, key: "z" });
+
+    await waitFor(() => expect(restoreFromTrash).toHaveBeenCalledWith(["asset_invoice"]));
   });
 
   it("selects files and folders together and moves them in bulk", async () => {
@@ -234,20 +271,27 @@ describe("DriveBrowser", () => {
     expect(screen.queryByText("2 seleccionados")).not.toBeInTheDocument();
   });
 
-  it("deletes selected files and folders in bulk", async () => {
-    const api = createApi();
-    render(<DriveBrowser api={api} />);
+  it("moves selected files and folders to trash in bulk, keeping partial failures undoable", async () => {
+    const api = createApi({ deleteFolder: vi.fn(async () => Promise.reject(new Error("busy"))) });
+    const restoreFromTrash = vi.fn(async () => ({ restored: 1 }));
+    renderDrive({ api, restoreFromTrash });
     await screen.findByText("factura.pdf");
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Seleccionar Documentos" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Seleccionar factura.pdf" }));
     fireEvent.click(screen.getByRole("button", { name: "Eliminar seleccionados" }));
-    submitDialog("Eliminar");
 
     await waitFor(() => {
       expect(api.deleteFolder).toHaveBeenCalledWith("folder_docs");
       expect(api.deleteAsset).toHaveBeenCalledWith("asset_invoice");
     });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(await screen.findByText("Movido a la papelera")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("1 elemento no se pudo mover a la papelera.");
+    expect(screen.queryByText("2 seleccionados")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
+    await waitFor(() => expect(restoreFromTrash).toHaveBeenCalledWith(["asset_invoice"]));
   });
 
   it("downloads selected assets without trying to download selected folders", async () => {
@@ -274,7 +318,8 @@ describe("DriveBrowser", () => {
     await screen.findByText("factura.pdf");
 
     fireEvent.click(screen.getByRole("button", { name: "Acciones factura.pdf" }));
-    expect(screen.getByRole("menuitem", { name: "Vista previa" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Vista rápida" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Enviar por Telegram…" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Descargar" })).toBeInTheDocument();
   });
 
@@ -285,11 +330,12 @@ describe("DriveBrowser", () => {
 
     fireEvent.contextMenu(screen.getByRole("button", { name: "Abrir factura.pdf" }));
 
-    expect(await screen.findByRole("menuitem", { name: "Vista previa" })).toBeInTheDocument();
+    expect(await screen.findByRole("menuitem", { name: "Vista rápida" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Enviar por Telegram…" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Descargar" })).toBeInTheDocument();
   });
 
-  it("loads Markdown and plain text into an inline preview", async () => {
+  it("loads Markdown and plain text into Quick Look from the streaming endpoint", async () => {
     const fetchMock = vi.fn(async () => ({
       blob: async () => new Blob(),
       ok: true,
@@ -312,15 +358,15 @@ describe("DriveBrowser", () => {
 
       expect(await screen.findByText(/# Bento/)).toBeInTheDocument();
       expect(fetchMock).toHaveBeenCalledWith(
-        "/api/assets/asset_readme/download",
-        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+        "/api/assets/asset_readme/content",
+        expect.objectContaining({ headers: { Range: "bytes=0-262143" }, signal: expect.any(AbortSignal) }),
       );
     } finally {
       vi.unstubAllGlobals();
     }
   });
 
-  it("loads PDFs into an embedded browser preview", async () => {
+  it("loads PDFs into Quick Look as an embedded preview", async () => {
     const fetchMock = vi.fn(async () => ({
       blob: async () => new Blob(["pdf"], { type: "application/pdf" }),
       ok: true,
@@ -338,9 +384,9 @@ describe("DriveBrowser", () => {
       await screen.findByText("factura.pdf");
       fireEvent.click(screen.getByRole("button", { name: "Abrir factura.pdf" }));
 
-      expect(await screen.findByTitle("factura.pdf · Vista previa")).toHaveAttribute("src", "blob:pdf-preview");
+      expect(await screen.findByTitle("factura.pdf · Vista rápida")).toHaveAttribute("src", "blob:pdf-preview");
       expect(fetchMock).toHaveBeenCalledWith(
-        "/api/assets/asset_invoice/download",
+        "/api/assets/asset_invoice/content",
         expect.objectContaining({ signal: expect.any(AbortSignal) }),
       );
     } finally {
@@ -381,12 +427,69 @@ describe("DriveBrowser", () => {
     menuButton.focus();
     fireEvent.click(menuButton);
 
-    expect(screen.getByRole("menuitem", { name: "Renombrar" })).toHaveFocus();
+    expect(screen.getByRole("menuitem", { name: "Vista rápida" })).toHaveFocus();
 
     fireEvent.keyDown(document, { key: "Escape" });
 
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
     expect(menuButton).toHaveFocus();
+  });
+
+  it("opens Quick Look with Space on a focused file and walks files with the arrows", async () => {
+    const api = createApi({
+      listItems: vi.fn(async (): Promise<DriveItemsResponse> => ({
+        breadcrumbs: [],
+        items: [
+          { folder, type: "folder" },
+          { asset: imageAsset, type: "asset" },
+          { asset: { ...imageAsset, filename: "playa.jpg", id: "asset_beach" }, type: "asset" },
+        ],
+        next_cursor: null,
+      })),
+    });
+    renderDrive({ api });
+    await screen.findByText("foto.jpg");
+
+    const folderButton = screen.getByRole("button", { name: "Abrir Documentos" });
+    fireEvent.keyDown(folderButton, { key: " " });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole("button", { name: "Abrir foto.jpg" }), { key: " " });
+    const viewer = await screen.findByRole("dialog", { name: "foto.jpg" });
+    expect(within(viewer).getByText(/1 de 2/)).toBeInTheDocument();
+
+    fireEvent.keyDown(viewer, { key: "ArrowRight" });
+    expect(await screen.findByRole("dialog", { name: "playa.jpg" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "playa.jpg" })).toHaveAttribute("src", "/api/assets/asset_beach/preview");
+
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: " " });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("opens the share dialog from the file menu", async () => {
+    const listChats = vi.fn(async () => ({ items: [{ id: 1, kind: "saved" as const, title: "Saved Messages" }] }));
+    renderDrive({ api: createApi(), shareApi: { listChats } });
+    await screen.findByText("factura.pdf");
+
+    openMenu("Acciones factura.pdf");
+    fireEvent.click(screen.getByRole("menuitem", { name: "Enviar por Telegram…" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Enviar por Telegram" });
+    expect(within(dialog).getByText("factura.pdf")).toBeInTheDocument();
+    expect(await within(dialog).findByRole("radio", { name: /Mensajes guardados/ })).toBeInTheDocument();
+  });
+
+  it("offers folder upload and Telegram import in the add menu", async () => {
+    const listChats = vi.fn(async () => ({ items: [] }));
+    renderDrive({ api: createApi(), importApi: { listChats } });
+    await screen.findByText("factura.pdf");
+
+    fireEvent.click(screen.getByRole("button", { name: "Más formas de añadir" }));
+    expect(screen.getByRole("menuitem", { name: "Subir carpeta" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Importar de Telegram…" }));
+
+    expect(await screen.findByRole("dialog", { name: "Importar de Telegram" })).toBeInTheDocument();
+    await waitFor(() => expect(listChats).toHaveBeenCalled());
   });
 
   it("calls Drive scoped search with the current folder id", async () => {

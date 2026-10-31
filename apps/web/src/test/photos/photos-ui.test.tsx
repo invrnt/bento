@@ -1,6 +1,8 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { useState } from "react";
+
+import { clearToasts, ToastViewport } from "../../components/Toast";
 
 import { AlbumDetailPage } from "../../features/albums/AlbumDetailPage";
 import { AlbumsPage } from "../../features/albums/AlbumsPage";
@@ -11,6 +13,8 @@ import type { AlbumsApi, Album } from "../../api/albums";
 import type { PhotoAsset, PhotosApi } from "../../api/photos";
 
 describe("Photos UI", () => {
+  afterEach(() => act(() => clearToasts()));
+
   it("renders timeline groups by month and day", () => {
     render(
       <PhotoTimeline
@@ -103,6 +107,60 @@ describe("Photos UI", () => {
     const dialog = screen.getByRole("dialog", { name: "clip.mp4" });
     expect(dialog).toBeInTheDocument();
     expect(dialog.querySelector("video")).toHaveAttribute("controls");
+    expect(dialog.querySelector("video")).toHaveAttribute("src", "/api/assets/asset_1/content");
+  });
+
+  it("offers Quick Look, sharing and delete from a photo's context menu", async () => {
+    const listChats = vi.fn(async () => ({ items: [{ id: 1, kind: "saved" as const, title: "Saved Messages" }] }));
+    const api = photosApiMock({
+      getTimeline: vi.fn().mockResolvedValue({ groups: [{ assets: [asset()], date: "2026-06-20" }], next_cursor: null }),
+    });
+    render(<PhotosPage api={api} shareApi={{ listChats }} />);
+
+    fireEvent.contextMenu(await screen.findByRole("button", { name: "playa.jpg" }));
+    expect(await screen.findByRole("menuitem", { name: "Vista rápida" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Eliminar" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Enviar por Telegram…" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Enviar por Telegram" });
+    expect(within(dialog).getByText("playa.jpg")).toBeInTheDocument();
+  });
+
+  it("moves a photo to trash from the viewer and undoes it", async () => {
+    const getTimeline = vi
+      .fn()
+      .mockResolvedValueOnce({ groups: [{ assets: [asset(), asset({ filename: "cena.jpg", id: "asset_2" })], date: "2026-06-20" }], next_cursor: null })
+      .mockResolvedValueOnce({ groups: [{ assets: [asset({ filename: "cena.jpg", id: "asset_2" })], date: "2026-06-20" }], next_cursor: null })
+      .mockResolvedValue({ groups: [{ assets: [asset(), asset({ filename: "cena.jpg", id: "asset_2" })], date: "2026-06-20" }], next_cursor: null });
+    const deleteAsset = vi.fn(async () => ({}));
+    const restoreFromTrash = vi.fn(async () => ({ restored: 1 }));
+    render(
+      <>
+        <PhotosPage api={photosApiMock({ getTimeline })} deleteAsset={deleteAsset} restoreFromTrash={restoreFromTrash} />
+        <ToastViewport />
+      </>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "playa.jpg" }));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "playa.jpg" })).getByRole("button", { name: "Eliminar" }));
+
+    await waitFor(() => expect(deleteAsset).toHaveBeenCalledWith("asset_1"));
+    expect(await screen.findByRole("dialog", { name: "cena.jpg" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("button", { name: "playa.jpg" })).not.toBeInTheDocument());
+
+    fireEvent.click(await screen.findByRole("button", { name: "Deshacer" }));
+    await waitFor(() => expect(restoreFromTrash).toHaveBeenCalledWith(["asset_1"]));
+    expect(await screen.findByRole("button", { name: "playa.jpg" })).toBeInTheDocument();
+  });
+
+  it("opens the Telegram import from the Photos header", async () => {
+    const listChats = vi.fn(async () => ({ items: [] }));
+    render(<PhotosPage api={photosApiMock({})} importApi={{ listChats }} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Importar de Telegram…" }));
+
+    expect(await screen.findByRole("dialog", { name: "Importar de Telegram" })).toBeInTheDocument();
+    expect(await screen.findByText("Todavía no hay chats recientes.")).toBeInTheDocument();
   });
 
   it("runs searches scoped to photos", async () => {
