@@ -49,7 +49,11 @@ async def run_worker(stop_event: asyncio.Event | None = None) -> None:
     )
     event = stop_event or asyncio.Event()
     configure_change_capture(settings.storage_backend != "local")
-    dispatcher = _create_dispatcher(worker_id=f"worker-{os.getpid()}", settings=settings)
+    worker_id = f"worker-{os.getpid()}"
+    dispatcher = _create_dispatcher(worker_id=worker_id, settings=settings)
+    released = await dispatcher.jobs.release_abandoned(worker_id)
+    if released:
+        LOGGER.info("Requeued %s jobs left running by a previous worker", released)
     inbox_loop = asyncio.create_task(run_inbox_loop(settings, event))
     pipeline_loop = asyncio.create_task(
         StoragePipelineLoop(get_storage_pipeline(settings), watcher=WatchdogFolderWatcher()).run(event)

@@ -24,6 +24,10 @@ class JobQueuePort(Protocol):
 
     async def claim_next(self, worker_id: str) -> Job | None: ...
 
+    async def release_abandoned(self, worker_id: str) -> int:
+        """Requeue jobs left running by a worker that is no longer alive; returns how many."""
+        ...
+
 
 class ActiveJobsPort(Protocol):
     async def has_active(

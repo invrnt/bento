@@ -78,6 +78,12 @@ class Job:
             raise ValidationFailedError("Only queued or retrying jobs can be claimed")
         return replace(self, status=JobStatus.RUNNING, locked_by=worker_id, locked_at=at, updated_at=at)
 
+    def release(self, at: datetime) -> Job:
+        """Return a job abandoned by a stopped worker to the queue without consuming an attempt."""
+        if self.status != JobStatus.RUNNING:
+            raise ValidationFailedError("Only running jobs can be released")
+        return replace(self, status=JobStatus.RETRYING, locked_by=None, locked_at=None, run_after=at, updated_at=at)
+
     def complete(self, at: datetime) -> Job:
         return replace(self, status=JobStatus.SUCCEEDED, locked_by=None, locked_at=None, updated_at=at, error=None)
 
