@@ -57,3 +57,25 @@ Shared: `routes/routeConfig.ts` one-line additions only; `src/api/**` is frozen 
 - Critical journeys with the fake cloud: first run → backup → second device pairing → rename/move/delete converge → remove device rotates keys → recovery on a fresh device.
 - Independent security review of crypto, key store, pairing, relay, and IPC; code review of the integrated diff; fix findings.
 - Update README, `docs/telegram-setup.md` (replaced by user docs), and release notes.
+
+## Stage 14 Results — Quick Reference For Stages 15-16
+
+**Fake Telegram cloud** (`adapters/fake_telegram/`, `infrastructure/runtime.py`)
+
+- Env: `STORAGE_BACKEND=fake` (rejected in production), `BENTO_FAKE_TELEGRAM_DIR` (default `<data_dir>/fake-telegram`), `BENTO_FAKE_TELEGRAM_MANUAL_LOGIN=1` (no 2 s QR auto-approve), `BENTO_FAKE_TELEGRAM_2FA=1` (password `bento-demo`, hint `demo`), `BENTO_FAKE_TELEGRAM_SESSION_TOO_NEW=1` (terminate raises `telegram_session_too_new`). Phone code `12345`.
+- Runtime: `get_telegram_runtime(settings, key_store)` (cached per backend+dir), `reset_telegram_runtime()`, uncached `create_fake_telegram_runtime(directory, key_store, options=FakeTelegramOptions(...), clock=...)` for two devices in one process, `approve_fake_telegram_logins(settings)`. For `telegram` it imports `bento.infrastructure.mtproto.runtime.create_mtproto_runtime(settings, key_store) -> TelegramRuntime`.
+- Test setup: `FakeTelegramCloud(dir).post_message(chat_id, text=..., document=DocumentUpload(bytes|Path, filename, mime?, kind?), pin=...)` simulates forwarding to the Inbox; `create_channel`, `read_chat`, `message`, `dialogs`, `folders`, `approve_pending_logins`. Test doubles: `tests/integration/fake_telegram/support.py` (`MemoryKeyStore`, `ManualClock`, `make_device`, `sign_in`); multi-process pattern in `fake_cloud_device.py`.
+- Ids: user `777000001` "Ana Demo" (= Saved Messages), Carlos Ruiz `777000002`, group Familia `-400000001`; channels `-1001000000001…`; message ids start at 1 per chat.
+- Semantics: the current authorization is listed with **hash 0** (like real Telegram); with 2FA, approved/accepted logins move to `password_required`; wrong code/password come back as `AccountStatus.error_code`; wrong-state calls raise `TelegramAccountError('telegram_login_expired')`, no session → `telegram_not_authorized`, bad accept token → `telegram_login_expired` with `details.reason`, unknown/0 hash on terminate → `telegram_authorization_not_found`; missing remote messages raise `StorageUnavailableError("telegram")`; text > 4096, caption > 1024, document > 2000 MiB raise `ValidationFailedError`; `list_chats` puts Saved Messages first and hides vault channels; `list_media` newest first with `before_message_id`; `wait_for_activity` fires for anything newer than the last listing.
+
+**Contract additions**
+
+- `domain/vault.py`: `channel_about()`, `parse_channel_marker()`, `VaultChannelCandidate`, `discover_vault_layouts()` (shared discovery rules; vault ids match `vlt_[0-9A-Za-z_-]+`).
+- `domain/sync.py`: `SyncMessageKind.from_text()` — plaintext Sync messages must be JSON objects with a string `bento` key (`"vault-header"` → header, any other value → pairing). Fallback pairing messages therefore carry `"bento": "pair_request" | "pair_offer" | "pair_reveal" | "pair_grant"`.
+- `domain/storage.py`: `StorageBackend.FAKE` names the configured backend only; blob refs written through the fake still use `TELEGRAM`. `BlobPart.from_remote(index, RemotePart)` / `BlobPart.remote()`.
+- `adapters/repositories/devices.py`: `SQLiteDeviceRepository`. `adapters/media/catalog.py`: persists parts/epoch/format, `get(blob_id)`.
+- Settings: new env aliases `BENTO_<KEY>`; backup policy settings apply **live** (read them live); `inbox_keep_hours`, `trash_retention_days` restart the worker.
+
+**Device ↔ Telegram authorization matching**
+
+A session cannot learn its own authorization hash (current = 0). Every Bento client therefore connects with `device_model = "Bento (<last 6 chars of device_id>)"`; to close another device's session, list authorizations and match `device_model` against the target device id suffix. The guest's hash is also available to the host from `AcceptedLogin.authorization_hash`. The fake cloud may be extended minimally (by the mtproto agent) to record the `device_model` each instance announces.

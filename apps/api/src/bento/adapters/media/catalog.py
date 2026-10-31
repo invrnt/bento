@@ -9,8 +9,9 @@ from sqlalchemy import Select, desc, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from bento.adapters.repositories.ids import new_id
+from bento.adapters.repositories.mappers import blob_ref_from_model, blob_ref_to_model
 from bento.domain.errors import StorageUnavailableError, ValidationFailedError
-from bento.domain.security import EncryptionMetadata, EncryptionMode
+from bento.domain.security import EncryptionMode
 from bento.domain.storage import BlobKind, BlobRef, StorageBackend
 from bento.infrastructure.db.engine import session_scope
 from bento.infrastructure.db.models import BlobRefModel, ThumbnailModel
@@ -24,28 +25,13 @@ class SQLiteBlobRefCatalog:
         self._clock = clock
 
     async def add(self, blob_ref: BlobRef) -> None:
-        now = self._clock.now()
         with session_scope(self._session_factory) as session:
-            session.merge(
-                BlobRefModel(
-                    id=blob_ref.id,
-                    asset_id=blob_ref.asset_id,
-                    backend=blob_ref.backend.value,
-                    kind=blob_ref.kind.value,
-                    object_key=blob_ref.object_key,
-                    size_bytes=blob_ref.size_bytes,
-                    sha256=blob_ref.sha256,
-                    chat_id=blob_ref.chat_id,
-                    message_id=blob_ref.message_id,
-                    file_id=blob_ref.file_id,
-                    file_unique_id=blob_ref.file_unique_id,
-                    encryption_mode=blob_ref.encryption.mode.value,
-                    encryption_key_id=blob_ref.encryption.key_id,
-                    encryption_nonce=blob_ref.encryption.nonce,
-                    encryption_tag=blob_ref.encryption.tag,
-                    created_at=now,
-                )
-            )
+            session.merge(blob_ref_to_model(blob_ref, created_at=self._clock.now()))
+
+    async def get(self, blob_id: str) -> BlobRef | None:
+        with session_scope(self._session_factory) as session:
+            model = session.get(BlobRefModel, blob_id)
+            return blob_ref_from_model(model) if model is not None else None
 
     async def latest_for_asset(self, asset_id: str, kind: BlobKind) -> BlobRef | None:
         statement: Select[tuple[BlobRefModel]] = (
@@ -56,7 +42,7 @@ class SQLiteBlobRefCatalog:
         )
         with session_scope(self._session_factory) as session:
             model = session.scalar(statement)
-            return _blob_ref_from_model(model) if model is not None else None
+            return blob_ref_from_model(model) if model is not None else None
 
 
 class SQLiteThumbnailCatalog:
@@ -94,7 +80,7 @@ class SQLiteThumbnailCatalog:
         )
         with session_scope(self._session_factory) as session:
             model = session.scalar(statement)
-            return _blob_ref_from_model(model) if model is not None else None
+            return blob_ref_from_model(model) if model is not None else None
 
 
 class LocalBlobPathResolver:
@@ -143,24 +129,3 @@ class BlobSourceMaterializer:
         finally:
             destination.unlink(missing_ok=True)
 
-
-def _blob_ref_from_model(model: BlobRefModel) -> BlobRef:
-    return BlobRef(
-        id=model.id,
-        asset_id=model.asset_id,
-        backend=StorageBackend(model.backend),
-        kind=BlobKind(model.kind),
-        object_key=model.object_key,
-        size_bytes=model.size_bytes,
-        sha256=model.sha256,
-        chat_id=model.chat_id,
-        message_id=model.message_id,
-        file_id=model.file_id,
-        file_unique_id=model.file_unique_id,
-        encryption=EncryptionMetadata(
-            mode=EncryptionMode(model.encryption_mode),
-            key_id=model.encryption_key_id,
-            nonce=model.encryption_nonce,
-            tag=model.encryption_tag,
-        ),
-    )

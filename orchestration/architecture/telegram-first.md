@@ -68,7 +68,7 @@ All primitives come from `cryptography` (already a dependency) and `spake2`.
 
 ```txt
 "BENV" | version u8 = 1 | purpose u8 | epoch u32 BE | nonce 12B | AES-256-GCM(ciphertext || tag 16B)
-AAD = the 18-byte prefix (magic..nonce) || caller aad
+AAD = the 22-byte prefix (magic..nonce) || caller aad
 ```
 
 Purpose codes: `1=sync`, `2=snapshot`, `3=device-record`, `4=pairing`. Payloads are zlib-compressed JSON before sealing.
@@ -199,9 +199,13 @@ The Sync channel's pinned message is a JSON text message (≤ 4096 chars):
 
 Used when the relay is unreachable or disabled. Requires the guest to sign in to Telegram first.
 
-1. Guest posts plaintext JSON `pair_request {request_id, device_id, device_name, platform, public_key, eph_pub}` to the Sync channel.
-2. Online devices show a non-blocking prompt. On "Revisar", the host posts `pair_offer {request_id, eph_pub}`; both compute `K = HKDF(X25519(eph_host, eph_guest))` and display SAS emojis.
-3. After the user confirms the emojis match, the host posts `pair_grant {request_id, sealed_keyring}` (sealed to `public_key`, aad `request_id`). Requests expire after 15 minutes; the guest deletes its own pairing messages after completion.
+Commit-then-reveal prevents anyone with channel access (including Telegram) from grinding ephemeral keys to match the 24-bit SAS.
+
+1. Guest posts plaintext JSON `pair_request {request_id, device_id, device_name, platform, public_key, commitment}` where `commitment = b64url(SHA-256("bento/v1/pair-commit" || eph_guest_pub || public_key || request_id))`.
+2. Online devices show a non-blocking prompt. On "Revisar", the host posts `pair_offer {request_id, eph_pub: eph_host_pub}`.
+3. The guest posts `pair_reveal {request_id, eph_pub: eph_guest_pub}`; the host verifies the commitment and rejects mismatches.
+4. Both compute the SAS with `HKDF(X25519(eph_host, eph_guest), salt = SHA-256(request_id || public_key || eph_guest_pub || eph_host_pub), info = "bento/v1/pairing/fallback-sas")` and display the emojis.
+5. After the user confirms the emojis match, the host posts `pair_grant {request_id, sealed_keyring}` (sealed to `public_key`, aad `request_id`). Requests expire after 15 minutes; the guest deletes its own pairing messages after completion.
 
 ### Recovery
 
@@ -267,3 +271,13 @@ The sync loop applies grants addressed to this device via `VaultSessionPort.upda
 ### Device registration
 
 `VaultSessionPort` (mtproto agent) registers the current device (`devices` row with `is_current=True`, name defaulting to `<hostname> · <OS>`, X25519 public key, current Telegram authorization hash) whenever a vault is created, unlocked with a recovery code, or installed from a pairing grant. Listing, renaming, removal, and key rotation belong to the pairing agent.
+
+### Crypto format decisions (Stage 14)
+
+- Envelope AAD is the full 22-byte prefix plus caller AAD; sealed boxes (`BBOX` v1) use the 49-byte prefix plus caller AAD.
+- Pairing envelopes use subkey `info="bento/v1/pairing"`. Base64url is unpadded everywhere; decoding is strict.
+- Blob v2 has `max(1, ceil(P/S))` segments (an exact multiple ends on a full last segment); segment size is capped at 64 MiB; unknown epochs raise `IntegrityError`.
+- Relay pairing frames always carry their type byte; message counters are implicit; any failure poisons the session.
+- Headers are MACed with the keyring's current epoch and `current_epoch` must equal it.
+- After a rotation to epoch `e` observed at Sync message `M`, devices reject batches, snapshots, and headers sealed with an epoch `< e` posted after `M` (a removed device keeps old keys).
+- Resumed uploads must verify the source's sha256 and size before reusing saved `file_salt`/`nonce_prefix` (nonce reuse otherwise).

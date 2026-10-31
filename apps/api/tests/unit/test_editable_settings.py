@@ -148,3 +148,13 @@ def test_desktop_does_not_silently_read_legacy_dotenv(monkeypatch, tmp_path) -> 
         assert settings.telegram_bot_token is None
     finally:
         get_settings.cache_clear()
+
+
+def test_fake_storage_backend_is_rejected_in_production() -> None:
+    from bento.application.settings import _cross_validate
+
+    base = {"storage_backend": "fake", "data_dir": "/tmp/bento-data"}
+    issues = _cross_validate({**base, "environment": "production"}, {})
+
+    assert [issue.code for issue in issues] == ["storage_backend_unavailable"]
+    assert _cross_validate({**base, "environment": "local"}, {}) == []

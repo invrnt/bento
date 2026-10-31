@@ -21,7 +21,9 @@ function setup() {
     removeHandler: vi.fn((channel: string) => handlers.delete(channel)),
   };
   const send = vi.fn();
-  const window = { webContents: { send } };
+  const mainFrame = { processId: 4, routingId: 1, parent: null };
+  const webContents = { send, mainFrame, isDestroyed: () => false };
+  const window = { webContents, isDestroyed: () => false };
   const dependencies = {
     ipcMain: ipcMain as never,
     window: () => window as never,
@@ -35,13 +37,21 @@ function setup() {
       download: vi.fn(async () => ({ status: "downloaded" as const, installMode: "manual" as const, currentVersion: "0.1.0" })),
       install: vi.fn(async () => ({ action: "manual" as const })),
     },
+    preferences: {
+      get: vi.fn(() => ({ keepRunningInBackground: true, launchAtLogin: false, autoDownloadUpdates: true })),
+      set: vi.fn(async (patch: Record<string, boolean>) => ({ keepRunningInBackground: true, launchAtLogin: false, autoDownloadUpdates: true, ...patch })),
+    },
+    deepLinks: { subscribe: vi.fn(), unsubscribe: vi.fn() },
+    navigation: { subscribe: vi.fn(), unsubscribe: vi.fn() },
+    savePageAsPdf: vi.fn(async () => ({ saved: true, fileName: "kit.pdf" })),
   };
   const dispose = registerIpcHandlers(dependencies);
   const trustedEvent = {
-    senderFrame: { url: "bento://app/settings" },
-    sender: { getURL: () => "bento://app/settings" },
+    senderFrame: { url: "bento://app/settings", ...mainFrame },
+    sender: webContents,
   };
-  return { dependencies, dispose, handlers, ipcMain, send, trustedEvent };
+  Object.assign(webContents, { getURL: () => "bento://app/settings" });
+  return { dependencies, dispose, handlers, ipcMain, send, trustedEvent, webContents };
 }
 
 describe("main IPC handlers", () => {
@@ -61,10 +71,17 @@ describe("main IPC handlers", () => {
         IPC_CHANNELS.updatesCheck,
         IPC_CHANNELS.updatesDownload,
         IPC_CHANNELS.updatesInstall,
+        IPC_CHANNELS.preferencesGet,
+        IPC_CHANNELS.preferencesSet,
+        IPC_CHANNELS.deepLinkSubscribe,
+        IPC_CHANNELS.deepLinkUnsubscribe,
+        IPC_CHANNELS.navigateSubscribe,
+        IPC_CHANNELS.navigateUnsubscribe,
+        IPC_CHANNELS.savePageAsPdf,
       ].sort(),
     );
     dispose();
-    expect(ipcMain.removeHandler).toHaveBeenCalledTimes(10);
+    expect(ipcMain.removeHandler).toHaveBeenCalledTimes(17);
     expect(handlers.size).toBe(0);
   });
 
@@ -117,10 +134,9 @@ describe("main IPC handlers", () => {
   it("never forwards hostile probes", async () => {
     const { dependencies, handlers, trustedEvent } = setup();
     const handler = handlers.get(IPC_CHANNELS.settingsProbe)!;
-    await expect(handler(trustedEvent, { kind: "telegram", secrets: { token: "new-secret" } })).resolves.toEqual({
-      status: "ok",
-    });
+    await expect(handler(trustedEvent, { kind: "ffmpeg" })).resolves.toEqual({ status: "ok" });
     await expect(handler(trustedEvent, { kind: "shell", command: "whoami" })).rejects.toThrow(TypeError);
+    await expect(handler(trustedEvent, { kind: "telegram", secrets: { token: "new-secret" } })).rejects.toThrow(TypeError);
     expect(dependencies.runProbe).toHaveBeenCalledTimes(1);
   });
 
@@ -131,5 +147,45 @@ describe("main IPC handlers", () => {
     await expect(check(trustedEvent, { url: "https://attacker.example", command: "download" })).rejects.toThrow(TypeError);
     await expect(check({ senderFrame: { url: "https://attacker.example" }, sender: { getURL: () => "https://attacker.example" } })).rejects.toThrow(/Untrusted/u);
     expect(dependencies.updates.check).toHaveBeenCalledTimes(1);
+  });
+
+  it("validates preference patches before applying them", async () => {
+    const { dependencies, handlers, trustedEvent } = setup();
+    await expect(handlers.get(IPC_CHANNELS.preferencesGet)!(trustedEvent)).resolves.toMatchObject({ launchAtLogin: false });
+    await expect(handlers.get(IPC_CHANNELS.preferencesGet)!(trustedEvent, { launchAtLogin: true })).rejects.toThrow(TypeError);
+    await expect(handlers.get(IPC_CHANNELS.preferencesSet)!(trustedEvent, { launchAtLogin: true })).resolves.toMatchObject({ launchAtLogin: true });
+    await expect(handlers.get(IPC_CHANNELS.preferencesSet)!(trustedEvent, { launchAtLogin: "true" })).rejects.toThrow(TypeError);
+    await expect(handlers.get(IPC_CHANNELS.preferencesSet)!(trustedEvent, { dataDir: "/" })).rejects.toThrow(TypeError);
+    expect(dependencies.preferences.set).toHaveBeenCalledTimes(1);
+    expect(dependencies.preferences.set).toHaveBeenCalledWith({ launchAtLogin: true });
+  });
+
+  it("subscribes buffered streams only for the main window's top-level frame", async () => {
+    const { dependencies, handlers, trustedEvent, webContents } = setup();
+    await handlers.get(IPC_CHANNELS.deepLinkSubscribe)!(trustedEvent);
+    await handlers.get(IPC_CHANNELS.navigateSubscribe)!(trustedEvent);
+    await handlers.get(IPC_CHANNELS.deepLinkUnsubscribe)!(trustedEvent);
+    expect(dependencies.deepLinks.subscribe).toHaveBeenCalledWith(webContents);
+    expect(dependencies.navigation.subscribe).toHaveBeenCalledWith(webContents);
+    expect(dependencies.deepLinks.unsubscribe).toHaveBeenCalledWith(webContents);
+
+    const subframe = { ...trustedEvent, senderFrame: { ...trustedEvent.senderFrame, routingId: 9, parent: {} } };
+    await expect(handlers.get(IPC_CHANNELS.deepLinkSubscribe)!(subframe)).rejects.toThrow(/main window/u);
+    const otherContents = { ...webContents };
+    await expect(handlers.get(IPC_CHANNELS.navigateSubscribe)!({ ...trustedEvent, sender: otherContents })).rejects.toThrow(/main window/u);
+    await expect(handlers.get(IPC_CHANNELS.deepLinkSubscribe)!(trustedEvent, { replay: true })).rejects.toThrow(TypeError);
+    expect(dependencies.deepLinks.subscribe).toHaveBeenCalledTimes(1);
+    expect(dependencies.navigation.subscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it("validates PDF requests and never forwards HTML or paths", async () => {
+    const { dependencies, handlers, trustedEvent } = setup();
+    const save = handlers.get(IPC_CHANNELS.savePageAsPdf)!;
+    await expect(save(trustedEvent, { suggestedName: "Kit.pdf" })).resolves.toEqual({ saved: true, fileName: "kit.pdf" });
+    await expect(save(trustedEvent, { html: "<p>x</p>" })).rejects.toThrow(TypeError);
+    await expect(save(trustedEvent, { suggestedName: "../../x.pdf" })).rejects.toThrow(TypeError);
+    await expect(save({ senderFrame: { url: "https://attacker.example" }, sender: { getURL: () => "https://attacker.example" } }, {})).rejects.toThrow(/Untrusted/u);
+    expect(dependencies.savePageAsPdf).toHaveBeenCalledTimes(1);
+    expect(dependencies.savePageAsPdf.mock.calls[0]?.[1]).toEqual({ suggestedName: "Kit.pdf" });
   });
 });

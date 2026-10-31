@@ -118,11 +118,23 @@ class PairingCryptoSessionPort(Protocol):
 
 
 class FallbackPairingKeysPort(Protocol):
-    """Ephemeral X25519 exchange used by Sync-channel pairing."""
+    """Ephemeral X25519 exchange used by Sync-channel pairing (commit-then-reveal, see architecture doc)."""
 
     def public_key(self) -> bytes: ...
 
-    def sas_with(self, peer_public_key: bytes) -> tuple[str, str, str, str]: ...
+    def commitment(self, *, device_public_key: bytes, request_id: str) -> str:
+        """Guest side: b64url SHA-256 commitment to this ephemeral key."""
+        ...
+
+    def sas_with(
+        self,
+        peer_public_key: bytes,
+        *,
+        request_id: str,
+        guest_device_public_key: bytes,
+        guest_ephemeral_public_key: bytes,
+        host_ephemeral_public_key: bytes,
+    ) -> tuple[str, str, str, str]: ...
 
 
 class PairingCryptoFactoryPort(Protocol):

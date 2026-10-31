@@ -48,3 +48,8 @@ Make every device converge: capture local changes, publish encrypted batches to 
 ## Handoff
 
 Commit on your branch. Report wiring points, sync_state keys, status semantics, test counts, and anything other agents must call.
+
+## Stage 14 Handoff Notes
+
+- `VaultCrypto.seal_json/open_json(keyring, SealPurpose.SYNC|SNAPSHOT, payload, aad=...)`; envelopes carry their epoch; unknown epochs raise `IntegrityError`.
+- Epoch floor (security): after applying a `keys` message (or observing a header) that moves the vault to epoch `e` at Sync message id `M`, reject (skip with a logged integrity warning, never apply) batches, snapshots, and headers sealed with an epoch `< e` that were posted after `M`. Persist the floor in `sync_state`. Use AAD `vault_id` for sync/snapshot envelopes.

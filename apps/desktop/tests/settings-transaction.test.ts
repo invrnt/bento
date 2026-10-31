@@ -5,7 +5,7 @@ import type { ProgressEvent, SettingsApplyRequest } from "../src/shared/contract
 const request: SettingsApplyRequest = {
   revision: 4,
   values: { worker_concurrency: 2 },
-  secrets: { telegram_bot_token: { operation: "set", value: "new-secret" } },
+  secrets: { sample_token: { operation: "set", value: "new-secret" } },
 };
 
 function fixtures() {
@@ -13,18 +13,18 @@ function fixtures() {
     revision: 4,
     values: {
       worker_concurrency: { value: 1, source: "saved", locked: false, apply_mode: "restart_worker" },
-      telegram_bot_token: { configured: true, source: "saved", locked: false, apply_mode: "restart_services" },
+      sample_token: { configured: true, source: "saved", locked: false, apply_mode: "restart_services" },
     },
   };
   const validation = {
     valid: true,
     errors: [],
-    restart_plan: { mode: "restart_services", services: ["api", "worker"], affected_keys: ["worker_concurrency", "telegram_bot_token"] },
+    restart_plan: { mode: "restart_services", services: ["api", "worker"], affected_keys: ["worker_concurrency", "sample_token"] },
   };
   const applied = { ...previous, revision: 5, restart_plan: validation.restart_plan };
   const prepared = {
-    references: { telegram_bot_token: { reference: "desktop-secret:opaque", configured: true } },
-    values: { telegram_bot_token: "new-secret" },
+    references: { sample_token: { reference: "desktop-secret:opaque", configured: true } },
+    values: { sample_token: "new-secret" },
     commit: vi.fn(async () => undefined),
     rollback: vi.fn(async () => undefined),
   };
@@ -38,9 +38,9 @@ function fixtures() {
     verify: vi.fn(async () => undefined),
   };
   const secrets = {
-    references: vi.fn(async () => ({ telegram_bot_token: "desktop-secret:old" })),
+    references: vi.fn(async () => ({ sample_token: "desktop-secret:old" })),
     prepare: vi.fn(async () => prepared),
-    values: vi.fn(async () => ({ telegram_bot_token: "old-secret" })),
+    values: vi.fn(async () => ({ sample_token: "old-secret" })),
   };
   const bootstrap = { save: vi.fn(async () => undefined) };
   let patchCount = 0;
@@ -77,11 +77,11 @@ describe("transactional settings apply", () => {
       restartPlan: {
         mode: "restart_services",
         services: ["api", "worker"],
-        affectedKeys: ["worker_concurrency", "telegram_bot_token"],
+        affectedKeys: ["worker_concurrency", "sample_token"],
       },
     });
     expect(state.prepared.commit).toHaveBeenCalledOnce();
-    expect(state.sidecars.restart).toHaveBeenCalledWith(["api", "worker"], { telegram_bot_token: "new-secret" });
+    expect(state.sidecars.restart).toHaveBeenCalledWith(["api", "worker"], { sample_token: "new-secret" });
     expect(state.sidecars.verify).toHaveBeenCalledOnce();
     expect(state.bootstrap.save).toHaveBeenCalledWith(expect.objectContaining({ lastKnownGoodRevision: 5 }));
     expect(state.progress.at(-1)).toEqual({ phase: "complete", status: "ok" });
@@ -89,7 +89,7 @@ describe("transactional settings apply", () => {
     const validateCall = state.sidecars.apiJson.mock.calls.find((call) => call[0] === "/api/settings/validate")!;
     expect(bodyOf(validateCall)).toMatchObject({
       values: request.values,
-      secret_references: { telegram_bot_token: { reference: "desktop-secret:opaque", configured: true } },
+      secret_references: { sample_token: { reference: "desktop-secret:opaque", configured: true } },
     });
     expect(JSON.stringify(state.sidecars.apiJson.mock.calls)).not.toContain("new-secret");
   });
@@ -135,7 +135,7 @@ describe("transactional settings apply", () => {
     expect(result).toMatchObject({ ok: false, revision: 6, rolledBack: true, errors: [{ code: "desktop_apply_rolled_back" }] });
     expect(JSON.stringify(result)).not.toContain("launch-token");
     expect(state.prepared.rollback).toHaveBeenCalledOnce();
-    expect(state.sidecars.restart).toHaveBeenLastCalledWith(["api", "worker"], { telegram_bot_token: "old-secret" });
+    expect(state.sidecars.restart).toHaveBeenLastCalledWith(["api", "worker"], { sample_token: "old-secret" });
     expect(state.sidecars.verify).toHaveBeenCalledTimes(2);
     expect(state.bootstrap.save).not.toHaveBeenCalled();
 
@@ -143,7 +143,7 @@ describe("transactional settings apply", () => {
     expect(bodyOf(patchCalls[1]!)).toMatchObject({
       revision: 5,
       values: { worker_concurrency: 1 },
-      secret_references: { telegram_bot_token: { reference: "desktop-secret:old", configured: true } },
+      secret_references: { sample_token: { reference: "desktop-secret:old", configured: true } },
     });
   });
 
@@ -213,7 +213,7 @@ describe("transactional settings apply", () => {
     expect(state.sidecars.stop).toHaveBeenCalledOnce();
     expect(state.sidecars.setDataDir).toHaveBeenCalledWith(newDataDir);
     expect(state.sidecars.start).toHaveBeenCalledOnce();
-    expect(state.sidecars.restart).toHaveBeenCalledWith(["api", "worker"], { telegram_bot_token: "old-secret" });
+    expect(state.sidecars.restart).toHaveBeenCalledWith(["api", "worker"], { sample_token: "old-secret" });
     expect(state.bootstrap.save).toHaveBeenNthCalledWith(1, {
       schemaVersion: 1,
       dataDir: newDataDir,
@@ -235,24 +235,24 @@ describe("transactional settings apply", () => {
       revision: 4,
       values: {
         worker_concurrency: { value: 1, source: "saved", locked: false, apply_mode: "restart_worker" },
-        telegram_max_attempts: { value: 7, source: "saved", locked: false, apply_mode: "restart_services" },
+        sample_attempts: { value: 7, source: "saved", locked: false, apply_mode: "restart_services" },
         host: { value: "127.0.0.1", source: "policy", locked: true, apply_mode: "restart_app" },
-        telegram_bot_token: { configured: true, source: "saved", locked: false, apply_mode: "restart_services" },
-        telegram_api_hash: { configured: true, source: "saved", locked: false, apply_mode: "restart_services" },
-        telegram_webhook_secret: { configured: true, source: "saved", locked: false, apply_mode: "restart_services" },
+        sample_token: { configured: true, source: "saved", locked: false, apply_mode: "restart_services" },
+        sample_hash: { configured: true, source: "saved", locked: false, apply_mode: "restart_services" },
+        sample_signing_key: { configured: true, source: "saved", locked: false, apply_mode: "restart_services" },
       },
     };
     const references = {
-      telegram_bot_token: "desktop-secret:old-token",
-      telegram_api_hash: "desktop-secret:old-api-hash",
-      telegram_webhook_secret: "desktop-secret:old-webhook",
+      sample_token: "desktop-secret:old-token",
+      sample_hash: "desktop-secret:old-sample-hash",
+      sample_signing_key: "desktop-secret:old-signing-key",
     };
     const prepared = {
       references: {
-        telegram_bot_token: { reference: "desktop-secret:opaque", configured: true },
-        telegram_webhook_secret: { reference: null, configured: false },
+        sample_token: { reference: "desktop-secret:opaque", configured: true },
+        sample_signing_key: { reference: null, configured: false },
       },
-      values: { telegram_bot_token: "new-secret", telegram_api_hash: "existing-api-hash" },
+      values: { sample_token: "new-secret", sample_hash: "existing-api-hash" },
       commit: vi.fn(async () => undefined),
       rollback: vi.fn(async () => undefined),
     };
@@ -291,8 +291,8 @@ describe("transactional settings apply", () => {
       revision: 4,
       values,
       secrets: {
-        telegram_bot_token: { operation: "set", value: "new-secret" },
-        telegram_webhook_secret: { operation: "clear" },
+        sample_token: { operation: "set", value: "new-secret" },
+        sample_signing_key: { operation: "clear" },
       },
       dataMigration: "use-empty",
     }, () => undefined);
@@ -305,14 +305,14 @@ describe("transactional settings apply", () => {
       revision: 0,
       values: {
         worker_concurrency: 2,
-        telegram_max_attempts: 7,
+        sample_attempts: 7,
         data_dir: newDataDir,
         ocr_provider: "rapidocr",
       },
       secret_references: {
-        telegram_bot_token: { reference: "desktop-secret:opaque", configured: true },
-        telegram_api_hash: { reference: "desktop-secret:old-api-hash", configured: true },
-        telegram_webhook_secret: { reference: null, configured: false },
+        sample_token: { reference: "desktop-secret:opaque", configured: true },
+        sample_hash: { reference: "desktop-secret:old-sample-hash", configured: true },
+        sample_signing_key: { reference: null, configured: false },
       },
       run_probes: false,
     });
@@ -321,14 +321,14 @@ describe("transactional settings apply", () => {
     expect(bodyOf(validateCalls[1]!)).toEqual({
       values: {
         worker_concurrency: 2,
-        telegram_max_attempts: 7,
+        sample_attempts: 7,
         data_dir: newDataDir,
         ocr_provider: "rapidocr",
       },
       secret_references: {
-        telegram_bot_token: { reference: "desktop-secret:opaque", configured: true },
-        telegram_api_hash: { reference: "desktop-secret:old-api-hash", configured: true },
-        telegram_webhook_secret: { reference: null, configured: false },
+        sample_token: { reference: "desktop-secret:opaque", configured: true },
+        sample_hash: { reference: "desktop-secret:old-sample-hash", configured: true },
+        sample_signing_key: { reference: null, configured: false },
       },
       run_probes: false,
     });
@@ -403,23 +403,23 @@ describe("transactional settings apply", () => {
       const oldDataDir = "/tmp/bento-data";
       const newDataDir = `/tmp/bento-${dataMigration}-data`;
       const previousSecretValues = {
-        telegram_bot_token: "old-token",
-        telegram_webhook_secret: "old-webhook-secret",
+        sample_token: "old-token",
+        sample_signing_key: "old-signing-key-secret",
       };
-      const changedSecretValues = { telegram_bot_token: "new-token" };
+      const changedSecretValues = { sample_token: "new-token" };
       const events: string[] = [];
       const prepared = {
         references: {
-          telegram_bot_token: { reference: "desktop-secret:new-token", configured: true },
-          telegram_webhook_secret: { reference: null, configured: false },
+          sample_token: { reference: "desktop-secret:new-token", configured: true },
+          sample_signing_key: { reference: null, configured: false },
         },
         values: changedSecretValues,
         commit: vi.fn(async () => { events.push("secrets:commit"); }),
         rollback: vi.fn(async () => { events.push("secrets:rollback"); }),
       };
       state.secrets.references.mockResolvedValue({
-        telegram_bot_token: "desktop-secret:old-token",
-        telegram_webhook_secret: "desktop-secret:old-webhook",
+        sample_token: "desktop-secret:old-token",
+        sample_signing_key: "desktop-secret:old-signing-key",
       });
       state.secrets.prepare.mockResolvedValue(prepared);
       state.secrets.values.mockImplementation(async () => {
@@ -477,8 +477,8 @@ describe("transactional settings apply", () => {
         revision: 4,
         values: { data_dir: newDataDir },
         secrets: {
-          telegram_bot_token: { operation: "set", value: "new-token" },
-          telegram_webhook_secret: { operation: "clear" },
+          sample_token: { operation: "set", value: "new-token" },
+          sample_signing_key: { operation: "clear" },
         },
         dataMigration,
       }, () => undefined);
@@ -490,9 +490,9 @@ describe("transactional settings apply", () => {
         [changedSecretValues],
         [previousSecretValues],
       ]);
-      expect(changedSecretValues).not.toHaveProperty("telegram_webhook_secret");
-      expect(previousSecretValues.telegram_bot_token).toBe("old-token");
-      expect(previousSecretValues.telegram_webhook_secret).toBe("old-webhook-secret");
+      expect(changedSecretValues).not.toHaveProperty("sample_signing_key");
+      expect(previousSecretValues.sample_token).toBe("old-token");
+      expect(previousSecretValues.sample_signing_key).toBe("old-signing-key-secret");
       expect(events.indexOf("secrets:rollback")).toBeLessThan(events.indexOf("environment:previous"));
       expect(events.indexOf("secrets:previous-values")).toBeLessThan(events.indexOf("environment:previous"));
       expect(events.indexOf("environment:previous")).toBeLessThan(events.indexOf(`start:${oldDataDir}`));
