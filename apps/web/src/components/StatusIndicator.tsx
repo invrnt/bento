@@ -4,9 +4,11 @@ import { StatusDot } from "./Badge";
 import type { BadgeTone } from "./Badge";
 import { Tooltip } from "./Tooltip";
 
-export type StatusTone = "idle" | "success" | "warning" | "danger";
+/** `active` means work in progress (uploads, sync): the only tone whose dot pulses. */
+export type StatusTone = "idle" | "active" | "success" | "warning" | "danger";
 
-const toneMap: Record<StatusTone, BadgeTone> = {
+export const statusToneMap: Record<StatusTone, BadgeTone> = {
+  active: "accent",
   danger: "danger",
   idle: "neutral",
   success: "success",
@@ -29,10 +31,10 @@ export function StatusIndicator({
   tone = "idle",
 }: StatusIndicatorProps) {
   const pillClasses =
-    "inline-flex h-8 min-w-8 items-center justify-center gap-2 rounded-full border border-line bg-raised text-sm font-medium text-ink-muted shadow-xs sm:px-3";
+    "inline-flex h-8 min-w-8 max-w-[18rem] items-center justify-center gap-2 rounded-full border border-line bg-raised text-sm font-medium text-ink-muted shadow-xs sm:px-3";
   const content = (
     <>
-      <StatusDot pulse={tone === "warning" || tone === "danger"} tone={toneMap[tone]} />
+      <StatusDot pulse={tone === "active"} tone={statusToneMap[tone]} />
       <span className="sr-only truncate sm:not-sr-only">{label}</span>
     </>
   );
