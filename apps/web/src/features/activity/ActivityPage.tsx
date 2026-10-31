@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   Activity as ActivityIcon,
@@ -70,6 +70,8 @@ const defaultApi: ActivityPageApi = {
 
 export type ActivityPageProps = {
   api?: ActivityPageApi;
+  /** Attention item to highlight and focus, from `/activity?attention=<id>` (desktop notifications). */
+  focusAttentionId?: string | null;
   onNavigate?: (href: string) => void;
   store?: ActivityStore;
 };
@@ -88,7 +90,12 @@ const heroStyles: Record<ActivityStatusKind, { icon: ReactNode; tile: string }> 
 };
 
 /** The Activity page: transfers, queue, backup pause and attention items with one action each. */
-export function ActivityPage({ api = defaultApi, onNavigate = navigateTo, store = activityStore }: ActivityPageProps) {
+export function ActivityPage({
+  api = defaultApi,
+  focusAttentionId = null,
+  onNavigate = navigateTo,
+  store = activityStore,
+}: ActivityPageProps) {
   const { activity, error, isLoading, refresh } = useActivity(store);
   const policyResource = usePolledResource(api.getBackupPolicy, null);
   const [policyOverride, setPolicyOverride] = useState<BackupPolicy | null>(null);
@@ -205,7 +212,13 @@ export function ActivityPage({ api = defaultApi, onNavigate = navigateTo, store 
               <Card as="div" className="overflow-hidden" padding="none">
                 <ul aria-label={t("activity.attention.label")} className="divide-y divide-line">
                   {attention.map((item) => (
-                    <AttentionRow item={item} key={item.id} onRun={() => void runAttention(item)} pending={pendingItemId === item.id} />
+                    <AttentionRow
+                      focused={item.id === focusAttentionId}
+                      item={item}
+                      key={item.id}
+                      onRun={() => void runAttention(item)}
+                      pending={pendingItemId === item.id}
+                    />
                   ))}
                 </ul>
               </Card>
@@ -305,12 +318,40 @@ const actionContent: Record<Exclude<AttentionItem["action"], "none">, { icon: Re
   save_recovery_kit: { icon: <KeyRound />, key: "activity.action.saveKit" },
 };
 
-function AttentionRow({ item, onRun, pending }: { item: AttentionItem; onRun: () => void; pending: boolean }) {
+function AttentionRow({
+  focused,
+  item,
+  onRun,
+  pending,
+}: {
+  focused: boolean;
+  item: AttentionItem;
+  onRun: () => void;
+  pending: boolean;
+}) {
   const action = item.action === "none" ? null : actionContent[item.action];
   const isKit = item.kind === "recovery_kit";
+  const rowRef = useRef<HTMLLIElement | null>(null);
+
+  // Arriving from a desktop notification: bring that item into view and move focus to it once.
+  useEffect(() => {
+    if (focused) {
+      rowRef.current?.scrollIntoView?.({ block: "center" });
+      rowRef.current?.focus();
+    }
+  }, [focused]);
 
   return (
-    <li className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+    <li
+      aria-current={focused || undefined}
+      className={cx(
+        "flex flex-col gap-3 p-4 outline-none transition-colors duration-200 sm:flex-row sm:items-center",
+        focused && "bg-accent-soft/60 shadow-[inset_3px_0_0_var(--color-accent)]",
+      )}
+      data-attention-id={item.id}
+      ref={rowRef}
+      tabIndex={focused ? -1 : undefined}
+    >
       <div className="flex min-w-0 flex-1 gap-3">
         <span
           aria-hidden="true"

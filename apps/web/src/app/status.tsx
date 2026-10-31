@@ -180,13 +180,24 @@ const desktopTargets: Record<string, string> = {
   drive: "/drive",
   "recovery-kit": appRoutes.recoveryKit,
   settings: appRoutes.settings,
-  trash: appRoutes.trash,
 };
 
-/** Maps a desktop `NavigateRequest` (`{target}`) to a route; unknown targets are ignored. */
+/**
+ * Maps a desktop `NavigateRequest` (`{target, attentionId?}`) to a route. Unknown targets from a
+ * newer desktop build fall back to Activity; anything that is not a request is ignored.
+ */
 export function desktopNavigationHref(request: unknown): string | null {
-  const target = typeof request === "string" ? request : isRecord(request) ? request.target : null;
-  return typeof target === "string" && Object.prototype.hasOwnProperty.call(desktopTargets, target) ? desktopTargets[target] : null;
+  if (!isRecord(request) || typeof request.target !== "string") {
+    return null;
+  }
+
+  const href = Object.prototype.hasOwnProperty.call(desktopTargets, request.target) ? desktopTargets[request.target] : appRoutes.activity;
+  const attentionId = request.attentionId;
+  if (href === appRoutes.activity && typeof attentionId === "string" && attentionId.length > 0 && attentionId.length <= 200) {
+    return `${appRoutes.activity}?attention=${encodeURIComponent(attentionId)}`;
+  }
+
+  return href;
 }
 
 type NavigateBridge = { onNavigate?: (listener: (request: unknown) => void) => unknown };

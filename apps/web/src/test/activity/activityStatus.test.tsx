@@ -191,11 +191,15 @@ describe("status surfaces", () => {
 });
 
 describe("desktop navigation adapter", () => {
-  it("maps notification targets to routes and ignores anything else", () => {
+  it("maps notification targets to routes, falling back to Activity", () => {
     expect(desktopNavigationHref({ target: "activity" })).toBe("/activity");
+    expect(desktopNavigationHref({ attentionId: "att 1/2", target: "activity" })).toBe("/activity?attention=att%201%2F2");
     expect(desktopNavigationHref({ attentionId: "a", target: "recovery-kit" })).toBe("/settings?section=recovery");
-    expect(desktopNavigationHref({ target: "javascript:alert(1)" })).toBeNull();
+    expect(desktopNavigationHref({ target: "settings" })).toBe("/settings");
+    expect(desktopNavigationHref({ target: "drive" })).toBe("/drive");
+    expect(desktopNavigationHref({ attentionId: "x", target: "something-new" })).toBe("/activity?attention=x");
     expect(desktopNavigationHref("https://example.com")).toBeNull();
+    expect(desktopNavigationHref(null)).toBeNull();
   });
 
   it("is a no-op without the bridge and subscribes when onNavigate exists", () => {
@@ -214,7 +218,7 @@ describe("desktop navigation adapter", () => {
 
     const stop = subscribeDesktopNavigation(listener, bridge);
     act(() => emit({ target: "drive" }));
-    act(() => emit({ target: "unknown" }));
+    act(() => emit("not a request"));
     stop();
 
     expect(listener).toHaveBeenCalledTimes(1);

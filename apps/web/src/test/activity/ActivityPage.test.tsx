@@ -19,7 +19,7 @@ function attention(overrides: Partial<AttentionItem>): AttentionItem {
   return { action: "none", id: "att", kind: "upload_failed", params: {}, title_key: "", ...overrides };
 }
 
-function setup(data: Activity, apiOverrides: Partial<ActivityPageApi> = {}) {
+function setup(data: Activity, apiOverrides: Partial<ActivityPageApi> = {}, focusAttentionId: string | null = null) {
   const fetcher = vi.fn(async () => data);
   const api: ActivityPageApi = {
     getBackupPolicy: vi.fn(async () => policy),
@@ -31,7 +31,7 @@ function setup(data: Activity, apiOverrides: Partial<ActivityPageApi> = {}) {
   const onNavigate = vi.fn();
   render(
     <>
-      <ActivityPage api={api} onNavigate={onNavigate} store={createActivityStore(fetcher)} />
+      <ActivityPage api={api} focusAttentionId={focusAttentionId} onNavigate={onNavigate} store={createActivityStore(fetcher)} />
       <ToastViewport />
     </>,
   );
@@ -103,6 +103,26 @@ describe("ActivityPage", () => {
 
     fireEvent.click(within(rows[3]).getByRole("button", { name: "Guardar kit" }));
     expect(onNavigate).toHaveBeenCalledWith("/settings?section=recovery");
+  });
+
+  it("highlights and focuses the attention item a notification points to", async () => {
+    setup(
+      activity({
+        attention: [
+          attention({ action: "retry", id: "att_upload", kind: "upload_failed" }),
+          attention({ action: "save_recovery_kit", id: "att_kit", kind: "recovery_kit" }),
+        ],
+        summary: "attention",
+      }),
+      {},
+      "att_kit",
+    );
+
+    const list = await screen.findByRole("list", { name: "Avisos" });
+    const target = list.querySelector('[data-attention-id="att_kit"]');
+    await waitFor(() => expect(target).toHaveFocus());
+    expect(target).toHaveAttribute("aria-current", "true");
+    expect(list.querySelector('[data-attention-id="att_upload"]')).not.toHaveAttribute("aria-current");
   });
 
   it("uses the backend title key when the dictionary knows it", async () => {
