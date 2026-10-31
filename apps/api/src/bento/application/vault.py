@@ -32,6 +32,7 @@ from bento.domain.errors import (
     VaultNotFoundError,
 )
 from bento.domain.security import DeviceIdentity, VaultKeyring
+from bento.domain.sync import SyncState, SyncStatus
 from bento.domain.vault import VaultHeader, VaultLayout, VaultState, VaultStatus, VaultUsage
 from bento.ports.key_store import DEVICE_IDENTITY, VAULT_KEYRING, KeyStorePort
 from bento.ports.pairing import DeviceRepositoryPort
@@ -47,9 +48,12 @@ OTHER_VAULTS_KEY = "vault.other_vaults"
 RECOVERY_KIT_SAVED_KEY = "vault.recovery_kit_saved"
 RECOVERY_KIT_CHECK_KEY = "vault.recovery_kit_check"
 BOOTSTRAP_PENDING_KEY = "vault.bootstrap_pending"
-"""`"1"` from `install()` until the sync engine has applied the snapshot and tail (it then writes `"0"`)."""
+"""ISO time of an `install()` the sync engine has not pulled after yet (`"0"` once it has)."""
+KEYRING_REVISION_KEY = "vault.keyring_revision"
+"""Changes with every keyring write, so other processes drop their cached context."""
 
 DISCOVERY_TTL_SECONDS = 30.0
+ACCOUNT_RECHECK_SECONDS = 30.0
 _CROCKFORD_ALIASES = str.maketrans({"O": "0", "I": "1", "L": "1"})
 
 
@@ -92,6 +96,14 @@ class TelegramPorts:
     transport: VaultTransportPort
 
 
+class SyncSignalPort(Protocol):
+    """The parts of `SyncStatusProviderPort` the vault session uses."""
+
+    async def status(self) -> SyncStatus: ...
+
+    async def request_sync(self) -> None: ...
+
+
 TelegramResolver = Callable[[], TelegramPorts | None]
 """`None` in local storage mode; raises `TelegramNotAvailableError` when the build has no credentials."""
 
@@ -102,6 +114,13 @@ ChangeListener = Callable[[], Awaitable[None]]
 class CreatedVault:
     status: VaultStatus
     recovery_code: str
+
+
+@dataclass(frozen=True, slots=True)
+class _CachedContext:
+    token: tuple[str | None, str | None]
+    context: VaultContext
+    at: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,6 +164,7 @@ class VaultService:
         identities: DeviceIdentityStore | None = None,
         on_change: ChangeListener | None = None,
         backend_preference: StorageBackendPreferencePort | None = None,
+        sync: Callable[[], SyncSignalPort | None] | None = None,
         monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
         self._telegram = telegram
@@ -158,8 +178,10 @@ class VaultService:
         self._identities = identities or DeviceIdentityStore(key_store, crypto)
         self._on_change = on_change
         self._backend_preference = backend_preference
+        self._sync = sync
         self._monotonic = monotonic
         self._discovery: _Discovery | None = None
+        self._context: _CachedContext | None = None
 
     # VaultSessionPort
 
@@ -177,10 +199,9 @@ class VaultService:
         local = await self._local(account.account)
         if local is not None:
             layout, _ = local
-            pending = await self._state.get_value(BOOTSTRAP_PENDING_KEY) == "1"
             created_at = await self._state.get_value(CREATED_AT_KEY)
             return VaultStatus(
-                state=VaultState.BOOTSTRAPPING if pending else VaultState.READY,
+                state=VaultState.BOOTSTRAPPING if await self._bootstrapping() else VaultState.READY,
                 vault_id=layout.vault_id,
                 created_at=datetime.fromisoformat(created_at) if created_at else None,
                 recovery_kit_saved=await self._state.get_value(RECOVERY_KIT_SAVED_KEY) == "1",
@@ -199,6 +220,12 @@ class VaultService:
         )
 
     async def current(self) -> VaultContext | None:
+        """Cached in-process; re-read when the stored layout or keyring revision changes (and every 30 s)."""
+        token = (await self._state.get_value(LAYOUT_KEY), await self._state.get_value(KEYRING_REVISION_KEY))
+        cached = self._context
+        if cached is not None and cached.token == token and self._monotonic() - cached.at < ACCOUNT_RECHECK_SECONDS:
+            return cached.context
+        self._context = None
         ports = self._optional_ports()
         if ports is None:
             return None
@@ -209,9 +236,14 @@ class VaultService:
         if local is None:
             return None
         layout, keyring = local
-        return VaultContext(layout=layout, keyring=keyring, device=await self.device_identity(), account=account.account)
+        context = VaultContext(layout=layout, keyring=keyring, device=await self.device_identity(), account=account.account)
+        self._context = _CachedContext(token=token, context=context, at=self._monotonic())
+        return context
 
     async def require(self) -> VaultContext:
+        context = await self.current()
+        if context is not None:
+            return context
         ports = self._telegram()
         if ports is None:
             raise VaultNotFoundError()
@@ -237,9 +269,9 @@ class VaultService:
         existing = await self._stored_keyring()
         if existing is not None and existing.vault_id == keyring.vault_id:
             keyring = _merge_keyrings(existing, keyring)
-        await self._key_store.put(VAULT_KEYRING, self._crypto.keyring_to_bytes(keyring))
+        await self._write_keyring(keyring)
         if installed is None or installed[0] != layout:
-            await self._state.set_value(BOOTSTRAP_PENDING_KEY, "1")
+            await self._state.set_value(BOOTSTRAP_PENDING_KEY, self._clock.now().isoformat())
         await self._save_layout(layout, account)
         header = await self._verified_header(ports, layout, keyring)
         if header is not None:
@@ -259,7 +291,7 @@ class VaultService:
             raise IntegrityError("vault_keyring")
         if keyring.current_epoch < current.current_epoch:
             raise ValidationFailedError("The keyring epoch cannot go back")
-        await self._key_store.put(VAULT_KEYRING, self._crypto.keyring_to_bytes(keyring))
+        await self._write_keyring(keyring)
 
     async def read_header(self) -> VaultHeader | None:
         ports = self._optional_ports()
@@ -311,7 +343,7 @@ class VaultService:
             keyring = stored
         else:
             keyring = self._crypto.generate_keyring(f"vlt_{secrets.token_hex(8)}")
-            await self._key_store.put(VAULT_KEYRING, self._crypto.keyring_to_bytes(keyring))
+            await self._write_keyring(keyring)
         layout = await ports.transport.create_vault(keyring.vault_id)
         recovery_code = self._crypto.generate_recovery_code()
         header = self._sign(
@@ -382,8 +414,9 @@ class VaultService:
         return True
 
     def invalidate(self) -> None:
-        """Forget cached discovery (account changes, tests)."""
+        """Forget cached discovery and context (account changes, tests)."""
         self._discovery = None
+        self._context = None
 
     # Internals
 
@@ -398,6 +431,44 @@ class VaultService:
         if ports is None:
             raise VaultNotFoundError()
         return ports
+
+    async def _write_keyring(self, keyring: VaultKeyring) -> None:
+        await self._key_store.put(VAULT_KEYRING, self._crypto.keyring_to_bytes(keyring))
+        await self._state.set_value(KEYRING_REVISION_KEY, secrets.token_hex(8))
+        self._context = None
+
+    async def _bootstrapping(self) -> bool:
+        """The sync engine reports a bootstrap, or it has not pulled since this device installed the vault."""
+        sync = self._sync_signal()
+        status = None
+        if sync is not None:
+            try:
+                status = await sync.status()
+            except DomainError:
+                status = None
+        if status is not None and status.state == SyncState.BOOTSTRAPPING:
+            return True
+        pending = await self._state.get_value(BOOTSTRAP_PENDING_KEY)
+        if pending is None or pending == "0":
+            return False
+        if status is None:
+            return True
+        try:
+            installed_at = datetime.fromisoformat(pending)
+        except ValueError:
+            installed_at = None
+        if installed_at is not None and status.last_pull_at is not None and status.last_pull_at >= installed_at:
+            await self._state.set_value(BOOTSTRAP_PENDING_KEY, "0")
+            return False
+        return True
+
+    def _sync_signal(self) -> SyncSignalPort | None:
+        if self._sync is None:
+            return None
+        try:
+            return self._sync()
+        except (DomainError, NotImplementedError):
+            return None
 
     async def _stored_keyring(self) -> VaultKeyring | None:
         raw = await self._key_store.get(VAULT_KEYRING)
@@ -422,6 +493,7 @@ class VaultService:
     async def _save_layout(self, layout: VaultLayout, account: TelegramAccount) -> None:
         await self._state.set_value(LAYOUT_KEY, _layout_to_json(layout, account.user_id))
         self._discovery = None
+        self._context = None
 
     async def _discover(self, ports: TelegramPorts, *, fresh: bool = False) -> _Discovery:
         cached = self._discovery
@@ -492,8 +564,15 @@ class VaultService:
 
     async def _changed(self) -> None:
         self._discovery = None
+        self._context = None
         if self._backend_preference is not None:
             await self._backend_preference.prefer_telegram()
+        sync = self._sync_signal()
+        if sync is not None:
+            try:
+                await sync.request_sync()
+            except DomainError:
+                pass
         if self._on_change is not None:
             await self._on_change()
 

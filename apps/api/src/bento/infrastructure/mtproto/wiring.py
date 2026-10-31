@@ -36,11 +36,12 @@ from bento.application.vault import LAYOUT_KEY, DeviceDescription, TelegramPorts
 from bento.domain.devices import DevicePlatform
 from bento.domain.errors import TelegramNotAvailableError
 from bento.infrastructure.db.clock import SystemClock
-from bento.infrastructure.db.engine import create_session_factory, session_scope, sqlite_url
+from bento.infrastructure.db.engine import create_app_session_factory, session_scope
 from bento.infrastructure.db.models import SyncStateModel
 from bento.infrastructure.runtime import TelegramRuntime, get_telegram_runtime
 from bento.infrastructure.settings import Settings, settings_database_path
 from bento.ports.key_store import TELEGRAM_SESSION, VAULT_KEYRING, KeyStorePort
+from bento.ports.sync import SyncStatusProviderPort
 
 _lock = threading.RLock()
 _key_stores: dict[str, KeyStorePort] = {}
@@ -78,12 +79,13 @@ def pairing_crypto() -> PairingCryptoFactory:
 
 
 def session_factory(settings: Settings) -> sessionmaker[Session]:
-    path = str(settings_database_path(settings).resolve())
+    """The app database with sync change capture (`create_app_session_factory`), one per path and backend."""
+    key = f"{settings.storage_backend}:{settings_database_path(settings).resolve()}"
     with _lock:
-        factory = _session_factories.get(path)
+        factory = _session_factories.get(key)
         if factory is None:
-            factory = create_session_factory(sqlite_url(path))
-            _session_factories[path] = factory
+            factory = create_app_session_factory(settings)
+            _session_factories[key] = factory
         return factory
 
 
@@ -115,6 +117,7 @@ def vault_session(settings: Settings) -> VaultService:
             device=device_description(),
             clock=clock,
             backend_preference=SQLiteStorageBackendPreference(SQLiteSettingsRepository(sessions, clock)),
+            sync=lambda: _sync_signal(settings),
         )
         _vault_sessions[cache_key] = service
         return service
@@ -180,6 +183,12 @@ def vault_installed(settings: Settings) -> bool:
     if isinstance(store, WrappedFileKeyStore):
         return all((store.directory / f"{name}.bin").is_file() for name in (VAULT_KEYRING, TELEGRAM_SESSION))
     return True
+
+
+def _sync_signal(settings: Settings) -> SyncStatusProviderPort:
+    from bento.infrastructure.services import get_sync_status_provider
+
+    return get_sync_status_provider(settings)
 
 
 def device_description() -> DeviceDescription:

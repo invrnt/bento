@@ -396,3 +396,73 @@ def test_device_removal_rotates_keys_through_the_real_vault_session(tmp_path: Pa
         assert await first.vault.verify_recovery_code(removal.recovery_code) is True
 
     run(scenario())
+
+
+class SyncStub:
+    def __init__(self) -> None:
+        from bento.domain.sync import SyncState, SyncStatus
+
+        self.status_value = SyncStatus(state=SyncState.IDLE)
+        self.requests = 0
+
+    async def status(self):  # type: ignore[no-untyped-def]
+        return self.status_value
+
+    async def request_sync(self) -> None:
+        self.requests += 1
+
+
+def test_bootstrapping_follows_the_sync_engine_and_changes_request_a_sync(tmp_path: Path) -> None:
+    from bento.domain.sync import SyncState, SyncStatus
+
+    async def scenario() -> None:
+        first, code = await _first_device(tmp_path)
+        laptop = make_vault_device(tmp_path, tmp_path / "cloud", "laptop")
+        sync = SyncStub()
+        laptop.vault._sync = lambda: sync  # type: ignore[assignment]
+        await laptop.sign_in()
+
+        assert (await laptop.vault.unlock(code)).state == VaultState.BOOTSTRAPPING  # the worker has not pulled yet
+        assert sync.requests == 1
+        sync.status_value = SyncStatus(state=SyncState.BOOTSTRAPPING)
+        assert (await laptop.vault.status()).state == VaultState.BOOTSTRAPPING
+        laptop.clock.advance(seconds=5)
+        sync.status_value = SyncStatus(state=SyncState.IDLE, last_pull_at=laptop.clock.now())
+        assert (await laptop.vault.status()).state == VaultState.READY
+        assert await laptop.state.get_value(BOOTSTRAP_PENDING_KEY) == "0"
+        context = await laptop.vault.require()
+        await laptop.vault.install(context.layout, context.keyring)
+        assert sync.requests == 2
+
+    run(scenario())
+
+
+def test_current_context_is_cached_until_the_keyring_changes(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        first, _ = await _first_device(tmp_path)
+        calls = 0
+        account = first.runtime.account
+        original = account.status
+
+        async def counting():  # type: ignore[no-untyped-def]
+            nonlocal calls
+            calls += 1
+            return await original()
+
+        account.status = counting  # type: ignore[method-assign]
+        context = await first.vault.current()
+        assert context is not None and calls == 1
+        for _ in range(5):
+            assert await first.vault.current() == context
+        assert calls == 1
+
+        rotated = first.crypto.rotate_keyring(context.keyring)
+        await first.vault.update_keyring(rotated)
+        refreshed = await first.vault.current()
+        assert refreshed is not None and refreshed.keyring.current_epoch == 2 and calls == 2
+
+        # Another process writes the keyring: the stored revision changes and the cache is dropped.
+        await first.state.set_value("vault.keyring_revision", "elsewhere")
+        assert (await first.vault.current()) == refreshed and calls == 3
+
+    run(scenario())

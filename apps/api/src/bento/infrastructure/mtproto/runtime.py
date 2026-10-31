@@ -21,7 +21,7 @@ from bento.application.devices import telegram_device_model
 from bento.application.vault import DeviceIdentityStore
 from bento.domain.settings import SettingSource
 from bento.infrastructure.db.clock import SystemClock
-from bento.infrastructure.db.engine import create_session_factory, sqlite_url
+from bento.infrastructure.db.engine import create_app_session_factory
 from bento.infrastructure.mtproto.client import TelethonClientFactory
 from bento.infrastructure.mtproto.config import ClientIdentity, load_credentials, system_version
 from bento.infrastructure.mtproto.flood import FloodWaitPolicy
@@ -48,7 +48,7 @@ def create_mtproto_runtime(settings: Settings, key_store: KeyStorePort) -> Teleg
         )
 
     clock = SystemClock()
-    state = SQLiteVaultState(create_session_factory(sqlite_url(settings_database_path(settings))), clock)
+    state = SQLiteVaultState(create_app_session_factory(settings), clock)
 
     async def record_long_wait(seconds: int) -> None:
         await state.set_value(FLOOD_WAIT_UNTIL_KEY, (clock.now() + timedelta(seconds=seconds)).isoformat())
