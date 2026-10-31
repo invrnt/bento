@@ -121,6 +121,24 @@ describe("activity store", () => {
     first();
     second();
   });
+
+  it("loads immediately after an unsubscribe/resubscribe while a request is in flight (StrictMode remount)", async () => {
+    let release: (value: Activity) => void = () => undefined;
+    const fetcher = vi
+      .fn<() => Promise<Activity>>()
+      .mockImplementationOnce(() => new Promise((resolve) => (release = resolve)))
+      .mockResolvedValue(activity());
+    const store = createActivityStore(fetcher);
+
+    store.subscribe(() => undefined)();
+    const unsubscribe = store.subscribe(() => undefined);
+    release(activity());
+
+    await waitFor(() => expect(store.getSnapshot().isLoading).toBe(false));
+    expect(store.getSnapshot().activity).not.toBeNull();
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    unsubscribe();
+  });
 });
 
 describe("status surfaces", () => {

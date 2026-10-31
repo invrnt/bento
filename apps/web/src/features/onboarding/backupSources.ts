@@ -2,6 +2,7 @@ import { Download, FileText, Folder, Images, Monitor } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import type { BackupSuggestion } from "../../api/backup";
+import { t } from "../../i18n/dictionary";
 import type { MessageKey } from "../../i18n/dictionary";
 import { apiErrorBody } from "./apiErrors";
 
@@ -14,6 +15,19 @@ const kindIcons: Record<BackupSuggestion["kind"], LucideIcon> = {
 
 export function backupKindIcon(kind: BackupSuggestion["kind"] | null | undefined): LucideIcon {
   return (kind && kindIcons[kind]) || Folder;
+}
+
+const kindLabels: Record<BackupSuggestion["kind"], MessageKey> = {
+  desktop: "backup.kind.desktop",
+  documents: "backup.kind.documents",
+  downloads: "backup.kind.downloads",
+  pictures: "backup.kind.pictures",
+};
+
+/** Localized name for a suggested system folder; the backend label is the on-disk folder name. */
+export function backupSuggestionLabel(suggestion: Pick<BackupSuggestion, "kind" | "label">): string {
+  const key = kindLabels[suggestion.kind];
+  return key ? t(key) : suggestion.label;
 }
 
 const reasonKeys: Array<[RegExp, MessageKey]> = [

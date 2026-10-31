@@ -12,7 +12,7 @@ import { LoadingState } from "../../components/States";
 import { t } from "../../i18n/dictionary";
 import type { MessageKey } from "../../i18n/dictionary";
 import { cx } from "../../lib/cx";
-import { backupErrorKey, backupKindIcon, folderLabel } from "./backupSources";
+import { backupErrorKey, backupKindIcon, backupSuggestionLabel, folderLabel } from "./backupSources";
 import { canPickDirectory, pickDirectory } from "./desktopHost";
 import { SetupFrame } from "./SetupFrame";
 
@@ -52,7 +52,7 @@ export function BackupStep({ client, onBack, onNext, steps }: BackupStepProps) {
         ...(sources.items ?? []).map((source) => ({ added: true, error: null, kind: null, label: source.label, path: source.path, selected: true })),
         ...(suggestions.items ?? [])
           .filter((suggestion) => !existing.has(suggestion.path))
-          .map((suggestion) => ({ added: false, error: null, kind: suggestion.kind, label: suggestion.label, path: suggestion.path, selected: true })),
+          .map((suggestion) => ({ added: false, error: null, kind: suggestion.kind, label: backupSuggestionLabel(suggestion), path: suggestion.path, selected: true })),
       ]);
     });
     return () => {

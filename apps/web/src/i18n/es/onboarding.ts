@@ -1,6 +1,10 @@
 // Spanish strings owned by the Stage 16 web-onboarding agent; merged into `es` in ../dictionary.ts.
 // Covers first run, Telegram sign-in, joining and adding devices, recovery kit, account and Ajustes.
 export const esOnboarding = {
+  "backup.kind.pictures": "Imágenes",
+  "backup.kind.documents": "Documentos",
+  "backup.kind.desktop": "Escritorio",
+  "backup.kind.downloads": "Descargas",
   "route.join.title": "Unirse a tu nube",
   "route.join.body": "Conecta este equipo con tus otros dispositivos de Bento.",
 
