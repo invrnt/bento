@@ -5,8 +5,9 @@ Removal (`orchestration/architecture/telegram-first.md` § Devices, Removal, Key
 1. mark the device `removed_at` (a synced `device` op);
 2. close its Telegram session, matched by authorization hash or by `device_model = "Bento (<id suffix>)"`;
    a "session too new" refusal is reported as `telegram_session_closed = False` and removal continues;
-3. rotate keys: new epoch, a `.bkeys` Sync message with grants for every remaining active device,
-   the local keyring update, and a new header wrapped with a **new recovery code** returned once.
+3. rotate keys: new epoch, a `.bkeys` Sync message (v2, sender-authenticated, listing every removed device)
+   with grants for every remaining active device, the local keyring update, and a new header wrapped with a
+   **new recovery code** returned once.
 
 Removing an already removed device runs steps 2 and 3 again, so a failed rotation can be retried.
 """
@@ -19,13 +20,14 @@ from collections.abc import Callable, Iterable
 from dataclasses import replace
 from datetime import UTC, datetime
 
-from bento.application.pairing import b64url_encode, decode_public_key, normalize_device_name
+from bento.application.pairing import decode_public_key, normalize_device_name
+from bento.application.sync.keys import build_keys_message, is_device_id
 from bento.domain.account import TelegramAuthorization
 from bento.domain.devices import Device, DeviceRemoval
 from bento.domain.errors import DeviceNotFoundError, DomainError, ValidationFailedError
 from bento.domain.security import VaultKeyring
 from bento.domain.sync import SyncMessageKind
-from bento.domain.vault import VaultHeader, canonical_json
+from bento.domain.vault import VaultHeader
 from bento.ports.pairing import DeviceRepositoryPort
 from bento.ports.security import VaultCryptoPort
 from bento.ports.telegram import TelegramAccountPort, VaultTransportPort
@@ -33,8 +35,6 @@ from bento.ports.vault import VaultContext, VaultSessionPort
 
 logger = logging.getLogger("bento.devices")
 
-KEYS_MESSAGE_MARKER = "keys"
-KEYS_MESSAGE_VERSION = 1
 TELEGRAM_DEVICE_MODEL_PREFIX = "Bento"
 DEVICE_ID_SUFFIX_CHARS = 6
 
@@ -58,13 +58,6 @@ def match_authorizations(
         if not item.current
         and item.hash != 0
         and ((device.telegram_auth_hash and item.hash == device.telegram_auth_hash) or item.device_model == model)
-    )
-
-
-def keys_message(vault_id: str, epoch: int, grants: dict[str, str]) -> bytes:
-    """Canonical JSON of a `.bkeys` Sync document (grants are b64url sealed boxes, aad = vault id)."""
-    return canonical_json(
-        {"bento": KEYS_MESSAGE_MARKER, "v": KEYS_MESSAGE_VERSION, "vault_id": vault_id, "epoch": epoch, "grants": grants}
     )
 
 
@@ -187,22 +180,28 @@ class DeviceService:
         return recovery_code
 
     async def _publish_grants(self, context: VaultContext, keyring: VaultKeyring, *, removed_device_id: str) -> None:
-        payload = self._crypto.keyring_to_bytes(keyring)
-        aad = keyring.vault_id.encode("utf-8")
+        """Grants for every remaining active device, authenticated with this device's identity.
+
+        Every device this registry knows as removed is listed too, so peers that missed an earlier
+        removal still refuse grants from it.
+        """
         recipients: dict[str, bytes] = {context.device.device_id: context.device.public_key}
-        for device in await self._devices.list():
+        removed = {removed_device_id}
+        for device in await self._devices.list(include_removed=True):
             if device.id == removed_device_id or device.id in recipients:
+                continue
+            if not is_device_id(device.id):
+                logger.warning("device %s has an invalid id; it is left out of the key grants", device.id)
+                continue
+            if not device.active:
+                removed.add(device.id)
                 continue
             try:
                 recipients[device.id] = decode_public_key(device.public_key)
             except ValidationFailedError:
                 logger.warning("device %s has no usable public key; it gets no key grant", device.id)
-        grants = {
-            device_id: b64url_encode(self._crypto.seal_for_device(public_key, payload, aad=aad))
-            for device_id, public_key in sorted(recipients.items())
-        }
         await self._transport.post_sync_document(
             context.layout,
             SyncMessageKind.KEYS,
-            keys_message(keyring.vault_id, keyring.current_epoch, grants),
+            build_keys_message(self._crypto, context.device, keyring, recipients, removed_device_ids=removed),
         )

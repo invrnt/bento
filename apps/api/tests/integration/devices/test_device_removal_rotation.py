@@ -12,6 +12,7 @@ import pytest
 from bento.adapters.fake_telegram import FakeTelegramCloud
 from bento.application.devices import DeviceIsCurrentError, telegram_device_model
 from bento.application.pairing import b64url_decode, b64url_encode
+from bento.application.sync.keys import grant_auth_payload, parse_keys_message
 from bento.domain.devices import Device, DevicePlatform
 from bento.domain.errors import DeviceNotFoundError, IntegrityError, RecoveryCodeInvalidError
 from bento.domain.security import SealPurpose
@@ -82,18 +83,25 @@ def test_removing_a_device_rotates_keys_for_the_remaining_devices(tmp_path: Path
         assert new_keyring.keys[old_keyring.current_epoch] == old_keyring.keys[old_keyring.current_epoch]
 
         [keys] = await _keys_messages(host)
-        assert keys["bento"] == "keys" and keys["v"] == 1 and keys["vault_id"] == layout.vault_id
+        assert keys["bento"] == "keys" and keys["v"] == 2 and keys["vault_id"] == layout.vault_id
         assert keys["epoch"] == new_keyring.current_epoch
-        grants = keys["grants"]
-        assert isinstance(grants, dict)
-        assert set(grants) == {host.device_id, kept.device_id}
+        assert keys["sender_device_id"] == host.device_id
+        assert keys["removed_device_ids"] == [removed.device_id]
+        message = parse_keys_message(json.dumps(keys).encode())
+        assert set(message.grants) == {host.device_id, kept.device_id}
+        kept_grant = message.grants[kept.device_id]
+        auth_payload = grant_auth_payload(message, recipient_device_id=kept.device_id, sealed=kept_grant.sealed)
+        assert kept.crypto.verify_grant_auth(kept.identity, host.identity.public_key, auth_payload, kept_grant.auth)
+        assert not kept.crypto.verify_grant_auth(kept.identity, removed.identity.public_key, auth_payload, kept_grant.auth)
         granted = kept.crypto.open_sealed(
-            kept.identity, b64url_decode(grants[kept.device_id], max_bytes=65536), aad=layout.vault_id.encode()
+            kept.identity, b64url_decode(kept_grant.sealed, max_bytes=65536), aad=layout.vault_id.encode()
         )
         assert kept.crypto.keyring_from_bytes(granted) == new_keyring
-        for grant in grants.values():
+        for grant in message.grants.values():
             with pytest.raises(IntegrityError):
-                removed.crypto.open_sealed(removed.identity, b64url_decode(grant, max_bytes=65536), aad=layout.vault_id.encode())
+                removed.crypto.open_sealed(
+                    removed.identity, b64url_decode(grant.sealed, max_bytes=65536), aad=layout.vault_id.encode()
+                )
 
         batch = host.crypto.seal(new_keyring, SealPurpose.SYNC, b"new batch after removal")
         removed_keyring = await removed.vault.keyring()

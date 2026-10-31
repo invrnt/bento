@@ -68,6 +68,12 @@
     "grant": "a30acb614ebf4daa00e39afd74837aacd847218a6f095e2b1f248ce043af374deae7d477aab0fcba0ddd",
     "grant_key": "bb96d82b09e78decc63492fc678b5313e36e38ab8cb1dc2ad756f307fe3246b5"
   },
+  "grant_auth": {
+    "auth": "5KdGsyI4Cudi88iGqbwH-PA--wH0XGGDiYtNX8kzZRI",
+    "payload": "keys grant payload",
+    "recipient": "{\"device_id\":\"dev_653c18a7df874b868712bcddd91d7efc\",\"private_key\":\"Q31lnLJA5HjntRtGJUTUZpuLfsv1fb-hXKEEXJoAE5M\",\"v\":1}",
+    "sender": "{\"device_id\":\"dev_5efb2cc2a7bf4defaf40054d52a90fd5\",\"private_key\":\"8fq_dftj5d9SXt7k9AWR9rLK2hcI4ORDy-wt3I-1fuk\",\"v\":1}"
+  },
   "header_mac": {
     "mac": "H678AZ9cQX3RfFHNVIc3fqzHtAeg2Snk7MxDXRcVubE",
     "unsigned": "{\"bento\":\"vault-header\",\"current_epoch\":2,\"v\":1,\"vault_id\":\"vlt_kat\"}"
@@ -83,6 +89,7 @@
   },
   "key_store_file": "424b45590117ff740af1cc3a820a61466b7c3dccb2890136a10a9921a76d60582c3c16b58536a0d1a8f52ad70cda61fb7b",
   "keyring_json": "{\"current_epoch\":2,\"keys\":{\"1\":\"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8\",\"2\":\"ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8\"},\"vault_id\":\"vlt_kat\"}",
+  "keys_message": "{\"bento\":\"keys\",\"epoch\":2,\"grants\":{\"dev_653c18a7df874b868712bcddd91d7efc\":{\"auth\":\"NoVIUxY3LqriRNGXLtt628XJ2BmOJtmyP963-g6xMkU\",\"sealed\":\"QkJPWAEElEW_vpyzYrDZip6gkSA-7UswTdxJXBE3HaAWyxx8elw8PCpfPkw53FGC16fwAMeBZgsHU_bnW96JiE41j77Bm3JW-ThMkDlOUGNk8kzCsHPIIbX0NQljbWJr5nLde6Ct7M7rQdFVSPxJVXfCX3bk7C7OeE1h0Dcna448dLBvO9YTBTCJcNjJkFDtTFI0swWb5HE4RieyeZulnnvH1OMN2oozk6r94l902OTWDlpN6G96CcCMsH5O_ytS8cvxGgac4Ar0R-1w4eHkP0nr7xqe5w\"}},\"removed_device_ids\":[\"dev_removed_kat\"],\"sender_device_id\":\"dev_5efb2cc2a7bf4defaf40054d52a90fd5\",\"v\":2,\"vault_id\":\"vlt_kat\"}",
   "pairing": {
     "g2h_frames": [
       "03aeedc0ac768d5a672c64565713a1d137c5b4c7ed00ef7f973f071d2fcb23a7937bbbe6ba81ad037d97cc4e7ca6",

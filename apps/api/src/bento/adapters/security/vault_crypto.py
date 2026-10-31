@@ -10,6 +10,8 @@ envelope = "BENV" | 0x01 | purpose u8 | epoch u32 BE | nonce 12B | AES-256-GCM(c
 sealed   = "BBOX" | 0x01 | eph_pub 32B | nonce 12B | AES-256-GCM(ct || tag)
            key = HKDF(X25519(eph, recipient), salt=eph_pub || recipient_pub, info="bento/v1/sealed-box")
            AAD = the 49-byte prefix (magic..nonce) || caller aad
+grant    = HMAC-SHA256(HKDF(X25519(sender, recipient), salt=min(pub_a, pub_b) || max(pub_a, pub_b),
+           info="bento/v1/keys-grant-auth"), payload), base64url without padding
 recovery = Crockford Base32 of (160-bit secret || first 20 bits of SHA-256(secret)), 9 groups of 4
 ```
 """
@@ -67,6 +69,7 @@ SEAL_PURPOSE_LABELS: dict[SealPurpose, str] = {
 _ENVELOPE_PREFIX = struct.Struct(">4sBBI12s")
 _SEALED_PREFIX = struct.Struct(">4sB32s12s")
 _SEALED_BOX_INFO = b"bento/v1/sealed-box"
+_GRANT_AUTH_INFO = b"bento/v1/keys-grant-auth"
 _RECOVERY_SALT = b"bento/v1/recovery"
 _RECOVERY_CHARS = 36
 _RECOVERY_CHECKSUM_BITS = 20
@@ -299,6 +302,32 @@ class VaultCrypto:
             return AESGCM(key).decrypt(nonce, sealed[_SEALED_PREFIX.size :], prefix + aad)
         except InvalidTag:
             raise IntegrityError("sealed_box") from None
+
+    def grant_auth(self, identity: DeviceIdentity, recipient_public_key: bytes, payload: bytes) -> str:
+        return b64url_encode(hmac_sha256(grant_auth_key(identity, recipient_public_key), payload))
+
+    def verify_grant_auth(self, identity: DeviceIdentity, sender_public_key: bytes, payload: bytes, tag: str) -> bool:
+        if not isinstance(tag, str) or not tag or not tag.isascii():
+            return False
+        try:
+            expected = self.grant_auth(identity, sender_public_key, payload)
+        except ValidationFailedError:
+            return False
+        return bytes_eq(expected.encode("ascii"), tag.encode("ascii"))
+
+
+def grant_auth_key(identity: DeviceIdentity, peer_public_key: bytes) -> bytes:
+    """Static-static key of two devices (the same in both directions)."""
+    peer_public_key = bytes(peer_public_key)
+    if len(peer_public_key) != KEY_BYTES:
+        raise ValidationFailedError("Device public key must be 32 bytes")
+    private = X25519PrivateKey.from_private_bytes(identity.private_key)
+    try:
+        shared = private.exchange(X25519PublicKey.from_public_bytes(peer_public_key))
+    except ValueError:
+        raise ValidationFailedError("Invalid device public key") from None
+    own_public = private.public_key().public_bytes_raw()
+    return hkdf_sha256(shared, salt=b"".join(sorted((own_public, peer_public_key))), info=_GRANT_AUTH_INFO)
 
 
 def recovery_wrap_key(secret: bytes, vault_id: str) -> bytes:
