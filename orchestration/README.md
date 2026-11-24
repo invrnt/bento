@@ -56,6 +56,7 @@ Assumption: the repository is currently empty, so agents must create a new Docke
 - Aplicación de escritorio multiplataforma con Electron y sidecars locales de API/worker.
 - Seed data, doctor script, docs, release hardening.
 - Telegram-first program (Stages 14-17): MTProto account login, encrypted vault, multi-device sync, QR/code pairing via relay, automatic backup, end-user product polish. See `execution/telegram-first-program.md`.
+- CLI program (Stage 18): agent-first `bento` CLI, headless daemon, desktop discovery, cross-platform packaging. See `execution/cli-program.md`.
 
 ## Non-Goals
 
