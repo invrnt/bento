@@ -21,6 +21,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import coil3.compose.AsyncImagePainter
 import coil3.compose.rememberAsyncImagePainter
 import coil3.network.HttpException
@@ -97,6 +100,7 @@ fun PhotoPage(
     animatedScope: AnimatedVisibilityScope?,
     sharedActive: Boolean,
     contentDescription: String,
+    controlsVisible: Boolean,
     onTap: () -> Unit,
     onZoomChanged: (Boolean) -> Unit,
     onSignals: (PhotoLoadSignals) -> Unit,
@@ -111,6 +115,8 @@ fun PhotoPage(
     var originalFailed by remember(asset.id) { mutableStateOf(false) }
     var networkError by remember(asset.id) { mutableStateOf(false) }
     val signals by rememberUpdatedState(onSignals)
+    val tap by rememberUpdatedState(onTap)
+    val toggleLabel = controlsToggleLabel(controlsVisible)
 
     Box(modifier.fillMaxSize().testTag(ViewerTestTags.page(asset.id))) {
         SharedPoster(asset, animatedScope, sharedActive)
@@ -158,8 +164,11 @@ fun PhotoPage(
                 imageLoader = loader,
                 state = zoomable,
                 contentScale = ContentScale.Fit,
-                onClick = { onTap() },
-                modifier = Modifier.fillMaxSize().graphicsLayer { alpha = if (transitioning) 0f else 1f }
+                onClick = { tap() },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = if (transitioning) 0f else 1f }
+                    .semantics { customActions = listOf(CustomAccessibilityAction(toggleLabel) { tap(); true }) }
             )
         }
     }
