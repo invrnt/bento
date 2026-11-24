@@ -4,7 +4,6 @@ import android.os.Bundle
 import androidx.benchmark.macro.CompilationMode
 import androidx.benchmark.macro.ExperimentalMetricApi
 import androidx.benchmark.macro.MemoryUsageMetric
-import androidx.benchmark.macro.StartupMode
 import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.bento.benchmark.common.BentoDevice
@@ -47,8 +46,9 @@ class MemoryBenchmark(private val name: String, private val compilation: Compila
             metrics = listOf(MemoryUsageMetric(MemoryUsageMetric.Mode.Last)),
             compilationMode = compilation,
             iterations = 3,
-            startupMode = StartupMode.COLD,
+            startupMode = null,
             setupBlock = {
+                killProcess()
                 startActivityAndWait()
                 awaitFotos()
             }

@@ -84,8 +84,11 @@ for class in "${classes[@]}"; do
     | tee "$OUT/$name.txt" | grep -E "^(  |\w).*(ms|_kb|frame|P50|P90|P99|median|OK \(|FAILURES|Tests run|Error|Exception)" || true
   grep -q "^OK (" "$OUT/$name.txt" || status=1
   "${adb[@]}" logcat -d -s BentoBenchmark:I BentoJank:I TestRunner:E > "$OUT/$name.logcat" 2>/dev/null || true
+  # Each instrumentation run clears the output dir (JSON, traces, failure screenshots): keep them per class.
+  "${adb[@]}" pull "/sdcard/Android/media/$test_pkg/." "$OUT/device-$name" >/dev/null 2>&1 || true
+  mkdir -p "$OUT/device" && cp -r "$OUT/device-$name/." "$OUT/device/" 2>/dev/null || true
+  for json in "$OUT/device-$name"/*-benchmarkData.json; do [[ -f "$json" ]] && cp "$json" "$OUT/$name-benchmarkData.json"; done
 done
-"${adb[@]}" pull "/sdcard/Android/media/$test_pkg/." "$OUT/device" >/dev/null 2>&1 || true
 
 if [[ "$mode" == profile && $status == 0 ]]; then
   dest="$android/app/src/main/generated/baselineProfiles"

@@ -4,7 +4,6 @@ import androidx.benchmark.macro.CompilationMode
 import androidx.benchmark.macro.ExperimentalMetricApi
 import androidx.benchmark.macro.FrameTimingMetric
 import androidx.benchmark.macro.MemoryUsageMetric
-import androidx.benchmark.macro.StartupMode
 import androidx.benchmark.macro.TraceSectionMetric
 import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import androidx.test.uiautomator.By
@@ -48,8 +47,9 @@ class FotosBenchmarks(@Suppress("unused") private val name: String, private val 
         metrics = listOf(FrameTimingMetric(), MemoryUsageMetric(MemoryUsageMetric.Mode.Max)),
         compilationMode = compilation,
         iterations = 5,
-        startupMode = StartupMode.COLD,
+        startupMode = null,
         setupBlock = {
+            killProcess()
             startActivityAndWait()
             awaitFotos()
             device.waitForIdle()
@@ -64,8 +64,9 @@ class FotosBenchmarks(@Suppress("unused") private val name: String, private val 
         metrics = listOf(FrameTimingMetric()),
         compilationMode = compilation,
         iterations = 5,
-        startupMode = StartupMode.COLD,
+        startupMode = null,
         setupBlock = {
+            killProcess()
             startActivityAndWait()
             awaitFotos()
             device.waitForIdle()
@@ -80,8 +81,9 @@ class FotosBenchmarks(@Suppress("unused") private val name: String, private val 
         metrics = listOf(TraceSectionMetric("bento.viewer.open", TraceSectionMetric.Mode.First), FrameTimingMetric()),
         compilationMode = compilation,
         iterations = 10,
-        startupMode = StartupMode.COLD,
+        startupMode = null,
         setupBlock = {
+            killProcess()
             startActivityAndWait()
             awaitFotos()
             device.waitForIdle()
@@ -96,8 +98,9 @@ class FotosBenchmarks(@Suppress("unused") private val name: String, private val 
         metrics = listOf(FrameTimingMetric()),
         compilationMode = compilation,
         iterations = 5,
-        startupMode = StartupMode.COLD,
+        startupMode = null,
         setupBlock = {
+            killProcess()
             startActivityAndWait()
             awaitFotos()
             openViewer(index = 3, close = false)

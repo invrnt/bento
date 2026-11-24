@@ -3,7 +3,6 @@ package dev.bento.benchmark
 import androidx.benchmark.macro.CompilationMode
 import androidx.benchmark.macro.ExperimentalMetricApi
 import androidx.benchmark.macro.FrameTimingMetric
-import androidx.benchmark.macro.StartupMode
 import androidx.benchmark.macro.TraceSectionMetric
 import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import dev.bento.benchmark.common.BentoDevice
@@ -48,8 +47,9 @@ class FilesSearchShareBenchmarks(@Suppress("unused") private val name: String, p
         metrics = listOf(TraceSectionMetric("bento.files.open", TraceSectionMetric.Mode.First), FrameTimingMetric()),
         compilationMode = compilation,
         iterations = 10,
-        startupMode = StartupMode.COLD,
+        startupMode = null,
         setupBlock = {
+            killProcess()
             startActivityAndWait()
             awaitFotos()
             openArchivosTab()
@@ -64,8 +64,9 @@ class FilesSearchShareBenchmarks(@Suppress("unused") private val name: String, p
         metrics = listOf(TraceSectionMetric("bento.search.results", TraceSectionMetric.Mode.First), FrameTimingMetric()),
         compilationMode = compilation,
         iterations = 10,
-        startupMode = StartupMode.COLD,
+        startupMode = null,
         setupBlock = {
+            killProcess()
             startActivityAndWait()
             awaitFotos()
             // The engine answers search: measure typing, not the engine's cold start.
@@ -84,7 +85,7 @@ class FilesSearchShareBenchmarks(@Suppress("unused") private val name: String, p
             metrics = listOf(TraceSectionMetric("bento.share.dismiss", TraceSectionMetric.Mode.First)),
             compilationMode = compilation,
             iterations = 10,
-            startupMode = StartupMode.COLD,
+            startupMode = null,
             setupBlock = {
                 pressHome()
                 openShareSheet(image)

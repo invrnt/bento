@@ -1,8 +1,8 @@
 # Android performance: Baseline Profiles, Macrobenchmarks, budget report
 
-> **Status: WIP (Stage 22e, agent 42e).** The startup rows are measured. The Fotos, Archivos, Buscar, share and memory
-> rows still need the full run on the 10k library: see "Pending" at the end. Every number here comes from the shared
-> API 35 emulator (`bento_spike_api35`, 4 vCPU, 2 GB, **software GPU** `swiftshader_indirect`). Treat them as
+> **Status: Stage 22e (agent 42e).** Measured on the 10,000-photo library, with the regenerated profile (2026-11-24).
+> Archivos and share would not run on the emulator (see the table and "Pending"). Every number comes from the shared
+> API 35 emulator (`bento_spike_api35`, 4 vCPU, 2 GB, **software GPU** `swiftshader_indirect`), so treat them as
 > indicative only. The budgets in `orchestration/product/android.md` §13 are binding on the physical reference
 > devices.
 
@@ -34,24 +34,29 @@ SEED=2000 flock ~/.cache/bento-android-emulator.lock benchmark/run.sh profile   
 # Benchmarks (each session reinstalls cleanly and seeds; 10k photos take ~15 min on the emulator)
 ./gradlew $G :app:assembleBenchmarkRelease :benchmark:assembleBenchmarkRelease
 SEED=10000 flock ~/.cache/bento-android-emulator.lock benchmark/run.sh bench [StartupBenchmarks FotosBenchmarks FilesSearchShareBenchmarks MemoryBenchmark]
-python3 benchmark/summarize.py build/benchmark-results/device/*-benchmarkData.json      # median / p90 per metric
+python3 benchmark/summarize.py build/benchmark-results/*-benchmarkData.json      # median / p90 per metric (one JSON per class)
 ```
 
-`run.sh` starts the AVD headless (or uses `DEVICE=<serial>`). It sets the animation scales to 1, because Compose flings end instantly at 0, and restores them on exit. It saves the instrumentation output, the logcat (`BentoBenchmark`, `BentoJank`), the JSON and the Perfetto traces under `build/benchmark-results`. `COMPILATION=none|profile` runs only one compilation mode.
+`run.sh` starts the AVD headless (or uses `DEVICE=<serial>`). It sets the animation scales to 1, because Compose flings end instantly at 0, and restores them on exit. It saves the instrumentation output, the logcat (`BentoBenchmark`, `BentoJank`) and, per class, the JSON, the Perfetto traces and the failure screenshots (`device-<Class>/`) under `build/benchmark-results`. Each instrumentation run clears the device output dir, so the script copies it after every class.
 
-## Budget report (emulator, medians; p90 in brackets)
+Non-startup benchmarks use `startupMode = null` and call `killProcess()` in `setupBlock`. With `StartupMode.COLD`, Macrobenchmark kills the app *between* setup and the measured block, so the measured block would run on the home screen. `COMPILATION=none|profile` runs only one compilation mode.
+
+## Budget report (emulator, 10k library, medians; P90/P99 where sampled)
 
 | §13 budget | No profile | Baseline Profile | Method | Caveat |
 |---|---|---|---|---|
-| Cold start → first frame ≤ 500 ms p50 | 1171 ms [1259] | 1080 ms [1114] | `StartupTimingMetric` TTID, 10 cold starts, 2k library | ~615 ms of it is GPU shader compilation on the software GPU (see TTID below). Measure on devices. |
-| Cold start → cached Fotos grid with thumbnails ≤ 900 ms p50 / 1.5 s p90 | 1689 ms [1856] | 1442 ms [1518] | TTFD (`ReportDrawnWhen` on the first tile with pixels) | It was 4.9–5.3 s before the two fixes below. |
-| Engine ready ≤ 2.5 s p50 (floor ≤ 4 s p90) | 3287 ms [3408] | 2991 ms [3099] | `bento.engine.ready` async slice | Python warm-up is ~90 % of it. The emulator CPU is shared with other agents. |
-| Warm start | 171 ms [808] | 293 ms [790] | TTID, warm | Noisy: one session, shared host. |
-| Fotos scroll ≤ 1 % janky (10k, fling + fast scroller) | pending | pending | `FrameTimingMetric` + `BentoJank` | Software GPU: agent 39 measured ~97 % of frames over the deadline. The generator run on 2k logged `BentoJank` 0 % janky. |
-| Viewer open ≤ 100 ms | pending | pending | `bento.viewer.open` | Agent 39 measured 60 ms (debug build). |
-| Share sheet → dismissed ≤ 200 ms | pending | pending | `bento.share.dismiss` | — |
-| Memory (Fotos) ≤ 350 MB PSS | pending | pending | `MemoryBenchmark` (`dumpsys meminfo` TOTAL PSS) | 10k library on the emulator, not 100k. |
-| Archivos open folder / Buscar first results (not in §13) | pending | pending | `bento.files.open`, `bento.search.results` | — |
+| Cold start → first frame ≤ 500 ms p50 | 1234 ms | 1191 ms | `StartupTimingMetric` TTID, 10 cold starts | ~620–680 ms of it is GPU shader compilation on the software GPU (see TTID below). On the 2k library: 1171 / 1080 ms. Measure on devices. |
+| Cold start → cached Fotos grid with thumbnails ≤ 900 ms p50 / 1.5 s p90 | 1760 ms | 1577 ms | TTFD (`ReportDrawnWhen` on the first tile with pixels) | It was 4.9–5.3 s before the two fixes below. 2k library: 1689 / 1442 ms. |
+| Engine ready ≤ 2.5 s p50 (floor ≤ 4 s p90) | 3275 ms | 3166 ms | `bento.engine.ready` async slice | Python warm-up is ~2.9–3.0 s of it. The emulator CPU is shared with other agents. |
+| Warm start | 237 ms | 273 ms | TTID, warm | Noisy: P90 up to 0.8–0.9 s on the shared host. |
+| Fotos fling ≤ 1 % janky | overrun P50 23 / P90 35 / P99 47 ms; CPU P50 34 ms (1021 frames) | overrun P50 23 / P90 34 / P99 45 ms; CPU P50 33 ms (1063 frames) | `FrameTimingMetric`, 5 × (8 flings down, 4 up) | Overrun is positive on most frames (software GPU), so the janky share cannot be judged here. Agent 39 saw ~97 % over deadline on the same AVD. |
+| Fotos fast scroller | overrun P50 7 / P90 23 / P99 49 ms | overrun P50 15 / P90 23 / P99 45 ms | `FrameTimingMetric`, drag through the library and back | In the "none" run the thumb was usually not found (median 38 frames, versus 946 with the profile), so the drag mostly did not happen: compare with care. |
+| Viewer open ≤ 100 ms | 732 ms | 457 ms | `bento.viewer.open` (tap → first frame with the shared thumbnail) | **Over budget.** Each iteration is the first viewer open in a freshly started process (`killProcess()` in setup), so it includes first composition and class loading of the viewer. Agent 39 measured 60 ms with repeated opens in one process (debug build). The warm case needs a separate benchmark, and the cold case needs a device check (see Pending). |
+| Viewer swipe | overrun P50 7 / P90 24 / P99 84 ms | overrun P50 17 / P90 24 / P99 78 ms | `FrameTimingMetric`, 5 swipes | — |
+| Share sheet → dismissed ≤ 200 ms | did not run | did not run | `bento.share.dismiss` | "Guardar en Bento" never appeared after `startActivity(ACTION_SEND)` from the test APK. Not diagnosed (the screenshot was lost before the run.sh fix). Journey j06 (`app` androidTest) still measures this in-process. |
+| Memory (Fotos) ≤ 350 MB PSS | 270 MB median, 293 MB max | 338 MB median, 341 MB max | `MemoryBenchmark`: `dumpsys meminfo` TOTAL PSS after fling + fast scroller + viewer, 3 iterations | 10k library on the emulator, not 100k. The "profile" run is close to the budget. RSS anon 253 / 283 MB. Re-check on devices. |
+| Buscar first results (not in §13) | 523 ms | 484 ms | `bento.search.results` (first key → first frame with results) | Includes the engine's search query. |
+| Archivos open folder (not in §13) | did not run | did not run | `bento.files.open` | The `Benchmark` folder was not on screen after the Archivos tab. The generator journey passed on 2k, so the cause is unknown (screenshot lost). |
 | Tile thumbnail ≤ 50 ms, original ≤ 1 s on Wi-Fi, idle battery ≤ 1 %/day, APK ≤ 60 MB | not measured | — | — | Physical devices and real Telegram only (see below). |
 
 ## TTID investigation (0.79 → 1.10 s)
@@ -79,7 +84,7 @@ Reference devices: Pixel 7a and Galaxy A35. Floor device: 4 GB RAM, Android 10. 
 cd apps/android
 ./gradlew $G -PbentoAbis=arm64-v8a :app:assembleBenchmarkRelease :benchmark:assembleBenchmarkRelease
 DEVICE=<serial> SEED=10000 benchmark/run.sh bench          # all classes, both compilation modes
-python3 benchmark/summarize.py build/benchmark-results/device/*-benchmarkData.json
+python3 benchmark/summarize.py build/benchmark-results/*-benchmarkData.json
 ```
 
 1. Cold start TTID ≤ 500 ms and TTFD ≤ 900 ms / 1.5 s p90: `StartupBenchmarks` (profile mode is the shipped configuration).
@@ -95,7 +100,6 @@ python3 benchmark/summarize.py build/benchmark-results/device/*-benchmarkData.js
 
 ## Pending (next steps)
 
-1. Rebuild `benchmarkRelease` with the regenerated profile (commit `3e448fa`): `./gradlew $G :app:assembleBenchmarkRelease :benchmark:assembleBenchmarkRelease`.
-2. Run `SEED=10000 flock … benchmark/run.sh bench` for all four classes and fill in the pending rows above. Repeat the startup rows on the 10k library.
-3. Run the gate `./gradlew $G check assembleDebug :app:assembleDebugAndroidTest`. ktlint, detekt and lint have **not** been run on the new modules or the touched files yet.
-4. Decide with agent 39 whether `feature/photos/benchmark` should reuse `:benchmark-common`. Its `BentoDevice` and `LibrarySeeder` are now duplicated there.
+1. Diagnose `archivosOpenFolder` and `shareSheetDismiss` on the emulator. `run.sh` now keeps the failure screenshot and UI dump per class under `build/benchmark-results/device-FilesSearchShareBenchmarks/`.
+2. Add a warm viewer-open benchmark (several opens in one process) next to the fresh-process one. Then decide whether 457 ms for the first open after a cold start is a real regression (Telephoto/Media3 class loading, first composition).
+3. Run on the reference and floor devices (list above). The emulator cannot judge jank (software GPU) or TTID (shader compilation).

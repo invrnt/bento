@@ -81,16 +81,12 @@ See the bottom of this file (updated by the orchestrator at the end of each stag
 - The kitchen-sink BrandLogo specimen wraps "Bento" at 411 dp.
 - Python 3.14 and cryptography ≥ 46 on Android remain follow-ups from the spike.
 
-## Stage 22e status (agent 42e, performance) — WIP handoff (2026-11-24)
+## Stage 22e status (agent 42e, performance) — 2026-11-24
 
-Branch `t3/android-performance-profiles` (not rebased on the moved `feature/android`; orchestrator merges). Details and numbers: `docs/dev/android-performance.md`.
+Branch `t3/android-performance-profiles` (not rebased; orchestrator merges). Report: `docs/dev/android-performance.md`.
 
-**Done (committed):** `:baselineprofile` generator + committed `baseline-prof.txt`/`startup-prof.txt` (dex layout on); `:benchmark` Macrobenchmarks for every emulator-measurable §13 budget (None vs Partial(Require)); `:benchmark-common` driver; `benchmark/run.sh` + `summarize.py`; benchmark variants with fake cloud (`ENGINE_BENCHMARK_TOOLS`, core/engine); `InteractionTrace` slices + Fotos `ReportDrawnWhen`. Fixes: UI cache never written (`TimelinePositionalSource` putIfAbsent), thumbnails from disk cache before engine (`BentoImageFetcher`), Geist font preload. Measured (emulator, 2k library): TTID 1080 ms (profile) / 1171 ms (none), TTFD 4.9 s → 1.44 s, engine ready ~3.0–3.3 s; TTID dominated by ~600 ms GPU shader compile (software GPU, cache dropped per cold start).
+**Done:** `:baselineprofile` generator + committed `baseline-prof.txt`/`startup-prof.txt` (regenerated after the startup fixes; dex layout on); `:benchmark` Macrobenchmarks (None vs Partial(Require)); `:benchmark-common` driver, now also used by `feature/photos/benchmark` (its copies and the superseded PhotosBenchmarks removed); `benchmark/run.sh` + `summarize.py`; benchmark variants with the fake cloud (`ENGINE_BENCHMARK_TOOLS`); `InteractionTrace` + Fotos `ReportDrawnWhen`. Fixes: Fotos UI cache never written (`TimelinePositionalSource`), thumbnails served from the disk cache before the engine is ready, Geist font preload. Gate `check assembleDebug :app:assembleDebugAndroidTest` green.
 
-**Verified:** generator journeys pass on emulator; StartupBenchmarks pass in both modes; `core:api` BentoImageFetcherTest and `core:data` tests pass; benchmarkRelease/nonMinifiedRelease/debug assemble.
+**Measured (emulator, 10k, profile):** TTID 1191 ms, TTFD 1577 ms (was ~4.9 s), engine ready 3166 ms, viewer open 457 ms (fresh process), Buscar first results 484 ms, PSS 338 MB. TTID is dominated by ~650 ms of GPU shader compilation (software GPU).
 
-**Not verified / pending:** full 10k benchmark run (Fotos, viewer, Archivos, Buscar, share, memory) — FotosBenchmarks/FilesSearchShareBenchmarks/MemoryBenchmark never ran end to end; gate `./gradlew check assembleDebug :app:assembleDebugAndroidTest` not run (ktlint/detekt/lint on new modules unknown); profile regenerated after fixes but benchmarkRelease not yet rebuilt/measured with it; physical-device list in the doc.
-
-**Changes outside owned paths:** `core/engine` (build types, endpoint dir), `core/api` (fetcher), `core/data` (positional fix), `core/designsystem` (InteractionTrace, font preload), `feature/{photos,files,search,share}` (trace hooks, ReportDrawn), `app` (ShareActivity onPause, BentoApplication preload, plugin lines + `baselineProfile {}` block), root `build.gradle.kts`, catalog, settings.
-
-**Next steps:** see "Pending" in `docs/dev/android-performance.md`.
+**Not verified:** `archivosOpenFolder` and `shareSheetDismiss` fail on the emulator (UI not found, not diagnosed); jank budget (software GPU); viewer-open warm case; everything on physical devices (list in the doc); 100k-library memory.
