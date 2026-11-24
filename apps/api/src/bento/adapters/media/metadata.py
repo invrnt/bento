@@ -89,7 +89,11 @@ def _extract_image_exif(source_path: Path) -> tuple[datetime | None, dict[str, A
             if not raw_exif:
                 return None, None
             mapped: dict[str, Any] = {}
-            for key, value in raw_exif.items():
+            # Camera fields (DateTimeOriginal, exposure, lens) live in the Exif sub-IFD, not in IFD0.
+            entries = [*raw_exif.items(), *raw_exif.get_ifd(ExifTags.IFD.Exif).items()]
+            for key, value in entries:
+                if key == ExifTags.Base.ExifOffset:
+                    continue
                 tag_name = ExifTags.TAGS.get(key, str(key))
                 serializable = _json_safe_exif_value(value)
                 if serializable is not None:
