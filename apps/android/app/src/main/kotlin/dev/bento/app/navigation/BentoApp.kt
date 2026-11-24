@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
@@ -55,20 +56,26 @@ fun BentoApp(
 ) {
     val showTabs = TopLevel.of(navigator.current) != null
     val engine = rememberUpdatedState(engineState)
-    val content: @Composable () -> Unit = {
-        SharedTransitionLayout(Modifier.fillMaxSize().background(BentoTheme.colors.tray)) {
-            CompositionLocalProvider(LocalBentoSharedTransitionScope provides this) {
-                NavDisplay(
-                    backStack = navigator.backStack,
-                    onBack = { if (!navigator.back()) onExit() },
-                    entryDecorators = listOf(
-                        rememberSaveableStateHolderNavEntryDecorator(),
-                        rememberViewModelStoreNavEntryDecorator(),
-                        remember { insetsDecorator { engine.value } }
-                    ),
-                    sharedTransitionScope = this,
-                    entryProvider = entryProvider { entries() }
-                )
+    val exit = rememberUpdatedState(onExit)
+    val currentEntries = rememberUpdatedState(entries)
+    // Movable so the NavDisplay (and every entry's saved state and ViewModels) survives moving between the tab
+    // scaffold and full-screen routes, and between the bar and the rail.
+    val content = remember(navigator) {
+        movableContentOf {
+            SharedTransitionLayout(Modifier.fillMaxSize().background(BentoTheme.colors.tray)) {
+                CompositionLocalProvider(LocalBentoSharedTransitionScope provides this) {
+                    NavDisplay(
+                        backStack = navigator.backStack,
+                        onBack = { if (!navigator.back()) exit.value() },
+                        entryDecorators = listOf(
+                            rememberSaveableStateHolderNavEntryDecorator(),
+                            rememberViewModelStoreNavEntryDecorator(),
+                            remember { insetsDecorator { engine.value } }
+                        ),
+                        sharedTransitionScope = this,
+                        entryProvider = entryProvider { currentEntries.value(this) }
+                    )
+                }
             }
         }
     }
