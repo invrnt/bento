@@ -302,8 +302,12 @@ def _query(sql: str) -> Any:
         return row[0] if row else None
 
 
+# run_after is stored as ISO-8601 (`YYYY-MM-DDTHH:MM:SS…`); normalize before comparing with datetime('now').
+_RUN_AFTER = "replace(substr(run_after, 1, 19), 'T', ' ')"
+
+
 def _pending_jobs(*, eligible_only: bool) -> int:
-    clause = " AND (run_after IS NULL OR run_after <= datetime('now'))" if eligible_only else ""
+    clause = f" AND (run_after IS NULL OR {_RUN_AFTER} <= datetime('now'))" if eligible_only else ""
     try:
         return int(_query(f"SELECT COUNT(*) FROM jobs WHERE status IN ('queued','running','retrying'){clause}") or 0)
     except sqlite3.Error:
@@ -312,7 +316,9 @@ def _pending_jobs(*, eligible_only: bool) -> int:
 
 def _next_eligible_at() -> int | None:
     try:
-        value = _query("SELECT MIN(run_after) FROM jobs WHERE status IN ('queued','retrying') AND run_after > datetime('now')")
+        value = _query(
+            f"SELECT MIN(run_after) FROM jobs WHERE status IN ('queued','retrying') AND {_RUN_AFTER} > datetime('now')"
+        )
     except sqlite3.Error:
         return None
     if not value:

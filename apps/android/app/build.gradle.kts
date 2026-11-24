@@ -44,9 +44,7 @@ android {
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
-        execution = "ANDROIDX_TEST_ORCHESTRATOR"
     }
-    defaultConfig.testInstrumentationRunnerArguments["clearPackageData"] = "false"
 }
 
 roborazzi {
@@ -95,5 +93,4 @@ dependencies {
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.uiautomator)
     androidTestImplementation(libs.kotlinx.coroutines.test)
-    androidTestUtil(libs.androidx.test.orchestrator)
 }

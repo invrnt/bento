@@ -11,6 +11,8 @@ import dev.bento.background.BentoNotifications
 import dev.bento.background.NotificationDriver
 import dev.bento.data.Invalidations
 import dev.bento.engine.BentoEngine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -32,6 +34,12 @@ class BentoApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        // Async trace slice from process start to the first Ready (Macrobenchmark "engine ready").
+        androidx.tracing.Trace.beginAsyncSection(ENGINE_READY_SECTION, 0)
+        kotlinx.coroutines.MainScope().launch {
+            engine.state.first { it is dev.bento.engine.EngineState.Ready }
+            androidx.tracing.Trace.endAsyncSection(ENGINE_READY_SECTION, 0)
+        }
         trace("bento.app.onCreate") {
             // Interpreter warm-up on a background thread; the first frame never waits for it.
             engine.warmUp()
@@ -41,5 +49,9 @@ class BentoApplication : Application(), Configuration.Provider {
             }
             scheduler.ensureScheduled()
         }
+    }
+
+    private companion object {
+        const val ENGINE_READY_SECTION = "bento.engine.ready"
     }
 }

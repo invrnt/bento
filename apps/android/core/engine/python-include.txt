@@ -1,10 +1,8 @@
 # Explicit include list for the backend package shipped in the APK (architecture/android-runtime.md §4).
 # Lines are Ant patterns relative to apps/api/src; a leading '!' excludes. Order does not matter.
+# Desktop-only providers (RapidOCR, llama.cpp, pypdfium2) stay: their packages import them at module level
+# and they import their heavy dependencies lazily; agent 35's platform wiring can make them excludable.
 bento/**/*.py
 !**/__pycache__/**
-# Agent-first CLI (desktop shells only).
+# Agent-first CLI (desktop shells only; nothing else imports it).
 !bento/interfaces/cli/**
-# Desktop-only providers: RapidOCR/onnxruntime, llama.cpp embeddings, pypdfium2 OCR pages.
-!bento/adapters/ocr/rapid.py
-!bento/adapters/ocr/pdf.py
-!bento/adapters/embeddings/jina.py
