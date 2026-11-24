@@ -306,7 +306,8 @@ c_android-full() {
   step android-full generators "$MEM_TS" apps/android "$NPM_CI --prefix scripts && npm test --prefix scripts"
   step android-full build-logic "$MEM_GRADLE" apps/android "$GRADLEW -p build-logic :convention:test"
   step android-full check "$MEM_GRADLE" apps/android "$GRADLEW check :core:designsystem-lint:test"
-  step android-full assemble "$MEM_GRADLE" apps/android "$GRADLEW :app:assembleDebug :app:assembleRelease :app:assembleDebugAndroidTest -PbentoAbis=arm64-v8a,x86_64"
+  # SEC-10: release packaging needs a non-placeholder site host; CI uses a reserved .test host (never shipped).
+  step android-full assemble "$MEM_GRADLE" apps/android "$GRADLEW :app:assembleDebug :app:assembleRelease :app:assembleDebugAndroidTest -PbentoAbis=arm64-v8a,x86_64 -PbentoSiteHost=ci.bento.test -PbentoSiteUrl=https://ci.bento.test"
 }
 c_journeys() {
   [[ -n "${WANT[android-fast]:-}${WANT[android-full]:-}" ]] || android_prepare journeys || return 1
