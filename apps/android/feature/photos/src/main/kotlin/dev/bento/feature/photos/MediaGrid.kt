@@ -54,6 +54,7 @@ import androidx.compose.ui.semantics.collectionInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.bento.api.generated.AssetResponse
@@ -502,7 +503,7 @@ private fun StickyMonthHeader(gridState: LazyGridState, cells: MediaCells, layou
                 }
                 translationY = if (next != null && next.offset.y < height) (next.offset.y - height) else 0f
             }
-            .clearAndSetSemantics {}
+            .semantics { hideFromAccessibility() }
     ) {
         MonthHeader(current)
     }

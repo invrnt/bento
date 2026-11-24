@@ -8,6 +8,10 @@ plugins {
 android {
     namespace = "dev.bento.feature.photos"
 
+    // MediaTestHarness (real repositories over FakeApiTransport + a fake Coil loader) for this and the viewer and
+    // collections tests.
+    testFixtures { enable = true }
+
     testOptions {
         unitTests.all {
             it.maxHeapSize = "1536m"
@@ -37,6 +41,14 @@ dependencies {
     implementation(libs.compose.animation)
     implementation(libs.kotlinx.coroutines.android)
 
+    testFixturesImplementation(project(":core:testing"))
+    testFixturesImplementation(libs.coil.test)
+    testFixturesImplementation(libs.okhttp)
+    testFixturesImplementation(platform(libs.compose.bom))
+    testFixturesImplementation(libs.compose.ui.test.junit4)
+    testFixturesImplementation(libs.androidx.test.core)
+    testFixturesImplementation(libs.roborazzi)
+    testFixturesImplementation(libs.roborazzi.compose)
     testImplementation(project(":core:testing"))
     testImplementation(libs.compose.ui.test.junit4)
     testImplementation(libs.androidx.test.ext.junit)

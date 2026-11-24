@@ -15,7 +15,6 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -118,7 +117,7 @@ fun rememberThumbnailPainter(asset: AssetResponse, sizePx: Int): androidx.compos
 }
 
 /**
- * A grid tile: square thumbnail, overlays bottom-left (duration, favorite, upload state) with a soft shadow for
+ * A grid tile: square thumbnail, overlays bottom-left (duration, favorite, upload state) on a dark veil for
  * legibility, selection inset and check. Tap opens (or toggles in selection mode); long-press/drag belongs to the grid.
  */
 @Composable
@@ -184,12 +183,9 @@ private fun androidx.compose.foundation.layout.BoxScope.TileOverlays(asset: Asse
     ) {
         if (video) VideoBadge(asset.durationMs?.let(MediaFormat::duration))
         if (asset.favorite) {
-            BentoFavorite(
-                true,
-                Modifier.shadow(2.dp, BentoShapesCircle, clip = false),
-                size = BentoIconSize.Dense,
-                onMedia = true
-            )
+            androidx.compose.foundation.layout.Box(Modifier.clip(BentoShapesCircle).background(c.black.copy(alpha = 0.5f)).padding(3.dp)) {
+                BentoFavorite(true, size = BentoIconSize.Dense, onMedia = true)
+            }
         }
         if (badge != UploadBadge.None) {
             androidx.compose.foundation.layout.Box(

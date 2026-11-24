@@ -294,8 +294,7 @@ fun PhotosContent(
                     visible = selection.active,
                     actions = primary,
                     overflow = overflow,
-                    onClose = selection::clear,
-                    title = pluralStringResource(StringsR.plurals.common_count_selected, selection.count, selection.count)
+                    onClose = selection::clear
                 )
             }
         }

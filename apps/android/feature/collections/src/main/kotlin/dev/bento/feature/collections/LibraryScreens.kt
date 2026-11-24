@@ -623,7 +623,7 @@ private fun TrashThumb(item: TrashItem) {
         null
     }
     if (item.hasThumbnail) {
-        Thumbnail(painter, contentDescription = null, modifier = Modifier.size(48.dp).clip(BentoShapes.md))
+        Thumbnail(painter, contentDescription = null, modifier = Modifier.size(40.dp).clip(BentoShapes.md))
     } else {
         KindIcon(if (item.type == "folder") FileKind.Folder else fileKindOf("", item.name))
     }

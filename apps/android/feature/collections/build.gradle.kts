@@ -33,6 +33,7 @@ dependencies {
     implementation(libs.compose.animation)
     implementation(libs.kotlinx.coroutines.android)
 
+    testImplementation(testFixtures(project(":feature:photos")))
     testImplementation(project(":core:testing"))
     testImplementation(libs.compose.ui.test.junit4)
     testImplementation(libs.androidx.test.ext.junit)

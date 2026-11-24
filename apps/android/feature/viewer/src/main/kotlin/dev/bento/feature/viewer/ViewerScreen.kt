@@ -372,15 +372,17 @@ fun ViewerContent(
         }
 
         val showChrome = chrome.chromeVisible && chrome.dismissProgress == 0f
+        // With the side pane open, the chrome stays over the photo column.
+        val paneWidth = if (wide && viewerSheet == ViewerSheet.Info && current != null) 360.dp else 0.dp
         AnimatedVisibility(
             showChrome,
             enter = BentoTheme.motion.fadeIn,
             exit = BentoTheme.motion.fadeOut,
-            modifier = Modifier.align(Alignment.TopStart)
+            modifier = Modifier.align(Alignment.TopStart).padding(end = paneWidth)
         ) {
             TopChrome(current, onBack = navigation.back)
         }
-        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
+        Column(Modifier.align(Alignment.BottomStart).padding(end = paneWidth).fillMaxWidth()) {
             if (offlineNotice && current != null) {
                 Callout(
                     tone = CalloutTone.Warning,
