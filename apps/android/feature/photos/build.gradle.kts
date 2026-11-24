@@ -37,6 +37,7 @@ dependencies {
     api(libs.androidx.paging.compose)
     implementation(libs.androidx.navigation3.ui)
     implementation(libs.androidx.metrics.performance)
+    implementation(libs.androidx.tracing)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.compose.animation)
     implementation(libs.kotlinx.coroutines.android)

@@ -65,6 +65,7 @@ fun rememberPosterPainter(asset: AssetResponse): androidx.compose.ui.graphics.pa
 @Composable
 fun SharedPoster(asset: AssetResponse, animatedScope: AnimatedVisibilityScope?, shared: Boolean, modifier: Modifier = Modifier) {
     val poster = rememberPosterPainter(asset)
+    if (poster != null && shared) androidx.compose.runtime.SideEffect { dev.bento.feature.photos.ViewerOpenTrace.end() }
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Box(
             Modifier

@@ -76,28 +76,8 @@ object MediaTestTags {
 
 /** "Foto, 12 de marzo de 2024, favorita, pendiente de respaldo". */
 @Composable
-fun tileDescription(asset: AssetResponse, date: String, selected: Boolean): String {
-    val locale = LocalConfiguration.current.locales[0]
-    val parts = buildList {
-        add(
-            if (MediaFormat.isVideo(asset)) {
-                asset.durationMs?.let { stringResource(StringsR.string.photos_tile_video, MediaFormat.duration(it)) }
-                    ?: stringResource(StringsR.string.photos_tile_video_plain)
-            } else {
-                stringResource(StringsR.string.photos_tile_photo)
-            }
-        )
-        add(MediaFormat.longDate(date, locale))
-        if (asset.favorite) add(stringResource(StringsR.string.photos_tile_favorite))
-        when (asset.remoteState) {
-            "local_only" -> add(stringResource(StringsR.string.photos_tile_pending))
-            "uploading" -> add(stringResource(StringsR.string.photos_tile_uploading))
-            "failed" -> add(stringResource(StringsR.string.photos_tile_failed))
-        }
-        if (selected) add(stringResource(StringsR.string.photos_tile_selected))
-    }
-    return parts.joinToString(", ")
-}
+fun tileDescription(asset: AssetResponse, date: String, selected: Boolean): String =
+    TileLabels.current().describe(asset, date, selected, LocalConfiguration.current.locales[0])
 
 /** Coil painter for a thumbnail at [sizePx]; null until pixels are available (the tile shows its placeholder). */
 @Composable
@@ -132,7 +112,6 @@ fun MediaTile(
     modifier: Modifier = Modifier
 ) {
     val painter = rememberThumbnailPainter(asset, sizePx)
-    val description = tileDescription(asset, date, selected)
     val interaction = remember { MutableInteractionSource() }
     Thumbnail(
         painter = painter,
@@ -148,7 +127,8 @@ fun MediaTile(
                 onClick = if (selectionMode) actions.onToggleSelect else actions.onOpen
             )
             .semantics(mergeDescendants = true) {
-                contentDescription = description
+                // Built only when semantics are read (TalkBack, tests), never on every bind while flinging.
+                contentDescription = labels.describe(asset, date, selected, labels.locale)
                 this.selected = selected
                 role = Role.Image
                 customActions = buildList {
@@ -209,6 +189,15 @@ private val BentoShapesCircle = androidx.compose.foundation.shape.CircleShape
 
 /** Localized labels for tile actions, resolved once per composition. */
 class TileLabels(
+    val locale: java.util.Locale,
+    private val photo: String,
+    private val video: String,
+    private val videoWithDuration: String,
+    private val favoriteState: String,
+    private val pending: String,
+    private val uploading: String,
+    private val failed: String,
+    private val selectedState: String,
     val open: String,
     val select: String,
     val unselect: String,
@@ -217,9 +206,36 @@ class TileLabels(
     val share: String,
     val delete: String
 ) {
+    fun describe(asset: AssetResponse, date: String, selected: Boolean, locale: java.util.Locale): String = buildList {
+        add(
+            when {
+                !MediaFormat.isVideo(asset) -> photo
+                asset.durationMs != null -> videoWithDuration.format(MediaFormat.duration(asset.durationMs!!))
+                else -> video
+            }
+        )
+        add(MediaFormat.longDate(date, locale))
+        if (asset.favorite) add(favoriteState)
+        when (asset.remoteState) {
+            "local_only" -> add(pending)
+            "uploading" -> add(uploading)
+            "failed" -> add(failed)
+        }
+        if (selected) add(selectedState)
+    }.joinToString(", ")
+
     companion object {
         @Composable
         fun current(): TileLabels = TileLabels(
+            locale = LocalConfiguration.current.locales[0],
+            photo = stringResource(StringsR.string.photos_tile_photo),
+            video = stringResource(StringsR.string.photos_tile_video_plain),
+            videoWithDuration = stringResource(StringsR.string.photos_tile_video, "%1\$s"),
+            favoriteState = stringResource(StringsR.string.photos_tile_favorite),
+            pending = stringResource(StringsR.string.photos_tile_pending),
+            uploading = stringResource(StringsR.string.photos_tile_uploading),
+            failed = stringResource(StringsR.string.photos_tile_failed),
+            selectedState = stringResource(StringsR.string.photos_tile_selected),
             open = stringResource(StringsR.string.photos_action_open),
             select = stringResource(StringsR.string.common_action_select),
             unselect = stringResource(StringsR.string.photos_action_unselect),

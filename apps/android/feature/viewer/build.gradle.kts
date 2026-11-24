@@ -33,6 +33,7 @@ dependencies {
     implementation(libs.androidx.exifinterface)
     implementation(libs.androidx.window)
     implementation(libs.androidx.metrics.performance)
+    implementation(libs.androidx.tracing)
     implementation(libs.telephoto.zoomable.image.coil3)
     implementation(libs.coil.network.okhttp)
     implementation(libs.media3.exoplayer)

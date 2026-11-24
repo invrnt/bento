@@ -18,6 +18,7 @@ import dev.bento.data.PhoneFoldersRepository
 import dev.bento.data.SessionRepository
 import dev.bento.data.TimelineLayout
 import dev.bento.data.TimelineRepository
+import dev.bento.data.Topic
 import dev.bento.designsystem.component.AvatarStatus
 import dev.bento.strings.R as StringsR
 import javax.inject.Inject
@@ -28,7 +29,11 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -74,6 +79,7 @@ class PhotosViewModel @Inject constructor(
     private val phoneFolders: PhoneFoldersRepository,
     private val prefs: MediaPreferences,
     private val binary: BinaryEndpoints,
+    invalidations: dev.bento.data.Invalidations,
     @ApplicationContext private val context: Context,
     val actions: MediaActions,
     val imageLoader: ImageLoader,
@@ -109,6 +115,14 @@ class PhotosViewModel @Inject constructor(
     init {
         viewModelScope.launch { _cached.value = withContext(Dispatchers.IO) { timeline.cachedFirstScreen() }.orEmpty() }
         refreshStatus()
+        // Sign-in, kit and backup changes arrive as invalidations (server events): the card follows them.
+        // Debounced: every server event invalidates all topics, and a busy backup sends many.
+        @OptIn(kotlinx.coroutines.FlowPreview::class)
+        invalidations.topics
+            .filter { topics -> topics.any { it == Topic.ACCOUNT || it == Topic.SETTINGS || it == Topic.DEVICES } }
+            .debounce(1_500)
+            .onEach { refreshStatus() }
+            .launchIn(viewModelScope)
     }
 
     fun refreshStatus() {

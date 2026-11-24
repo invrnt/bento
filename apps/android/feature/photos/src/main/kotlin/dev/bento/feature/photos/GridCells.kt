@@ -74,6 +74,10 @@ interface MediaCells {
 
     /** Photo positions ↔ grid indices for the current snapshot (fast scroller, sticky header). */
     fun positions(): PositionMap
+
+    /** A loaded asset by id (O(loaded)); used once per viewer open. */
+    fun peekAsset(id: String): dev.bento.api.generated.AssetResponse? =
+        (0 until count).firstNotNullOfOrNull { (peek(it) as? GridCell.Media)?.asset?.takeIf { asset -> asset.id == id } }
 }
 
 class ListMediaCells(private val cells: List<GridCell>) : MediaCells {

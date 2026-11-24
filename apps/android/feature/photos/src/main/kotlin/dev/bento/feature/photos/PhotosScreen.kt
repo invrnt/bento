@@ -24,6 +24,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -104,6 +106,10 @@ fun PhotosRoute(navigation: PhotosNavigation, animatedScope: AnimatedVisibilityS
     LaunchedEffect(density) { if (gridState.density != density) gridState.changeDensity(density, null) }
     LaunchedEffect(gridState.density) { vm.setDensity(gridState.density) }
 
+    androidx.lifecycle.compose.LifecycleResumeEffect(vm) {
+        vm.refreshStatus()
+        onPauseOrDispose { }
+    }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { vm.upload(it) }
     val snackbar = remember { BentoSnackbarHostState() }
     val context = LocalContext.current
@@ -130,7 +136,17 @@ fun PhotosRoute(navigation: PhotosNavigation, animatedScope: AnimatedVisibilityS
             actions = vm.actions,
             snackbar = snackbar,
             busy = busy,
-            navigation = navigation,
+            navigation = PhotosNavigation(
+                openViewer = { id, position ->
+                    live.peekAsset(id)?.let(vm.sessions::open)
+                    navigation.openViewer(id, position)
+                },
+                openSearch = navigation.openSearch,
+                openAccount = navigation.openAccount,
+                openBackupSettings = navigation.openBackupSettings,
+                openRecoveryKit = navigation.openRecoveryKit,
+                reconnect = navigation.reconnect
+            ),
             onJump = vm::jumpTo,
             onRetry = { items.retry() },
             onUpload = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
@@ -178,7 +194,7 @@ fun PhotosContent(
     BackHandler(enabled = selection.active) { selection.clear() }
     TrackJank("Fotos", gridState.current.isScrollInProgress)
 
-    Box(modifier.fillMaxSize().background(c.surface)) {
+    Box(modifier.fillMaxSize().background(c.surface).semantics { testTagsAsResourceId = true }) {
         Column(Modifier.fillMaxSize()) {
             if (selection.active) {
                 SelectionTopBar(
@@ -248,7 +264,10 @@ fun PhotosContent(
                         contentPadding = PaddingValues(bottom = if (selection.active) 96.dp else 16.dp),
                         top = card?.let { { PhotosCardView(it, navigation, onDismissBackupCard) } },
                         callbacks = MediaGridCallbacks(
-                            onOpen = { cell, position -> navigation.openViewer(cell.asset.id, position) },
+                            onOpen = { cell, position ->
+                                ViewerOpenTrace.begin()
+                                navigation.openViewer(cell.asset.id, position)
+                            },
                             onFavorite = actions?.let { a -> { asset -> a.favorite(listOf(asset), !asset.favorite) } },
                             onShare = actions?.let { a -> { asset -> a.export(Disclosure.Share) { a.share(listOf(asset)) } } },
                             onDelete = actions?.let { a -> { asset -> a.trash(listOf(asset.id)) } },

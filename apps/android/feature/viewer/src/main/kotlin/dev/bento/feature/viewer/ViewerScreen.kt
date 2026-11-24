@@ -63,6 +63,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
@@ -227,7 +228,7 @@ fun ViewerContent(
     SystemBarsForViewer(visible = chrome.chromeVisible)
     TrackJank("Visor", pager.isScrollInProgress)
 
-    BoxWithConstraints(modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier.fillMaxSize().semantics { testTagsAsResourceId = true }) {
         val wide = maxWidth >= 600.dp
         val heightPx = constraints.maxHeight.toFloat().coerceAtLeast(1f)
         val dragY = remember { Animatable(0f) }

@@ -21,12 +21,29 @@ import java.util.Locale
 object MediaFormat {
     private fun utcDate(date: LocalDate): Date = Date.from(date.atStartOfDay().toInstant(ZoneOffset.UTC))
 
+    // Building a formatter from a skeleton runs ICU's pattern generator (milliseconds): grids bind hundreds of tiles,
+    // so formatters are cached per thread (DateFormat is not thread-safe), and results per (kind, value, locale).
+    private val formatters = ThreadLocal.withInitial { HashMap<String, DateFormat>() }
+    private val results = java.util.concurrent.ConcurrentHashMap<String, String>()
+
     private fun format(skeleton: String, locale: Locale, date: Date, utc: Boolean = true): String {
-        val formatter = DateFormat.getInstanceForSkeleton(skeleton, ULocale.forLocale(locale))
-        if (utc) formatter.timeZone = TimeZone.GMT_ZONE
-        formatter.setContext(DisplayContext.CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE)
+        val key = "$skeleton|${locale.toLanguageTag()}|$utc"
+        val formatter = formatters.get()!!.getOrPut(key) {
+            DateFormat.getInstanceForSkeleton(skeleton, ULocale.forLocale(locale)).apply {
+                if (utc) timeZone = TimeZone.GMT_ZONE
+                setContext(DisplayContext.CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE)
+            }
+        }
+        if (!utc) formatter.timeZone = TimeZone.getDefault()
         return formatter.format(date)
     }
+
+    private inline fun memo(kind: String, value: String, locale: Locale, compute: () -> String): String {
+        if (results.size > MAX_MEMO) results.clear()
+        return results.getOrPut("$kind|$value|${locale.toLanguageTag()}", compute)
+    }
+
+    private const val MAX_MEMO = 4_096
 
     /** `0:42`, `12:05`, `1:02:03` (tabular in the UI). */
     fun duration(ms: Long): String {
@@ -38,10 +55,14 @@ object MediaFormat {
     }
 
     /** Month header: "Marzo de 2024" / "March 2024". [month] is `YYYY-MM`. */
-    fun monthTitle(month: String, locale: Locale): String = monthDate(month)?.let { format("MMMMy", locale, utcDate(it)) } ?: month
+    fun monthTitle(month: String, locale: Locale): String = memo("month", month, locale) {
+        monthDate(month)?.let { format("MMMMy", locale, utcDate(it)) } ?: month
+    }
 
     /** Fast-scroller bubble: "mar 2024". */
-    fun monthShort(month: String, locale: Locale): String = monthDate(month)?.let { format("MMMy", locale, utcDate(it)) } ?: month
+    fun monthShort(month: String, locale: Locale): String = memo("month-short", month, locale) {
+        monthDate(month)?.let { format("MMMy", locale, utcDate(it)) } ?: month
+    }
 
     /** Day sub-header: "Mar, 12 de mar" (with the year when it is not [today]'s). */
     fun dayTitle(date: String, locale: Locale, today: LocalDate = LocalDate.now(ZoneOffset.UTC)): String {
@@ -50,7 +71,9 @@ object MediaFormat {
     }
 
     /** Long date for TalkBack and the info sheet: "12 de marzo de 2024". */
-    fun longDate(date: String, locale: Locale): String = parseDay(date)?.let { format("yMMMMd", locale, utcDate(it)) } ?: date
+    fun longDate(date: String, locale: Locale): String = memo("long", date.take(10), locale) {
+        parseDay(date)?.let { format("yMMMMd", locale, utcDate(it)) } ?: date
+    }
 
     /** Date and time in the phone's zone for the info sheet: "martes, 12 de marzo de 2024, 18:04". */
     fun dateTime(iso: String, locale: Locale): String {
