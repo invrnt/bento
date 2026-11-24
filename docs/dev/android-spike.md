@@ -362,7 +362,7 @@ No backend code was edited in this stage.
 Real Telegram needs a test account and Bento's `api_id`/`api_hash`. Never commit or log them.
 
 1. Install a debug build on a physical phone:
-   `cd spikes/android-engine && wheels/build_all.sh && BENTO_BUILD_PYTHON=python3.13 tools/build_install.sh -PbentoAbis=arm64-v8a`.
+   `cd spikes/android-engine && wheels/build_all.sh && BENTO_BUILD_PYTHON=$PWD/wheels/work/buildenv/bin/python tools/build_install.sh -PbentoAbis=arm64-v8a`.
 2. Real backend: write Bento's app credentials to an app-private file without passing them through intents or
    logs: `adb shell run-as dev.bento.spike sh -c 'cat > files/telegram-app.json' < telegram-app.json`, where the
    local file holds `{"api_id": …, "api_hash": "…"}`. Keep that file outside the repo. Then run
@@ -395,6 +395,9 @@ Real Telegram needs a test account and Bento's `api_id`/`api_hash`. Never commit
   pillow, cffi, and greenlet to that list until the Chaquopy repo catches up. Pin Python 3.13 for v1.
 - **cryptography 42 vs 46** drift between desktop and Android until change 5 lands.
 - **Temp disk for large uploads** (full ciphertext copy) on storage-constrained phones.
+- **Process freezing** (for agent 36): an engine process with no holder is frozen by the cached-app freezer and
+  its loopback API hangs mid-request (seen with the unbound `:host` service). Every engine use must sit inside a
+  §3 holder, and the UI client must treat a stalled loopback call as `Degraded`, not wait forever.
 - Chaquopy is a single-vendor dependency (Apache-2.0, actively released; 17.2.0 shipped 2026-10-26).
 
 ## Reproduce
@@ -402,8 +405,9 @@ Real Telegram needs a test account and Bento's `api_id`/`api_hash`. Never commit
 ```bash
 export JAVA_HOME=$HOME/.local/share/mise/installs/java/temurin-17
 cd spikes/android-engine
-wheels/build_all.sh                               # local Android wheels → wheels/dist
-BENTO_BUILD_PYTHON=python3.13 tools/build_install.sh   # debug APK, both ABIs
+wheels/build_all.sh        # local Android wheels → wheels/dist (~2.5 min; verified from scratch)
+export BENTO_BUILD_PYTHON=$PWD/wheels/work/buildenv/bin/python   # CPython 3.13 created by build_all.sh (absolute path)
+tools/build_install.sh     # debug APK, both ABIs (-PbentoAbis=x86_64 for one; -PbentoCryptg=false without cryptg)
 tools/act.sh ready; tools/act.sh health; tools/act.sh thumbnail; tools/act.sh fts5
 tools/act.sh fake_login_vault '{"method":"qr"}'
 tools/act.sh upload_big '{"size_mb":200}' 900; tools/act.sh download_big
