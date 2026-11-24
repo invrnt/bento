@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- feature/pairing (agent 38): join an existing cloud, SAS, fallback request, phone as host (product/android.md §4.2, §9). -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="es">
+    <!-- Join (guest) -->
+    <string name="pairing_join_title">Une este teléfono a tu nube</string>
+    <string name="pairing_join_scan_body">En tu computador, abre Bento › Ajustes › Dispositivos › Añadir dispositivo y escanea el código QR que aparece.</string>
+    <string name="pairing_join_code_body">Escribe el código que muestra tu otro dispositivo en Ajustes › Dispositivos › Añadir dispositivo.</string>
+    <string name="pairing_scan_hint">Apunta al código QR de tu otro dispositivo.</string>
+    <string name="pairing_scan_wrong">Ese QR no es un código de Bento para añadir dispositivos.</string>
+    <string name="pairing_join_type_code">Escribir el código</string>
+    <string name="pairing_join_scan_instead">Escanear el código QR</string>
+    <string name="pairing_code_label">Código de emparejamiento</string>
+    <string name="pairing_code_hint">12 caracteres. También puedes pegar el enlace que te muestra el otro dispositivo.</string>
+    <string name="pairing_code_paste">Pegar %1$s</string>
+    <string name="pairing_join_submit">Unirme</string>
+    <string name="pairing_join_no_device">No tengo el otro dispositivo</string>
+    <string name="pairing_join_use_telegram">Iniciar sesión en Telegram</string>
+    <string name="pairing_signin_title">Conecta tu Telegram</string>
+    <string name="pairing_signin_body">Usa la misma cuenta de Telegram que en tus otros dispositivos.</string>
+
+    <string name="pairing_connecting_title">Conectando con tu otro dispositivo…</string>
+    <string name="pairing_connecting_body">Mantén Bento abierto en los dos dispositivos.</string>
+    <string name="pairing_request_title">Esperando a tus otros dispositivos</string>
+    <string name="pairing_request_body">Abre Bento en otro dispositivo: verás un aviso para revisar esta solicitud.</string>
+    <string name="pairing_confirm_title_computer">Confirma en tu computador</string>
+    <string name="pairing_confirm_title_device">Confirma en tu otro dispositivo</string>
+    <string name="pairing_confirm_body_computer">Comprueba que tu computador muestra estos mismos emojis y pulsa «Añadir» allí.</string>
+    <string name="pairing_confirm_body_device">Comprueba que tu otro dispositivo muestra estos mismos emojis y pulsa «Añadir» allí.</string>
+    <string name="pairing_confirmed_body">Pulsa «Añadir» en tu otro dispositivo si aún no lo hiciste. Este teléfono solo aceptará el acceso de ese dispositivo.</string>
+    <string name="pairing_waiting_approval">Esperando la confirmación…</string>
+    <string name="pairing_receiving">Recibiendo acceso a tu nube…</string>
+    <string name="pairing_waiting_access">Esperando el acceso…</string>
+    <string name="pairing_match_title">¿Ves los mismos emojis en tu otro dispositivo?</string>
+    <string name="pairing_match_body">Compáralos con los que muestra tu otro dispositivo al pulsar «Revisar». Si alguno es distinto, otra persona respondió a esta solicitud.</string>
+    <string name="pairing_match_yes">Coinciden</string>
+    <string name="pairing_match_no">No coinciden</string>
+    <string name="pairing_confirm_failed">No se pudo confirmar. Inténtalo otra vez.</string>
+    <string name="pairing_vault_label">Nube a la que se unirá este teléfono</string>
+    <string name="pairing_vault_created">Creada el %1$s</string>
+    <plurals name="pairing_vault_devices">
+        <item quantity="one">%1$d dispositivo, según el otro dispositivo</item>
+        <item quantity="many">%1$d de dispositivos, según el otro dispositivo</item>
+        <item quantity="other">%1$d dispositivos, según el otro dispositivo</item>
+    </plurals>
+    <string name="pairing_mismatch_title">No se añadió este teléfono</string>
+    <string name="pairing_mismatch_body">Como los emojis no coincidían, este teléfono no aceptó ningún acceso. Vuelve a pedirlo o usa tu código de recuperación.</string>
+    <string name="pairing_telegram_title">Inicia sesión en Telegram</string>
+    <string name="pairing_telegram_body">Tu otro dispositivo no pudo iniciar sesión por ti. Confírmalo en la app de Telegram de este teléfono o escanea el código con Telegram en otro teléfono.</string>
+    <string name="pairing_telegram_password_body">Tu cuenta tiene verificación en dos pasos. Escribe la contraseña que creaste en Telegram para terminar.</string>
+    <string name="pairing_telegram_qr_hint">Telegram › Ajustes › Dispositivos › Vincular dispositivo</string>
+    <string name="pairing_telegram_waiting">Esperando a Telegram…</string>
+    <string name="pairing_telegram_use_phone">Cancelar y usar mi número</string>
+    <string name="pairing_rejected_title">La solicitud fue rechazada</string>
+    <string name="pairing_rejected_body">Tu otro dispositivo eligió «No soy yo». Si fuiste tú, genera un código nuevo e inténtalo otra vez.</string>
+    <string name="pairing_expired_title">El código caducó</string>
+    <string name="pairing_expired_body">Los códigos duran unos minutos. Genera uno nuevo en tu otro dispositivo (Ajustes › Dispositivos › Añadir dispositivo).</string>
+    <string name="pairing_cancelled_title">Se canceló el emparejamiento</string>
+    <string name="pairing_cancelled_body">El otro dispositivo cerró la ventana de emparejamiento. Puedes empezar otra vez cuando quieras.</string>
+    <string name="pairing_failed_title">No se pudo conectar</string>
+    <string name="pairing_retry">Probar otra vez</string>
+
+    <string name="pairing_choose_title">Tu nube ya existe en esta cuenta</string>
+    <string name="pairing_choose_body">Elige cómo dar acceso a este teléfono. Tus archivos siguen cifrados hasta que lo apruebes.</string>
+    <string name="pairing_choose_request">Pedir acceso a mis otros dispositivos</string>
+    <string name="pairing_choose_request_body">Al pedir acceso verás los mismos emojis aquí y en tu otro dispositivo para aprobarlo.</string>
+    <string name="pairing_choose_recovery">Usar mi kit de recuperación</string>
+    <string name="pairing_choose_recovery_body">Con el kit escribes o escaneas el código de 36 caracteres.</string>
+    <string name="pairing_choose_have_code">Tengo un código de emparejamiento</string>
+    <string name="pairing_no_vault_title">Aún no tienes una nube de Bento</string>
+    <string name="pairing_no_vault_body">Esta cuenta de Telegram todavía no tiene una nube. Puedes crearla ahora desde este teléfono.</string>
+    <string name="pairing_no_vault_create">Crear mi nube</string>
+    <string name="pairing_bootstrap_title">Descargando tu biblioteca…</string>
+    <string name="pairing_bootstrap_body">Tus fotos y archivos irán apareciendo poco a poco. Puedes empezar a usar Bento mientras tanto.</string>
+    <string name="pairing_bootstrap_done_title">Tu biblioteca está lista</string>
+    <string name="pairing_bootstrap_done_body">Este teléfono ya forma parte de tu nube.</string>
+    <string name="pairing_bootstrap_progress">%1$s de %2$s</string>
+    <string name="pairing_bootstrap_preparing">Preparando tu biblioteca…</string>
+    <string name="pairing_bootstrap_continue">Seguir mientras se descarga</string>
+    <string name="pairing_bootstrap_open">Ir a mis fotos</string>
+    <string name="pairing_already_title">Este teléfono ya está en tu nube</string>
+    <string name="pairing_already_body">Bento ya está conectado aquí. Para añadir otro dispositivo, abre Ajustes › Dispositivos en este teléfono.</string>
+    <string name="pairing_already_back">Volver a Bento</string>
+
+    <!-- Problems (apps/web pairingErrors) -->
+    <string name="pairing_problem_wrong_code">El código no coincide. Revisa que lo escribiste bien o genera uno nuevo en tu otro dispositivo.</string>
+    <string name="pairing_problem_not_found">Este código ya no es válido. Genera uno nuevo en tu otro dispositivo.</string>
+    <string name="pairing_problem_relay">No pudimos usar el servicio de emparejamiento. Inicia sesión en Telegram en este teléfono y pide acceso a tus otros dispositivos.</string>
+    <string name="pairing_problem_rate_limited">Hubo demasiados intentos. Espera un momento e inténtalo otra vez.</string>
+    <string name="pairing_problem_telegram_login">No se pudo iniciar sesión en Telegram desde el otro dispositivo. Inténtalo otra vez.</string>
+    <string name="pairing_problem_network">No hay conexión. Comprueba internet en los dos dispositivos e inténtalo otra vez.</string>
+    <string name="pairing_problem_request_taken">Otro dispositivo respondió a esta solicitud. Si no fuiste tú, cancela en el dispositivo nuevo.</string>
+    <string name="pairing_problem_vault_ambiguous">Tu cuenta de Telegram tiene varias nubes de Bento y no sabemos a cuál unirte. Usa un código de emparejamiento o tu código de recuperación.</string>
+    <string name="pairing_problem_device_removed">Ese dispositivo se quitó de tu nube, así que no puede volver con la misma identidad. Inténtalo otra vez desde el dispositivo nuevo para que se una como uno nuevo.</string>
+    <string name="pairing_problem_generic">Algo falló durante el emparejamiento. Inténtalo otra vez.</string>
+
+    <!-- Phone as host (Ajustes › Dispositivos › Añadir dispositivo) -->
+    <string name="pairing_host_title">Añadir dispositivo</string>
+    <string name="pairing_host_loading">Preparando un código…</string>
+    <string name="pairing_host_instructions">En el otro dispositivo, abre Bento, elige «Ya uso Bento en otro dispositivo» y escanea este código.</string>
+    <string name="pairing_host_qr_label">Código QR para añadir un dispositivo</string>
+    <string name="pairing_host_code_spoken">Código: %1$s</string>
+    <string name="pairing_host_expires_in">Caduca en %1$s</string>
+    <string name="pairing_host_copy_code">Copiar código</string>
+    <string name="pairing_host_copied">Copiado</string>
+    <string name="pairing_host_share_link">Compartir enlace</string>
+    <string name="pairing_host_share_title">Enlace para unirse a tu nube de Bento</string>
+    <string name="pairing_host_waiting">Esperando al otro dispositivo…</string>
+    <string name="pairing_host_connecting">Conectando…</string>
+    <string name="pairing_host_approve_title">¿Añadir «%1$s»?</string>
+    <string name="pairing_host_approve_body">Comprueba que el otro dispositivo muestra estos mismos emojis.</string>
+    <string name="pairing_host_sas_hint">Si no coinciden, elige «No soy yo».</string>
+    <string name="pairing_host_approve">Añadir</string>
+    <string name="pairing_host_reject">No soy yo</string>
+    <string name="pairing_host_approving">Añadiendo «%1$s»…</string>
+    <string name="pairing_host_guest_login">Esperando a que «%1$s» inicie sesión en Telegram…</string>
+    <string name="pairing_host_completed_title">Dispositivo añadido</string>
+    <string name="pairing_host_completed_body">«%1$s» ya forma parte de tu nube y está descargando tu biblioteca.</string>
+    <string name="pairing_host_rejected_title">No se añadió el dispositivo</string>
+    <string name="pairing_host_rejected_body">El otro dispositivo no tiene acceso a tu nube.</string>
+    <string name="pairing_host_expired_title">El código caducó</string>
+    <string name="pairing_host_expired_body">Genera uno nuevo cuando tengas el otro dispositivo a mano.</string>
+    <string name="pairing_host_relay_title">El emparejamiento rápido no está disponible</string>
+    <string name="pairing_host_relay_body">No pudimos conectar con el servicio que une tus dispositivos.</string>
+    <string name="pairing_host_relay_fallback">En el otro dispositivo, inicia sesión en Telegram y elige «Pedir acceso a mis otros dispositivos». La solicitud aparecerá en Dispositivos para que la apruebes.</string>
+    <string name="pairing_host_failed_title">No se pudo añadir el dispositivo</string>
+    <string name="pairing_host_start_failed">No se pudo preparar un código. Inténtalo otra vez.</string>
+    <string name="pairing_host_action_failed">No se pudo completar la acción. Inténtalo otra vez.</string>
+    <string name="pairing_host_new_code">Generar otro código</string>
+    <string name="pairing_host_done">Listo</string>
+
+    <!-- Fallback request review (host) -->
+    <string name="pairing_request_review_title">Un dispositivo nuevo quiere unirse</string>
+    <string name="pairing_request_review_body">Compara estos emojis con los que muestra el dispositivo nuevo. Si coinciden, añádelo.</string>
+    <string name="pairing_request_waiting_emojis">Esperando los emojis del dispositivo nuevo…</string>
+    <string name="pairing_request_failed_title">No se puede revisar esta solicitud</string>
+
+    <!-- Platforms -->
+    <string name="pairing_platform_linux">Linux</string>
+    <string name="pairing_platform_macos">macOS</string>
+    <string name="pairing_platform_windows">Windows</string>
+    <string name="pairing_platform_android">Android</string>
+    <string name="pairing_platform_other">Otro dispositivo</string>
+</resources>

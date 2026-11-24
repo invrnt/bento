@@ -57,6 +57,10 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:background"))
     implementation(project(":core:designsystem"))
+    implementation(project(":feature:recovery"))
+    implementation(project(":feature:onboarding"))
+    implementation(project(":feature:pairing"))
+    implementation(project(":feature:devices"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
@@ -92,4 +96,7 @@ dependencies {
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.uiautomator)
     androidTestImplementation(libs.kotlinx.coroutines.test)
+    // Trust journeys (agent 38): Compose UI driven end to end against the real embedded engine.
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.ui.test.junit4)
 }

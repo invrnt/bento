@@ -300,6 +300,91 @@
       "name": "Presentation",
       "lucide": "presentation",
       "use": "Presentación"
+    },
+    {
+      "name": "ShieldCheck",
+      "lucide": "shield-check",
+      "use": "Confianza, cifrado"
+    },
+    {
+      "name": "ShieldAlert",
+      "lucide": "shield-alert",
+      "use": "Emojis no coinciden, advertencia de seguridad"
+    },
+    {
+      "name": "LifeBuoy",
+      "lucide": "life-buoy",
+      "use": "Kit de recuperación"
+    },
+    {
+      "name": "Printer",
+      "lucide": "printer",
+      "use": "Imprimir kit"
+    },
+    {
+      "name": "FileDown",
+      "lucide": "file-down",
+      "use": "Guardar PDF"
+    },
+    {
+      "name": "Unplug",
+      "lucide": "unplug",
+      "use": "Dispositivo quitado"
+    },
+    {
+      "name": "Users",
+      "lucide": "users",
+      "use": "Pedir acceso a mis otros dispositivos"
+    },
+    {
+      "name": "Timer",
+      "lucide": "timer",
+      "use": "Código caducado, cuenta atrás"
+    },
+    {
+      "name": "Bell",
+      "lucide": "bell",
+      "use": "Permiso de notificaciones"
+    },
+    {
+      "name": "Cloud",
+      "lucide": "cloud",
+      "use": "Tu nube"
+    },
+    {
+      "name": "MonitorSmartphone",
+      "lucide": "monitor-smartphone",
+      "use": "Otros dispositivos, unirse"
+    },
+    {
+      "name": "ClipboardPaste",
+      "lucide": "clipboard-paste",
+      "use": "Pegar código"
+    },
+    {
+      "name": "Keyboard",
+      "lucide": "keyboard",
+      "use": "Escribir el código"
+    },
+    {
+      "name": "Inbox",
+      "lucide": "inbox",
+      "use": "Bandeja de Telegram"
+    },
+    {
+      "name": "KeyRound",
+      "lucide": "key-round",
+      "use": "Verificación en dos pasos"
+    },
+    {
+      "name": "Link",
+      "lucide": "link",
+      "use": "Enlace de emparejamiento"
+    },
+    {
+      "name": "CameraOff",
+      "lucide": "camera-off",
+      "use": "Cámara sin permiso"
     }
   ]
 }
