@@ -3,6 +3,7 @@ package dev.bento.data
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
+import androidx.paging.cachedIn
 import androidx.paging.filter
 import androidx.paging.insertSeparators
 import androidx.paging.map
@@ -105,6 +106,12 @@ class TimelineRepository(
         return decorate(pages, daySeparators = true)
     }
 
+    /**
+     * One positional timeline shared by Fotos and the viewer (application scope): the viewer pages through the very
+     * pages the grid already loaded, so opening it never refetches.
+     */
+    val sharedPositional: Flow<PagingData<TimelineEntry>> by lazy { positionalTimeline().cachedIn(scope) }
+
     /** Reload the positional timeline so that its first page starts exactly at photo [position]. */
     fun jumpTo(position: Int) {
         jumps.set(position)
@@ -205,6 +212,10 @@ class TimelineRepository(
 
     suspend fun asset(assetId: String): AssetResponse = api.photoDetail(assetId)
 
+    /** `Disponible sin conexión`: pin (downloads the original, excluded from eviction) or unpin. Returns pinned. */
+    suspend fun setOffline(assetId: String, pinned: Boolean): Boolean =
+        (if (pinned) api.pinAssetOffline(assetId) else api.unpinAssetOffline(assetId)).pinned
+
     companion object {
         const val CACHE_KEY = "fotos"
     }
@@ -233,6 +244,12 @@ class DriveRepository(
         return combine(pages, overlay.changes) { data, changes ->
             data.filter { !overlay.isHidden(it.id, changes) }.map { overlay.apply(it.id, it, changes) }
         }
+    }
+
+    /** Drive path of an asset or folder ("/Fotos/2024"), or null when unknown. */
+    suspend fun pathOf(id: String): String? {
+        val root = api.drivePaths(dev.bento.api.generated.DrivePathsRequest(ids = listOf(id))) as? JsonObject ?: return null
+        return ((root["paths"] as? JsonObject)?.get(id) as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull
     }
 
     /** Subfolders of [folderId] (root when null), for folder pickers; reads up to [maxPages] pages. */
@@ -343,6 +360,18 @@ class AlbumsRepository(private val api: BentoEndpoints, private val invalidation
 
     suspend fun album(albumId: String): AlbumResponse = api.albumDetail(albumId)
 
+    /** Albums that contain [assetId] (viewer info sheet; the backend has no reverse lookup, albums are few). */
+    suspend fun albumsContaining(assetId: String, maxPages: Int = 10): List<AlbumResponse> {
+        val out = ArrayList<AlbumResponse>()
+        var cursor: String? = null
+        repeat(maxPages) {
+            val page = page(cursor)
+            out += page.items.filter { assetId in it.assetIds }
+            cursor = page.nextCursor ?: return out
+        }
+        return out
+    }
+
     /** One page of albums (sheets that list every album without Paging). */
     suspend fun page(cursor: String?, limit: Int = 100): CursorPage<AlbumResponse> =
         api.listAlbums(cursor = cursor, limit = limit.toLong()).let { CursorPage(it.items, it.nextCursor) }
@@ -410,7 +439,8 @@ class TrashRepository(private val api: BentoEndpoints, private val invalidations
         repeat(maxPages) {
             val page = untypedPage(api.listTrash(cursor = cursor, limit = 200))
             count += page.items.size
-            bytes += page.items.sumOf { (it["size_bytes"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull?.toLongOrNull() ?: 0L }
+            bytes +=
+                page.items.sumOf { (it["size_bytes"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull?.toLongOrNull() ?: 0L }
             cursor = page.nextCursor ?: return count to bytes
         }
         return count to bytes

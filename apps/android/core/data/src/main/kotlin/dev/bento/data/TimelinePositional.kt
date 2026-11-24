@@ -64,7 +64,13 @@ class TimelinePositionalSource(
             layout = built
             synchronized(cursors) {
                 cursors[0] = null
-                built.months.forEachIndexed { i, month -> if (month.firstCursor != null) cursors.putIfAbsent(built.starts[i], month.firstCursor) }
+                built.months.forEachIndexed { i, month ->
+                    if (month.firstCursor !=
+                        null
+                    ) {
+                        cursors.putIfAbsent(built.starts[i], month.firstCursor)
+                    }
+                }
             }
             onLayout(built)
         }
@@ -85,7 +91,9 @@ class TimelinePositionalSource(
 
     private fun range(params: LoadParams<Int>, total: Int): Pair<Int, Int> = when (params) {
         is LoadParams.Refresh -> (params.key ?: 0).coerceIn(0, (total - 1).coerceAtLeast(0)) to params.loadSize
+
         is LoadParams.Append -> params.key to params.loadSize
+
         is LoadParams.Prepend -> {
             val start = (params.key - params.loadSize).coerceAtLeast(0)
             start to (params.key - start)

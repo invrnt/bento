@@ -81,7 +81,14 @@ internal fun parsePhoneFolders(element: JsonElement): List<PhoneFolder> {
 }
 
 /** A document (not a photo or video) anywhere in Drive, for Colecciones › Documentos. */
-data class DocumentEntry(val id: String, val name: String, val path: String, val mimeType: String, val sizeBytes: Long, val createdAt: String?)
+data class DocumentEntry(
+    val id: String,
+    val name: String,
+    val path: String,
+    val mimeType: String,
+    val sizeBytes: Long,
+    val createdAt: String?
+)
 
 /**
  * Documentos: a thin list from `GET /drive/tree` (the backend has no kind filter yet), capped at [maxNodes]
@@ -90,7 +97,9 @@ data class DocumentEntry(val id: String, val name: String, val path: String, val
 class DocumentsRepository(private val api: BentoEndpoints) {
     data class Result(val items: List<DocumentEntry>, val truncated: Boolean)
 
-    suspend fun documents(maxNodes: Int = 2_000): Result = parseDocuments(api.driveTree(depth = 32, includeAssets = true, maxNodes = maxNodes.toLong()))
+    suspend fun documents(maxNodes: Int = 2_000): Result = parseDocuments(
+        api.driveTree(depth = 32, includeAssets = true, maxNodes = maxNodes.toLong())
+    )
 }
 
 internal fun parseDocuments(element: JsonElement): DocumentsRepository.Result {

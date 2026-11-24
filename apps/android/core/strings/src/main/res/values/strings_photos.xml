@@ -61,7 +61,7 @@
     <string name="photos_telegram_search">Buscar chats</string>
     <string name="photos_telegram_empty">No encontramos chats con ese nombre.</string>
     <string name="photos_disclosure_title">Antes de continuar</string>
-    <string name="photos_upload_started">Subiendo tus fotos. Aparecerán aquí en un momento.</string>
+    <string name="photos_upload_started">Subiendo tus fotos. Aparecerán aquí enseguida.</string>
     <string name="photos_header_today">Hoy</string>
     <string name="photos_header_yesterday">Ayer</string>
     <plurals name="photos_trashed_many">
