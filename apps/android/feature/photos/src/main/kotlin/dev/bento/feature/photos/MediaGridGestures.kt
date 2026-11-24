@@ -46,6 +46,8 @@ fun Modifier.pinchToDensity(enabled: Boolean, onStep: (direction: Int, centroid:
  * press fires, every later change is consumed, so the tile underneath never also receives a click and the grid does not
  * scroll; edge auto-scroll is driven by the caller from [onDrag] positions.
  */
+// The pointer loop must stay in one coroutine (restricted suspension); its exits are the gesture's states.
+@Suppress("CyclomaticComplexMethod", "LoopWithTooManyJumpStatements")
 fun Modifier.longPressDragSelect(
     enabled: Boolean,
     onStart: (Offset) -> Boolean,

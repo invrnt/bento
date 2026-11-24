@@ -75,7 +75,8 @@ object FastScrollMath {
  * while dragging with a haptic tick at each year boundary. When the finger rests over photos that are not loaded, the
  * page at that spot loads directly ([onJump]). TalkBack can set the position (adjustable, like a slider).
  */
-@Suppress("LongMethod")
+// Drag, bubble, ticks, haptics and TalkBack adjust share one position model; kept together on purpose.
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 internal fun FastScroller(
     gridState: LazyGridState,
@@ -189,7 +190,14 @@ internal fun FastScroller(
             Box(
                 Modifier
                     .align(Alignment.TopEnd)
-                    .offset { IntOffset(-with(px) { 60.dp.roundToPx() }, (dragFraction * trackPx + thumbPx / 2 - with(px) { 20.dp.toPx() }).roundToInt()) }
+                    .offset {
+                        IntOffset(
+                            -with(px) {
+                                60.dp.roundToPx()
+                            },
+                            (dragFraction * trackPx + thumbPx / 2 - with(px) { 20.dp.toPx() }).roundToInt()
+                        )
+                    }
                     .bentoShadow(BentoElevation.Md, BentoShapes.full)
                     .clip(BentoShapes.full)
                     .background(c.raised)

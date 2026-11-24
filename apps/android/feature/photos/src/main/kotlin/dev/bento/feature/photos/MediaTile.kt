@@ -108,7 +108,8 @@ fun rememberThumbnailPainter(asset: AssetResponse, sizePx: Int): androidx.compos
     val request = remember(asset.id, asset.thumbnailEtag, sizePx) {
         ImageRequest.Builder(context)
             .data(BentoImage.thumbnail(asset.id, asset.thumbnailEtag))
-            .size(sizePx)
+            // Exactly a stored bucket (256/512/1024): the viewer asks for the same key, so its first frame is a memory hit.
+            .size(dev.bento.api.ThumbnailSize.atLeast(sizePx).px)
             .build()
     }
     val painter = rememberAsyncImagePainter(request, loader)
@@ -153,8 +154,14 @@ fun MediaTile(
                 role = Role.Image
                 customActions = buildList {
                     if (!selectionMode) add(CustomAccessibilityAction(labels.open) { actions.onOpen().let { true } })
-                    add(CustomAccessibilityAction(if (selected) labels.unselect else labels.select) { actions.onToggleSelect().let { true } })
-                    actions.onFavorite?.let { add(CustomAccessibilityAction(if (asset.favorite) labels.unfavorite else labels.favorite) { it().let { true } }) }
+                    add(
+                        CustomAccessibilityAction(if (selected) labels.unselect else labels.select) {
+                            actions.onToggleSelect().let { true }
+                        }
+                    )
+                    actions.onFavorite?.let {
+                        add(CustomAccessibilityAction(if (asset.favorite) labels.unfavorite else labels.favorite) { it().let { true } })
+                    }
                     actions.onShare?.let { add(CustomAccessibilityAction(labels.share) { it().let { true } }) }
                     actions.onDelete?.let { add(CustomAccessibilityAction(labels.delete) { it().let { true } }) }
                 }
@@ -176,7 +183,14 @@ private fun androidx.compose.foundation.layout.BoxScope.TileOverlays(asset: Asse
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (video) VideoBadge(asset.durationMs?.let(MediaFormat::duration))
-        if (asset.favorite) BentoFavorite(true, Modifier.shadow(2.dp, BentoShapesCircle, clip = false), size = BentoIconSize.Dense, onMedia = true)
+        if (asset.favorite) {
+            BentoFavorite(
+                true,
+                Modifier.shadow(2.dp, BentoShapesCircle, clip = false),
+                size = BentoIconSize.Dense,
+                onMedia = true
+            )
+        }
         if (badge != UploadBadge.None) {
             androidx.compose.foundation.layout.Box(
                 Modifier

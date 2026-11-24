@@ -37,7 +37,15 @@ data class UiText(val res: Int, val args: List<Any> = emptyList(), val plural: B
     }
 
     fun resolve(context: android.content.Context): String =
-        if (plural) context.resources.getQuantityString(res, quantity, *args.toTypedArray()) else context.getString(res, *args.toTypedArray())
+        if (plural) {
+            context.resources.getQuantityString(
+                res,
+                quantity,
+                *args.toTypedArray()
+            )
+        } else {
+            context.getString(res, *args.toTypedArray())
+        }
 }
 
 /** One-off UI effects of media actions. */
@@ -90,7 +98,12 @@ class MediaActions @Inject constructor(
     fun favorite(assets: List<AssetResponse>, favorite: Boolean) = run {
         val undo = timeline.setFavorite(assets, favorite)
         if (assets.size > 1) {
-            send(MediaEvent.Undo(UiText(if (favorite) StringsR.string.photos_favorites_added else StringsR.string.photos_favorites_removed), undo))
+            send(
+                MediaEvent.Undo(
+                    UiText(if (favorite) StringsR.string.photos_favorites_added else StringsR.string.photos_favorites_removed),
+                    undo
+                )
+            )
         }
     }
 
@@ -155,7 +168,9 @@ class MediaActions @Inject constructor(
     }
 
     fun openWith(asset: AssetResponse) = runBusy {
-        send(MediaEvent.Launch(exporter.viewIntent(exporter.temporaryCopy(asset), asset.mimeType), StringsR.string.viewer_chooser_open_with))
+        send(
+            MediaEvent.Launch(exporter.viewIntent(exporter.temporaryCopy(asset), asset.mimeType), StringsR.string.viewer_chooser_open_with)
+        )
     }
 
     fun useAs(asset: AssetResponse) = runBusy {
@@ -208,8 +223,9 @@ class MediaActions @Inject constructor(
 @Composable
 fun rememberLauncher(): (MediaEvent.Launch) -> Unit {
     val context = LocalContext.current
+    val resources = androidx.compose.ui.platform.LocalResources.current
     return { event ->
-        val title = context.getString(event.chooserTitle)
+        val title = resources.getString(event.chooserTitle)
         runCatching { context.startActivity(Intent.createChooser(event.intent, title).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     }
 }

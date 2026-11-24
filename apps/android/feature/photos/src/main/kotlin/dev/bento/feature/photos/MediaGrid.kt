@@ -96,7 +96,8 @@ data class DensityAnchor(val key: String, val photoPosition: Int, val focusY: Fl
 
 /** Callbacks a grid exposes on each tile (also TalkBack custom actions). */
 class MediaGridCallbacks(
-    val onOpen: (GridCell.Media) -> Unit,
+    /** [position] is the photo's position in the collection (media only, no headers). */
+    val onOpen: (cell: GridCell.Media, position: Int) -> Unit,
     val onFavorite: ((AssetResponse) -> Unit)? = null,
     val onShare: ((AssetResponse) -> Unit)? = null,
     val onDelete: ((AssetResponse) -> Unit)? = null,
@@ -124,6 +125,8 @@ fun MediaGrid(
     contentPadding: PaddingValues = PaddingValues(),
     pinchEnabled: Boolean = true,
     animatedScope: AnimatedVisibilityScope? = null,
+    /** Library picker: taps always toggle selection (no viewer). */
+    pickMode: Boolean = false,
     top: (@Composable () -> Unit)? = null
 ) {
     val haptics = bentoHaptics()
@@ -158,6 +161,7 @@ fun MediaGrid(
                 contentPadding = contentPadding,
                 animatedScope = animatedScope,
                 top = top,
+                pickMode = pickMode,
                 onPinchStep = { direction, centroid ->
                     val target = if (direction > 0) density.larger() else density.smaller()
                     if (target != density) {
@@ -201,6 +205,7 @@ private fun DensityGrid(
     contentPadding: PaddingValues,
     animatedScope: AnimatedVisibilityScope?,
     top: (@Composable () -> Unit)?,
+    pickMode: Boolean,
     onPinchStep: (Int, Offset) -> Unit,
     pinchEnabled: Boolean
 ) {
@@ -325,7 +330,9 @@ private fun DensityGrid(
             items(
                 count = cells.count,
                 key = { index -> cells.peek(index)?.key ?: "placeholder:$index" },
-                span = { index -> if (cells.peek(index).let { it is GridCell.Month || it is GridCell.Day }) GridItemSpan(maxLineSpan) else GridItemSpan(1) },
+                span = { index ->
+                    if (cells.peek(index).let { it is GridCell.Month || it is GridCell.Day }) GridItemSpan(maxLineSpan) else GridItemSpan(1)
+                },
                 contentType = { index ->
                     when (cells.peek(index)) {
                         is GridCell.Month -> 1
@@ -341,7 +348,7 @@ private fun DensityGrid(
 
                     is GridCell.Day -> DayHeader(
                         date = cell.date,
-                        selectionMode = selection.active,
+                        selectionMode = selection.active || pickMode,
                         dayAssets = { dayAssets(cells, index) },
                         selection = selection,
                         modifier = Modifier.testTag(MediaTestTags.header(cell.key))
@@ -355,10 +362,10 @@ private fun DensityGrid(
                             date = cell.date,
                             sizePx = cellPx,
                             selected = selected,
-                            selectionMode = selection.active,
+                            selectionMode = selection.active || pickMode,
                             labels = labels,
                             actions = TileActions(
-                                onOpen = { callbacks.onOpen(cell) },
+                                onOpen = { callbacks.onOpen(cell, cells.positions().photoAt(index)) },
                                 onToggleSelect = { selection.toggle(asset) },
                                 onFavorite = callbacks.onFavorite?.let { { it(asset) } },
                                 onShare = callbacks.onShare?.let { { it(asset) } },
@@ -433,7 +440,8 @@ private fun DayHeader(
     val title = dayLabel(date, locale)
     val c = BentoTheme.colors
     val allSelected = selectionMode && dayAssets().let { list -> list.isNotEmpty() && list.all { it.id in selection } }
-    val toggleLabel = stringResource(if (allSelected) StringsR.string.photos_action_unselect_day else StringsR.string.photos_action_select_day, title)
+    val toggleLabel =
+        stringResource(if (allSelected) StringsR.string.photos_action_unselect_day else StringsR.string.photos_action_select_day, title)
     Row(
         modifier
             .fillMaxWidth()

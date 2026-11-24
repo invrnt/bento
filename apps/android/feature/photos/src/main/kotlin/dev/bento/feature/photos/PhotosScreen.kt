@@ -49,7 +49,8 @@ import kotlinx.coroutines.launch
 
 /** Navigation out of Fotos (wired by the app's nav graph). */
 class PhotosNavigation(
-    val openViewer: (assetId: String) -> Unit,
+    /** Opens the viewer on the timeline at photo [position] (the shared element flies from the tile). */
+    val openViewer: (assetId: String, position: Int) -> Unit,
     val openSearch: () -> Unit,
     val openAccount: () -> Unit,
     val openBackupSettings: () -> Unit,
@@ -60,6 +61,8 @@ class PhotosNavigation(
 /** What the grid area shows (product/android.md §1.1: cached first, never a spinner when something is cached). */
 enum class PhotosLoad { Live, Cached, FirstRun, Empty, Error }
 
+// State wiring for the screen (cached vs live vs empty); the decisions are in PhotosContent and PhotosCards.
+@Suppress("CyclomaticComplexMethod", "LongMethod")
 @Composable
 fun PhotosRoute(navigation: PhotosNavigation, animatedScope: AnimatedVisibilityScope? = null) {
     val vm: PhotosViewModel = hiltViewModel()
@@ -87,6 +90,17 @@ fun PhotosRoute(navigation: PhotosNavigation, animatedScope: AnimatedVisibilityS
         else -> PhotosLoad.FirstRun
     }
     val gridState = remember { MediaGridState(density) }
+    // Back from the viewer: make sure the tile of the last viewed photo is on screen before the shared element lands.
+    val returned = remember { arrayOf(vm.sessions.consumeReturn()) }
+    androidx.compose.runtime.SideEffect {
+        val back = returned[0] ?: return@SideEffect
+        if (load != PhotosLoad.Live) return@SideEffect
+        returned[0] = null
+        val grid = gridState.current
+        val index = live.positions().indexOf(back.position)
+        val visible = grid.layoutInfo.visibleItemsInfo.any { (it.key as? String) == "asset:${back.assetId}" }
+        if (!visible && index >= 0) grid.requestScrollToItem(index + (if (card != null) 1 else 0))
+    }
     LaunchedEffect(density) { if (gridState.density != density) gridState.changeDensity(density, null) }
     LaunchedEffect(gridState.density) { vm.setDensity(gridState.density) }
 
@@ -126,7 +140,7 @@ fun PhotosRoute(navigation: PhotosNavigation, animatedScope: AnimatedVisibilityS
     }
 }
 
-@Suppress("LongMethod", "LongParameterList")
+@Suppress("LongMethod", "LongParameterList", "CyclomaticComplexMethod")
 @Composable
 fun PhotosContent(
     load: PhotosLoad,
@@ -151,7 +165,15 @@ fun PhotosContent(
     var sheet by rememberSheetState()
     val scope = rememberCoroutineScope()
     if (actions != null) {
-        MediaEventsEffect(actions, snackbar, onSheet = { sheet = it }, onTrashed = { ids -> selection.set(selection.selected.values.filter { it.id in ids }, false) })
+        MediaEventsEffect(actions, snackbar, onSheet = { sheet = it }, onTrashed = { ids ->
+            selection.set(
+                selection.selected.values.filter {
+                    it.id in
+                        ids
+                },
+                false
+            )
+        })
     }
     BackHandler(enabled = selection.active) { selection.clear() }
     TrackJank("Fotos", gridState.current.isScrollInProgress)
@@ -226,7 +248,7 @@ fun PhotosContent(
                         contentPadding = PaddingValues(bottom = if (selection.active) 96.dp else 16.dp),
                         top = card?.let { { PhotosCardView(it, navigation, onDismissBackupCard) } },
                         callbacks = MediaGridCallbacks(
-                            onOpen = { cell -> navigation.openViewer(cell.asset.id) },
+                            onOpen = { cell, position -> navigation.openViewer(cell.asset.id, position) },
                             onFavorite = actions?.let { a -> { asset -> a.favorite(listOf(asset), !asset.favorite) } },
                             onShare = actions?.let { a -> { asset -> a.export(Disclosure.Share) { a.share(listOf(asset)) } } },
                             onDelete = actions?.let { a -> { asset -> a.trash(listOf(asset.id)) } },

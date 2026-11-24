@@ -141,7 +141,12 @@ fun AddToAlbumSheet(onPick: (AlbumResponse) -> Unit, onCreate: (String) -> Unit,
 }
 
 @Composable
-fun AddToAlbumSheetContent(data: SheetData<AlbumResponse>, onPick: (AlbumResponse) -> Unit, onCreate: (String) -> Unit, onDismiss: () -> Unit) {
+fun AddToAlbumSheetContent(
+    data: SheetData<AlbumResponse>,
+    onPick: (AlbumResponse) -> Unit,
+    onCreate: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
     var creating by rememberSaveable { mutableStateOf(false) }
     val name = rememberTextFieldState()
     var error by remember { mutableStateOf<String?>(null) }
@@ -188,7 +193,11 @@ fun AddToAlbumSheetContent(data: SheetData<AlbumResponse>, onPick: (AlbumRespons
                     items(data.items, key = { it.id }) { album ->
                         ListRow(
                             headline = album.title,
-                            supporting = pluralStringResource(StringsR.plurals.photos_album_count, album.assetIds.size, album.assetIds.size),
+                            supporting = pluralStringResource(
+                                StringsR.plurals.photos_album_count,
+                                album.assetIds.size,
+                                album.assetIds.size
+                            ),
                             leading = { AlbumCover(album, Modifier.size(48.dp)) },
                             onClick = { onPick(album) }
                         )
@@ -297,7 +306,11 @@ fun MoveToFolderSheetContent(
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             if (path.size > 1) {
-                dev.bento.designsystem.component.BentoIconButton(BentoIcons.ArrowLeft, stringResource(StringsR.string.common_action_back), onUp)
+                dev.bento.designsystem.component.BentoIconButton(
+                    BentoIcons.ArrowLeft,
+                    stringResource(StringsR.string.common_action_back),
+                    onUp
+                )
             }
             Text(
                 path.joinToString(" › "),
@@ -402,7 +415,10 @@ fun TelegramChatSheetContent(
             when (chats) {
                 SheetData.Loading -> LoadingState(Modifier.fillMaxWidth().padding(24.dp))
 
-                SheetData.Failed -> Callout(tone = CalloutTone.Danger, body = stringResource(StringsR.string.collections_telegram_chats_error))
+                SheetData.Failed -> Callout(
+                    tone = CalloutTone.Danger,
+                    body = stringResource(StringsR.string.collections_telegram_chats_error)
+                )
 
                 is SheetData.Ready -> if (chats.items.isEmpty()) {
                     Text(

@@ -18,7 +18,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -40,6 +39,7 @@ import dev.bento.designsystem.component.FloatingAction
 import dev.bento.designsystem.generated.BentoIcons
 import dev.bento.designsystem.theme.BentoTheme
 import dev.bento.strings.R as StringsR
+import kotlinx.coroutines.launch
 
 /** Selection top bar: close, "12 seleccionados", select all (product/android.md §4.3). */
 @Composable
@@ -62,7 +62,11 @@ fun SelectionTopBar(count: Int, onClose: () -> Unit, onSelectAll: (() -> Unit)?,
             style = BentoTheme.typography.sectionTitle.copy(fontFeatureSettings = "tnum"),
             modifier = Modifier.weight(1f).padding(start = 4.dp).semantics { liveRegion = LiveRegionMode.Polite }
         )
-        if (onSelectAll != null) BentoTextAction(stringResource(StringsR.string.common_action_select_all), onSelectAll, Modifier.padding(end = 8.dp))
+        if (onSelectAll !=
+            null
+        ) {
+            BentoTextAction(stringResource(StringsR.string.common_action_select_all), onSelectAll, Modifier.padding(end = 8.dp))
+        }
     }
 }
 
@@ -128,13 +132,9 @@ fun MediaEventsEffect(
         actions.events.collect { event ->
             when (event) {
                 is MediaEvent.Undo -> scope.launch { if (snackbar.showUndo(event.message.resolve(context), undoLabel)) event.undo.undo() }
-
                 is MediaEvent.Message -> scope.launch { snackbar.show(event.message.resolve(context)) }
-
                 is MediaEvent.Launch -> launch(event)
-
                 is MediaEvent.Trashed -> trashed(event.ids)
-
                 is MediaEvent.Disclose -> onSheet(MediaSheet.Disclose(event.kind))
             }
         }
@@ -215,7 +215,13 @@ fun TrackJank(screen: String, scrolling: Boolean) {
                     if (frame.isJank) janky++
                     val now = System.nanoTime()
                     if (now - lastLog > 5_000_000_000L && frames > 0) {
-                        Log.i("BentoJank", "$screen frames=$frames janky=$janky pct=${"%.2f".format(java.util.Locale.ROOT, janky * 100.0 / frames)}")
+                        Log.i(
+                            "BentoJank",
+                            "$screen frames=$frames janky=$janky pct=${"%.2f".format(
+                                java.util.Locale.ROOT,
+                                janky * 100.0 / frames
+                            )}"
+                        )
                         lastLog = now
                         frames = 0
                         janky = 0

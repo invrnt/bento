@@ -76,7 +76,8 @@ class PhotosViewModel @Inject constructor(
     private val binary: BinaryEndpoints,
     @ApplicationContext private val context: Context,
     val actions: MediaActions,
-    val imageLoader: ImageLoader
+    val imageLoader: ImageLoader,
+    val sessions: ViewerSessions
 ) : ViewModel() {
     init {
         actions.bind(viewModelScope)
@@ -87,7 +88,7 @@ class PhotosViewModel @Inject constructor(
     /** The last first screen (UI cache), shown until live data arrives: the app never opens to a spinner. */
     val cached: StateFlow<List<AssetResponse>?> = _cached.asStateFlow()
 
-    private val pages = timeline.positionalTimeline().cachedIn(viewModelScope)
+    private val pages = timeline.sharedPositional
     val cells: Flow<PagingData<GridCell>> = pages.map { it.toGridCells(dayHeaders = true) }.cachedIn(viewModelScope)
     val monthCells: Flow<PagingData<GridCell>> = pages.map { it.toGridCells(dayHeaders = false) }.cachedIn(viewModelScope)
     val layout: StateFlow<TimelineLayout> = timeline.layout

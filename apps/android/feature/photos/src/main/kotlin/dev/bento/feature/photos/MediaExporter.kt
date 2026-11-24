@@ -35,7 +35,9 @@ class MediaExporter @Inject constructor(@ApplicationContext private val context:
         val file = File(dir, safeName(asset.filename))
         if (!file.exists() || file.length() != asset.sizeBytes) {
             val tmp = File(dir, ".${file.name}.part")
-            http.execute("GET", AssetPaths.download(asset.id)) { response -> response.body.byteStream().use { input -> tmp.outputStream().use(input::copyTo) } }
+            http.execute("GET", AssetPaths.download(asset.id)) { response ->
+                response.body.byteStream().use { input -> tmp.outputStream().use(input::copyTo) }
+            }
             tmp.renameTo(file)
         }
         FileProvider.getUriForFile(context, authority, file)
@@ -48,14 +50,18 @@ class MediaExporter @Inject constructor(@ApplicationContext private val context:
         val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, safeName(asset.filename))
             put(MediaStore.MediaColumns.MIME_TYPE, asset.mimeType)
-            put(MediaStore.MediaColumns.RELATIVE_PATH, "${if (video) Environment.DIRECTORY_MOVIES else Environment.DIRECTORY_PICTURES}/Bento")
+            put(
+                MediaStore.MediaColumns.RELATIVE_PATH,
+                "${if (video) Environment.DIRECTORY_MOVIES else Environment.DIRECTORY_PICTURES}/Bento"
+            )
             put(MediaStore.MediaColumns.IS_PENDING, 1)
         }
         val resolver = context.contentResolver
         val uri = resolver.insert(collection, values) ?: error("MediaStore refused the item")
         try {
             http.execute("GET", AssetPaths.download(asset.id)) { response ->
-                resolver.openOutputStream(uri)?.use { out -> response.body.byteStream().use { it.copyTo(out) } } ?: error("no output stream")
+                resolver.openOutputStream(uri)?.use { out -> response.body.byteStream().use { it.copyTo(out) } }
+                    ?: error("no output stream")
             }
             resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
             uri
@@ -66,7 +72,9 @@ class MediaExporter @Inject constructor(@ApplicationContext private val context:
     }
 
     fun shareIntent(uris: List<Uri>, mimeTypes: List<String>): Intent {
-        val type = mimeTypes.distinct().singleOrNull() ?: mimeTypes.map { it.substringBefore('/') }.distinct().singleOrNull()?.let { "$it/*" } ?: "*/*"
+        val type =
+            mimeTypes.distinct().singleOrNull() ?: mimeTypes.map { it.substringBefore('/') }.distinct().singleOrNull()?.let { "$it/*" }
+                ?: "*/*"
         val intent = if (uris.size == 1) {
             Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, uris.single())
         } else {

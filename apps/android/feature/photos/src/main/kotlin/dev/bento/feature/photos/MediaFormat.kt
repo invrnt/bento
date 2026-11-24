@@ -75,7 +75,10 @@ object MediaFormat {
             value /= 1000
             unit++
         }
-        val number = NumberFormat.getInstance(ULocale.forLocale(locale)).apply { maximumFractionDigits = if (unit == 0 || value >= 100) 0 else 1 }
+        val number = NumberFormat.getInstance(ULocale.forLocale(locale)).apply {
+            maximumFractionDigits =
+                if (unit == 0 || value >= 100) 0 else 1
+        }
         return context.getString(units[unit], number.format(value))
     }
 
