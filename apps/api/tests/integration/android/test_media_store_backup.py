@@ -20,7 +20,7 @@ from bento.infrastructure.db.engine import session_scope
 from bento.infrastructure.db.models import AssetModel, BackupFileModel, BlobRefModel, FolderModel
 from bento.interfaces.http.main import create_app
 from tests.integration.storage_pipeline.support import RemoteSwitch, migrated_data_dir, pipeline_for
-from tests.unit.android.bridge_fakes import FakeDeviceConditions, FakeMediaStoreSource
+from tests.unit.android.bridge_fakes import FakeDeviceConditions, FakeMediaStoreSource, FakeNotifier
 
 
 @pytest.fixture
@@ -29,7 +29,11 @@ def phone(tmp_path: Path) -> Iterator[tuple[TestClient, object, FakeMediaStoreSo
     store.add_bucket("cam", "Camera", "DCIM/Camera/")
     store.add_bucket("wa", "WhatsApp Images", "Pictures/WhatsApp/")
     store.add_bucket("empty", "Empty", "Empty/")
-    services.install_android_host(AndroidHost.from_bridges({"media_store": store, "conditions": FakeDeviceConditions()}))
+    notifier = FakeNotifier()
+    store.notifier = notifier  # type: ignore[attr-defined]
+    services.install_android_host(
+        AndroidHost.from_bridges({"media_store": store, "conditions": FakeDeviceConditions(), "notifier": notifier})
+    )
     data_dir = migrated_data_dir(tmp_path)
     components = pipeline_for(data_dir, RemoteSwitch(None), storage_backend="local", platform="android", device_name="Pixel 7a")
     from bento.infrastructure.settings import Settings
@@ -81,6 +85,9 @@ def test_media_store_buckets_back_up_with_dedupe_edits_removals_and_free_up_spac
         assert await backup.upload_pending() == 3
 
     asyncio.run(run())
+    events = store.notifier.events  # type: ignore[attr-defined]
+    assert events[0] == ("transfer_progress", {"kind": "backup", "done": 1, "total": 3, "bytes_done": 0, "bytes_total": 0, "paused": False})
+    assert events[-1] == ("transfer_finished", {"kind": "backup", "count": 3, "failed": 0})
     files = _files(components)
     assert {key: model.state for key, model in files.items()} == {str(i): "done" for i in (first, second, already)}
     assert files[str(already)].asset_id == existing["id"]

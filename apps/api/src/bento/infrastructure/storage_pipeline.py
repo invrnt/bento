@@ -217,6 +217,7 @@ def build_storage_pipeline(
         media_staging=LocalMediaStaging(data_dir / "uploads" / "phone"),
         media_catalog=SQLiteMediaBackupCatalog(factory),
         device_name=_device_name(settings),
+        notifier=services.get_notifier(settings),
     )
     trash = TrashService(
         catalog=SQLiteTrashRepository(factory, clock, retention_days=settings.trash_retention_days),

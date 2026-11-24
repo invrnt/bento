@@ -30,6 +30,7 @@ from bento.domain.drive import Folder
 from bento.domain.errors import BackupSourceInvalidError, DomainError, ValidationFailedError
 from bento.domain.jobs import JobStatus, JobType
 from bento.application.work_budget import check_safe_boundary
+from bento.ports.device import NotifierPort, transfer_finished, transfer_progress
 from bento.ports.backup import BackupPolicyRepositoryPort, BackupSourceRepositoryPort, BackupSuggestionsPort, MediaLibraryPort
 from bento.ports.jobs import JobQueuePort
 from bento.ports.repositories import ClockPort
@@ -297,7 +298,9 @@ class BackupService:
         media_staging: MediaStagingPort | None = None,
         media_catalog: MediaBackupCatalogPort | None = None,
         device_name: str = "",
+        notifier: NotifierPort | None = None,
     ) -> None:
+        self._notifier = notifier
         self._media = media
         self._media_staging = media_staging
         self._media_catalog = media_catalog
@@ -578,7 +581,9 @@ class BackupService:
         sources = {source.id: source for source in await self._sources.list()}
         processed = 0
         unsettled = 0
+        failed = 0
         failed_sources: set[str] = set()
+        progress = await self._progress_baseline() if self._notifier is not None and batch else None
         for file in batch:
             source = sources.get(file.source_id)
             if source is None or not source.enabled:
@@ -590,7 +595,13 @@ class BackupService:
                 continue
             processed += 1
             if outcome == BackupFileState.FAILED:
+                failed += 1
                 failed_sources.add(source.id)
+            if progress is not None and self._notifier is not None:
+                done, total = progress
+                self._notifier.emit(transfer_progress("backup", done=min(done + processed, total), total=total))
+        if progress is not None and self._notifier is not None and processed and not await self._files.pending(limit=1):
+            self._notifier.emit(transfer_finished("backup", count=processed - failed, failed=failed))
         for source_id in sorted(failed_sources):
             await self.park_failed_files(source_id)
         if batch and await self._files.pending(limit=1):
@@ -851,6 +862,17 @@ class BackupService:
             "partial_access": bool(access and access.partial and not access.full),
             "location_access": True if self._media is None else bool(access and access.location),
         }
+
+    async def _progress_baseline(self) -> tuple[int, int]:
+        """(files done so far, files still pending at the start of this batch) for `transfer_progress`.
+
+        Progress counts within the current backlog: done starts at 0 and total is what is pending now."""
+        done = pending = 0
+        for source in await self._sources.list():
+            if source.enabled:
+                counts = await self._files.counts(source.id)
+                pending += counts.get(BackupFileState.PENDING.value, 0) + counts.get(BackupFileState.UPLOADING.value, 0)
+        return done, pending
 
     async def pending_files(self) -> int:
         total = 0

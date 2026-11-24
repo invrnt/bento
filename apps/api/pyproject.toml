@@ -3,19 +3,23 @@ name = "bento-api"
 version = "0.1.0"
 description = "Bento local-first API and worker package."
 requires-python = ">=3.12"
+# Android (Chaquopy, Python 3.13, `sys_platform == "android"`) installs the `android` profile below instead of the
+# desktop-only parts of this list (`orchestration/architecture/android-runtime.md` §4/§4.1).
 dependencies = [
   "alembic>=1.14,<2",
-  "cryptography>=46,<47",
+  "cryptography>=46,<47; sys_platform != 'android'",
+  # The newest Android build in the Chaquopy repository; every API Bento uses exists in 42.
+  "cryptography==42.0.8; sys_platform == 'android'",
   "fastapi>=0.115,<0.116",
-  "httpx>=0.28,<0.29",
+  "httpx>=0.28,<0.29; sys_platform != 'android'",
   "pydantic-settings>=2.7,<3",
   "python-multipart>=0.0.20,<0.1",
   "segno>=1.6,<2",
   "spake2>=0.9,<0.10",
   "sqlalchemy>=2.0,<3",
   "telethon>=1.45,<2",
-  "uvicorn[standard]>=0.34,<0.35",
-  "watchdog>=6,<7",
+  "uvicorn[standard]>=0.34,<0.35; sys_platform != 'android'",
+  "watchdog>=6,<7; sys_platform != 'android'",
   "websockets>=15,<18",
 ]
 
@@ -24,6 +28,25 @@ bento = "bento.interfaces.cli.main:main"
 bento-sidecar = "bento.interfaces.desktop.launcher:main"
 
 [project.optional-dependencies]
+# Embedded engine on Android: exact pins (same versions as uv.lock where the desktop uses them). No watchdog,
+# onnxruntime/rapidocr, pypdfium2, pyinstaller, httpx, or uvicorn[standard] (uvloop/httptools/watchfiles).
+# cryptography is pinned for Android in `dependencies` (uv cannot fork a base requirement from an extra).
+# cryptg is mandatory: without it Telethon falls back to pure-Python AES (~0.4 MB/s).
+android = [
+  "alembic==1.18.5",
+  "cryptg==0.6.1",
+  "fastapi==0.115.14",
+  "pillow==11.0.0; sys_platform == 'android'",
+  "pydantic==2.13.4",
+  "pydantic-settings==2.14.2",
+  "python-multipart==0.0.32",
+  "segno==1.6.6",
+  "spake2==0.9",
+  "sqlalchemy==2.0.51",
+  "telethon==1.45.0",
+  "uvicorn==0.34.3",
+  "websockets==16.0",
+]
 dev = [
   "pillow>=11,<12",
   "pre-commit>=4,<5",
