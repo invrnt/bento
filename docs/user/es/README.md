@@ -10,6 +10,7 @@ English: [Bento guides](../en/README.md).
 - [Conectar tu Telegram](conectar-telegram.md): con un código QR o con tu número de teléfono.
 - [Añadir un dispositivo](anadir-dispositivo.md): tu biblioteca en otro equipo con un código.
 - [Kit de recuperación](kit-de-recuperacion.md): la llave de repuesto de tu nube.
+- [Bento para Android](android.md): instalar, unir el teléfono, respaldar el carrete y liberar espacio.
 
 ## Cada día
 

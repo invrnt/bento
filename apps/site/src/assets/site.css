@@ -1153,6 +1153,141 @@ main {
   margin-top: 6px;
 }
 
+.download-android {
+  margin-top: 16px;
+}
+
+@media (min-width: 768px) {
+  .download-android .button-row {
+    flex-direction: row;
+  }
+
+  .download-android .button {
+    width: auto;
+  }
+}
+
+/* Android page: Roborazzi goldens in a CSS device frame */
+
+.phone-frame {
+  position: relative;
+  width: 100%;
+  max-width: 280px;
+  margin-inline: auto;
+  padding: 10px;
+  border-radius: 2.25rem;
+  background: oklch(0.2 0.01 268);
+  box-shadow: var(--shadow-lg), inset 0 0 0 1px oklch(1 0 0 / 0.08);
+}
+
+.phone-frame::before {
+  content: "";
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: oklch(0.12 0.01 268);
+  transform: translateX(-50%);
+}
+
+.phone-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+  padding-top: 22px;
+  border-radius: 1.625rem;
+  background: oklch(0.993 0.002 80);
+}
+
+.phone-frame-hero {
+  max-width: 300px;
+}
+
+.screenshot-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: min(68%, 260px);
+  gap: 16px;
+  margin-inline: calc(var(--gutter) * -1);
+  padding: 4px var(--gutter) 16px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--gutter);
+}
+
+.screenshot-row > * {
+  scroll-snap-align: start;
+}
+
+@media (max-width: 767px) {
+  .phone-frame-hero {
+    max-width: 230px;
+  }
+}
+
+@media (min-width: 768px) {
+  .screenshot-row {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-inline: 0;
+    padding: 0;
+    overflow: visible;
+  }
+}
+
+.phone-shot figcaption {
+  max-width: 280px;
+  margin: 16px auto 0;
+  color: var(--ink-muted);
+  font-size: 0.9375rem;
+}
+
+.phone-shot figcaption strong {
+  color: var(--ink);
+}
+
+.feature-list {
+  margin-top: 40px;
+}
+
+@media (min-width: 768px) {
+  .feature-list {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px 32px;
+  }
+}
+
+.checksum-line {
+  font-size: 0.8125rem;
+}
+
+.hash {
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+/* Join page: "Instala Bento" on Android */
+
+.join-install p {
+  margin-top: 10px;
+  color: var(--ink-muted);
+}
+
+.join-install .button-row {
+  margin-top: 16px;
+}
+
+.join-install .meta {
+  font-size: 0.875rem;
+}
+
+.join-install ol {
+  margin-top: 16px;
+}
+
 [hidden] {
   display: none !important;
 }

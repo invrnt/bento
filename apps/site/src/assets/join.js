@@ -1,10 +1,15 @@
 // /join page behaviour. The pairing code lives in the URL fragment (after "#"), which
 // browsers never send to a server. This script reads it locally, shows it, and builds the
-// bento:// link. It makes no network requests and stores nothing.
+// bento:// link. It makes no network requests, stores nothing and never logs the code.
+// On Android (detected from the browser's platform hints, progressive enhancement only) it
+// swaps the desktop help for "Instala Bento": reaching this page in a browser means the
+// verified App Link did not open the app, so it is most likely not installed yet.
 import { parseJoinFragment } from "./join-code.js";
+import { applyPlatform, detectPlatform } from "./platform.js";
 
-export function mountJoinPage(doc, hash, clipboard) {
+export function mountJoinPage(doc, hash, clipboard, platform = "desktop") {
   const parsed = parseJoinFragment(hash);
+  applyPlatform(doc, platform);
 
   for (const section of doc.querySelectorAll("[data-join-state]")) {
     section.hidden = section.getAttribute("data-join-state") !== parsed.status;
@@ -44,7 +49,8 @@ export function mountJoinPage(doc, hash, clipboard) {
 }
 
 if (typeof document !== "undefined" && typeof location !== "undefined") {
-  const run = () => mountJoinPage(document, location.hash, globalThis.navigator?.clipboard);
+  const platform = detectPlatform(globalThis.navigator);
+  const run = () => mountJoinPage(document, location.hash, globalThis.navigator?.clipboard, platform);
   run();
   globalThis.addEventListener("hashchange", run);
 }

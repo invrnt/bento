@@ -65,7 +65,9 @@ describe("site structure", () => {
     assert.deepEqual(paths, [
       "/",
       "/404.html",
+      "/android/",
       "/en/",
+      "/en/android/",
       "/en/join/",
       "/en/privacy/",
       "/en/security/",
@@ -196,6 +198,7 @@ describe("no external requests", () => {
       /localStorage|sessionStorage|indexedDB|document\.cookie/u,
       /\blocation\s*\.\s*(assign|replace|href\s*=)/u,
       /\bwindow\.open\b/u,
+      /\bconsole\./u, // never log (the join page handles pairing codes)
     ];
     const scripts = (await walk(dist)).filter((file) => file.endsWith(".js"));
     assert.ok(scripts.length >= 2);
@@ -346,7 +349,8 @@ describe("downloads", () => {
     const output = await mkdtemp(path.join(tmpdir(), "bento-site-"));
     try {
       const assets = Object.fromEntries(ASSET_IDS.map((id) => [id, `Bento-${id}-9.9.9.bin`]));
-      await build({ output, config: { repository: "invrnt/bento", release: { tag: "v9.9.9", assets } } });
+      const android = { package: "dev.bento.app", sha256CertFingerprints: ["[[COMPLETAR: release]]"], release: null };
+      await build({ output, config: { repository: "invrnt/bento", release: { tag: "v9.9.9", assets }, android } });
       const html = await readFile(path.join(output, "en/index.html"), "utf8");
       for (const id of ASSET_IDS) assert.ok(html.includes(`/releases/download/v9.9.9/Bento-${id}-9.9.9.bin`), id);
       assert.ok(!html.includes('data-asset="windows-x64" href="https://github.com/invrnt/bento/releases/latest"'));

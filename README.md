@@ -20,7 +20,17 @@ Descarga la [última versión](https://github.com/invrnt/bento/releases/latest):
 | macOS 13 o posterior (Apple silicon o Intel) | `.dmg` firmado y notarizado de tu procesador |
 | Ubuntu 22.04 x64 y sistemas basados en Debian | Paquete `.deb` (también hay un `.zip` portátil) |
 
-Comprueba la descarga con el archivo `SHA256SUMS-*` del release: [cómo hacerlo](docs/desktop/install-first-run.md). Todavía no hay app para móvil.
+Comprueba la descarga con el archivo `SHA256SUMS-*` del release: [cómo hacerlo](docs/desktop/install-first-run.md).
+
+## Bento para Android
+
+Respalda las fotos y videos del teléfono cifrados en tu Telegram y lleva toda tu biblioteca contigo: Fotos, Archivos, Buscar y Colecciones, compartir a Bento desde cualquier app, liberar espacio con lo ya respaldado y bloqueo con huella.
+
+- **Android 10 o posterior**, 64 bits. APK firmado en las [versiones de GitHub](https://github.com/invrnt/bento/releases): `arm64-v8a` (recomendado) o universal, con su SHA-256 en `SHA256SUMS-android`. Todavía no está en Google Play.
+- **Únete desde tu computador:** Ajustes › Dispositivos › Añadir dispositivo y escanea el QR con la cámara del teléfono. Si Bento no está instalado, el enlace abre la página «Instala Bento» con la descarga.
+- **Actualizaciones** desde la app: manifiesto firmado, SHA-256 y certificado comprobados, y siempre las confirmas tú en el instalador de Android.
+
+Guía: [Bento para Android](docs/user/es/android.md) · [Bento for Android](docs/user/en/android.md) · [desarrollo](docs/dev/android.md).
 
 ## Cómo funciona
 
@@ -58,12 +68,12 @@ Más: [Privacidad y seguridad](docs/user/es/privacidad-y-seguridad.md) · [Polí
 
 - «Sin límite de espacio» significa que Telegram no anuncia hoy un límite total para su nube; no es una garantía contractual. Telegram puede cambiar sus condiciones, limitar la velocidad o restringir cuentas, y elimina las cuentas que pasan demasiado tiempo inactivas.
 - Si pierdes todos tus equipos y también el kit de recuperación, nadie puede volver a abrir tu nube.
-- Aún no hay app para móvil, enlaces públicos ni nubes compartidas en familia.
+- Aún no hay app para iPhone, enlaces públicos ni nubes compartidas en familia.
 - Para lo irreemplazable, conserva también otra copia.
 
 ## English
 
-Bento is your private cloud, with no storage limit, kept in your own Telegram account. It encrypts your photos and files on your computer before backing them up, keeps them in order across all your devices, and adds a new computer with a single code. Telegram only sees content-free metadata: that you use Bento, sizes, times and sessions. Telegram does not contractually guarantee unlimited storage, and losing every device **and** the recovery kit means losing access. Bento uses the Telegram API and is not affiliated with Telegram.
+Bento is your private cloud, with no storage limit, kept in your own Telegram account. It encrypts your photos and files on your computer or Android phone before backing them up, keeps them in order across all your devices, and adds a new device with a single code. The Android app ([guide](docs/user/en/android.md)) installs from a signed APK in the GitHub releases (Android 10+) and backs up the camera roll. Telegram only sees content-free metadata: that you use Bento, sizes, times and sessions. Telegram does not contractually guarantee unlimited storage, and losing every device **and** the recovery kit means losing access. Bento uses the Telegram API and is not affiliated with Telegram.
 
 Read the [English guides](docs/user/en/README.md), [privacy and security](docs/user/en/privacy-and-security.md) and the [privacy policy](docs/legal/en/privacy.md).
 
@@ -78,8 +88,9 @@ Bento is a local-first modular monolith: a FastAPI API and a background worker s
 | `apps/api` | Python package `bento` for the API and the worker (domain, application, ports, adapters, infrastructure, interfaces). |
 | `apps/web` | React + Vite + TypeScript renderer. |
 | `apps/desktop` | Electron host with API/worker sidecars, tray, deep links and signed updates. |
+| `apps/android` | Android app: Kotlin + Compose over the same `bento` package embedded with Chaquopy ([docs](docs/dev/android.md)). |
 | `apps/relay` | Cloudflare Worker + Durable Object for device pairing ([docs](docs/dev/relay.md)). |
-| `apps/site` | Static public website and `/join` page on Cloudflare Pages ([docs](docs/dev/site.md)). |
+| `apps/site` | Static public website, `/join` page, Android download page and `assetlinks.json` on Cloudflare Pages ([docs](docs/dev/site.md)). |
 | `docs` | User guides, legal drafts, desktop and developer docs. |
 | `orchestration` | Binding implementation contracts. |
 
@@ -198,6 +209,10 @@ Do not commit API hashes, Telegram sessions, wrapping keys or anything under `da
 The packaged Electron app is the recommended path for end users: it includes the web UI plus native API/worker sidecars and requires no Docker, Python, Node or `.env`. See [installation and first run](docs/desktop/install-first-run.md), [settings, backup and recovery](docs/desktop/settings-recovery.md) and [release and signing](docs/desktop/releasing.md).
 
 Stable desktop releases follow GitHub Flow from short-lived `feature/*` or `fix/*` branches into `main`. Maintainers use the manual **Desktop version bump PR** workflow for a stable SemVer `patch`, `minor` or `major`; after the version PR and four-platform native validation pass, an immutable matching `vX.Y.Z` tag builds the signed release. Release tags are blocked unless the Windows installer is signed and both macOS architectures are signed and notarized. Pull requests publish short-lived artifacts whose names include `unsigned`; those are for testing, not distribution.
+
+### Android
+
+`apps/android` builds with JDK 17 and a host CPython 3.13 for Chaquopy (`-PbentoBuildPython=$(uv python find 3.13)`): `./gradlew :app:assembleDebug` and `./gradlew check`; Roborazzi goldens per feature, instrumented journeys on the emulator against the remote fake Telegram cloud (`apps/android/feature/{pairing,files}/e2e`). Releases are signed APKs (arm64 + universal) built locally with `apps/android/scripts/release.sh` and attached to a GitHub release; the site's `assetlinks.json` needs the release certificate fingerprint. See the [Android developer guide](docs/dev/android.md).
 
 ### CLI
 
