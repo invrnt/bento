@@ -22,7 +22,8 @@ from bento.adapters.security.key_store import WRAPPING_KEY_ENV
 from bento.infrastructure import process_secrets
 from bento.infrastructure.child_processes import resolve_executable
 from bento.infrastructure.settings import Settings, get_settings, settings_database_path
-from bento.interfaces.desktop.security import TOKEN_ENV
+from bento.interfaces.desktop.security import CLI_TOKEN_ENV, TOKEN_ENV
+from bento.interfaces.http.request_guard import API_TOKEN_ENV
 
 if TYPE_CHECKING:
     import uvicorn
@@ -40,7 +41,7 @@ _LISTEN_BACKLOG = 2048
 def main(argv: Sequence[str] | None = None) -> int:
     multiprocessing.freeze_support()
     # Before anything else runs: per-launch secrets must not stay where child processes inherit them.
-    process_secrets.adopt_environment_secrets((TOKEN_ENV, WRAPPING_KEY_ENV))
+    process_secrets.adopt_environment_secrets((TOKEN_ENV, CLI_TOKEN_ENV, API_TOKEN_ENV, WRAPPING_KEY_ENV))
     arguments = _parser().parse_args(argv)
     if arguments.command == "api":
         return _run_api(arguments)
@@ -60,6 +61,11 @@ def _parser() -> argparse.ArgumentParser:
     api = subparsers.add_parser("api", help="run the local Bento API")
     api.add_argument("--host", help=argparse.SUPPRESS)
     api.add_argument("--port", type=int, help="headless only; the desktop API always binds an OS-assigned port")
+    api.add_argument(
+        "--ephemeral",
+        action="store_true",
+        help="headless only: bind an OS-assigned loopback port and print BENTO_API_READY {\"port\":N}",
+    )
     subparsers.add_parser("worker", help="run the Bento background worker")
     subparsers.add_parser("migrate", help="upgrade the local database schema")
 
@@ -84,6 +90,13 @@ def _run_api(arguments: argparse.Namespace) -> int:
             raise SystemExit("desktop API must bind to an explicit loopback address")
         if arguments.port is not None:
             raise SystemExit("desktop API binds an ephemeral port chosen by the operating system")
+        _serve_desktop_api(create_app(settings), host)
+        return 0
+    if arguments.ephemeral:
+        if arguments.port is not None:
+            raise SystemExit("--ephemeral binds a port chosen by the operating system; do not pass --port")
+        if host not in _LOOPBACK_HOSTS:
+            raise SystemExit("--ephemeral API must bind to an explicit loopback address")
         _serve_desktop_api(create_app(settings), host)
         return 0
     port = arguments.port if arguments.port is not None else settings.api_port

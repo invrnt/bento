@@ -8,8 +8,10 @@ from urllib.parse import urlsplit
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from bento.infrastructure import process_secrets
+from bento.interfaces.http.request_guard import MIN_TOKEN_LENGTH, bearer_credential
 
 TOKEN_ENV = "BENTO_DESKTOP_API_TOKEN"
+CLI_TOKEN_ENV = "BENTO_DESKTOP_CLI_TOKEN"
 ORIGIN_ENV = "BENTO_DESKTOP_ORIGIN"
 
 
@@ -17,26 +19,36 @@ ORIGIN_ENV = "BENTO_DESKTOP_ORIGIN"
 class DesktopSecurityConfig:
     token: str
     origin: str
+    cli_token: str | None = None
 
     @classmethod
     def from_environ(cls, environ: Mapping[str, str]) -> DesktopSecurityConfig:
         """The per-launch token comes from the process-private holder (the sidecar launcher moves it
         out of the environment), falling back to `environ` for embedders and tests."""
         token = process_secrets.get(TOKEN_ENV) or environ.get(TOKEN_ENV, "")
+        cli_token = process_secrets.get(CLI_TOKEN_ENV) or environ.get(CLI_TOKEN_ENV, "")
         origin = environ.get(ORIGIN_ENV, "")
-        if len(token) < 32:
-            raise RuntimeError(f"{TOKEN_ENV} must contain at least 32 characters in desktop mode")
+        if len(token) < MIN_TOKEN_LENGTH:
+            raise RuntimeError(f"{TOKEN_ENV} must contain at least {MIN_TOKEN_LENGTH} characters in desktop mode")
+        if cli_token.strip() and len(cli_token) < MIN_TOKEN_LENGTH:
+            raise RuntimeError(f"{CLI_TOKEN_ENV} must contain at least {MIN_TOKEN_LENGTH} characters")
         if not _valid_origin(origin):
             raise RuntimeError(f"{ORIGIN_ENV} must contain one exact origin in desktop mode")
-        return cls(token=token, origin=origin)
+        return cls(token=token, origin=origin, cli_token=cli_token if cli_token.strip() else None)
 
 
 class DesktopSecurityMiddleware:
-    """Authenticate every desktop API request without retaining secrets in app state."""
+    """Authenticate every desktop API request without retaining secrets in app state.
+
+    Accepted: the exact renderer `Origin` with the desktop token, or (when configured) **no** `Origin` header
+    with the CLI token. Browsers always send `Origin` on cross-origin and non-GET requests, so a page cannot
+    use the CLI path; an `Origin` together with the CLI token is rejected outright.
+    """
 
     def __init__(self, app: ASGIApp, *, config: DesktopSecurityConfig) -> None:
         self._app = app
         self._token = config.token.encode("utf-8")
+        self._cli_token = config.cli_token.encode("utf-8") if config.cli_token else None
         self._origin = config.origin.encode("ascii")
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
@@ -45,6 +57,19 @@ class DesktopSecurityMiddleware:
             return
 
         headers = tuple((key.lower(), value) for key, value in scope.get("headers", ()))
+        credential = bearer_credential(headers)
+        has_origin = any(key == b"origin" for key, _ in headers)
+        if self._cli_token is not None:
+            is_cli_token = credential is not None and hmac.compare_digest(credential, self._cli_token)
+            if is_cli_token and not has_origin:
+                await self._app(scope, receive, send)
+                return
+            if is_cli_token:
+                await _json_error(send, status=403, code="desktop_origin_rejected")
+                return
+            if not has_origin:
+                await _json_error(send, status=401, code="desktop_auth_required", authenticate=True)
+                return
         origin = _unique_header(headers, b"origin")
         if origin is None or not hmac.compare_digest(origin, self._origin):
             await _json_error(send, status=403, code="desktop_origin_rejected")
@@ -56,15 +81,7 @@ class DesktopSecurityMiddleware:
             await self._app(scope, receive, send)
             return
 
-        authorization = _unique_header(headers, b"authorization") or b""
-        scheme, separator, credential = authorization.partition(b" ")
-        authorized = (
-            separator == b" "
-            and scheme.lower() == b"bearer"
-            and bool(credential)
-            and hmac.compare_digest(credential, self._token)
-        )
-        if not authorized:
+        if credential is None or not hmac.compare_digest(credential, self._token):
             await _json_error(send, status=401, code="desktop_auth_required", authenticate=True)
             return
         await self._app(scope, receive, send)

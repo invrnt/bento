@@ -186,3 +186,81 @@ def test_desktop_api_startup_failure_announces_nothing_and_fails_the_process(cap
 
     assert exited.value.code == 3
     assert launcher.READY_PREFIX not in capsys.readouterr().out
+
+
+def test_cli_and_headless_api_tokens_are_adopted_out_of_the_environment(monkeypatch, capsys, tmp_path, _clean_holder) -> None:
+    monkeypatch.setattr(launcher, "get_settings", lambda: Settings(data_dir=str(tmp_path)))
+    monkeypatch.setenv("BENTO_DESKTOP_CLI_TOKEN", "c" * 40)
+    monkeypatch.setenv("BENTO_API_TOKEN", "h" * 40)
+
+    assert launcher.main(("probe", "runtime")) == 0
+
+    capsys.readouterr()
+    assert "BENTO_DESKTOP_CLI_TOKEN" not in os.environ and "BENTO_API_TOKEN" not in os.environ
+    assert process_secrets.get("BENTO_DESKTOP_CLI_TOKEN") == "c" * 40
+    assert process_secrets.get("BENTO_API_TOKEN") == "h" * 40
+
+
+@pytest.mark.parametrize(
+    ("settings", "argv", "message"),
+    [
+        (Settings(host="127.0.0.1"), ("api", "--ephemeral", "--port", "43127"), "--port"),
+        (Settings(host="0.0.0.0"), ("api", "--ephemeral"), "loopback"),
+        (Settings(host="127.0.0.1"), ("api", "--ephemeral", "--host", "localhost"), "loopback"),
+    ],
+)
+def test_headless_ephemeral_api_refuses_a_port_or_non_loopback_host(monkeypatch, settings, argv, message) -> None:
+    monkeypatch.setattr(launcher, "get_settings", lambda: settings)
+
+    with pytest.raises(SystemExit, match=message):
+        launcher.main(argv)
+
+
+def test_headless_ephemeral_api_announces_its_port_and_requires_the_api_token(tmp_path) -> None:
+    data_dir = tmp_path / "data"
+    token = "headless-test-token-" + "y" * 32
+    environment = {
+        "PATH": os.environ.get("PATH", ""),
+        "HOME": str(tmp_path),
+        "HOST": "127.0.0.1",
+        "DATA_DIR": str(data_dir),
+        "BENTO_API_TOKEN": token,
+        "PYTHONPATH": os.pathsep.join(sys.path),
+        **{name: os.environ[name] for name in ("SYSTEMROOT", "WINDIR", "TEMP", "TMP", "USERPROFILE") if name in os.environ},
+    }
+    command = [sys.executable, "-m", "bento.interfaces.desktop"]
+    subprocess.run([*command, "migrate"], env=environment, cwd=tmp_path, check=True, capture_output=True, timeout=120)
+    api = subprocess.Popen(
+        [*command, "api", "--ephemeral"],
+        env=environment,
+        cwd=tmp_path,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+    )
+    try:
+        assert api.stdout is not None
+        line = ""
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline:
+            line = api.stdout.readline()
+            if not line or line.startswith(launcher.READY_PREFIX):
+                break
+        assert line.startswith(launcher.READY_PREFIX), "the API never announced readiness"
+        port = json.loads(line.removeprefix(launcher.READY_PREFIX))["port"]
+        health = f"http://127.0.0.1:{port}/api/health"
+
+        rejected = httpx.get(health)
+        assert rejected.status_code == 401 and rejected.headers["www-authenticate"] == "Bearer"
+        assert rejected.json()["error"]["code"] == "api_token_required"
+        assert httpx.get(health, headers={"Authorization": f"Bearer {token}"}).status_code == 200
+        if sys.platform == "linux":
+            assert token not in Path(f"/proc/{api.pid}/cmdline").read_text()
+    finally:
+        api.terminate()
+        try:
+            api.wait(timeout=15)
+        except subprocess.TimeoutExpired:
+            api.kill()
+            api.wait()
