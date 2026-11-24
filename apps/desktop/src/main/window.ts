@@ -22,6 +22,8 @@ export function createMainWindow(options: WindowOptions = {}): BrowserWindow {
     // Matches the Bento tray token so the first frame never flashes.
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#0c0e15" : "#f5f2ee",
     title: "Bento",
+    // Windows/Linux: keep the menu (and its shortcuts) but show the bar only while Alt is held.
+    autoHideMenuBar: true,
     webPreferences: {
       preload: options.preloadPath ?? path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,
