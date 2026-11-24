@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -141,11 +143,13 @@ internal fun BentoSnackbar(data: BentoSnackbarData, modifier: Modifier = Modifie
 @Composable
 public fun BentoTextAction(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val c = BentoTheme.colors
+    val interaction = remember { MutableInteractionSource() }
     Box(
         modifier
             .heightIn(min = 48.dp)
             .clip(BentoShapes.md)
-            .clickable(role = Role.Button, onClick = onClick)
+            .clickable(interaction, ripple(), role = Role.Button, onClick = onClick)
+            .bentoFocusRing(interaction, BentoShapes.md)
             .padding(horizontal = 12.dp),
         contentAlignment = Alignment.Center
     ) {

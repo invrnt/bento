@@ -11,6 +11,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -46,6 +47,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -64,6 +66,7 @@ public object BentoTestTags {
     public const val FloatingActionBar: String = "bento:floating-action-bar"
     public const val NavigationBar: String = "bento:navigation-bar"
     public const val NavigationRail: String = "bento:navigation-rail"
+    public const val FieldMessage: String = "bento:field-message"
 }
 
 /**
@@ -144,7 +147,10 @@ public fun Thumbnail(
     }
 }
 
-/** Round selection mark for tiles: filled `accent` with a check when selected, a light ring otherwise. */
+/**
+ * Round selection mark for tiles: filled `accent` with a check when selected, a light ring otherwise (on a 40 % scrim
+ * so it reads over light thumbnails too).
+ */
 @Composable
 public fun SelectionCheck(selected: Boolean, modifier: Modifier = Modifier) {
     val c = BentoTheme.colors
@@ -152,7 +158,7 @@ public fun SelectionCheck(selected: Boolean, modifier: Modifier = Modifier) {
         modifier
             .size(22.dp)
             .clip(BentoShapes.full)
-            .background(if (selected) c.accent else c.black.copy(alpha = 0.18f))
+            .background(if (selected) c.accent else c.black.copy(alpha = 0.4f))
             .border(1.5.dp, if (selected) c.raised else c.white.copy(alpha = 0.9f), BentoShapes.full)
             .clearAndSetSemantics {},
         contentAlignment = Alignment.Center
@@ -230,6 +236,26 @@ public fun BentoFavoriteButton(
     }
 }
 
+@Composable
+private fun FloatingActionBarTitle(title: String, compactTitle: String?, modifier: Modifier) {
+    val style = BentoTheme.typography.labelStrong.copy(fontFeatureSettings = "tnum")
+    val measurer = rememberTextMeasurer()
+    BoxWithConstraints(modifier) {
+        val width = constraints.maxWidth
+        val fits = compactTitle == null ||
+            measurer.measure(title, style, maxLines = 1, softWrap = false).size.width <= width
+        Text(
+            if (fits) title else compactTitle.orEmpty(),
+            color = BentoTheme.colors.ink,
+            style = style,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.semantics { contentDescription = title }
+        )
+    }
+}
+
 /** One action of [FloatingActionBar]. Destructive actions are tinted `danger-ink`. */
 @Immutable
 public data class FloatingAction(
@@ -242,6 +268,8 @@ public data class FloatingAction(
 /**
  * Selection reveals this bar instead of shifting the layout (motion-interaction.md). It slides up (fades with reduced
  * motion), floats with `shadow-lg`, shows up to four icon actions with tooltips and puts the rest in an overflow menu.
+ * When [title] ("12 seleccionados") does not fit beside the actions (200 % font, compact width) the bar shows
+ * [compactTitle] ("12") instead and keeps [title] for TalkBack.
  */
 @Composable
 public fun FloatingActionBar(
@@ -250,12 +278,13 @@ public fun FloatingActionBar(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
     title: String? = null,
+    compactTitle: String? = null,
     overflow: List<FloatingAction> = emptyList(),
     closeLabel: String = stringResource(StringsR.string.ds_clear_selection)
 ) {
     val motion = BentoTheme.motion
     AnimatedVisibility(visible, modifier, enter = motion.slideUpIn, exit = motion.slideDownOut) {
-        FloatingActionBarContent(actions, onClose, title, overflow, closeLabel)
+        FloatingActionBarContent(actions, onClose, title, overflow, closeLabel, compactTitle)
     }
 }
 
@@ -265,7 +294,8 @@ internal fun FloatingActionBarContent(
     onClose: () -> Unit,
     title: String?,
     overflow: List<FloatingAction>,
-    closeLabel: String
+    closeLabel: String,
+    compactTitle: String? = null
 ) {
     val c = BentoTheme.colors
     var menu by remember { mutableStateOf(false) }
@@ -285,14 +315,7 @@ internal fun FloatingActionBarContent(
     ) {
         BentoIconButton(BentoIcons.X, closeLabel, onClose)
         if (title != null) {
-            Text(
-                title,
-                color = c.ink,
-                style = BentoTheme.typography.labelStrong.copy(fontFeatureSettings = "tnum"),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = 4.dp).weight(1f)
-            )
+            FloatingActionBarTitle(title, compactTitle, Modifier.padding(start = 4.dp).weight(1f))
         } else {
             Box(Modifier.weight(1f))
         }

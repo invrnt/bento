@@ -192,7 +192,10 @@ private fun ChipFrame(
     }
 }
 
-/** Action chip (e.g. a suggestion or a filter menu trigger). */
+/**
+ * Action chip (e.g. a suggestion or a filter menu trigger). A chip that opens a sheet or menu passes
+ * `role = Role.DropdownList` (not a checkbox) and `selected` to show that its filter is active.
+ */
 @Composable
 public fun BentoChip(
     label: String,
@@ -200,18 +203,20 @@ public fun BentoChip(
     modifier: Modifier = Modifier,
     leadingIcon: ImageVector? = null,
     trailingIcon: ImageVector? = null,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    selected: Boolean = false,
+    role: Role = Role.Button
 ) {
     val interaction = remember { MutableInteractionSource() }
     ChipFrame(
         label,
-        selected = false,
+        selected = selected,
         leadingIcon,
         trailingIcon,
         enabled,
         modifier,
         Modifier
-            .clickable(interaction, ripple(), enabled = enabled, role = Role.Button, onClick = onClick)
+            .clickable(interaction, ripple(), enabled = enabled, role = role, onClick = onClick)
             .bentoFocusRing(interaction, BentoShapes.full)
     )
 }

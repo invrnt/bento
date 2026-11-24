@@ -153,12 +153,14 @@ public fun StatusAvatar(
         0f
     }
     val ringSize = size + 10.dp
+    val interaction = remember { MutableInteractionSource() }
     Box(
         modifier
             .minimumInteractiveComponentSize()
             .size(maxOf(48.dp, ringSize))
             .clip(BentoShapes.full)
-            .clickable(role = Role.Button, onClick = onClick)
+            .clickable(interaction, ripple(), role = Role.Button, onClick = onClick)
+            .bentoFocusRing(interaction, BentoShapes.full)
             .clearAndSetSemantics {
                 contentDescription = description
                 role = Role.Button

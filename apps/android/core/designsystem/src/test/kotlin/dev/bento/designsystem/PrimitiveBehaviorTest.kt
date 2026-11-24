@@ -16,7 +16,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
@@ -37,6 +40,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -151,6 +155,18 @@ class PrimitiveBehaviorTest {
         compose.runOnIdle { assertEquals(listOf(BentoHaptic.Reject), haptics) }
     }
 
+    @Test
+    fun fieldErrorIsAnAssertiveLiveRegionSoAutoSubmittedCodesAnnounceIt() {
+        var error by mutableStateOf<String?>(null)
+        setBento { CodeField(TextFieldState("7KQ2M9XWD4PA"), "Código", hint = "Lo ves en tu computador", error = error) }
+        val message = compose.onNodeWithTag(BentoTestTags.FieldMessage)
+        message.assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Assertive))
+        message.assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription))
+        update { error = "El código no coincide." }
+        message.assert(SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("El código no coincide.")))
+        message.assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Assertive))
+    }
+
     // ---- SAS, avatar -----------------------------------------------------------------------------------------
 
     @Test
@@ -247,6 +263,33 @@ class PrimitiveBehaviorTest {
         compose.onNodeWithTag(BentoTestTags.FloatingActionBar).assertDoesNotExist()
     }
 
+    @Test
+    fun floatingActionBarShowsOnlyTheCountWhenTheTitleDoesNotFit() {
+        var scale by mutableStateOf(1f)
+        var actions by mutableStateOf(1)
+        setBento {
+            CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, scale)) {
+                Box(Modifier.width(411.dp)) {
+                    FloatingActionBar(
+                        visible = true,
+                        actions = List(actions) { FloatingAction(BentoIcons.Share2, "Acción $it", {}) },
+                        overflow = listOf(FloatingAction(BentoIcons.Send, "Enviar", {})),
+                        onClose = {},
+                        title = "2 seleccionados",
+                        compactTitle = "2"
+                    )
+                }
+            }
+        }
+        compose.onNodeWithText("2 seleccionados").assertExists()
+        update {
+            scale = 2f
+            actions = 4
+        }
+        compose.onNodeWithText("2").assert(SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("2 seleccionados")))
+        compose.onAllNodesWithText("2 seleccionados").assertCountEquals(0)
+    }
+
     // ---- Snackbar ------------------------------------------------------------------------------------------------
 
     @Test
@@ -335,6 +378,16 @@ class PrimitiveBehaviorTest {
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
         compose.onNodeWithText("Lista").performClick().assertIsSelected()
         compose.runOnIdle { assertEquals(listOf(BentoHaptic.SegmentTick), haptics) }
+    }
+
+    @Test
+    fun iconButtonTooltipAnchorIsNotASecondFocusStop() {
+        setBento { BentoIconButton(BentoIcons.Share2, "Compartir", {}) }
+        // Exactly one actionable node: the tooltip anchor must not add an unlabeled one for TalkBack / Switch Access.
+        compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsActions.OnClick).or(SemanticsMatcher.keyIsDefined(SemanticsActions.OnLongClick)))
+            .assertCountEquals(1)
+        compose.onNodeWithContentDescription("Compartir")
+            .assert(SemanticsMatcher.keyIsDefined(SemanticsActions.OnClick))
     }
 
     @Test

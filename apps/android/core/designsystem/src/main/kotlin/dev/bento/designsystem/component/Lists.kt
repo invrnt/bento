@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
@@ -72,7 +73,7 @@ public fun ListRow(
                         role = Role.Button,
                         onLongClick = onLongClick,
                         onClick = onClick ?: {}
-                    )
+                    ).bentoFocusRing(interaction, RectangleShape)
                 } else {
                     Modifier
                 }
@@ -172,6 +173,7 @@ public fun SwitchRow(
             .heightIn(min = if (summary != null) 72.dp else 56.dp)
             .alpha(if (enabled) 1f else DISABLED_ALPHA)
             .toggleable(checked, interaction, ripple(), enabled, Role.Switch, onCheckedChange)
+            .bentoFocusRing(interaction, RectangleShape)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp)
