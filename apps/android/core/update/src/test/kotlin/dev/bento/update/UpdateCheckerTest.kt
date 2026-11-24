@@ -87,7 +87,8 @@ class UpdateCheckerTest {
         installer = installer,
         preferences = preferences,
         scope = TestScope(UnconfinedTestDispatcher(testScheduler)),
-        now = { 42L }
+        now = { 42L },
+        io = StandardTestDispatcher(testScheduler)
     )
 
     @Test

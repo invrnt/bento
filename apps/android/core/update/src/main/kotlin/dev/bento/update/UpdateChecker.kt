@@ -4,7 +4,9 @@ import android.content.Context
 import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -15,6 +17,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /** Last check time and the version whose card the user dismissed ("Ahora no"). */
 interface UpdatePreferences {
@@ -55,7 +58,9 @@ class UpdateChecker(
     private val installer: UpdateInstaller,
     private val preferences: UpdatePreferences,
     private val scope: CoroutineScope,
-    private val now: () -> Long = System::currentTimeMillis
+    private val now: () -> Long = System::currentTimeMillis,
+    /** Package parsing (getPackageArchiveInfo on a ~100 MB APK) and file work stay off the main thread. */
+    private val io: CoroutineDispatcher = Dispatchers.IO
 ) {
     private val mutable = MutableStateFlow(initial())
     val state: StateFlow<UpdateState> = mutable.asStateFlow()
@@ -81,7 +86,7 @@ class UpdateChecker(
         if (current is UpdateState.Downloading || current is UpdateState.Installing) return current
         mutable.value = UpdateState.Checking
         val next = try {
-            evaluate()
+            withContext(io) { evaluate() }
         } catch (error: CancellationException) {
             mutable.value = current
             throw error
@@ -134,10 +139,15 @@ class UpdateChecker(
         job = scope.launch {
             mutable.value = UpdateState.Downloading(release, progress = null)
             mutable.value = try {
+                var lastPercent = -1
                 val apk = downloader.download(release.asset) { progress ->
-                    mutable.value = UpdateState.Downloading(release, progress.coerceIn(0f, 1f))
+                    val percent = (progress.coerceIn(0f, 1f) * 100).toInt()
+                    if (percent != lastPercent) {
+                        lastPercent = percent
+                        mutable.value = UpdateState.Downloading(release, percent / 100f)
+                    }
                 }
-                val failure = verifySigner(apk, release)
+                val failure = withContext(io) { verifySigner(apk, release) }
                 if (failure != null) {
                     apk.delete()
                     UpdateState.Failed(failure, release)
@@ -170,7 +180,7 @@ class UpdateChecker(
                 return@launch
             }
             val apk = downloader.existing(release.asset)
-            val failure = if (apk == null) UpdateFailure.Checksum else verifySigner(apk, release)
+            val failure = if (apk == null) UpdateFailure.Checksum else withContext(io) { verifySigner(apk, release) }
             if (apk == null || failure != null) {
                 apk?.delete()
                 mutable.value = UpdateState.Failed(failure ?: UpdateFailure.Checksum, release)
