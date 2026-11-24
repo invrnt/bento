@@ -1,6 +1,6 @@
 package dev.bento.buildlogic
 
-import com.android.build.api.variant.AndroidComponentsExtension
+import com.android.build.api.variant.LibraryAndroidComponentsExtension
 import groovy.json.JsonSlurper
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
@@ -82,7 +82,7 @@ class OpenApiConventionPlugin : Plugin<Project> {
             excludedOperations.set(extension.excludedOperations)
             outputDir.set(layout.buildDirectory.dir("generated/openapi/kotlin"))
         }
-        extensions.getByType<AndroidComponentsExtension<*, *, *>>().onVariants { variant ->
+        extensions.getByType<LibraryAndroidComponentsExtension>().onVariants { variant ->
             variant.sources.kotlin?.addGeneratedSourceDirectory(generate, GenerateOpenApiKotlinTask::outputDir)
         }
 
