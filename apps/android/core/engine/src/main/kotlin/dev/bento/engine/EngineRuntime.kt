@@ -42,6 +42,8 @@ data class EngineConfig(
     val siteUrl: String?,
     val appVersion: String,
     val deviceNameDefault: String,
+    /** Extracted `apps/api/migrations` (see [MigrationAssets]); null uses the backend's default location. */
+    val migrationsDir: String? = null,
     /** Debug builds only: fake cloud directory, part size, manual login (see `DebugOptions`). */
     val debugOptions: Map<String, String> = emptyMap()
 )

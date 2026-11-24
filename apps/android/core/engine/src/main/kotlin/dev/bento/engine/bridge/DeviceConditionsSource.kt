@@ -24,6 +24,7 @@ data class DeviceConditionsSnapshot(
     @SerialName("power_save") val powerSave: Boolean,
     @SerialName("data_saver") val dataSaver: Boolean,
     @SerialName("storage_free_bytes") val storageFreeBytes: Long,
+    @SerialName("storage_total_bytes") val storageTotalBytes: Long,
     val thermal: String
 )
 
@@ -40,7 +41,8 @@ data class RawConditions(
     val batteryScale: Int,
     val powerSave: Boolean,
     val thermalStatus: Int,
-    val storageFreeBytes: Long
+    val storageFreeBytes: Long,
+    val storageTotalBytes: Long
 )
 
 object ConditionsMapping {
@@ -63,6 +65,7 @@ object ConditionsMapping {
             powerSave = raw.powerSave,
             dataSaver = raw.restrictBackgroundStatus == RESTRICT_BACKGROUND_STATUS_ENABLED,
             storageFreeBytes = raw.storageFreeBytes.coerceAtLeast(0),
+            storageTotalBytes = raw.storageTotalBytes.coerceAtLeast(0),
             thermal = thermal(raw.thermalStatus)
         )
     }
@@ -94,6 +97,7 @@ class AndroidDeviceConditions(private val context: Context) : DeviceConditions {
     private fun read(): RawConditions {
         val caps = connectivity.activeNetwork?.let(connectivity::getNetworkCapabilities)
         val battery = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val stat = runCatching { StatFs(context.filesDir.absolutePath) }.getOrNull()
         return RawConditions(
             hasInternet = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true,
             validated = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true,
@@ -107,7 +111,8 @@ class AndroidDeviceConditions(private val context: Context) : DeviceConditions {
             batteryScale = battery?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1,
             powerSave = power.isPowerSaveMode,
             thermalStatus = power.currentThermalStatus,
-            storageFreeBytes = runCatching { StatFs(context.filesDir.absolutePath).availableBytes }.getOrDefault(0L)
+            storageFreeBytes = stat?.availableBytes ?: 0L,
+            storageTotalBytes = stat?.totalBytes ?: 0L
         )
     }
 

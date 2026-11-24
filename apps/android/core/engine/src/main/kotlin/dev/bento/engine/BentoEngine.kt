@@ -168,6 +168,7 @@ class BentoEngine(
     private fun startNow(mode: WorkerMode) {
         _state.value = EngineState.Starting
         processKeeper.keepAlive()
+        val startedNs = System.nanoTime()
         try {
             runtime.warmUp()
             if (!configured) {
@@ -187,6 +188,7 @@ class BentoEngine(
             running = true
             runningMode = mode
             _state.value = EngineState.Ready(port, apiToken, mode)
+            log.info("engine ready (${mode.wire}) in ${(System.nanoTime() - startedNs) / NANOS_PER_MS} ms")
             listeners.forEach { listener -> runCatching { listener.onEngineRunning() } }
         } catch (error: Throwable) {
             log.error("engine start failed", error)
@@ -250,6 +252,7 @@ class BentoEngine(
         const val IDLE_STOP_MS = 60_000L
         const val READY_TIMEOUT_MS = 60_000L
         const val STOP_TIMEOUT_MS = 10_000L
+        private const val NANOS_PER_MS = 1_000_000L
         const val CRASH_WINDOW_MS = 5 * 60_000L
         const val CRASH_LOOP_COUNT = 3
         val BACKOFF_MS = listOf(1_000L, 5_000L, 30_000L)

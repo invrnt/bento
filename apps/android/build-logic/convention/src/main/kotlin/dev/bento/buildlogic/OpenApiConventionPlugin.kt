@@ -29,8 +29,8 @@ interface BentoOpenApiExtension {
     /** `apps/api` (the uv project that exports the schema). */
     val backendProject: DirectoryProperty
 
-    /** Python script that prints the deterministic schema to stdout. */
-    val exportScript: RegularFileProperty
+    /** Python module (run with `-m`) that prints the deterministic schema to stdout. */
+    val exportModule: Property<String>
     val packageName: Property<String>
     val excludedOperations: SetProperty<String>
 }
@@ -71,7 +71,7 @@ class OpenApiConventionPlugin : Plugin<Project> {
     override fun apply(target: Project): Unit = with(target) {
         val extension = extensions.create<BentoOpenApiExtension>("bentoOpenApi")
         extension.snapshot.convention(layout.projectDirectory.file("openapi.json"))
-        extension.exportScript.convention(layout.projectDirectory.file("scripts/export_openapi.py"))
+        extension.exportModule.convention("bento.interfaces.http.export_openapi")
         extension.excludedOperations.convention(emptySet())
 
         val generate = tasks.register<GenerateOpenApiKotlinTask>("generateOpenApiKotlin") {
@@ -89,14 +89,19 @@ class OpenApiConventionPlugin : Plugin<Project> {
         val exported = layout.buildDirectory.file("openapi/backend-openapi.json")
         val export = tasks.register<Exec>("exportOpenApi") {
             group = "bento"
-            description = "Exports create_app().openapi() from apps/api with uv."
+            description = "Exports the backend schema (bento.interfaces.http.export_openapi) with uv."
             val output = exported.get().asFile
             inputs.dir(extension.backendProject.dir("src"))
+            inputs.property("module", extension.exportModule)
             outputs.file(output)
-            doFirst { output.parentFile.mkdirs() }
+            doFirst {
+                output.parentFile.mkdirs()
+                standardOutput = output.outputStream()
+            }
+            doLast { standardOutput.close() }
             commandLine(
                 "uv", "run", "--quiet", "--project", extension.backendProject.get().asFile.absolutePath,
-                "python", extension.exportScript.get().asFile.absolutePath, output.absolutePath,
+                "python", "-m", extension.exportModule.get(),
             )
             workingDir(extension.backendProject)
         }

@@ -88,25 +88,9 @@ class TimelineRepository(
         }
     }
 
-    /**
-     * Month index for the fast scroller. Until the backend's `/photos/timeline/index` lands (agent 35) it is
-     * derived by walking timeline pages (O(items), cursor-only); swap to the endpoint when it is generated.
-     */
-    suspend fun monthIndex(): List<MonthIndexEntry> {
-        val months = LinkedHashMap<String, MonthIndexEntry>()
-        var cursor: String? = null
-        do {
-            val pageCursor = cursor
-            val page = api.photosTimeline(cursor = cursor, limit = INDEX_PAGE.toLong())
-            for (group in page.groups) {
-                val month = group.date.take(7)
-                val existing = months[month]
-                months[month] = existing?.copy(count = existing.count + group.assets.size)
-                    ?: MonthIndexEntry(month, group.assets.size, pageCursor)
-            }
-            cursor = page.nextCursor
-        } while (cursor != null)
-        return months.values.toList()
+    /** Month index for the fast scroller: one grouped query on the backend (`GET /photos/timeline/index`). */
+    suspend fun monthIndex(): List<MonthIndexEntry> = api.photosTimelineIndex().months.map { month ->
+        MonthIndexEntry(month.month, month.count.toInt(), month.firstCursor)
     }
 
     /** Optimistic favorite with undo. */
@@ -131,7 +115,6 @@ class TimelineRepository(
 
     companion object {
         const val CACHE_KEY = "fotos"
-        private const val INDEX_PAGE = 500
     }
 }
 

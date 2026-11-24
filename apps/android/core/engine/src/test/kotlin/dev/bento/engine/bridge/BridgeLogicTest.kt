@@ -73,7 +73,8 @@ class ConditionsMappingTest {
     ) = RawConditions(
         hasInternet = true, validated = validated, notMetered = notMetered, temporarilyNotMetered = false,
         restrictBackgroundStatus = restrict, batteryStatus = status, plugged = plugged, batteryLevel = level,
-        batteryScale = 100, powerSave = false, thermalStatus = thermal, storageFreeBytes = 5_000
+        batteryScale = 100, powerSave = false, thermalStatus = thermal, storageFreeBytes = 5_000,
+        storageTotalBytes = 64_000
     )
 
     @Test
@@ -99,9 +100,13 @@ class ConditionsMappingTest {
         val json = BridgeJson.encodeToString(DeviceConditionsSnapshot.serializer(), ConditionsMapping.map(raw()))
         val keys = Json.parseToJsonElement(json).jsonObject.keys
         assertEquals(
-            setOf("online", "metered", "unmetered", "charging", "battery_pct", "power_save", "data_saver", "storage_free_bytes", "thermal"),
+            setOf(
+                "online", "metered", "unmetered", "charging", "battery_pct", "power_save", "data_saver",
+                "storage_free_bytes", "storage_total_bytes", "thermal"
+            ),
             keys
         )
+        assertEquals(64_000L, ConditionsMapping.map(raw()).storageTotalBytes)
     }
 }
 
@@ -136,6 +141,12 @@ class MediaStoreMappingTest {
         assertEquals(listOf("Alpha", "Camera"), buckets.map { it.name })
         assertEquals(2, buckets[1].count)
         assertEquals(1, buckets[1].videoCount)
+    }
+
+    @Test
+    fun `media_changed payload names the bucket or every source`() {
+        assertEquals("""{"bucket_ids":["b1"]}""", MediaStoreMapping.changedPayload("b1"))
+        assertEquals("{}", MediaStoreMapping.changedPayload(null))
     }
 
     @Test

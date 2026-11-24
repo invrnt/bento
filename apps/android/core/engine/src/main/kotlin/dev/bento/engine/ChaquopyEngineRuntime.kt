@@ -9,16 +9,13 @@ import dev.bento.engine.bridge.BridgeSet
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 
-/**
- * [EngineRuntime] over Chaquopy. Calls [ENGINE_MODULE], which is TEMPORARILY the shim in
- * `core/engine/src/main/python/bento_engine_shim/engine.py`; it delegates to agent 35's
- * `bento.interfaces.android.engine` when that module exists.
- */
+/** [EngineRuntime] over Chaquopy: calls the backend's [ENGINE_MODULE] (`bento.interfaces.android.engine`). */
 class ChaquopyEngineRuntime(
     private val context: Context,
     private val bridges: BridgeSet,
@@ -47,23 +44,12 @@ class ChaquopyEngineRuntime(
         fun put(target: PyObject, key: String, value: Any?) {
             target.callAttr("__setitem__", key, value)
         }
-        put(dict, "data_dir", config.dataDir)
-        put(dict, "no_backup_dir", config.noBackupDir)
-        put(dict, "cache_dir", config.cacheDir)
-        put(dict, "platform", "android")
-        put(dict, "environment", config.environment)
-        put(dict, "storage_backend", config.storageBackend)
+        EngineConfigWire.values(config).forEach { (key, value) -> put(dict, key, value) }
         put(dict, "wrapping_key", builtins.callAttr("bytes", wrappingKey))
         put(dict, "api_token", apiToken)
-        put(dict, "telegram_api_id", config.telegramApiId)
-        put(dict, "telegram_api_hash", config.telegramApiHash)
-        put(dict, "relay_url", config.relayUrl)
-        put(dict, "site_url", config.siteUrl)
-        put(dict, "app_version", config.appVersion)
-        put(dict, "device_name_default", config.deviceNameDefault)
-        val debug = builtins.callAttr("dict")
-        config.debugOptions.forEach { (key, value) -> put(debug, key, value) }
-        put(dict, "debug_options", debug)
+        val settings = builtins.callAttr("dict")
+        EngineConfigWire.settings(config).forEach { (key, value) -> put(settings, key, value) }
+        put(dict, "settings", settings)
         val bridgeDict = builtins.callAttr("dict")
         bridges.asMap().forEach { (key, bridge) -> put(bridgeDict, key, PyObject.fromJava(bridge)) }
         put(dict, "bridges", bridgeDict)
@@ -76,7 +62,7 @@ class ChaquopyEngineRuntime(
             from = result["from"]?.jsonPrimitive?.contentOrNullSafe(),
             to = result["to"]?.jsonPrimitive?.contentOrNullSafe(),
             ran = result["ran"]?.jsonPrimitive?.booleanOrNull ?: false,
-            ms = result["ms"]?.jsonPrimitive?.longOrNull ?: 0
+            ms = result["ms"]?.jsonPrimitive?.doubleOrNull?.toLong() ?: 0
         )
     }
 
@@ -134,7 +120,6 @@ class ChaquopyEngineRuntime(
     }
 
     companion object {
-        /** TEMPORARY: switch to "bento.interfaces.android.engine" once agent 35 merges (and move `warm_up` there). */
-        const val ENGINE_MODULE = "bento_engine_shim.engine"
+        const val ENGINE_MODULE = "bento.interfaces.android.engine"
     }
 }

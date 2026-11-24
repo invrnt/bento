@@ -7,7 +7,6 @@ plugins {
 
 val backendRoot = rootProject.layout.projectDirectory.dir("../api")
 val wheelsDir = rootProject.layout.projectDirectory.dir("python-wheels")
-val generatedPython = layout.buildDirectory.dir("generated/bento-python")
 // Chaquopy needs ndk.abiFilters (it refuses AGP ABI splits): CI passes -PbentoAbis=arm64-v8a,x86_64.
 val abis = providers.gradleProperty("bentoAbis").get().split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
@@ -36,16 +35,39 @@ val syncBackendPython by tasks.registering(Sync::class) {
     into(layout.buildDirectory.dir("generated/bento-backend-python"))
 }
 
-// Alembic needs alembic.ini + migrations/ on the filesystem: ship them as an extracted package.
-// TEMPORARY (until agent 35 ships migrations inside the bento package).
-val copyBentoMigrations by tasks.registering(Sync::class) {
-    from(backendRoot.dir("migrations")) {
-        into("bento_migrations/migrations")
-        exclude("**/__pycache__/**")
+// Alembic needs migrations/ on the filesystem: they ship as assets (`bento-migrations/`), MigrationAssets copies
+// them to noBackupFilesDir once per install and `configure` passes that directory as `migrations_dir`.
+abstract class SyncMigrationAssets : DefaultTask() {
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val migrations: DirectoryProperty
+
+    @get:OutputDirectory
+    abstract val output: DirectoryProperty
+
+    @get:javax.inject.Inject
+    abstract val fs: FileSystemOperations
+
+    @TaskAction
+    fun sync() {
+        fs.sync {
+            from(migrations) {
+                exclude("**/__pycache__/**")
+                into("bento-migrations")
+            }
+            into(output)
+        }
     }
-    from(backendRoot.file("alembic.ini")) { into("bento_migrations") }
-    from(layout.projectDirectory.file("src/main/python-migrations/__init__.py")) { into("bento_migrations") }
-    into(generatedPython)
+}
+
+val syncMigrationAssets by tasks.registering(SyncMigrationAssets::class) {
+    migrations.set(backendRoot.dir("migrations"))
+    output.set(layout.buildDirectory.dir("generated/bento-migrations-assets"))
+}
+androidComponents {
+    onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(syncMigrationAssets, SyncMigrationAssets::output)
+    }
 }
 
 chaquopy {
@@ -56,21 +78,30 @@ chaquopy {
             options("--find-links", wheelsDir.dir("dist").asFile.absolutePath)
             install("-r", wheelsDir.file("requirements-android.txt").asFile.absolutePath)
         }
-        extractPackages("bento_migrations")
     }
     sourceSets {
         getByName("main") {
             // The backend package itself, unchanged (architecture/android-runtime.md §4).
             srcDir(layout.buildDirectory.dir("generated/bento-backend-python").get().asFile)
-            srcDir(generatedPython.get().asFile)
-            srcDir("src/main/python")
         }
     }
 }
 
 tasks.configureEach {
-    if (name.startsWith("merge") && name.contains("Python")) dependsOn(copyBentoMigrations, syncBackendPython)
+    if (name.startsWith("merge") && name.contains("Python")) dependsOn(syncBackendPython)
 }
+
+// requirements-android.txt must match `uv export --extra android` of apps/api (python-wheels/README.md).
+val checkPythonRequirements by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Fails when python-wheels/requirements-android.txt is stale versus apps/api/uv.lock."
+    workingDir = rootProject.layout.projectDirectory.asFile
+    commandLine(
+        "uv", "run", "--quiet", "--project", backendRoot.asFile.absolutePath, "--extra", "dev",
+        "python", "python-wheels/generate_requirements.py", "--check"
+    )
+}
+tasks.named("check") { dependsOn(checkPythonRequirements) }
 
 dependencies {
     implementation(libs.androidx.core.ktx)

@@ -238,6 +238,17 @@
             "title": "Duplicate",
             "type": "boolean"
           },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          },
           "favorite": {
             "title": "Favorite",
             "type": "boolean"
@@ -256,6 +267,17 @@
               }
             ],
             "title": "Folder Id"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
           },
           "id": {
             "title": "Id",
@@ -288,6 +310,17 @@
             "title": "Processing State",
             "type": "string"
           },
+          "remote_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remote State"
+          },
           "sha256": {
             "title": "Sha256",
             "type": "string"
@@ -307,6 +340,17 @@
             ],
             "title": "Taken At"
           },
+          "thumbnail_etag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbnail Etag"
+          },
           "thumbnail_url": {
             "anyOf": [
               {
@@ -321,6 +365,17 @@
           "updated_at": {
             "title": "Updated At",
             "type": "string"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
           }
         },
         "required": [
@@ -396,6 +451,28 @@
       },
       "BackupSourceCreateRequest": {
         "properties": {
+          "bucket_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bucket Id"
+          },
+          "kind": {
+            "default": "folder",
+            "enum": [
+              "folder",
+              "media_store"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
           "label": {
             "anyOf": [
               {
@@ -409,15 +486,19 @@
             "title": "Label"
           },
           "path": {
-            "maxLength": 4096,
-            "minLength": 1,
-            "title": "Path",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
           }
         },
-        "required": [
-          "path"
-        ],
         "title": "BackupSourceCreateRequest",
         "type": "object"
       },
@@ -936,6 +1017,23 @@
         "title": "FolderResponse",
         "type": "object"
       },
+      "FreeUpSpaceConfirmRequest": {
+        "properties": {
+          "media_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "title": "Media Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "media_ids"
+        ],
+        "title": "FreeUpSpaceConfirmRequest",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -972,37 +1070,54 @@
         "title": "HealthResponse",
         "type": "object"
       },
-      "ImportRequest": {
+      "ImportItemRequest": {
         "properties": {
-          "all": {
-            "default": false,
-            "title": "All",
-            "type": "boolean"
-          },
-          "chat_id": {
-            "title": "Chat Id",
-            "type": "integer"
-          },
-          "message_ids": {
+          "display_name": {
             "anyOf": [
               {
-                "items": {
-                  "type": "integer"
-                },
-                "maxItems": 1000,
-                "type": "array"
+                "maxLength": 1024,
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Message Ids"
+            "title": "Display Name"
+          },
+          "fd_handle": {
+            "minimum": 0.0,
+            "title": "Fd Handle",
+            "type": "integer"
+          },
+          "mime_type": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mime Type"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
           }
         },
         "required": [
-          "chat_id"
+          "fd_handle"
         ],
-        "title": "ImportRequest",
+        "title": "ImportItemRequest",
         "type": "object"
       },
       "ImportResponse": {
@@ -1078,6 +1193,17 @@
           "updated_at": {
             "title": "Updated At",
             "type": "string"
+          },
+          "wait_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wait Reason"
           }
         },
         "required": [
@@ -1134,6 +1260,67 @@
           "last_group"
         ],
         "title": "LastGroupRequest",
+        "type": "object"
+      },
+      "LocalStorageResponse": {
+        "properties": {
+          "cache_bytes": {
+            "title": "Cache Bytes",
+            "type": "integer"
+          },
+          "cache_files": {
+            "title": "Cache Files",
+            "type": "integer"
+          },
+          "cache_limit_bytes": {
+            "title": "Cache Limit Bytes",
+            "type": "integer"
+          },
+          "pinned_bytes": {
+            "title": "Pinned Bytes",
+            "type": "integer"
+          },
+          "pinned_count": {
+            "title": "Pinned Count",
+            "type": "integer"
+          },
+          "thumbs_bytes": {
+            "title": "Thumbs Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cache_bytes",
+          "cache_files",
+          "pinned_bytes",
+          "pinned_count",
+          "cache_limit_bytes",
+          "thumbs_bytes"
+        ],
+        "title": "LocalStorageResponse",
+        "type": "object"
+      },
+      "OfflinePinResponse": {
+        "properties": {
+          "asset_id": {
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "downloading": {
+            "default": false,
+            "title": "Downloading",
+            "type": "boolean"
+          },
+          "pinned": {
+            "title": "Pinned",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "asset_id",
+          "pinned"
+        ],
+        "title": "OfflinePinResponse",
         "type": "object"
       },
       "PairingErrorResponse": {
@@ -1448,6 +1635,45 @@
           "assets"
         ],
         "title": "PhotoTimelineGroupResponse",
+        "type": "object"
+      },
+      "PhotoTimelineIndexResponse": {
+        "properties": {
+          "months": {
+            "items": {
+              "$ref": "#/components/schemas/PhotoTimelineMonthResponse"
+            },
+            "title": "Months",
+            "type": "array"
+          }
+        },
+        "required": [
+          "months"
+        ],
+        "title": "PhotoTimelineIndexResponse",
+        "type": "object"
+      },
+      "PhotoTimelineMonthResponse": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "first_cursor": {
+            "title": "First Cursor",
+            "type": "string"
+          },
+          "month": {
+            "title": "Month",
+            "type": "string"
+          }
+        },
+        "required": [
+          "month",
+          "count",
+          "first_cursor"
+        ],
+        "title": "PhotoTimelineMonthResponse",
         "type": "object"
       },
       "PhotoTimelineResponse": {
@@ -2083,6 +2309,14 @@
             "title": "State",
             "type": "string"
           },
+          "waiting": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "default": {},
+            "title": "Waiting",
+            "type": "object"
+          },
           "waiting_until": {
             "anyOf": [
               {
@@ -2433,12 +2667,87 @@
         ],
         "title": "VersionResponse",
         "type": "object"
+      },
+      "bento__interfaces__http__routes_android__ImportRequest": {
+        "properties": {
+          "album_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Album Id"
+          },
+          "folder_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Id"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ImportItemRequest"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ImportRequest",
+        "type": "object"
+      },
+      "bento__interfaces__http__routes_telegram__ImportRequest": {
+        "properties": {
+          "all": {
+            "default": false,
+            "title": "All",
+            "type": "boolean"
+          },
+          "chat_id": {
+            "title": "Chat Id",
+            "type": "integer"
+          },
+          "message_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "maxItems": 1000,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message Ids"
+          }
+        },
+        "required": [
+          "chat_id"
+        ],
+        "title": "ImportRequest",
+        "type": "object"
       }
     }
   },
   "info": {
     "title": "Bento",
-    "version": "0.1.0"
+    "version": "0.0.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -2678,6 +2987,79 @@
         "summary": "Reclaim Storage"
       }
     },
+    "/api/android/imports": {
+      "post": {
+        "operationId": "start_import_api_android_imports_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/bento__interfaces__http__routes_android__ImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Import"
+      }
+    },
+    "/api/android/imports/{import_id}": {
+      "get": {
+        "operationId": "get_import_api_android_imports__import_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "import_id",
+            "required": true,
+            "schema": {
+              "title": "Import Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Import"
+      }
+    },
     "/api/assets/lookup": {
       "post": {
         "operationId": "lookup_assets_api_assets_lookup_post",
@@ -2882,6 +3264,83 @@
         "summary": "Download Asset"
       }
     },
+    "/api/assets/{asset_id}/offline": {
+      "delete": {
+        "operationId": "unpin_asset_offline_api_assets__asset_id__offline_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "title": "Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfflinePinResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unpin Asset Offline"
+      },
+      "put": {
+        "description": "\"Disponible sin conexión\": keep the original on this device, excluded from cache eviction.",
+        "operationId": "pin_asset_offline_api_assets__asset_id__offline_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "title": "Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfflinePinResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pin Asset Offline"
+      }
+    },
     "/api/assets/{asset_id}/preview": {
       "get": {
         "operationId": "asset_preview_api_assets__asset_id__preview_get",
@@ -2970,7 +3429,7 @@
     },
     "/api/assets/{asset_id}/thumbnail": {
       "get": {
-        "description": "Also serves thumbnails of trashed assets (the trash lists them).",
+        "description": "Also serves thumbnails of trashed assets (the trash lists them).\n\n`size` (256, 512, 1024): the nearest stored thumbnail not smaller than requested (else the largest), with an\n`ETag` keyed by the thumbnail id and an immutable cache lifetime.",
         "operationId": "asset_thumbnail_api_assets__asset_id__thumbnail_get",
         "parameters": [
           {
@@ -2980,6 +3439,22 @@
             "schema": {
               "title": "Asset Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Size"
             }
           }
         ],
@@ -3004,6 +3479,86 @@
           }
         },
         "summary": "Asset Thumbnail"
+      }
+    },
+    "/api/backup/free-up-space/confirm": {
+      "post": {
+        "operationId": "free_up_space_confirm_api_backup_free_up_space_confirm_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FreeUpSpaceConfirmRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Free Up Space Confirm"
+      }
+    },
+    "/api/backup/free-up-space/preview": {
+      "get": {
+        "operationId": "free_up_space_preview_api_backup_free_up_space_preview_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "source_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Free Up Space Preview"
       }
     },
     "/api/backup/policy": {
@@ -3090,6 +3645,23 @@
           }
         },
         "summary": "Report Power"
+      }
+    },
+    "/api/backup/run-now": {
+      "post": {
+        "description": "\"Respaldar ahora\": lifts the Wi-Fi rule for the current backlog (battery and thermal rules still apply).",
+        "operationId": "backup_run_now_api_backup_run_now_post",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Backup Run Now"
       }
     },
     "/api/backup/sources": {
@@ -3259,6 +3831,23 @@
           }
         },
         "summary": "Scan Backup Source"
+      }
+    },
+    "/api/backup/status": {
+      "get": {
+        "description": "Phone-backup header: pending work, what it waits for, today's progress, and media access.",
+        "operationId": "backup_status_api_backup_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Backup Status"
       }
     },
     "/api/backup/suggestions": {
@@ -4821,6 +5410,25 @@
         "summary": "Photos Timeline"
       }
     },
+    "/api/photos/timeline/index": {
+      "get": {
+        "description": "Months with photo counts and a cursor to jump to each (fast scroller): one grouped query.",
+        "operationId": "photos_timeline_index_api_photos_timeline_index_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoTimelineIndexResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Photos Timeline Index"
+      }
+    },
     "/api/photos/{asset_id}": {
       "get": {
         "operationId": "photo_detail_api_photos__asset_id__get",
@@ -5235,6 +5843,24 @@
         "summary": "Patch Settings"
       }
     },
+    "/api/storage/local": {
+      "get": {
+        "operationId": "local_storage_api_storage_local_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalStorageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Local Storage"
+      }
+    },
     "/api/sync/now": {
       "post": {
         "operationId": "sync_now_api_sync_now_post",
@@ -5334,7 +5960,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ImportRequest"
+                "$ref": "#/components/schemas/bento__interfaces__http__routes_telegram__ImportRequest"
               }
             }
           },

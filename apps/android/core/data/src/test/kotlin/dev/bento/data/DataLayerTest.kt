@@ -119,16 +119,12 @@ class TimelineRepositoryTest {
     }
 
     @Test
-    fun `month index aggregates counts and first cursors`() = runTest {
-        transport.on("GET /api/photos/timeline") { call ->
-            if (call.query["cursor"] == null) {
-                timelinePage(listOf("2024-03-02" to listOf("a", "b"), "2024-02-10" to listOf("c")), "c2")
-            } else {
-                timelinePage(listOf("2024-02-01" to listOf("d")), null)
-            }
+    fun `month index comes from the timeline index endpoint`() = runTest {
+        transport.on("GET /api/photos/timeline/index") {
+            """{"months":[{"month":"2024-03","count":2,"first_cursor":"c1"},{"month":"2024-02","count":2,"first_cursor":"c2"}]}"""
         }
         val index = repository(backgroundScope).monthIndex()
-        assertEquals(listOf(MonthIndexEntry("2024-03", 2, null), MonthIndexEntry("2024-02", 2, null)), index)
+        assertEquals(listOf(MonthIndexEntry("2024-03", 2, "c1"), MonthIndexEntry("2024-02", 2, "c2")), index)
     }
 }
 

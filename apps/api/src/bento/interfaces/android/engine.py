@@ -16,7 +16,7 @@ import hashlib
 import hmac
 import json
 import logging
-import logging.handlers
+import sys
 import tempfile
 import threading
 import time
@@ -42,6 +42,17 @@ LOGGER = logging.getLogger("bento.android.engine")
 WRAPPING_KEY_BYTES = 32
 API_START_TIMEOUT_SECONDS = 30.0
 WORKER_RESTART_BACKOFF_SECONDS = (1.0, 5.0, 30.0)
+# Interpreter warm-up (`warm_up`): heaviest imports first, in the order the engine needs them.
+WARM_UP_ORDER = (
+    ("pydantic", "pydantic"),
+    ("sqlalchemy", "sqlalchemy.orm"),
+    ("fastapi", "fastapi"),
+    ("cryptography", "cryptography.hazmat.primitives.ciphers.aead"),
+    ("bento_http", "bento.interfaces.http.main"),
+    ("uvicorn", "uvicorn"),
+    ("telethon", "telethon"),
+    ("bento_worker", "bento.interfaces.worker.runtime"),
+)
 EVENT_KINDS = frozenset({"media_changed", "conditions", "access_changed", "low_memory"})
 REQUIRED_KEYS = ("data_dir", "platform", "api_token", "wrapping_key")
 KNOWN_KEYS = frozenset(
@@ -99,10 +110,34 @@ class _Engine:
     stopping: bool = False
     last_error: str | None = None
     events: ThreadPoolExecutor | None = None
-    log_handler: logging.Handler | None = None
+    warm_up_report: dict[str, object] | None = None
 
 
 _engine = _Engine()
+
+
+# warm-up ------------------------------------------------------------------------------------------------
+
+
+def warm_up() -> str:
+    """Import the backend in a fixed order before `configure` (Kotlin calls it right after `Python.start`).
+
+    Idempotent; a failing import is reported (-1) instead of raised, so warm-up never crashes the app.
+    Returns JSON `{stages_ms, python, real_engine}` for the startup trace."""
+    with _engine.lock:
+        if _engine.warm_up_report is None:
+            stages: dict[str, float] = {}
+            for label, module in WARM_UP_ORDER:
+                started = time.perf_counter()
+                try:
+                    __import__(module)
+                except Exception as exc:  # noqa: BLE001
+                    LOGGER.warning("Warm-up import %s failed: %s", module, exc.__class__.__name__)
+                    stages[label] = -1.0
+                    continue
+                stages[label] = round((time.perf_counter() - started) * 1000, 1)
+            _engine.warm_up_report = {"stages_ms": stages, "python": sys.version.split()[0], "real_engine": True}
+        return json.dumps(_engine.warm_up_report)
 
 
 # configure ----------------------------------------------------------------------------------------------
@@ -167,7 +202,13 @@ def configure(config: Mapping[str, Any]) -> dict[str, object]:
             tempfile.tempdir = str(temporary)
         no_backup_dir = config.get("no_backup_dir")
         if no_backup_dir:
-            _engine.log_handler = _install_log_file(Path(str(no_backup_dir)) / "logs")
+            from bento.interfaces.android import redaction
+
+            redaction.install(
+                Path(str(no_backup_dir)) / "logs",
+                mirror=settings.environment != "production",
+                secrets=(token, b64url_encode(wrapping_key)),
+            )
 
         process_secrets.put(API_TOKEN_ENV, token)
         process_secrets.put(WRAPPING_KEY_ENV, b64url_encode(wrapping_key))
@@ -531,27 +572,16 @@ def _record_error(component: str, exc: BaseException) -> None:
         _engine.last_error = f"{component}:{exc.__class__.__name__}"
 
 
-def _install_log_file(directory: Path) -> logging.Handler:
-    directory.mkdir(parents=True, exist_ok=True)
-    handler = logging.handlers.RotatingFileHandler(directory / "engine.log", maxBytes=1_000_000, backupCount=3)
-    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
-    handler.setLevel(logging.INFO)
-    root = logging.getLogger("bento")
-    root.addHandler(handler)
-    root.setLevel(logging.INFO)
-    return handler
-
-
 def _reset_for_tests() -> None:
     """Stop everything and forget the configuration (tests only; a real process configures once)."""
     stop(5_000)
     with _engine.lock:
         if _engine.events is not None:
             _engine.events.shutdown(wait=True)
-        if _engine.log_handler is not None:
-            logging.getLogger("bento").removeHandler(_engine.log_handler)
-            _engine.log_handler.close()
         _engine.__init__()  # type: ignore[misc]
+    from bento.interfaces.android import redaction
+
+    redaction.uninstall()
     services.install_android_host(None)
     install_settings(None)
     services.reset_services()

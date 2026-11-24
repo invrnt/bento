@@ -1,8 +1,10 @@
 package dev.bento.engine
 
 import android.content.Context
+import android.content.res.AssetManager
 import dev.bento.engine.bridge.AndroidDeviceConditions
 import dev.bento.engine.bridge.AndroidMediaStoreSource
+import dev.bento.engine.bridge.MediaStoreMapping
 import java.io.File
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
@@ -25,7 +27,8 @@ class EngineConfigFactory(private val context: Context, private val build: Engin
     fun create(): EngineConfig {
         val debug = if (build.debugTools) DebugOptions.read(context) else emptyMap()
         return EngineConfig(
-            dataDir = File(context.filesDir, "bento").absolutePath,
+            // Catalog, key store and logs are excluded from backup (architecture/android-runtime.md §10).
+            dataDir = File(context.noBackupFilesDir, "bento").absolutePath,
             noBackupDir = context.noBackupFilesDir.absolutePath,
             cacheDir = context.cacheDir.absolutePath,
             environment = if (build.debugTools) "debug" else "production",
@@ -36,8 +39,50 @@ class EngineConfigFactory(private val context: Context, private val build: Engin
             siteUrl = build.siteUrl?.takeIf { it.isNotBlank() },
             appVersion = build.appVersion,
             deviceNameDefault = android.os.Build.MODEL ?: "Android",
+            migrationsDir = MigrationAssets.extract(context).absolutePath,
             debugOptions = debug
         )
+    }
+}
+
+/**
+ * `apps/api/migrations` ships as APK assets under [ASSET_ROOT] (core/engine build); alembic reads real files, so they
+ * are copied to `noBackupFilesDir/migrations/<install stamp>` once per installed APK and older copies are removed.
+ */
+object MigrationAssets {
+    const val ASSET_ROOT = "bento-migrations"
+    private const val COMPLETE = ".complete"
+
+    fun extract(context: Context): File {
+        val root = File(context.noBackupFilesDir, "migrations")
+        val target = File(root, installStamp(context))
+        if (File(target, COMPLETE).isFile) return target
+        root.listFiles()?.forEach { it.deleteRecursively() }
+        copy(context.assets, ASSET_ROOT, target)
+        File(target, COMPLETE).writeText("")
+        return target
+    }
+
+    private fun installStamp(context: Context): String {
+        val manager = context.packageManager
+        val info = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            manager.getPackageInfo(context.packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0))
+        } else {
+            @Suppress("DEPRECATION")
+            manager.getPackageInfo(context.packageName, 0)
+        }
+        return info.lastUpdateTime.toString()
+    }
+
+    private fun copy(assets: AssetManager, path: String, destination: File) {
+        val children = assets.list(path).orEmpty()
+        if (children.isEmpty()) {
+            destination.parentFile?.mkdirs()
+            assets.open(path).use { input -> destination.outputStream().use(input::copyTo) }
+        } else {
+            destination.mkdirs()
+            children.forEach { copy(assets, "$path/$it", File(destination, it)) }
+        }
     }
 }
 
@@ -80,7 +125,9 @@ class PlatformObservers(
 ) : EngineLifecycleListener {
     override fun onEngineRunning() {
         mediaStore.observe { uri ->
-            engine().onEvent("media_changed", buildJsonObject { put("uri", uri) }.toString())
+            // The engine rescans only the sources of the changed bucket; an unknown bucket rescans every source.
+            val bucket = uri?.let(mediaStore::bucketIdFor)
+            engine().onEvent("media_changed", MediaStoreMapping.changedPayload(bucket))
         }
         conditions.observe { snapshot -> engine().onEvent("conditions", snapshot) }
     }

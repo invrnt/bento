@@ -53,6 +53,9 @@ data class MediaScanPage(val items: List<MediaItem>, @SerialName("next_after") v
 @Serializable
 data class MediaChangesPage(val items: List<MediaItem>, @SerialName("max_generation") val maxGeneration: Long)
 
+@Serializable
+data class ChangedBuckets(@SerialName("bucket_ids") val bucketIds: List<String>)
+
 /** One `MediaStore.Files` row, already read from the cursor (pure mapping is JVM tested). */
 data class MediaRow(
     val id: Long,
@@ -109,6 +112,13 @@ object MediaStoreMapping {
         }
         return byId.map { (id, acc) -> MediaBucket(id, acc.name, acc.path, acc.count, acc.videos) }
             .sortedWith(compareBy({ it.name.lowercase() }, { it.bucketId }))
+    }
+
+    /** `on_event("media_changed")` payload: `{"bucket_ids": [id]}`, or `{}` (every source) when unknown. */
+    fun changedPayload(bucketId: String?): String = if (bucketId.isNullOrBlank()) {
+        "{}"
+    } else {
+        BridgeJson.encodeToString(ChangedBuckets.serializer(), ChangedBuckets(listOf(bucketId)))
     }
 
     /** Parses the `exists` argument (a JSON list of numbers). */
@@ -196,6 +206,17 @@ class AndroidMediaStoreSource(private val context: Context) : MediaStoreSource {
         val pfd = resolver.openFileDescriptor(target, "r") ?: throw BridgeException(BridgeException.NOT_FOUND, "media item not found")
         pfd.detachFd()
     }
+
+    /** Bucket of a changed item URI (`…/media/<id>`), or null when the URI names no single row (bulk change). */
+    fun bucketIdFor(uri: String): String? = runCatching {
+        val id = Uri.parse(uri).lastPathSegment?.toLongOrNull() ?: return null
+        query(
+            selection = "${MediaStore.MediaColumns._ID} = ?",
+            args = arrayOf(id.toString()),
+            sort = "${MediaStore.MediaColumns._ID} ASC",
+            limit = 1
+        ).firstOrNull()?.bucketId
+    }.getOrNull()
 
     /** Observe external media while the engine runs; [onChange] gets the changed URI (or null). */
     fun observe(onChange: (String?) -> Unit) {
