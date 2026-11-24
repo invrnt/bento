@@ -11,7 +11,7 @@ async function walk(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const full = path.join(directory, entry.name);
     if (entry.isDirectory()) result.push(...(await walk(full)));
-    else if (/\.(html|css|js|txt|svg)$/u.test(entry.name) || entry.name === "_headers") result.push(full);
+    else if (/\.(html|css|js|json|txt|svg)$/u.test(entry.name) || entry.name === "_headers") result.push(full);
   }
   return result;
 }

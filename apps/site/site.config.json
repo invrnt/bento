@@ -1,4 +1,11 @@
 {
   "repository": "invrnt/bento",
-  "release": null
+  "release": null,
+  "android": {
+    "package": "dev.bento.app",
+    "sha256CertFingerprints": [
+      "[[COMPLETAR: huella SHA-256 del certificado de firma de release de Android]]"
+    ],
+    "release": null
+  }
 }

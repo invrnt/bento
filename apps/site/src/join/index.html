@@ -42,7 +42,7 @@
   <div class="wrap">
     <div class="join-shell">
       <div class="join-card">
-        <h1>Añade este equipo a tu Bento</h1>
+        <h1><span data-platform="desktop">Añade este equipo a tu Bento</span><span data-platform="android" hidden>Añade este teléfono a tu Bento</span></h1>
 
         <div data-join-state="ok" hidden>
           <p class="page-lead">Tu otro dispositivo te envió este código. Ábrelo en Bento para continuar.</p>
@@ -75,10 +75,29 @@
 
         <noscript>
           <p class="page-lead">Esta página necesita JavaScript para leer el código del enlace. También puedes copiarlo de la barra de direcciones: son los 12 caracteres que siguen a «c=».</p>
+          <p class="page-lead">¿Estás en un teléfono Android? <a href="/android/">Descarga Bento para Android</a>.</p>
         </noscript>
       </div>
 
-      <section class="compartment join-help" aria-labelledby="ayuda-titulo">
+      <section class="compartment join-help join-install" data-platform="android" hidden aria-labelledby="instalar-titulo">
+        <h2 id="instalar-titulo">Instala Bento</h2>
+        <p>Si Bento estuviera instalado en este teléfono, el enlace lo habría abierto directamente. Instálalo y vuelve a esta página o escanea otra vez el código QR de tu computador.</p>
+        <div class="button-row">
+          <a class="button button-primary button-xl" data-android-asset="android-arm64" href="https://github.com/invrnt/bento/releases/latest">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            Descargar Bento para Android
+          </a>
+        </div>
+        <p class="meta">APK firmado para Android 10 o posterior. <a href="/android/#descargar">Otras descargas y SHA-256</a>.</p>
+        <ol>
+          <li>Toca «Descargar Bento para Android» y, cuando termine, abre el archivo.</li>
+          <li>Si Android lo pide, toca «Configuración» y activa «Permitir de esta fuente» para tu navegador. Puedes desactivarlo después de instalar.</li>
+          <li>Toca «Instalar» y espera a que termine.</li>
+          <li>Vuelve a esta página y toca «Abrir Bento», o escanea otra vez el QR. El código caduca a los 10 minutos de crearse.</li>
+        </ol>
+      </section>
+
+      <section class="compartment join-help" data-platform="desktop" aria-labelledby="ayuda-titulo">
         <h2 id="ayuda-titulo">¿No se abrió Bento?</h2>
         <ol>
           <li>Instala Bento en este equipo: <a href="/#descargar">descargar Bento</a>.</li>
@@ -87,13 +106,13 @@
         </ol>
         <p class="callout">
           <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
-          <span>Bento todavía no tiene app para móvil: abre este enlace en el ordenador que quieres añadir.</span>
+          <span>¿Quieres añadir un teléfono Android? Abre este enlace en el teléfono o <a href="/android/">descarga Bento para Android</a>.</span>
         </p>
       </section>
 
       <p class="callout">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        <span>El código va después del signo «#» de la dirección, una parte que los navegadores no envían a ningún servidor. Esta página lo lee en tu equipo y no lo manda a ninguna parte: sin analíticas, cookies ni peticiones externas. <a href="/security/#sitio-web">Más sobre este sitio</a>.</span>
+        <span>El código va después del signo «#» de la dirección, una parte que los navegadores no envían a ningún servidor. Esta página lo lee en tu dispositivo y no lo manda a ninguna parte: sin analíticas, cookies ni peticiones externas. <a href="/security/#sitio-web">Más sobre este sitio</a>.</span>
       </p>
     </div>
   </div>
@@ -110,6 +129,7 @@
         <h2>Producto</h2>
         <ul>
           <li><a href="/#descargar">Descargar</a></li>
+          <li><a href="/android/">Bento para Android</a></li>
           <li><a href="/#como-funciona">Cómo funciona</a></li>
           <li><a href="/#preguntas">Preguntas frecuentes</a></li>
         </ul>

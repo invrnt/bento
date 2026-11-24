@@ -42,7 +42,7 @@
   <div class="wrap">
     <div class="join-shell">
       <div class="join-card">
-        <h1>Add this computer to your Bento</h1>
+        <h1><span data-platform="desktop">Add this computer to your Bento</span><span data-platform="android" hidden>Add this phone to your Bento</span></h1>
 
         <div data-join-state="ok" hidden>
           <p class="page-lead">Your other device sent you this code. Open it in Bento to continue.</p>
@@ -75,10 +75,29 @@
 
         <noscript>
           <p class="page-lead">This page needs JavaScript to read the code from the link. You can also copy it from the address bar: it is the 12 characters after “c=”.</p>
+          <p class="page-lead">On an Android phone? <a href="/en/android/">Download Bento for Android</a>.</p>
         </noscript>
       </div>
 
-      <section class="compartment join-help" aria-labelledby="help-title">
+      <section class="compartment join-help join-install" data-platform="android" hidden aria-labelledby="install-title">
+        <h2 id="install-title">Install Bento</h2>
+        <p>If Bento were installed on this phone, the link would have opened it directly. Install it, then come back to this page or scan your computer’s QR code again.</p>
+        <div class="button-row">
+          <a class="button button-primary button-xl" data-android-asset="android-arm64" href="https://github.com/invrnt/bento/releases/latest">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            Download Bento for Android
+          </a>
+        </div>
+        <p class="meta">Signed APK for Android 10 or later. <a href="/en/android/#download">Other downloads and SHA-256</a>.</p>
+        <ol>
+          <li>Tap “Download Bento for Android” and open the file when it finishes.</li>
+          <li>If Android asks, tap “Settings” and turn on “Allow from this source” for your browser. You can turn it off again after installing.</li>
+          <li>Tap “Install” and wait for it to finish.</li>
+          <li>Come back to this page and tap “Open Bento”, or scan the QR code again. The code expires 10 minutes after it was created.</li>
+        </ol>
+      </section>
+
+      <section class="compartment join-help" data-platform="desktop" aria-labelledby="help-title">
         <h2 id="help-title">Bento didn’t open?</h2>
         <ol>
           <li>Install Bento on this computer: <a href="/en/#download">download Bento</a>.</li>
@@ -87,13 +106,13 @@
         </ol>
         <p class="callout">
           <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
-          <span>There is no Bento mobile app yet: open this link on the computer you want to add.</span>
+          <span>Adding an Android phone? Open this link on the phone or <a href="/en/android/">download Bento for Android</a>.</span>
         </p>
       </section>
 
       <p class="callout">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        <span>The code comes after the “#” sign in the address, a part browsers never send to any server. This page reads it on your computer and sends it nowhere: no analytics, cookies or external requests. <a href="/en/security/#website">More about this site</a>.</span>
+        <span>The code comes after the “#” sign in the address, a part browsers never send to any server. This page reads it on your device and sends it nowhere: no analytics, cookies or external requests. <a href="/en/security/#website">More about this site</a>.</span>
       </p>
     </div>
   </div>
@@ -110,6 +129,7 @@
         <h2>Product</h2>
         <ul>
           <li><a href="/en/#download">Download</a></li>
+          <li><a href="/en/android/">Bento for Android</a></li>
           <li><a href="/en/#how-it-works">How it works</a></li>
           <li><a href="/en/#faq">FAQ</a></li>
         </ul>
