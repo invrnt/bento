@@ -66,6 +66,41 @@ def test_asset_error_model_for_missing_asset_and_unsupported_preview(tmp_path: P
     assert preview.json()["error"]["code"] == "unsupported_media_type"
 
 
+def test_upload_queues_ocr_after_the_thumbnail_when_ocr_is_configured(tmp_path: Path) -> None:
+    data_dir = _migrated_data_dir(tmp_path)
+    client = TestClient(create_app(Settings(data_dir=str(data_dir), ocr_provider="mock")))
+    png = _png_bytes()
+
+    upload = client.post("/api/assets/upload", files={"file": ("scan.png", png, "image/png")})
+    assert upload.status_code == 200
+    asset_id = upload.json()["id"]
+
+    jobs = [item for item in client.get("/api/jobs").json()["items"] if item.get("asset_id") == asset_id]
+    by_type = {item["type"]: item for item in jobs}
+    assert {"thumbnail", "ocr"} <= set(by_type)
+    assert by_type["thumbnail"]["priority"] < by_type["ocr"]["priority"]
+    assert "embedding" not in by_type  # embeddings provider stays disabled
+
+
+def test_upload_queues_no_ocr_when_ocr_is_disabled(tmp_path: Path) -> None:
+    data_dir = _migrated_data_dir(tmp_path)
+    client = TestClient(create_app(Settings(data_dir=str(data_dir))))
+    upload = client.post("/api/assets/upload", files={"file": ("scan.png", _png_bytes(), "image/png")})
+    asset_id = upload.json()["id"]
+    types = {item["type"] for item in client.get("/api/jobs").json()["items"] if item.get("asset_id") == asset_id}
+    assert "ocr" not in types
+
+
+def _png_bytes() -> bytes:
+    from io import BytesIO
+
+    from PIL import Image
+
+    buffer = BytesIO()
+    Image.new("RGB", (16, 16), "white").save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
 def _migrated_data_dir(tmp_path: Path) -> Path:
     data_dir = tmp_path / "data"
     db_dir = data_dir / "db"

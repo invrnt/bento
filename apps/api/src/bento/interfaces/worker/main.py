@@ -21,6 +21,7 @@ from bento.application.indexing.embedding import EmbeddingIndexingService
 from bento.application.indexing.reindex import ReindexService
 from bento.application.media import MediaProcessingService, ProcessingCompletionService
 from bento.application.indexing import OCRIndexingService
+from bento.application.ingestion import IndexingPolicy
 from bento.infrastructure import services
 from bento.infrastructure.db.clock import SystemClock
 from bento.infrastructure.db.engine import create_app_session_factory
@@ -94,6 +95,9 @@ def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> Work
         text_catalog=SQLiteEmbeddingTextCatalog(session_factory),
         index_recorder=create_asset_index_recorder(settings, session_factory),
     )
+    indexing = IndexingPolicy.from_providers(
+        ocr_provider=settings.ocr_provider, embeddings_provider=settings.embeddings_provider
+    )
     return WorkerDispatcher(
         jobs=jobs,
         media=media,
@@ -109,8 +113,8 @@ def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> Work
             assets=assets,
             jobs=jobs,
             active=jobs,
-            ocr_enabled=settings.ocr_provider != "disabled",
-            embeddings_enabled=settings.embeddings_provider != "disabled",
+            ocr_enabled=indexing.ocr,
+            embeddings_enabled=indexing.embeddings,
         ),
     )
 
