@@ -90,6 +90,10 @@ adb reverse tcp:8799 tcp:8799      # the app's 127.0.0.1:8799 reaches the host f
 # open Ajustes › Acerca de › Actualizaciones (or the card) → Descargar → Instalar → system confirmation
 ```
 
+Until `feature/settings` places `UpdateRow()`/`UpdateCard()`, the update UI is only reachable in a build that renders
+them; the Stage 22 verification (0.1.1 → 0.1.2 on `bento_spike_api35`) overlaid both on `MainActivity` in an
+uncommitted patch. The app being updated must be signed by the same key, so uninstall a debug build first.
+
 Never publish dry-run artifacts: they are signed by a test key.
 
 ## Update manifest (Android entry)
