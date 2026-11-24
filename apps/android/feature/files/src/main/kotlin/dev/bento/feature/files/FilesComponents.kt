@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import coil3.ImageLoader
 import coil3.compose.rememberAsyncImagePainter
 import dev.bento.api.BentoImage
+import dev.bento.api.generated.AssetResponse
 import dev.bento.api.generated.DriveBreadcrumbResponse
 import dev.bento.api.generated.DriveItemResponse
 import dev.bento.designsystem.component.BentoChip
@@ -100,17 +101,32 @@ fun SheetFrame(modifier: Modifier = Modifier, content: @Composable ColumnScope.(
     }
 }
 
-/** The `ink-muted` line under a name: size · date for files, "Carpeta · date" for folders. */
+/** The `ink-muted` line under a name: size · date for files, "12 elementos · date" for folders ("Carpeta" if unknown). */
 @Composable
 fun itemSupporting(item: DriveItemResponse): String {
     val resources = LocalResources.current
     val date = FileDates.medium(item.updatedAt).orEmpty()
-    val first = item.asset?.let { BentoFormat.bytes(resources, it.sizeBytes) } ?: stringResource(StringsR.string.files_folder)
+    val count = item.itemCount
+    val first = item.asset?.let { BentoFormat.bytes(resources, it.sizeBytes) }
+        ?: count?.let { pluralCountResource(StringsR.plurals.files_folder_items, it.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()) }
+        ?: stringResource(StringsR.string.files_folder)
     return if (date.isEmpty()) first else stringResource(StringsR.string.files_item_supporting, first, date)
 }
 
-/** Honest state of a file (product/android.md §1.4): pinned, only on this phone, uploading, failed. */
-enum class ItemBadge { Offline, LocalOnly, Uploading, Failed }
+/**
+ * Honest state of a file (product/android.md §1.4): pinned for offline, on this phone (the original opens offline:
+ * cached or still in its backup source), only on this phone, uploading, failed.
+ */
+enum class ItemBadge { Offline, OnDevice, LocalOnly, Uploading, Failed }
+
+/** Pinned for offline: the backend's `offline_pinned`, or a pin this phone just made (the listing has not reloaded). */
+fun isPinned(asset: AssetResponse, pinned: Set<String>): Boolean = asset.offlinePinned || asset.id in pinned
+
+/** [isPinned] for a row; folders are never pinned. */
+fun DriveItemResponse.pinnedIn(pinned: Set<String>): Boolean = asset?.let { isPinned(it, pinned) } ?: false
+
+/** The original opens without a connection: pinned, or `locally_available` (cached, never uploaded, in its source). */
+fun opensOffline(asset: AssetResponse, pinned: Set<String>): Boolean = isPinned(asset, pinned) || asset.locallyAvailable
 
 fun badgesOf(item: DriveItemResponse, pinned: Set<String>): List<ItemBadge> {
     val asset = item.asset ?: return emptyList()
@@ -120,13 +136,16 @@ fun badgesOf(item: DriveItemResponse, pinned: Set<String>): List<ItemBadge> {
         "failed" -> ItemBadge.Failed
         else -> null
     }
-    return listOfNotNull(ItemBadge.Offline.takeIf { asset.id in pinned }, remote)
+    val offline = isPinned(asset, pinned)
+    val onDevice = !offline && asset.locallyAvailable && remote == null
+    return listOfNotNull(ItemBadge.Offline.takeIf { offline }, ItemBadge.OnDevice.takeIf { onDevice }, remote)
 }
 
 @Composable
 private fun badgeLabel(badge: ItemBadge): String = stringResource(
     when (badge) {
         ItemBadge.Offline -> StringsR.string.files_badge_offline
+        ItemBadge.OnDevice -> StringsR.string.files_badge_on_device
         ItemBadge.LocalOnly -> StringsR.string.files_badge_local_only
         ItemBadge.Uploading -> StringsR.string.files_badge_uploading
         ItemBadge.Failed -> StringsR.string.files_badge_failed
@@ -139,6 +158,7 @@ private fun BadgeIcons(badges: List<ItemBadge>) {
     badges.forEach { badge ->
         val (icon, tint) = when (badge) {
             ItemBadge.Offline -> BentoIcons.Pin to c.accent
+            ItemBadge.OnDevice -> BentoIcons.FileDown to c.inkSubtle
             ItemBadge.LocalOnly -> BentoIcons.Smartphone to c.inkSubtle
             ItemBadge.Uploading -> BentoIcons.CloudUpload to c.accent
             ItemBadge.Failed -> BentoIcons.CircleAlert to c.warning

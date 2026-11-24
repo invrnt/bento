@@ -154,7 +154,7 @@ fun MediaTile(
 private fun androidx.compose.foundation.layout.BoxScope.TileOverlays(asset: AssetResponse) {
     val badge = uploadBadge(asset)
     val video = MediaFormat.isVideo(asset)
-    if (!video && !asset.favorite && badge == UploadBadge.None) return
+    if (listOf(video, asset.favorite, asset.offlinePinned, badge != UploadBadge.None).none { it }) return
     val c = BentoTheme.colors
     Row(
         Modifier.align(Alignment.BottomStart).padding(6.dp).clearAndSetSemantics {},
@@ -165,6 +165,11 @@ private fun androidx.compose.foundation.layout.BoxScope.TileOverlays(asset: Asse
         if (asset.favorite) {
             androidx.compose.foundation.layout.Box(Modifier.clip(BentoShapesCircle).background(c.black.copy(alpha = 0.5f)).padding(3.dp)) {
                 BentoFavorite(true, size = BentoIconSize.Dense, onMedia = true)
+            }
+        }
+        if (asset.offlinePinned) {
+            androidx.compose.foundation.layout.Box(Modifier.clip(BentoShapesCircle).background(c.black.copy(alpha = 0.5f)).padding(3.dp)) {
+                BentoIcon(BentoIcons.Pin, null, tint = c.white, size = BentoIconSize.Dense)
             }
         }
         if (badge != UploadBadge.None) {
@@ -194,6 +199,7 @@ class TileLabels(
     private val video: String,
     private val videoWithDuration: String,
     private val favoriteState: String,
+    private val offlineState: String,
     private val pending: String,
     private val uploading: String,
     private val failed: String,
@@ -216,6 +222,7 @@ class TileLabels(
         )
         add(MediaFormat.longDate(date, locale))
         if (asset.favorite) add(favoriteState)
+        if (asset.offlinePinned) add(offlineState)
         when (asset.remoteState) {
             "local_only" -> add(pending)
             "uploading" -> add(uploading)
@@ -232,6 +239,7 @@ class TileLabels(
             video = stringResource(StringsR.string.photos_tile_video_plain),
             videoWithDuration = stringResource(StringsR.string.photos_tile_video, "%1\$s"),
             favoriteState = stringResource(StringsR.string.photos_tile_favorite),
+            offlineState = stringResource(StringsR.string.photos_tile_offline),
             pending = stringResource(StringsR.string.photos_tile_pending),
             uploading = stringResource(StringsR.string.photos_tile_uploading),
             failed = stringResource(StringsR.string.photos_tile_failed),

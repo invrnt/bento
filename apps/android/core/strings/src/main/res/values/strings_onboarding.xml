@@ -37,6 +37,9 @@
     <string name="onboarding_phone_submit">Enviar código</string>
     <string name="onboarding_code_title">Escribe el código</string>
     <string name="onboarding_code_body">Te enviamos un código a tu app de Telegram (%1$s).</string>
+    <string name="onboarding_code_body_sms">Te enviamos un código por SMS al %1$s.</string>
+    <string name="onboarding_code_body_call">Telegram te llamará al %1$s para darte el código.</string>
+    <string name="onboarding_code_body_email">Te enviamos un código al correo de tu cuenta de Telegram (%1$s).</string>
     <string name="onboarding_code_label">Código de Telegram</string>
     <string name="onboarding_code_hint">Llega a Telegram, en tus otros dispositivos, o por SMS. Seguimos en cuanto escribas el último número.</string>
     <string name="onboarding_code_paste">Pegar %1$s</string>
@@ -73,13 +76,18 @@
 
     <!-- Creando tu nube -->
     <string name="onboarding_creating_title">Creando tu nube</string>
+    <string name="onboarding_checking_title">Comprobando tu nube…</string>
+    <string name="onboarding_checking_body">Vemos qué cambió mientras este teléfono estaba desconectado.</string>
     <string name="onboarding_creating_body">Esto tarda unos segundos.</string>
     <string name="onboarding_connected_as">Conectado como %1$s</string>
     <string name="onboarding_creating_channels">Canales privados en tu Telegram</string>
-    <string name="onboarding_creating_folder">Carpeta de Bento en tu Telegram</string>
     <string name="onboarding_creating_keys">Claves de cifrado en este teléfono</string>
+    <string name="onboarding_creating_device">Este teléfono en tu nube</string>
     <string name="onboarding_creating_step_working">en marcha</string>
     <string name="onboarding_creating_step_done">listo</string>
+    <string name="onboarding_creating_step_pending">pendiente</string>
+    <string name="onboarding_creating_step_failed">no se pudo</string>
+    <string name="onboarding_creating_step_count">%1$s de %2$s</string>
     <string name="onboarding_creating_slow">Telegram va lento, sigue en marcha…</string>
     <string name="onboarding_creating_failed">No se pudo crear tu nube. Tu cuenta sigue intacta.</string>
     <string name="onboarding_creating_failed_hint">Comprueba tu conexión a internet e inténtalo otra vez.</string>

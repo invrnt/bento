@@ -150,6 +150,30 @@ class BentoHttp(
         body: RequestBody? = null,
         read: (Response) -> T
     ): T {
+        val response = open(method, path, query, body)
+        return withContext(Dispatchers.IO) {
+            response.use {
+                try {
+                    read(it)
+                } catch (timeout: InterruptedIOException) {
+                    endpoints.reportStall()
+                    throw ApiException.Stalled(timeout)
+                }
+            }
+        }
+    }
+
+    /**
+     * Sends a request and returns the successful response unread: the caller owns it and must close it (long-lived
+     * streams such as `/api/events`). Failures map to [ApiException] like [execute].
+     */
+    suspend fun open(
+        method: String,
+        path: String,
+        query: List<Pair<String, String?>> = emptyList(),
+        body: RequestBody? = null,
+        client: OkHttpClient = this.client
+    ): Response {
         val ready = endpoints.ready()
         val request = Request.Builder().url(buildUrl(ready, path, query)).method(method, body).build()
         return withContext(Dispatchers.IO) {
@@ -162,17 +186,16 @@ class BentoHttp(
                 if (io is java.net.ConnectException) endpoints.reportStall()
                 throw ApiException.Network(io)
             }
-            response.use {
-                if (!it.isSuccessful) throw ApiErrors.from(it.code, it.body.string(), it.header("Retry-After"))
-                try {
-                    read(it)
-                } catch (timeout: InterruptedIOException) {
-                    endpoints.reportStall()
-                    throw ApiException.Stalled(timeout)
-                }
+            if (!response.isSuccessful) {
+                val error = response.use { ApiErrors.from(it.code, it.body.string(), it.header("Retry-After")) }
+                throw error
             }
+            response
         }
     }
+
+    /** The same client with a different read timeout (event streams outlive the 30 s default between pings). */
+    fun clientWithReadTimeout(millis: Long): OkHttpClient = client.newBuilder().readTimeout(millis, TimeUnit.MILLISECONDS).build()
 
     private fun buildUrl(ready: EngineState.Ready, path: String, query: List<Pair<String, String?>>): HttpUrl {
         val builder = (ready.baseUrl + path).toHttpUrl().newBuilder()

@@ -161,6 +161,29 @@ fun ViewerInfoContent(asset: AssetResponse, info: ViewerInfo?, callbacks: InfoCa
             onClick = if (storage == StorageLine.Failed) callbacks.onOpenActivity else null,
             onClickLabel = if (storage == StorageLine.Failed) stringResource(StringsR.string.viewer_open_activity) else null
         )
+        val availability = availabilityOf(asset, info?.pinned)
+        ListRow(
+            headline = stringResource(
+                when (availability) {
+                    Availability.Pinned -> StringsR.string.viewer_availability_pinned
+                    Availability.OnDevice -> StringsR.string.viewer_availability_on_device
+                    Availability.NeedsConnection -> StringsR.string.viewer_availability_online
+                }
+            ),
+            supporting = stringResource(StringsR.string.viewer_info_offline),
+            leading = {
+                BentoIcon(
+                    when (availability) {
+                        Availability.Pinned -> BentoIcons.Pin
+                        Availability.OnDevice -> BentoIcons.FileDown
+                        Availability.NeedsConnection -> BentoIcons.Cloud
+                    },
+                    null,
+                    tint = if (availability == Availability.Pinned) c.accent else c.inkMuted
+                )
+            },
+            modifier = Modifier.testTag(ViewerTestTags.Availability)
+        )
     }
 }
 

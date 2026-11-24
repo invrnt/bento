@@ -30,6 +30,11 @@
     <string name="search_filter_folder_value">En «%1$s»</string>
     <string name="search_filter_any">Cualquiera</string>
     <string name="search_filter_remove">Quitar el filtro «%1$s»</string>
+    <string name="search_filter_origin">Origen</string>
+    <string name="search_filter_origin_title">De dónde viene</string>
+    <string name="search_origin_this_phone">Este teléfono</string>
+    <string name="search_origin_other_devices">Otros dispositivos</string>
+    <string name="search_origin_telegram">Telegram</string>
     <string name="search_filters_title">Filtros</string>
     <string name="search_folder_pick">Buscar aquí</string>
     <string name="search_filter_kind_title">Tipo de archivo</string>
@@ -51,6 +56,7 @@
     <string name="search_reason_folder_plain">Nombre de la carpeta</string>
     <string name="search_reason_document_type">Tipo de documento</string>
     <string name="search_reason_date">Fecha</string>
+    <string name="search_reason_capture_date">Fecha de la foto</string>
     <string name="search_reason_album">Álbum</string>
     <string name="search_reason_details">Detalles del archivo</string>
     <string name="search_reason_recent">Lo usaste hace poco</string>

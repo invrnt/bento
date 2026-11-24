@@ -67,7 +67,7 @@ class MainActivity : ComponentActivity() {
             handleOpenTarget(intent)
         }
         lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) { gate.resolve()?.let(startRouter::apply) }
+            repeatOnLifecycle(Lifecycle.State.STARTED) { gate.updates().collect(startRouter::apply) }
         }
         trace("bento.app.setContent") {
             setContent {

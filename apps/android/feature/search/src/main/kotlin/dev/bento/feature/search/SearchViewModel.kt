@@ -28,8 +28,8 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** Filter sheets of Buscar (Tipo, Fecha, Carpeta). */
-enum class FilterSheet { Kind, Date, Folder }
+/** Filter sheets of Buscar (Tipo, Fecha, Carpeta, Origen). */
+enum class FilterSheet { Kind, Date, Folder, Origin }
 
 data class SearchSuggestions(
     val years: List<Int> = emptyList(),
@@ -153,6 +153,8 @@ class SearchViewModel @Inject constructor(
 
     fun setFolder(folder: Destination?) = updateFilters { it.copy(folder = folder) }
 
+    fun setOrigin(origin: OriginFilter?) = updateFilters { it.copy(origin = origin) }
+
     fun thisMonth() = setDate(DateFilter.ThisMonth(today()))
 
     fun lastYear() = setDate(DateFilter.LastYear(today()))
@@ -232,7 +234,8 @@ class SearchViewModel @Inject constructor(
             dateFrom = filters.date?.from?.toString(),
             dateTo = filters.date?.to?.toString(),
             limit = PAGE,
-            cursor = cursor
+            cursor = cursor,
+            origin = filters.origin?.wire
         )
         val items = page.items.filter { item -> filters.kind?.accepts(item) ?: true }
         return items to page.nextCursor

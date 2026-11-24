@@ -16,10 +16,13 @@ object FilesFixtures {
         favorite: Boolean = false,
         remote: String? = "remote",
         updated: String = "2026-11-20T10:00:00+00:00",
-        thumb: Boolean = false
+        thumb: Boolean = false,
+        pinned: Boolean = false,
+        local: Boolean = false
     ) = """{"id":"$id","filename":"$name","mime_type":"$mime","size_bytes":$size,"folder_id":${str(folderId)},"favorite":$favorite,""" +
         """"kind":"document","mode":"vault","processing_state":"indexed","sha256":"x","created_at":"$updated","updated_at":"$updated",""" +
-        """"remote_state":${str(remote)},"thumbnail_url":${if (thumb) "\"/api/assets/$id/thumbnail\"" else "null"}}"""
+        """"remote_state":${str(remote)},"thumbnail_url":${if (thumb) "\"/api/assets/$id/thumbnail\"" else "null"},""" +
+        """"offline_pinned":$pinned,"locally_available":$local}"""
 
     fun file(
         id: String,
@@ -29,7 +32,9 @@ object FilesFixtures {
         folderId: String? = null,
         remote: String? = "remote",
         updated: String = "2026-11-20T10:00:00+00:00",
-        favorite: Boolean = false
+        favorite: Boolean = false,
+        pinned: Boolean = false,
+        local: Boolean = false
     ) =
         """{"id":"$id","name":"$name","type":"asset","updated_at":"$updated","asset":${asset(
             id,
@@ -39,11 +44,13 @@ object FilesFixtures {
             folderId,
             favorite,
             remote,
-            updated
+            updated,
+            pinned = pinned,
+            local = local
         )},"folder":null}"""
 
-    fun folder(id: String, name: String, parentId: String? = null, updated: String = "2026-11-18T10:00:00+00:00") =
-        """{"id":"$id","name":"$name","type":"folder","updated_at":"$updated","asset":null,""" +
+    fun folder(id: String, name: String, parentId: String? = null, updated: String = "2026-11-18T10:00:00+00:00", count: Int? = null) =
+        """{"id":"$id","name":"$name","type":"folder","updated_at":"$updated","asset":null,"item_count":${count ?: "null"},""" +
             """"folder":{"id":"$id","name":"$name","parent_id":${str(parentId)},"created_at":"$updated","updated_at":"$updated"}}"""
 
     fun items(vararg items: String, crumbs: List<Pair<String, String>> = emptyList(), next: String? = null) =
@@ -61,9 +68,9 @@ object FilesFixtures {
     /** A small mixed folder used by UI tests and screenshots. */
     val sample: List<DriveItemResponse> by lazy {
         listOf(
-            d(folder("f_work", "Trabajo")),
-            d(folder("f_trips", "Viajes 2024", updated = "2026-10-02T10:00:00+00:00")),
-            d(file("a_tax", "Declaración de renta 2025.pdf", size = 2_400_000, updated = "2026-11-22T09:00:00+00:00")),
+            d(folder("f_work", "Trabajo", count = 1_240)),
+            d(folder("f_trips", "Viajes 2024", updated = "2026-10-02T10:00:00+00:00", count = 1)),
+            d(file("a_tax", "Declaración de renta 2025.pdf", size = 2_400_000, updated = "2026-11-22T09:00:00+00:00", pinned = true)),
             d(
                 file(
                     "a_sheet",
@@ -74,7 +81,7 @@ object FilesFixtures {
                 )
             ),
             d(file("a_notes", "Notas de la reunión.md", mime = "text/markdown", size = 3_200, remote = "local_only")),
-            d(file("a_song", "Voz de la abuela.m4a", mime = "audio/mp4", size = 5_600_000, favorite = true)),
+            d(file("a_song", "Voz de la abuela.m4a", mime = "audio/mp4", size = 5_600_000, favorite = true, local = true)),
             d(file("a_zip", "Copia del proyecto.zip", mime = "application/zip", size = 812_000_000, remote = "failed"))
         )
     }

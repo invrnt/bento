@@ -51,7 +51,13 @@ data class SignInState(
     /** Seconds until `Reenviar código` is enabled again. */
     val resendSeconds: Int = 0,
     val authorized: TelegramAccountResponse? = null
-)
+) {
+    /** Digits of the code Telegram sent (`code_length`), when it said; codes are 5 digits otherwise. */
+    val codeLength: Int? get() = status?.codeLength?.toInt()?.takeIf { it in TelegramSignInViewModel.CODE_LENGTH_RANGE }
+
+    /** The length that submits the code by itself. */
+    val expectedCodeLength: Int get() = codeLength ?: TelegramSignInViewModel.CODE_LENGTH
+}
 
 sealed interface SignInEffect {
     /** Open `tg://login?token=…` in the Telegram app. */
@@ -76,14 +82,19 @@ class TelegramSignInViewModel @Inject constructor(private val login: LoginReposi
     private var lastAction: (suspend () -> Unit)? = null
     private var started = false
 
-    /** Reads the current login once (an interrupted code or 2FA step resumes there). */
-    fun start(simIso: String?, networkIso: String?) {
+    /**
+     * Reads the current login once (an interrupted code or 2FA step resumes there). [phoneFirst] opens on the phone
+     * number instead of the options (pairing: the Telegram-app link and the QR are already on the pairing screen).
+     */
+    fun start(simIso: String?, networkIso: String?, phoneFirst: Boolean = false) {
         if (started) return
         started = true
-        _state.update { it.copy(country = PhoneNumbers.preselect(simIso, networkIso)) }
+        _state.update {
+            it.copy(country = PhoneNumbers.preselect(simIso, networkIso), view = if (phoneFirst) SignInView.Phone else it.view)
+        }
         viewModelScope.launch {
             when (val result = attempt { login.status() }) {
-                is Outcome.Ok -> apply(result.value, initial = true)
+                is Outcome.Ok -> apply(result.value, initial = !phoneFirst)
                 is Outcome.Err -> _state.update { it.copy(loading = false) }
             }
         }
@@ -144,7 +155,7 @@ class TelegramSignInViewModel @Inject constructor(private val login: LoginReposi
 
     fun submitCode(code: String) {
         val digits = code.filter(Char::isDigit)
-        if (digits.length < CODE_MIN || _state.value.busy) return
+        if (digits.length < (_state.value.codeLength ?: CODE_MIN) || _state.value.busy) return
         run(SignInView.Code) { apply(login.submitCode(digits)) }
     }
 
@@ -304,6 +315,7 @@ class TelegramSignInViewModel @Inject constructor(private val login: LoginReposi
         const val TICK_MS = 1_000L
         const val RESEND_SECONDS = 60
         const val CODE_LENGTH = 5
+        val CODE_LENGTH_RANGE = 3..12
         private const val CODE_MIN = 5
         private const val REFRESH_BEFORE_MS = 3_000L
         private const val DEFAULT_FLOOD_SECONDS = 60L

@@ -24,6 +24,14 @@
     <string name="collections_album_empty_body">Añade fotos de tu biblioteca. Seguirán también en Fotos.</string>
     <string name="collections_album_removed">Se quitó del álbum</string>
     <string name="collections_album_error">No pudimos abrir este álbum.</string>
+    <string name="collections_album_options">Opciones del álbum</string>
+    <string name="collections_album_rename">Cambiar nombre</string>
+    <string name="collections_album_renamed">Se cambió el nombre del álbum</string>
+    <string name="collections_album_set_cover">Usar como portada en este teléfono</string>
+    <string name="collections_album_cover_set">Portada cambiada en este teléfono</string>
+    <string name="collections_album_delete">Eliminar álbum</string>
+    <string name="collections_album_delete_title">¿Eliminar «%1$s»?</string>
+    <string name="collections_album_delete_body">El álbum desaparece en todos tus dispositivos. Las fotos siguen en Fotos.</string>
     <string name="collections_picker_title">Elige fotos</string>
     <string name="collections_picker_next">Siguiente</string>
     <string name="collections_picker_done">Añadir</string>

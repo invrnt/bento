@@ -18,6 +18,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -200,6 +201,33 @@ class PairingTest {
         review.review("req_1")
         advanceUntilIdle()
         assertEquals(PairingProblem.RequestTaken, review.state.value.problem)
+    }
+
+    @Test
+    fun phoneLoginDuringPairingKeepsThePairingAndResumesItsCode() = runTest(main.dispatcher) {
+        api.on("GET /api/vault") { TrustFixtures.vault(state = "signed_out") }
+        api.on("POST /api/pairing/join") { TrustFixtures.pairing("needs_telegram_login", telegramQr = true) }
+        api.on("GET /api/pairing/pair_1") { TrustFixtures.pairing("needs_telegram_login") }
+        api.on("GET /api/account") { TrustFixtures.account("signed_out") }
+        val vm = join()
+        vm.start(null, false)
+        advanceUntilIdle()
+        vm.join("K7Q2MXR9T4WA")
+        advanceTimeBy(500)
+        assertEquals(JoinStep.Pairing, vm.state.value.step)
+        assertFalse(vm.state.value.guestLogin.phone)
+        vm.usePhoneDuringPairing()
+        assertTrue(vm.state.value.guestLogin.phone)
+        assertEquals(JoinStep.Pairing, vm.state.value.step)
+        assertEquals("the pairing is not cancelled", 0, api.count("DELETE /api/pairing/pair_1"))
+        vm.phoneLoginClosed()
+        assertFalse(vm.state.value.guestLogin.phone)
+        // A phone login already waiting for its code (screen recreated) resumes there.
+        api.on("GET /api/account") { TrustFixtures.account("code_required") }
+        advanceTimeBy(1_100)
+        assertTrue(vm.state.value.guestLogin.phone)
+        api.on("GET /api/pairing/pair_1") { TrustFixtures.pairing("cancelled") }
+        advanceTimeBy(1_100)
     }
 
     @Test

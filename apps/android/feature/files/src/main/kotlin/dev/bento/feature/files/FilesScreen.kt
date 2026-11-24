@@ -285,7 +285,10 @@ private fun FilesSheetHost(state: FilesState, viewModel: FilesViewModel, scanAva
 
             FilesSheet.Sort -> SortSheetBody(state.sort, viewModel::setSort)
 
-            is FilesSheet.ItemMenu -> ItemMenuBody(sheet.item, pinned = sheet.item.asset?.id in state.pinned) { action ->
+            is FilesSheet.ItemMenu -> ItemMenuBody(
+                sheet.item,
+                pinned = sheet.item.pinnedIn(state.pinned)
+            ) { action ->
                 onMenuAction(viewModel, state, sheet.item, action)
             }
 
@@ -319,7 +322,7 @@ private fun FilesSheetHost(state: FilesState, viewModel: FilesViewModel, scanAva
             is FilesSheet.Details -> DetailsSheetBody(
                 sheet.item,
                 location = (listOf(root) + state.breadcrumbs.map { it.name }).joinToString(" › "),
-                pinned = sheet.item.asset?.id in state.pinned
+                pinned = sheet.item.pinnedIn(state.pinned)
             )
 
             is FilesSheet.Telegram -> TelegramSheetBody(state.telegram, viewModel::loadChats) { viewModel.sendToTelegram(sheet.item, it) }
@@ -342,7 +345,7 @@ private fun onMenuAction(viewModel: FilesViewModel, state: FilesState, item: Dri
 
         MenuAction.Download -> viewModel.download(listOf(item))
 
-        MenuAction.Offline -> viewModel.setPinned(item, item.asset?.id !in state.pinned)
+        MenuAction.Offline -> viewModel.setPinned(item, !item.pinnedIn(state.pinned))
 
         MenuAction.Move -> viewModel.showSheet(FilesSheet.Move(listOf(item)))
 

@@ -76,4 +76,31 @@ class OnboardingLogicTest {
             assertEquals(code, problem, TelegramSignInViewModel.problemOf(dev.bento.feature.recovery.ApiProblem(code)))
         }
     }
+
+    @Test
+    fun codeLengthAndDeliveryShapeTheCodeStep() {
+        assertEquals("123456", telegramCodeIn("Tu código: 123456", length = 6))
+        assertNull(telegramCodeIn("Tu código: 12345", length = 6))
+        assertEquals("1234", telegramCodeIn("1234", length = 4))
+        assertEquals(dev.bento.strings.R.string.onboarding_code_body_sms, codeBody("sms"))
+        assertEquals(dev.bento.strings.R.string.onboarding_code_body_call, codeBody("flash_call"))
+        assertEquals(dev.bento.strings.R.string.onboarding_code_body_email, codeBody("email"))
+        assertEquals(dev.bento.strings.R.string.onboarding_code_body, codeBody("app"))
+        assertEquals(dev.bento.strings.R.string.onboarding_code_body, codeBody(null))
+    }
+
+    @Test
+    fun creationRowsFollowTheBackendSteps() {
+        assertEquals(CreationRow.entries.map { RowState.Running }, CreationRow.entries.map { CreatingState().row(it) })
+        val midway = CreatingState(steps = mapOf("files" to "done", "sync" to "running", "inbox" to "pending", "header" to "pending"))
+        assertEquals(RowState.Running, midway.row(CreationRow.Channels))
+        assertEquals(1, midway.channelsDone)
+        assertEquals(RowState.Pending, midway.row(CreationRow.Keys))
+        assertEquals(RowState.Pending, midway.row(CreationRow.Device))
+        val header = CreatingState(steps = mapOf("files" to "done", "sync" to "done", "inbox" to "done", "header" to "failed"))
+        assertEquals(RowState.Done, header.row(CreationRow.Channels))
+        assertEquals(RowState.Failed, header.row(CreationRow.Keys))
+        assertEquals(RowState.Failed, header.copy(failed = true).row(CreationRow.Device))
+        assertEquals(RowState.Done, midway.copy(done = true).row(CreationRow.Device))
+    }
 }

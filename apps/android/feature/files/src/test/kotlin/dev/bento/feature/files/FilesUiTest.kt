@@ -63,6 +63,19 @@ class FilesUiTest {
     }
 
     @Test
+    fun foldersShowTheirItemCountAndFilesTheirOfflineState() {
+        content(state())
+        // The count goes through BentoFormat (locale digits); one item is singular.
+        val count = dev.bento.designsystem.format.BentoFormat.count(1_240, java.util.Locale("es"))
+        compose.onNodeWithText("$count elementos", substring = true).assertExists()
+        compose.onNodeWithText("1 elemento", substring = true).assertExists()
+        val tax = compose.onNode(hasText("Declaración de renta 2025.pdf")).fetchSemanticsNode()
+        assertEquals("Disponible sin conexión", tax.config.getOrNull(SemanticsProperties.StateDescription))
+        val song = compose.onNode(hasText("Voz de la abuela.m4a")).fetchSemanticsNode()
+        assertEquals("En este teléfono", song.config.getOrNull(SemanticsProperties.StateDescription))
+    }
+
+    @Test
     fun tapOpensLongPressSelectsAndMenuOpens() {
         val log = mutableListOf<String>()
         content(

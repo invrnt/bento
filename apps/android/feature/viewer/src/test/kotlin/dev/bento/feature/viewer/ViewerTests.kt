@@ -120,6 +120,40 @@ class ViewerReducerTest {
         assertEquals(StorageLine.Remote, storageLine(null))
         assertEquals(StorageLine.Failed, storageLine("failed"))
     }
+
+    @Test
+    fun `backend exif summary becomes the info lines`() {
+        val es = Locale.forLanguageTag("es")
+        val exif = dev.bento.api.generated.ExifSummaryResponse(
+            cameraMake = "Google",
+            cameraModel = "Pixel 7a",
+            lensModel = " ",
+            exposureTimeS = 1.0 / 120,
+            fNumber = 1.8,
+            iso = 100,
+            focalLengthMm = 4.2,
+            latitude = 6.2442,
+            longitude = -75.5812
+        )
+        val summary = ExifSummary.from(exif, es)!!
+        assertEquals("Google Pixel 7a", summary.camera)
+        assertNull(summary.lens)
+        assertEquals("1/120 s · ƒ/1,8 · ISO 100 · 4,2 mm", summary.exposure)
+        assertEquals(true, summary.hasLocation)
+        // Half a coordinate is no location; nothing to show is null.
+        assertEquals(false, ExifSummary.from(exif.copy(longitude = null), es)!!.hasLocation)
+        assertNull(ExifSummary.from(dev.bento.api.generated.ExifSummaryResponse(), es))
+    }
+
+    @Test
+    fun `availability follows offline_pinned, locally_available and a fresh pin`() {
+        val asset = MediaSamples.library.first()
+        assertEquals(Availability.NeedsConnection, availabilityOf(asset.copy(offlinePinned = false, locallyAvailable = false)))
+        assertEquals(Availability.OnDevice, availabilityOf(asset.copy(offlinePinned = false, locallyAvailable = true)))
+        assertEquals(Availability.Pinned, availabilityOf(asset.copy(offlinePinned = true, locallyAvailable = true)))
+        assertEquals(Availability.Pinned, availabilityOf(asset.copy(offlinePinned = false), pinned = true))
+        assertEquals(Availability.OnDevice, availabilityOf(asset.copy(offlinePinned = true, locallyAvailable = true), pinned = false))
+    }
 }
 
 @RunWith(RobolectricTestRunner::class)
@@ -229,6 +263,7 @@ class ViewerContentTest {
         compose.onNodeWithText("/Fotos/Cámara").assertExists()
         compose.onNodeWithText("Viaje a Cartagena").assertExists()
         compose.onNodeWithText("En tu nube · cifrado").assertExists()
+        compose.onNodeWithText("El original necesita conexión").assertExists()
     }
 
     @Test

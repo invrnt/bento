@@ -211,7 +211,8 @@ fun AddToAlbumSheetContent(
 /** 1:1 cover from the album's first photo (the backend has no explicit cover yet), or the album icon. */
 @Composable
 fun AlbumCover(album: AlbumResponse, modifier: Modifier = Modifier, aspectRatio: Float = 1f, sizePx: Int = 256) {
-    val first = album.assetIds.firstOrNull()
+    // The cover chosen on this phone (`cover_asset_id`, device-local), else the first photo.
+    val first = album.coverAssetId?.takeIf { it in album.assetIds } ?: album.assetIds.firstOrNull()
     val painter = first?.let { rememberCoverPainter(it, sizePx) }
     Thumbnail(
         painter = painter,

@@ -5,6 +5,7 @@ import dev.bento.designsystem.format.BentoFormat
 import java.time.LocalDateTime
 import java.util.Locale
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -46,6 +47,20 @@ class FilesLogicTest {
         assertEquals("example.com path.txt", DisplayNames.note("https://example.com/path", "Nota"))
         assertEquals("Nota.txt", DisplayNames.note("\n\n  ", "Nota"))
         assertTrue(DisplayNames.note("x".repeat(500), "Nota").length <= 64)
+    }
+
+    @Test
+    fun sortMapsToTheBackendParametersAndSizesFoldersByCount() {
+        assertEquals(dev.bento.api.generated.DriveSort.KIND, FolderSort(SortField.Type).wireSort)
+        assertEquals(dev.bento.api.generated.DriveSort.MODIFIED, FolderSort(SortField.Modified).wireSort)
+        assertEquals(dev.bento.api.generated.SortOrder.DESC, FolderSort(descending = true).wireOrder)
+        assertEquals(dev.bento.api.generated.SortOrder.ASC, FolderSort().wireOrder)
+        val folders = FolderSort(SortField.Size).apply(FilesFixtures.sample).filter { it.folder != null }.map { it.id }
+        assertEquals(listOf("f_trips", "f_work"), folders)
+        val descending = FolderSort(SortField.Size, descending = true).apply(FilesFixtures.sample).filter {
+            it.folder != null
+        }.map { it.id }
+        assertEquals(listOf("f_work", "f_trips"), descending)
     }
 
     @Test
@@ -91,6 +106,13 @@ class FilesLogicTest {
         val sample = FilesFixtures.sample.associateBy { it.id }
         assertEquals(listOf(ItemBadge.LocalOnly), badgesOf(sample.getValue("a_notes"), emptySet()))
         assertEquals(listOf(ItemBadge.Offline), badgesOf(sample.getValue("a_tax"), setOf("a_tax")))
+        // `offline_pinned` from the backend, without a local pin.
+        assertEquals(listOf(ItemBadge.Offline), badgesOf(sample.getValue("a_tax"), emptySet()))
+        // `locally_available`: opens offline although it is not pinned.
+        assertEquals(listOf(ItemBadge.OnDevice), badgesOf(sample.getValue("a_song"), emptySet()))
+        assertTrue(opensOffline(sample.getValue("a_song").asset!!, emptySet()))
+        assertFalse(opensOffline(sample.getValue("a_sheet").asset!!, emptySet()))
+        assertTrue(isPinned(sample.getValue("a_sheet").asset!!, setOf("a_sheet")))
         assertEquals(listOf(ItemBadge.Failed), badgesOf(sample.getValue("a_zip"), emptySet()))
         assertEquals(emptyList<ItemBadge>(), badgesOf(sample.getValue("f_work"), setOf("f_work")))
     }

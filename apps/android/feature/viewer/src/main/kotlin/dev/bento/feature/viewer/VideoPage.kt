@@ -79,6 +79,7 @@ object ViewerTestTags {
     const val Actions = "viewer:actions"
     const val Info = "viewer:info"
     const val Offline = "viewer:offline"
+    const val Availability = "viewer:availability"
     const val VideoControls = "viewer:video-controls"
     const val Scrubber = "viewer:scrubber"
     fun page(id: String) = "viewer:page:$id"

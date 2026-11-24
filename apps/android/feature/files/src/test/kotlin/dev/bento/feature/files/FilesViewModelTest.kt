@@ -55,7 +55,7 @@ class FilesViewModelTest {
     private val api = FakeApiTransport().apply {
         on("GET /api/drive/items") { call ->
             when (call.query["folder_id"]) {
-                null -> FilesFixtures.items(*FilesFixtureJson.root.toTypedArray())
+                null -> FilesFixtures.items(*backendSorted(FilesFixtureJson.root, call.query["sort"], call.query["order"]).toTypedArray())
 
                 "f_work" -> FilesFixtures.items(
                     FilesFixtures.file("a_in", "Contrato.pdf", folderId = "f_work"),
@@ -65,6 +65,18 @@ class FilesViewModelTest {
                 else -> FilesFixtures.items()
             }
         }
+    }
+
+    /** The fake backend sorts like `GET /drive/items?sort=&order=` (folders first). */
+    private fun backendSorted(items: List<String>, sort: String?, order: String?): List<String> {
+        val field = when (sort) {
+            "modified" -> SortField.Modified
+            "size" -> SortField.Size
+            "kind" -> SortField.Type
+            else -> SortField.Name
+        }
+        val byId = items.associateBy { FilesFixtures.d(it).id }
+        return FolderSort(field, order == "desc").apply(items.map(FilesFixtures::d), java.util.Locale("es")).map { byId.getValue(it.id) }
     }
 
     private object FilesFixtureJson {
@@ -133,6 +145,26 @@ class FilesViewModelTest {
         settle()
         assertEquals(FolderSort(SortField.Size, true), vm.state.value.sort)
         assertFalse(vm.up())
+    }
+
+    @Test
+    fun sortIsSentToTheBackendAndItsOrderIsKept() = runTest(main.dispatcher) {
+        val vm = vm()
+        vm.start(null)
+        settle()
+        val first = api.calls.last { it.path == "/api/drive/items" }
+        assertEquals("name", first.query["sort"])
+        assertEquals("asc", first.query["order"])
+        vm.setSort(FolderSort(SortField.Modified, descending = true))
+        settle()
+        val sorted = api.calls.last { it.path == "/api/drive/items" }
+        assertEquals("modified", sorted.query["sort"])
+        assertEquals("desc", sorted.query["order"])
+        assertEquals("f_work", vm.state.value.items.first().id)
+        val calls = api.count("GET /api/drive/items")
+        vm.setSort(FolderSort(SortField.Modified, descending = true))
+        settle()
+        assertEquals("the same sort does not reload", calls, api.count("GET /api/drive/items"))
     }
 
     @Test

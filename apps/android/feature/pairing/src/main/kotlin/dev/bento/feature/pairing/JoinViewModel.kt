@@ -39,7 +39,12 @@ data class GuestLogin(
     val passwordHint: String? = null,
     val loginUrl: String? = null,
     val busy: Boolean = false,
-    val passwordInvalid: Boolean = false
+    val passwordInvalid: Boolean = false,
+    /**
+     * Signing in with the phone number inside the pairing (api/android-endpoints.md §11 Pairing while signing in): the
+     * session stays open, stops offering a Telegram QR, and continues by itself once `/account` is authorized.
+     */
+    val phone: Boolean = false
 )
 
 data class JoinState(
@@ -58,7 +63,11 @@ data class JoinState(
     val bootstrap: BootstrapProgress = BootstrapProgress(),
     val checkingVault: Boolean = false,
     val recoveryReturn: JoinStep = JoinStep.Choose
-)
+) {
+    /** The pairing waits for a Telegram login and the person chose to sign in with the phone number. */
+    val phoneLoginInPairing: Boolean
+        get() = step == JoinStep.Pairing && pairing?.state == "needs_telegram_login" && guestLogin.phone
+}
 
 sealed interface JoinEffect {
     /** Joined (or already a member): land in Fotos while the library fills. */
@@ -224,6 +233,12 @@ class JoinViewModel @Inject constructor(
         }
     }
 
+    /** `Usar mi número de teléfono` while the pairing waits for a Telegram login: keep the pairing, sign in here. */
+    fun usePhoneDuringPairing() = _state.update { it.copy(guestLogin = it.guestLogin.copy(phone = true)) }
+
+    /** Back from the phone sign-in (the pairing still waits), or it finished: the pairing screen takes over again. */
+    fun phoneLoginClosed() = _state.update { it.copy(guestLogin = it.guestLogin.copy(phone = false)) }
+
     fun bootstrapContinue() = finish()
 
     // internals ---------------------------------------------------------------------------------------------
@@ -255,7 +270,9 @@ class JoinViewModel @Inject constructor(
                     guestLogin = it.guestLogin.copy(
                         passwordRequired = status.step == "password_required",
                         passwordHint = status.passwordHint,
-                        loginUrl = status.qrUrl
+                        loginUrl = status.qrUrl,
+                        // A phone login already in flight (e.g. after the screen was recreated) resumes at its code.
+                        phone = it.guestLogin.phone || status.step == "code_required"
                     )
                 )
             }

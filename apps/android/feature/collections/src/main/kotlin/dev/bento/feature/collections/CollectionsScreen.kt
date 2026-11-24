@@ -74,6 +74,7 @@ class CollectionsNavigation(
 object CollectionsTestTags {
     const val Hub = "collections:hub"
     const val TrashList = "collections:trash"
+    const val AlbumMenu = "collections:album-menu"
     fun album(id: String) = "collections:album:$id"
 }
 

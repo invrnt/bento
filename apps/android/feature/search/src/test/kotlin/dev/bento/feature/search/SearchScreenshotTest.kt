@@ -77,6 +77,20 @@ class SearchScreenshotTest {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) { SheetFrame { KindSheetBody(SearchKind.Pdf) {} } }
     }
 
+    @Test fun originSheet() = shot("sheet-origin") {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) { SheetFrame { OriginSheetBody(OriginFilter.Telegram) {} } }
+    }
+
+    @Test fun originFiltered() = shot("results-origin") {
+        Search(
+            SearchState(
+                query = "luz",
+                results = SearchFixtures.results.drop(2).take(1),
+                filters = SearchFilters(origin = OriginFilter.ThisPhone)
+            )
+        )
+    }
+
     @Test fun dateSheet() = shot("sheet-date") {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
             SheetFrame {

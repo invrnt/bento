@@ -66,7 +66,8 @@ data class ViewerInfo(
     val exif: ExifSummary? = null,
     val folderPath: String? = null,
     val albums: List<AlbumResponse> = emptyList(),
-    val pinned: Boolean? = null
+    val pinned: Boolean? = null,
+    val loaded: Boolean = false
 )
 
 @OptIn(UnstableApi::class)
@@ -164,11 +165,14 @@ class ViewerViewModel @AssistedInject constructor(
     }
 
     fun loadInfo(asset: AssetResponse, locale: Locale) {
-        if (_info.value?.assetId == asset.id && _info.value?.exif != null) return
+        if (_info.value?.assetId == asset.id && _info.value?.loaded == true) return
         _info.value = ViewerInfo(asset.id)
         viewModelScope.launch {
             coroutineScope {
-                val exifJob = async { exif.read(asset, locale) }
+                // The backend's summary first; the original's header is read here only when it is already on the phone.
+                val exifJob = async {
+                    asset.exif?.let { ExifSummary.from(it, locale) } ?: if (asset.locallyAvailable) exif.read(asset, locale) else null
+                }
                 val pathJob = async { runCatching { drive.pathOf(asset.id) }.getOrNull() }
                 val albumsJob = async { runCatching { albums.albumsContaining(asset.id) }.getOrDefault(emptyList()) }
                 val (exifValue, path, inAlbums) = awaitAll(exifJob, pathJob, albumsJob)
@@ -180,7 +184,8 @@ class ViewerViewModel @AssistedInject constructor(
                             exifValue as ExifSummary?,
                             path as String?,
                             inAlbums as List<AlbumResponse>,
-                            _info.value?.pinned
+                            _info.value?.pinned,
+                            loaded = true
                         )
                 }
             }

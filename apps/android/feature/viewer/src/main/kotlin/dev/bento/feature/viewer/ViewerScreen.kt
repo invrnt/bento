@@ -404,7 +404,7 @@ fun ViewerContent(
                 if (current != null && actions != null) {
                     BottomActions(
                         asset = current,
-                        pinned = info?.takeIf { it.assetId == current.id }?.pinned,
+                        pinned = info?.takeIf { it.assetId == current.id }?.pinned ?: current.offlinePinned,
                         actions = actions,
                         onSheet = { mediaSheet = it },
                         onRename = { viewerSheet = ViewerSheet.Rename },

@@ -22,6 +22,32 @@ class SearchLogicTest {
     }
 
     @Test
+    fun reasonCodesWinOverTheSentenceAndUnknownCodesAreSkipped() {
+        val coded =
+            d(hit("x", "document", "a.pdf", "Coincidio por nombre", reasons = listOf("ocr_text", "future_code", "exif_date", "date")))
+        assertEquals(listOf(MatchReason.ImageText, MatchReason.CaptureDate, MatchReason.Date), MatchReasons.of(coded))
+        val legacy = d(hit("y", "document", "a.pdf", "Coincidio por nombre de archivo"))
+        assertEquals(listOf(MatchReason.Name), MatchReasons.of(legacy))
+        val semanticOnly = d(hit("z", "photo", "a.jpg", "x", reasons = listOf("semantic")))
+        assertEquals(listOf(MatchReason.Generic), MatchReasons.of(semanticOnly))
+        val all = listOf(
+            "ocr_text", "filename", "folder_name", "album", "metadata", "document_type", "exif_date", "date", "indexed_text", "recent"
+        )
+        assertEquals(10, MatchReasons.of(d(hit("w", "document", "a.pdf", "x", reasons = all))).toSet().size)
+    }
+
+    @Test
+    fun snippetsKeepServerRangesClampedAndSkipTheFileName() {
+        val item = d(hit("x", "document", "a.pdf", "x", snippet = SearchFixtures.snippet("Total a pagar", 0 to 5, 6 to 99, 4 to 4)))
+        val snippet = snippetOf(item)!!
+        assertEquals("Total a pagar", snippet.text)
+        assertEquals(listOf(0 until 5, 6 until 13), snippet.ranges)
+        val name = d(hit("y", "document", "a.pdf", "x", snippet = SearchFixtures.snippet("a.pdf", 0 to 1, source = "filename")))
+        assertEquals(null, snippetOf(name))
+        assertEquals(null, snippetOf(d(hit("z", "document", "a.pdf", "x"))))
+    }
+
+    @Test
     fun highlightsIgnoreCaseAndAccents() {
         assertEquals(listOf(0..6), highlights("Factura de luz.pdf", "factura"))
         assertEquals(listOf(0..3, 12..15), highlights("Café con el cafecito", "cafe"))

@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,8 +34,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -52,6 +55,7 @@ import dev.bento.designsystem.component.BrandMark
 import dev.bento.designsystem.component.Callout
 import dev.bento.designsystem.component.CalloutTone
 import dev.bento.designsystem.component.ProgressRing
+import dev.bento.designsystem.format.formatCount
 import dev.bento.designsystem.generated.BentoIcons
 import dev.bento.designsystem.theme.BentoShapes
 import dev.bento.designsystem.theme.BentoTheme
@@ -114,6 +118,8 @@ fun OnboardingScreen(
             },
             modifier = modifier
         )
+
+        OnboardingStep.Checking -> CheckingContent(modifier)
 
         OnboardingStep.Creating -> {
             BackHandler {} // the vault is being created; leaving would not stop it
@@ -228,6 +234,17 @@ fun LocalModeSheetBody(onConfirm: () -> Unit, onDismiss: () -> Unit) {
     }
 }
 
+/** Signed in again: "Comprobando tu nube…" while the backend catches up with what changed meanwhile. */
+@Composable
+fun CheckingContent(modifier: Modifier = Modifier) {
+    SetupScaffold(
+        title = stringResource(StringsR.string.onboarding_checking_title),
+        body = stringResource(StringsR.string.onboarding_checking_body),
+        hero = Hero.Loader,
+        modifier = modifier
+    )
+}
+
 /** Creando tu nube: who is connected, the three compartments being prepared, slow and failed states. */
 @Composable
 fun CreatingContent(
@@ -268,9 +285,13 @@ fun CreatingContent(
             )
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Compartment(stringResource(StringsR.string.onboarding_creating_channels), state.done)
-                Compartment(stringResource(StringsR.string.onboarding_creating_folder), state.done)
-                Compartment(stringResource(StringsR.string.onboarding_creating_keys), state.done)
+                Compartment(
+                    stringResource(StringsR.string.onboarding_creating_channels),
+                    state.row(CreationRow.Channels),
+                    state.channelsDone
+                )
+                Compartment(stringResource(StringsR.string.onboarding_creating_keys), state.row(CreationRow.Keys))
+                Compartment(stringResource(StringsR.string.onboarding_creating_device), state.row(CreationRow.Device))
             }
             if (state.slow && !state.done) {
                 Spacer(Modifier.height(16.dp))
@@ -284,30 +305,52 @@ fun CreatingContent(
     }
 }
 
+/** One step: a ring while it runs, a check once done; [channelsDone] counts the channels while they are created. */
 @Composable
-private fun Compartment(label: String, done: Boolean) {
+private fun Compartment(label: String, state: RowState, channelsDone: Int? = null) {
     val c = BentoTheme.colors
-    val status =
-        stringResource(if (done) StringsR.string.onboarding_creating_step_done else StringsR.string.onboarding_creating_step_working)
+    val counted = state == RowState.Running && channelsDone != null && channelsDone > 0
+    val status = rowStatus(state, channelsDone.takeIf { counted })
     val description = stringResource(StringsR.string.common_label_value, label, status)
     Row(
-        Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = description },
+        Modifier.fillMaxWidth().clearAndSetSemantics {
+            contentDescription = description
+            // Each step is announced politely as it finishes (the hero loader is not a live region).
+            liveRegion = LiveRegionMode.Polite
+        },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-            if (done) {
-                BentoIcon(
-                    BentoIcons.CircleCheck,
-                    contentDescription = null,
-                    tint = c.successInk
-                )
-            } else {
-                ProgressRing(progress = null, size = 20.dp)
+            when (state) {
+                RowState.Done -> BentoIcon(BentoIcons.CircleCheck, contentDescription = null, tint = c.successInk)
+                RowState.Failed -> BentoIcon(BentoIcons.CircleAlert, contentDescription = null, tint = c.dangerInk)
+                RowState.Running -> ProgressRing(progress = null, size = 20.dp)
+                RowState.Pending -> Box(Modifier.size(12.dp).clip(CircleShape).background(c.subtle))
             }
         }
-        Text(label, color = c.ink, style = BentoTheme.typography.body)
+        Column(Modifier.weight(1f)) {
+            Text(label, color = if (state == RowState.Pending) c.inkMuted else c.ink, style = BentoTheme.typography.body)
+            if (counted) {
+                Text(status, color = c.inkMuted, style = BentoTheme.typography.metadata)
+            }
+        }
     }
+}
+
+private const val CHANNELS = 3
+
+@Composable
+private fun rowStatus(state: RowState, channelsDone: Int?): String = when (state) {
+    RowState.Pending -> stringResource(StringsR.string.onboarding_creating_step_pending)
+
+    RowState.Running -> channelsDone?.let {
+        stringResource(StringsR.string.onboarding_creating_step_count, formatCount(it), formatCount(CHANNELS))
+    } ?: stringResource(StringsR.string.onboarding_creating_step_working)
+
+    RowState.Done -> stringResource(StringsR.string.onboarding_creating_step_done)
+
+    RowState.Failed -> stringResource(StringsR.string.onboarding_creating_step_failed)
 }
 
 @Composable

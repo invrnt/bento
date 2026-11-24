@@ -1,6 +1,7 @@
 package dev.bento.feature.viewer
 
 import androidx.compose.runtime.Immutable
+import dev.bento.api.generated.AssetResponse
 
 /** Chrome and gesture state of the viewer (product/android.md §4.4). Pure; JVM tested. */
 @Immutable
@@ -92,7 +93,7 @@ object ProgressiveQuality {
         originalFailed && networkError && stage != ImageStage.Original
 }
 
-/** Camera/exposure/location read from the original's EXIF (on the phone; the backend stores none of it). */
+/** Camera/exposure/location: the backend's `exif` summary, or the original's EXIF read on the phone. */
 @Immutable
 data class ExifSummary(
     val camera: String? = null,
@@ -105,6 +106,18 @@ data class ExifSummary(
     val hasLocation: Boolean get() = latitude != null && longitude != null
 
     companion object {
+        /** From `AssetResponse.exif` (api/android-endpoints.md §11); null when it holds nothing to show. */
+        fun from(exif: dev.bento.api.generated.ExifSummaryResponse, locale: java.util.Locale): ExifSummary? {
+            val summary = ExifSummary(
+                camera = cameraLine(exif.cameraMake, exif.cameraModel),
+                lens = exif.lensModel?.trim()?.ifEmpty { null },
+                exposure = exposureLine(exif.exposureTimeS, exif.fNumber, exif.iso?.toInt(), exif.focalLengthMm, locale),
+                latitude = exif.latitude?.takeIf { exif.longitude != null },
+                longitude = exif.longitude?.takeIf { exif.latitude != null }
+            )
+            return summary.takeIf { it.camera != null || it.lens != null || it.exposure != null || it.hasLocation }
+        }
+
         /** "1/120 s · ƒ/1.8 · ISO 100 · 4,2 mm" from raw EXIF values (each part optional). */
         fun exposureLine(exposureSeconds: Double?, fNumber: Double?, iso: Int?, focalMm: Double?, locale: java.util.Locale): String? {
             val parts = buildList {
@@ -138,6 +151,15 @@ data class ExifSummary(
 
 /** Storage line in the info sheet (product/android.md §4.4). */
 enum class StorageLine { Remote, LocalOnly, Uploading, Failed }
+
+/** Whether the original opens without a connection (`offline_pinned`, `locally_available`). */
+enum class Availability { Pinned, OnDevice, NeedsConnection }
+
+fun availabilityOf(asset: AssetResponse, pinned: Boolean? = null): Availability = when {
+    pinned ?: asset.offlinePinned -> Availability.Pinned
+    asset.locallyAvailable -> Availability.OnDevice
+    else -> Availability.NeedsConnection
+}
 
 fun storageLine(remoteState: String?): StorageLine = when (remoteState) {
     "local_only" -> StorageLine.LocalOnly

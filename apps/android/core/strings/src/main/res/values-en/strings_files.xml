@@ -13,6 +13,10 @@
     <string name="files_offline_banner">Offline. You see what this phone already has; changes are sent when you’re back.</string>
     <string name="files_truncated">Showing the first %1$s items. Use search to find the rest.</string>
     <string name="files_folder">Folder</string>
+    <plurals name="files_folder_items">
+        <item quantity="one">%1$s item</item>
+        <item quantity="other">%1$s items</item>
+    </plurals>
     <string name="files_item_supporting">%1$s · %2$s</string>
     <string name="files_item_options">Options for “%1$s”</string>
     <string name="files_open_folder">Open folder</string>
@@ -20,6 +24,7 @@
     <string name="files_search_here">Search this folder</string>
 
     <string name="files_badge_offline">Available offline</string>
+    <string name="files_badge_on_device">On this phone</string>
     <string name="files_badge_local_only">Only on this phone</string>
     <string name="files_badge_uploading">Uploading to your cloud</string>
     <string name="files_badge_failed">Couldn’t upload; will retry</string>

@@ -24,6 +24,14 @@
     <string name="collections_album_empty_body">Add photos from your library. They’ll stay in Photos too.</string>
     <string name="collections_album_removed">Removed from album</string>
     <string name="collections_album_error">We couldn’t open this album.</string>
+    <string name="collections_album_options">Album options</string>
+    <string name="collections_album_rename">Rename</string>
+    <string name="collections_album_renamed">Album renamed</string>
+    <string name="collections_album_set_cover">Use as cover on this phone</string>
+    <string name="collections_album_cover_set">Cover changed on this phone</string>
+    <string name="collections_album_delete">Delete album</string>
+    <string name="collections_album_delete_title">Delete “%1$s”?</string>
+    <string name="collections_album_delete_body">The album goes away on all your devices. The photos stay in Photos.</string>
     <string name="collections_picker_title">Choose photos</string>
     <string name="collections_picker_next">Next</string>
     <string name="collections_picker_done">Add</string>

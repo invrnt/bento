@@ -9,6 +9,7 @@ import androidx.paging.insertSeparators
 import androidx.paging.map
 import dev.bento.api.generated.AlbumCreateRequest
 import dev.bento.api.generated.AlbumItemRequest
+import dev.bento.api.generated.AlbumPatchRequest
 import dev.bento.api.generated.AlbumResponse
 import dev.bento.api.generated.AssetMoveRequest
 import dev.bento.api.generated.AssetPatchRequest
@@ -388,6 +389,21 @@ class AlbumsRepository(private val api: BentoEndpoints, private val invalidation
 
     suspend fun create(title: String): AlbumResponse = api.createAlbum(AlbumCreateRequest(title)).also {
         invalidations.invalidate(Topic.ALBUMS)
+    }
+
+    /** Renames the album on every device (the title syncs, last writer wins). */
+    suspend fun rename(albumId: String, title: String): AlbumResponse = api.updateAlbum(albumId, AlbumPatchRequest(title = title)).also {
+        invalidations.invalidate(Topic.ALBUMS, Topic.SEARCH)
+    }
+
+    /** Picks the album's cover; it is kept on this phone only (`cover_asset_id` does not sync). */
+    suspend fun setCover(albumId: String, assetId: String): AlbumResponse =
+        api.updateAlbum(albumId, AlbumPatchRequest(coverAssetId = assetId)).also { invalidations.invalidate(Topic.ALBUMS) }
+
+    /** Deletes the album everywhere; its photos stay in the library. */
+    suspend fun delete(albumId: String) {
+        api.deleteAlbum(albumId)
+        invalidations.invalidate(Topic.ALBUMS, Topic.SEARCH)
     }
 
     suspend fun add(albumId: String, assetId: String): Undoable = optimistic(

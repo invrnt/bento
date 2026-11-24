@@ -5,12 +5,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -81,6 +83,8 @@ fun CollectionGridScreen(
     modifier: Modifier = Modifier,
     bottomAction: (@Composable () -> Unit)? = null,
     onRemoveFromAlbum: ((List<String>) -> Unit)? = null,
+    onSetCover: ((String) -> Unit)? = null,
+    topActions: @Composable RowScope.() -> Unit = {},
     snackbar: BentoSnackbarHostState = remember { BentoSnackbarHostState() }
 ) {
     val c = BentoTheme.colors
@@ -103,7 +107,7 @@ fun CollectionGridScreen(
                     )
                 })
             } else {
-                CollectionTopBar(title, onBack)
+                CollectionTopBar(title, onBack, actions = topActions)
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when {
@@ -161,6 +165,12 @@ fun CollectionGridScreen(
                             remove(selected.map { it.id })
                             selection.clear()
                         }
+                    },
+                    setCover = onSetCover?.let { set ->
+                        {
+                            selected.singleOrNull()?.let { set(it.id) }
+                            selection.clear()
+                        }
                     }
                 )
             )
@@ -175,6 +185,21 @@ fun CollectionGridScreen(
     MediaSheetHost(sheet, actions, onClose = { sheet = null }, onDone = { scope.launch { selection.clear() } })
 }
 
+/** Album messages as snackbars; a deleted album leaves the screen. */
+@Composable
+private fun AlbumEffects(vm: AlbumViewModel, snackbar: BentoSnackbarHostState, navigation: CollectionsNavigation) {
+    val message by vm.message.collectAsStateWithLifecycle()
+    val deleted by vm.deleted.collectAsStateWithLifecycle()
+    val resolved = message?.resolve()
+    LaunchedEffect(resolved) {
+        if (resolved != null) {
+            vm.messageShown()
+            snackbar.show(resolved)
+        }
+    }
+    LaunchedEffect(deleted) { if (deleted) navigation.back() }
+}
+
 @Composable
 fun AlbumRoute(albumId: String, navigation: CollectionsNavigation) {
     val vm = hiltViewModel<AlbumViewModel, AlbumViewModel.Factory>(key = "album:$albumId") { it.create(albumId) }
@@ -184,6 +209,9 @@ fun AlbumRoute(albumId: String, navigation: CollectionsNavigation) {
     val context = LocalContext.current
     val undoLabel = stringResource(StringsR.string.common_action_undo)
     val ready = (state as? Loadable.Ready)?.value
+    val dialog by vm.dialog.collectAsStateWithLifecycle()
+    val busy by vm.busy.collectAsStateWithLifecycle()
+    AlbumEffects(vm, snackbar, navigation)
     val cells = remember(ready) { ListMediaCells(cellsOf(ready?.assets.orEmpty())) }
     val monthCells = remember(ready) { ListMediaCells(cellsOf(ready?.assets.orEmpty(), dayHeaders = false)) }
     CompositionLocalProvider(LocalBentoImageLoader provides vm.imageLoader) {
@@ -205,6 +233,12 @@ fun AlbumRoute(albumId: String, navigation: CollectionsNavigation) {
             onRemoveFromAlbum = { ids ->
                 vm.remove(ids) { message, undo ->
                     scope.launch { if (snackbar.showUndo(message.resolve(context), undoLabel)) undo.undo() }
+                }
+            },
+            onSetCover = vm::setCover,
+            topActions = {
+                if (ready != null) {
+                    AlbumMenu(onRename = { vm.showDialog(AlbumDialog.Rename) }, onDelete = { vm.showDialog(AlbumDialog.Delete) })
                 }
             },
             bottomAction = {
@@ -230,6 +264,13 @@ fun AlbumRoute(albumId: String, navigation: CollectionsNavigation) {
                 }
             }
         )
+    }
+    if (ready != null) {
+        when (dialog) {
+            AlbumDialog.Rename -> AlbumRenameSheet(ready.album.title, busy, onSave = vm::rename, onDismiss = { vm.showDialog(null) })
+            AlbumDialog.Delete -> AlbumDeleteDialog(ready.album.title, onConfirm = vm::delete, onDismiss = { vm.showDialog(null) })
+            null -> Unit
+        }
     }
 }
 
