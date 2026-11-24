@@ -154,7 +154,12 @@ fun DocumentsContent(
 private fun DocumentRow(doc: DocumentEntry, context: android.content.Context, locale: java.util.Locale, onClick: () -> Unit) {
     ListRow(
         headline = doc.name,
-        supporting = metadataPair(BentoFormat.bytes(context.resources, doc.sizeBytes, locale), doc.createdAt?.let { MediaFormat.longDate(it, locale) }),
+        supporting = metadataPair(
+            BentoFormat.bytes(context.resources, doc.sizeBytes, locale),
+            doc.createdAt?.let {
+                MediaFormat.longDate(it, locale)
+            }
+        ),
         leading = { KindIcon(fileKindOf(doc.mimeType, doc.name)) },
         onClick = onClick,
         onClickLabel = stringResource(StringsR.string.common_action_open_with)

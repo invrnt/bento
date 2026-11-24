@@ -245,8 +245,11 @@ class ViewerContentTest {
     }
 
     private fun toggleAction(page: String, label: String) {
-        val node = compose.onNode(hasTestTag(ViewerTestTags.page(page)).or(hasAnyAncestor(hasTestTag(ViewerTestTags.page(page))))
-            .and(hasCustomAction(label)), useUnmergedTree = true)
+        val node = compose.onNode(
+            hasTestTag(ViewerTestTags.page(page)).or(hasAnyAncestor(hasTestTag(ViewerTestTags.page(page))))
+                .and(hasCustomAction(label)),
+            useUnmergedTree = true
+        )
         val action = node.fetchSemanticsNode().config[SemanticsActions.CustomActions].first { it.label == label }
         compose.runOnUiThread { action.action() }
         compose.mainClock.advanceTimeBy(500)
@@ -290,7 +293,10 @@ class VideoSeekTest {
         var position by mutableLongStateOf(12_000L)
         compose.setContent {
             BentoMediaTheme(reducedMotion = true) {
-                Scrubber(positionMs = position, durationMs = 42_000, onSeek = { seeks += it; position = it })
+                Scrubber(positionMs = position, durationMs = 42_000, onSeek = {
+                    seeks += it
+                    position = it
+                })
             }
         }
         val scrubber = compose.onNodeWithTag(ViewerTestTags.Scrubber)
@@ -325,7 +331,10 @@ class VideoSeekTest {
         }
         compose.setContent {
             BentoMediaTheme(reducedMotion = true) {
-                TransportButtons(player, PlaybackUi(playing = false, positionMs = 35_000, durationMs = 42_000, muted = false, buffering = false))
+                TransportButtons(
+                    player,
+                    PlaybackUi(playing = false, positionMs = 35_000, durationMs = 42_000, muted = false, buffering = false)
+                )
             }
         }
         compose.onNodeWithContentDescription("Avanzar 10 segundos").performClick()

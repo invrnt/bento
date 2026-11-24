@@ -81,7 +81,9 @@ public fun BentoTooltip(label: String, modifier: Modifier = Modifier, content: @
                     val event = awaitPointerEvent(PointerEventPass.Initial)
                     when (event.type) {
                         PointerEventType.Enter -> if (event.changes.any { it.type == PointerType.Mouse }) scope.launch { state.show() }
+
                         PointerEventType.Exit -> state.dismiss()
+
                         PointerEventType.Press -> if (event.changes.any { it.type != PointerType.Mouse }) {
                             val released = withTimeoutOrNull(longPress) {
                                 do {

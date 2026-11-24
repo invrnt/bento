@@ -384,7 +384,9 @@ class PrimitiveBehaviorTest {
     fun iconButtonTooltipAnchorIsNotASecondFocusStop() {
         setBento { BentoIconButton(BentoIcons.Share2, "Compartir", {}) }
         // Exactly one actionable node: the tooltip anchor must not add an unlabeled one for TalkBack / Switch Access.
-        compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsActions.OnClick).or(SemanticsMatcher.keyIsDefined(SemanticsActions.OnLongClick)))
+        compose.onAllNodes(
+            SemanticsMatcher.keyIsDefined(SemanticsActions.OnClick).or(SemanticsMatcher.keyIsDefined(SemanticsActions.OnLongClick))
+        )
             .assertCountEquals(1)
         compose.onNodeWithContentDescription("Compartir")
             .assert(SemanticsMatcher.keyIsDefined(SemanticsActions.OnClick))

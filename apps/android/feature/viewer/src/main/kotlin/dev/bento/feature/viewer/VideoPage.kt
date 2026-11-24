@@ -8,9 +8,9 @@ import androidx.activity.compose.LocalActivity
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -36,19 +36,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
-import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
@@ -177,7 +177,8 @@ fun rememberTabletopFold(): FoldingFeature? {
 
 /**
  * A video page: the thumbnail stays until the first frame is rendered (no black flash), tap (or the custom action)
- * toggles the controls, ±10 s buttons and the scrubber seek (TalkBack can set it, arrow keys step it), mute toggle, PiP when leaving during playback, tabletop split.
+ * toggles the controls, ±10 s buttons and the scrubber seek (TalkBack can set it, arrow keys step it), mute toggle,
+ * PiP when leaving during playback, tabletop split.
  */
 @OptIn(UnstableApi::class)
 @Suppress("LongMethod", "LongParameterList")
@@ -198,7 +199,12 @@ fun VideoPage(
     val tap by rememberUpdatedState(onTap)
     val pageSemantics = Modifier.semantics {
         this.contentDescription = contentDescription
-        customActions = listOf(CustomAccessibilityAction(toggleLabel) { tap(); true })
+        customActions = listOf(
+            CustomAccessibilityAction(toggleLabel) {
+                tap()
+                true
+            }
+        )
     }
     if (player == null || !active) {
         Box(modifier.fillMaxSize().then(pageSemantics), contentAlignment = Alignment.Center) { poster() }

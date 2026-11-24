@@ -44,7 +44,10 @@ class ScreenState(val name: String, val content: @Composable () -> Unit) {
  * Captures [state] under every [ScreenVariants] entry. Images come from [fakeImageLoader] (flat colors per id), so the
  * goldens are deterministic.
  */
-fun androidx.compose.ui.test.junit4.ComposeContentTestRule.captureVariants(state: ScreenState, variants: List<ScreenVariant> = ScreenVariants) {
+fun androidx.compose.ui.test.junit4.ComposeContentTestRule.captureVariants(
+    state: ScreenState,
+    variants: List<ScreenVariant> = ScreenVariants
+) {
     var variant by mutableStateOf(variants.first())
     mainClock.autoAdvance = false
     setContent {

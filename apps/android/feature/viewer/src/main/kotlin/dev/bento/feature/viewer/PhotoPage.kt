@@ -168,7 +168,14 @@ fun PhotoPage(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer { alpha = if (transitioning) 0f else 1f }
-                    .semantics { customActions = listOf(CustomAccessibilityAction(toggleLabel) { tap(); true }) }
+                    .semantics {
+                        customActions = listOf(
+                            CustomAccessibilityAction(toggleLabel) {
+                                tap()
+                                true
+                            }
+                        )
+                    }
             )
         }
     }
