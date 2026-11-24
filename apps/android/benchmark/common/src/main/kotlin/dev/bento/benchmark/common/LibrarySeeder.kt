@@ -34,7 +34,8 @@ object LibrarySeeder {
     val photos: Int get() = BentoDevice.argument("bento.seed", "10000").toInt()
 
     fun photoCount(endpoint: BentoDevice.Endpoint): Int =
-        BentoDevice.call(endpoint, "GET", "/api/photos/timeline/index")["months"]!!.jsonArray.sumOf { it.jsonObject["count"]!!.jsonPrimitive.int }
+        BentoDevice.call(endpoint, "GET", "/api/photos/timeline/index")["months"]!!.jsonArray
+            .sumOf { it.jsonObject["count"]!!.jsonPrimitive.int }
 
     /** Everything the journeys need; returns the photo count. */
     fun ensureLibrary(endpoint: BentoDevice.Endpoint, photoTarget: Int = photos): Int {
@@ -95,7 +96,8 @@ object LibrarySeeder {
         var count = 0
         var cursor: String? = null
         do {
-            val page = BentoDevice.call(endpoint, "GET", "/api/drive/items?folder_id=$folderId&limit=200" + (cursor?.let { "&cursor=$it" } ?: ""))
+            val after = cursor?.let { "&cursor=$it" }.orEmpty()
+            val page = BentoDevice.call(endpoint, "GET", "/api/drive/items?folder_id=$folderId&limit=200$after")
             count += page["items"]!!.jsonArray.size
             cursor = page["next_cursor"]?.takeIf { it is kotlinx.serialization.json.JsonPrimitive && it.isString }?.jsonPrimitive?.content
         } while (cursor != null)

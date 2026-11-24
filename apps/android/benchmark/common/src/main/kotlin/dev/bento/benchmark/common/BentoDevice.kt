@@ -76,14 +76,22 @@ object BentoDevice {
         Request.Builder().url("http://127.0.0.1:${endpoint.port}$path").header("Authorization", "Bearer ${endpoint.token}")
 
     fun call(endpoint: Endpoint, method: String, path: String, body: String? = null): JsonObject {
-        val requestBody = body?.toRequestBody("application/json".toMediaType()) ?: if (method == "POST") ByteArray(0).toRequestBody(null) else null
+        val empty = if (method == "POST") ByteArray(0).toRequestBody(null) else null
+        val requestBody = body?.toRequestBody("application/json".toMediaType()) ?: empty
         client.newCall(request(endpoint, path).method(method, requestBody).build()).execute().use { response ->
             check(response.isSuccessful) { "$method $path -> ${response.code}" }
             return json.parseToJsonElement(response.body.string()).jsonObject
         }
     }
 
-    fun upload(endpoint: Endpoint, name: String, mime: String, bytes: ByteArray, mode: String = "photos", folderId: String? = null): JsonObject {
+    fun upload(
+        endpoint: Endpoint,
+        name: String,
+        mime: String,
+        bytes: ByteArray,
+        mode: String = "photos",
+        folderId: String? = null
+    ): JsonObject {
         val body = MultipartBody.Builder().setType(MultipartBody.FORM)
             .addFormDataPart("file", name, bytes.toRequestBody(mime.toMediaType()))
             .addFormDataPart("mode", mode)

@@ -8,6 +8,8 @@ import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
+import dev.bento.benchmark.common.BentoDevice
+import dev.bento.benchmark.common.LibrarySeeder
 import java.io.File
 import java.util.regex.Pattern
 import kotlinx.serialization.json.boolean
@@ -69,8 +71,9 @@ class PhotosJourneysTest {
     fun journey7_viewer() {
         BentoDevice.forceStop()
         val seeding = BentoDevice.ready()
-        LibrarySeeder.ensure(seeding, 120)
-        val videoId = LibrarySeeder.ensureVideo(seeding)
+        LibrarySeeder.ensurePhotos(seeding, 120)
+        val clip = InstrumentationRegistry.getInstrumentation().context.assets.open("sample-video.mp4").use { it.readBytes() }
+        val videoId = LibrarySeeder.ensureVideo(seeding, clip)
         BentoDevice.forceStop()
         BentoDevice.launch()
         val endpoint = BentoDevice.awaitEndpoint(previousPid = seeding.pid)
