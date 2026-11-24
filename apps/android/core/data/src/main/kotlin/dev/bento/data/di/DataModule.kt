@@ -11,11 +11,14 @@ import dev.bento.api.generated.BentoEndpoints
 import dev.bento.data.ActivityRepository
 import dev.bento.data.AlbumsRepository
 import dev.bento.data.DevicesRepository
+import dev.bento.data.DocumentsRepository
 import dev.bento.data.DriveRepository
 import dev.bento.data.Invalidations
+import dev.bento.data.PhoneFoldersRepository
 import dev.bento.data.SearchRepository
 import dev.bento.data.SessionRepository
 import dev.bento.data.SettingsRepository
+import dev.bento.data.TelegramMediaRepository
 import dev.bento.data.TimelineRepository
 import dev.bento.data.TrashRepository
 import dev.bento.data.UiCache
@@ -79,4 +82,16 @@ object DataModule {
     @Provides
     @Singleton
     fun session(api: BentoEndpoints, cache: UiCache, invalidations: Invalidations) = SessionRepository(api, cache, invalidations)
+
+    @Provides
+    @Singleton
+    fun telegramMedia(api: BentoEndpoints, invalidations: Invalidations) = TelegramMediaRepository(api, invalidations)
+
+    @Provides
+    @Singleton
+    fun phoneFolders(api: BentoEndpoints) = PhoneFoldersRepository(api)
+
+    @Provides
+    @Singleton
+    fun documents(api: BentoEndpoints) = DocumentsRepository(api)
 }

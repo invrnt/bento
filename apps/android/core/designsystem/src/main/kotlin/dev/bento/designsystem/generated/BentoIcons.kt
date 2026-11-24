@@ -17,6 +17,8 @@ public object BentoIcons {
     public val Activity: ImageVector by lazy { activityIcon(2f, filled = false) }
     /** `arrow-left` — Atrás */
     public val ArrowLeft: ImageVector by lazy { arrowLeftIcon(2f, filled = false) }
+    /** `camera` — Info: cámara / Del teléfono */
+    public val Camera: ImageVector by lazy { cameraIcon(2f, filled = false) }
     /** `check` — Seleccionado */
     public val Check: ImageVector by lazy { checkIcon(2f, filled = false) }
     /** `chevron-down` — Desplegar */
@@ -71,6 +73,8 @@ public object BentoIcons {
     public val FolderInput: ImageVector by lazy { folderInputIcon(2f, filled = false) }
     /** `folder-up` — Subir carpeta */
     public val FolderUp: ImageVector by lazy { folderUpIcon(2f, filled = false) }
+    /** `gauge` — Visor: velocidad de reproducción */
+    public val Gauge: ImageVector by lazy { gaugeIcon(2f, filled = false) }
     /** `heart` — Favoritos */
     public val Heart: ImageVector by lazy { heartIcon(2f, filled = false) }
     public val HeartFilled: ImageVector by lazy { heartIcon(2f, filled = true) }
@@ -78,6 +82,8 @@ public object BentoIcons {
     public val ImagePlus: ImageVector by lazy { imagePlusIcon(2f, filled = false) }
     /** `images` — Fotos */
     public val Images: ImageVector by lazy { imagesIcon(2f, filled = false) }
+    /** `image-up` — Usar como… / Cambiar portada */
+    public val ImageUp: ImageVector by lazy { imageUpIcon(2f, filled = false) }
     /** `info` — Información */
     public val Info: ImageVector by lazy { infoIcon(2f, filled = false) }
     /** `laptop` — Portátil */
@@ -88,12 +94,16 @@ public object BentoIcons {
     public val List: ImageVector by lazy { listIcon(2f, filled = false) }
     /** `lock` — Bloqueo / cifrado */
     public val Lock: ImageVector by lazy { lockIcon(2f, filled = false) }
+    /** `map-pin` — Info: ubicación */
+    public val MapPin: ImageVector by lazy { mapPinIcon(2f, filled = false) }
     /** `monitor` — Computador */
     public val Monitor: ImageVector by lazy { monitorIcon(2f, filled = false) }
     /** `pause` — Pausado */
     public val Pause: ImageVector by lazy { pauseIcon(2f, filled = false) }
     /** `pencil-line` — Renombrar */
     public val PencilLine: ImageVector by lazy { pencilLineIcon(2f, filled = false) }
+    /** `picture-in-picture-2` — Visor: imagen en imagen */
+    public val PictureInPicture2: ImageVector by lazy { pictureInPicture2Icon(2f, filled = false) }
     /** `play` — Video */
     public val Play: ImageVector by lazy { playIcon(2f, filled = false) }
     /** `plus` — Nuevo */
@@ -102,6 +112,8 @@ public object BentoIcons {
     public val Presentation: ImageVector by lazy { presentationIcon(2f, filled = false) }
     /** `qr-code` — Código QR */
     public val QrCode: ImageVector by lazy { qrCodeIcon(2f, filled = false) }
+    /** `rotate-ccw` — Papelera: restaurar */
+    public val RotateCcw: ImageVector by lazy { rotateCcwIcon(2f, filled = false) }
     /** `rotate-cw` — Reintentar */
     public val RotateCw: ImageVector by lazy { rotateCwIcon(2f, filled = false) }
     /** `scan-line` — Escanear */
@@ -130,6 +142,12 @@ public object BentoIcons {
     public val Upload: ImageVector by lazy { uploadIcon(2f, filled = false) }
     /** `user` — Cuenta */
     public val User: ImageVector by lazy { userIcon(2f, filled = false) }
+    /** `video` — Colecciones: Videos */
+    public val Video: ImageVector by lazy { videoIcon(2f, filled = false) }
+    /** `volume-2` — Visor: sonido activado */
+    public val Volume2: ImageVector by lazy { volume2Icon(2f, filled = false) }
+    /** `volume-x` — Visor: silenciado */
+    public val VolumeX: ImageVector by lazy { volumeXIcon(2f, filled = false) }
     /** `x` — Cerrar */
     public val X: ImageVector by lazy { xIcon(2f, filled = false) }
 }
@@ -147,6 +165,7 @@ public val BentoIconCatalog: List<Pair<String, ImageVector>> by lazy {
     listOf(
         "Activity" to BentoIcons.Activity,
         "ArrowLeft" to BentoIcons.ArrowLeft,
+        "Camera" to BentoIcons.Camera,
         "Check" to BentoIcons.Check,
         "ChevronDown" to BentoIcons.ChevronDown,
         "ChevronLeft" to BentoIcons.ChevronLeft,
@@ -174,21 +193,26 @@ public val BentoIconCatalog: List<Pair<String, ImageVector>> by lazy {
         "FolderClosed" to BentoIcons.FolderClosed,
         "FolderInput" to BentoIcons.FolderInput,
         "FolderUp" to BentoIcons.FolderUp,
+        "Gauge" to BentoIcons.Gauge,
         "Heart" to BentoIcons.Heart,
         "ImagePlus" to BentoIcons.ImagePlus,
         "Images" to BentoIcons.Images,
+        "ImageUp" to BentoIcons.ImageUp,
         "Info" to BentoIcons.Info,
         "Laptop" to BentoIcons.Laptop,
         "LayoutGrid" to BentoIcons.LayoutGrid,
         "List" to BentoIcons.List,
         "Lock" to BentoIcons.Lock,
+        "MapPin" to BentoIcons.MapPin,
         "Monitor" to BentoIcons.Monitor,
         "Pause" to BentoIcons.Pause,
         "PencilLine" to BentoIcons.PencilLine,
+        "PictureInPicture2" to BentoIcons.PictureInPicture2,
         "Play" to BentoIcons.Play,
         "Plus" to BentoIcons.Plus,
         "Presentation" to BentoIcons.Presentation,
         "QrCode" to BentoIcons.QrCode,
+        "RotateCcw" to BentoIcons.RotateCcw,
         "RotateCw" to BentoIcons.RotateCw,
         "ScanLine" to BentoIcons.ScanLine,
         "Search" to BentoIcons.Search,
@@ -203,6 +227,9 @@ public val BentoIconCatalog: List<Pair<String, ImageVector>> by lazy {
         "Undo2" to BentoIcons.Undo2,
         "Upload" to BentoIcons.Upload,
         "User" to BentoIcons.User,
+        "Video" to BentoIcons.Video,
+        "Volume2" to BentoIcons.Volume2,
+        "VolumeX" to BentoIcons.VolumeX,
         "X" to BentoIcons.X,
     )
 }
@@ -216,6 +243,12 @@ private fun arrowLeftIcon(stroke: Float, filled: Boolean): ImageVector = lucide(
     "ArrowLeft", stroke, filled,
     "m12 19-7-7 7-7",
     "M19 12H5",
+)
+
+private fun cameraIcon(stroke: Float, filled: Boolean): ImageVector = lucide(
+    "Camera", stroke, filled,
+    "M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z",
+    "M9 13A3 3 0 1 0 15 13A3 3 0 1 0 9 13Z",
 )
 
 private fun checkIcon(stroke: Float, filled: Boolean): ImageVector = lucide(
@@ -403,6 +436,12 @@ private fun folderUpIcon(stroke: Float, filled: Boolean): ImageVector = lucide(
     "m9 13 3-3 3 3",
 )
 
+private fun gaugeIcon(stroke: Float, filled: Boolean): ImageVector = lucide(
+    "Gauge", stroke, filled,
+    "m12 14 4-4",
+    "M3.34 19a10 10 0 1 1 17.32 0",
+)
+
 private fun heartIcon(stroke: Float, filled: Boolean): ImageVector = lucide(
     "Heart", stroke, filled,
     "M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z",
@@ -423,6 +462,14 @@ private fun imagesIcon(stroke: Float, filled: Boolean): ImageVector = lucide(
     "m22 13-1.296-1.296a2.41 2.41 0 0 0-3.408 0L11 18",
     "M10 8A2 2 0 1 0 14 8A2 2 0 1 0 10 8Z",
     "M8 2H20A2 2 0 0 1 22 4V16A2 2 0 0 1 20 18H8A2 2 0 0 1 6 16V4A2 2 0 0 1 8 2Z",
+)
+
+private fun imageUpIcon(stroke: Float, filled: Boolean): ImageVector = lucide(
+    "ImageUp", stroke, filled,
+    "M10.3 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10l-3.1-3.1a2 2 0 0 0-2.814.014L6 21",
+    "m14 19.5 3-3 3 3",
+    "M17 22v-5.5",
+    "M7 9A2 2 0 1 0 11 9A2 2 0 1 0 7 9Z",
 )
 
 private fun infoIcon(stroke: Float, filled: Boolean): ImageVector = lucide(
@@ -461,6 +508,12 @@ private fun lockIcon(stroke: Float, filled: Boolean): ImageVector = lucide(
     "M7 11V7a5 5 0 0 1 10 0v4",
 )
 
+private fun mapPinIcon(stroke: Float, filled: Boolean): ImageVector = lucide(
+    "MapPin", stroke, filled,
+    "M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0",
+    "M9 10A3 3 0 1 0 15 10A3 3 0 1 0 9 10Z",
+)
+
 private fun monitorIcon(stroke: Float, filled: Boolean): ImageVector = lucide(
     "Monitor", stroke, filled,
     "M4 3H20A2 2 0 0 1 22 5V15A2 2 0 0 1 20 17H4A2 2 0 0 1 2 15V5A2 2 0 0 1 4 3Z",
@@ -479,6 +532,12 @@ private fun pencilLineIcon(stroke: Float, filled: Boolean): ImageVector = lucide
     "M12 20h9",
     "M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z",
     "m15 5 3 3",
+)
+
+private fun pictureInPicture2Icon(stroke: Float, filled: Boolean): ImageVector = lucide(
+    "PictureInPicture2", stroke, filled,
+    "M21 9V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10c0 1.1.9 2 2 2h4",
+    "M14 13H20A2 2 0 0 1 22 15V18A2 2 0 0 1 20 20H14A2 2 0 0 1 12 18V15A2 2 0 0 1 14 13Z",
 )
 
 private fun playIcon(stroke: Float, filled: Boolean): ImageVector = lucide(
@@ -513,6 +572,12 @@ private fun qrCodeIcon(stroke: Float, filled: Boolean): ImageVector = lucide(
     "M16 12h1",
     "M21 12v.01",
     "M12 21v-1",
+)
+
+private fun rotateCcwIcon(stroke: Float, filled: Boolean): ImageVector = lucide(
+    "RotateCcw", stroke, filled,
+    "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8",
+    "M3 3v5h5",
 )
 
 private fun rotateCwIcon(stroke: Float, filled: Boolean): ImageVector = lucide(
@@ -615,6 +680,26 @@ private fun userIcon(stroke: Float, filled: Boolean): ImageVector = lucide(
     "User", stroke, filled,
     "M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2",
     "M8 7A4 4 0 1 0 16 7A4 4 0 1 0 8 7Z",
+)
+
+private fun videoIcon(stroke: Float, filled: Boolean): ImageVector = lucide(
+    "Video", stroke, filled,
+    "m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5",
+    "M4 6H14A2 2 0 0 1 16 8V16A2 2 0 0 1 14 18H4A2 2 0 0 1 2 16V8A2 2 0 0 1 4 6Z",
+)
+
+private fun volume2Icon(stroke: Float, filled: Boolean): ImageVector = lucide(
+    "Volume2", stroke, filled,
+    "M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z",
+    "M16 9a5 5 0 0 1 0 6",
+    "M19.364 18.364a9 9 0 0 0 0-12.728",
+)
+
+private fun volumeXIcon(stroke: Float, filled: Boolean): ImageVector = lucide(
+    "VolumeX", stroke, filled,
+    "M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z",
+    "M22 9L16 15",
+    "M16 9L22 15",
 )
 
 private fun xIcon(stroke: Float, filled: Boolean): ImageVector = lucide(

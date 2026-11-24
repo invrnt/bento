@@ -300,6 +300,51 @@
       "name": "Presentation",
       "lucide": "presentation",
       "use": "Presentación"
+    },
+    {
+      "name": "Volume2",
+      "lucide": "volume-2",
+      "use": "Visor: sonido activado"
+    },
+    {
+      "name": "VolumeX",
+      "lucide": "volume-x",
+      "use": "Visor: silenciado"
+    },
+    {
+      "name": "PictureInPicture2",
+      "lucide": "picture-in-picture-2",
+      "use": "Visor: imagen en imagen"
+    },
+    {
+      "name": "MapPin",
+      "lucide": "map-pin",
+      "use": "Info: ubicación"
+    },
+    {
+      "name": "Camera",
+      "lucide": "camera",
+      "use": "Info: cámara / Del teléfono"
+    },
+    {
+      "name": "Video",
+      "lucide": "video",
+      "use": "Colecciones: Videos"
+    },
+    {
+      "name": "RotateCcw",
+      "lucide": "rotate-ccw",
+      "use": "Papelera: restaurar"
+    },
+    {
+      "name": "Gauge",
+      "lucide": "gauge",
+      "use": "Visor: velocidad de reproducción"
+    },
+    {
+      "name": "ImageUp",
+      "lucide": "image-up",
+      "use": "Usar como… / Cambiar portada"
     }
   ]
 }
