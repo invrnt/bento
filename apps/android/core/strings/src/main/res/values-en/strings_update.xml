@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="update_available_title">A new version is available</string>
+    <string name="update_available_body">Bento %1$s is ready to download (%2$s). Your photos and files stay as they are.</string>
+    <string name="update_download">Download</string>
+    <string name="update_not_now">Not now</string>
+    <string name="update_downloading_title">Downloading Bento %1$s</string>
+    <string name="update_downloading_body">You can keep using Bento in the meantime.</string>
+    <string name="update_downloading_label">Update download</string>
+    <string name="update_cancel">Cancel</string>
+    <string name="update_ready_title">Ready to install</string>
+    <string name="update_ready_body">Bento %1$s was downloaded and verified. Android will ask you to confirm the install.</string>
+    <string name="update_cancelled_body">Bento %1$s wasn’t installed. You can install it whenever you like.</string>
+    <string name="update_install">Install</string>
+    <string name="update_permission_title">Allow installing the update</string>
+    <string name="update_permission_body">Android needs you to allow Bento to install apps. Turn it on in Settings, then come back.</string>
+    <string name="update_permission_action">Open Settings</string>
+    <string name="update_installing_title">Installing Bento %1$s</string>
+    <string name="update_installing_body">Confirm the install in the Android window.</string>
+    <string name="update_failed_title">Couldn’t update</string>
+    <string name="update_retry">Try again</string>
+    <string name="update_failed_network">No connection. We’ll try again later.</string>
+    <string name="update_failed_signature">The update’s signature couldn’t be verified, so it wasn’t downloaded. Your current version is untouched.</string>
+    <string name="update_failed_manifest">The update information isn’t valid, so it wasn’t downloaded. Your current version is untouched.</string>
+    <string name="update_failed_incompatible">This version needs a newer version of Android.</string>
+    <string name="update_failed_checksum">The downloaded file doesn’t match the signed version and was deleted.</string>
+    <string name="update_failed_signer">The update isn’t signed by Bento and was deleted.</string>
+    <string name="update_failed_storage">There isn’t enough space on this phone for the update.</string>
+    <string name="update_failed_install">Android couldn’t install the update.</string>
+
+    <string name="update_row_title">Updates</string>
+    <string name="update_row_unavailable">This build doesn’t check for updates</string>
+    <string name="update_row_check">Check for updates</string>
+    <string name="update_row_checking">Checking for updates…</string>
+    <string name="update_row_up_to_date">You’re on the latest version</string>
+    <string name="update_row_available">A new version is available: %1$s</string>
+    <string name="update_row_downloading">Downloading %1$s · %2$s</string>
+    <string name="update_row_downloading_unknown">Downloading %1$s…</string>
+    <string name="update_row_ready">Bento %1$s is ready to install</string>
+    <string name="update_row_installing">Waiting for your confirmation</string>
+    <string name="update_row_version">Version %1$s</string>
+</resources>

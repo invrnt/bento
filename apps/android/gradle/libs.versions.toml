@@ -54,6 +54,8 @@ mlkit-barcode-scanning = "17.3.0"
 mlkit-document-scanner = "16.0.0"
 # Viewer (agent 39): zoom/subsampling, foldable posture, in-app frame metrics.
 telephoto = "0.19.0"
+# In-app updater (agent 42a): Ed25519 verification on API 29-32 (no platform Ed25519 before API 33).
+bouncycastle = "1.86"
 androidx-window = "1.5.1"
 androidx-metrics = "1.0.0"
 
@@ -138,6 +140,7 @@ mlkit-document-scanner = { module = "com.google.android.gms:play-services-mlkit-
 camerax-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camerax" }
 camerax-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }
 camerax-compose = { module = "androidx.camera:camera-compose", version.ref = "camerax" }
+bouncycastle-bcprov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
 telephoto-zoomable-image-coil3 = { module = "me.saket.telephoto:zoomable-image-coil3", version.ref = "telephoto" }
 
 # Tests
