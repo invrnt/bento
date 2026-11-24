@@ -31,6 +31,9 @@ class BentoApplication : Application(), Configuration.Provider {
 
     @Inject lateinit var shareCacheJanitor: ShareCacheJanitor
 
+    /** Daily, check-only update poll; a no-op in builds without an update key. */
+    @Inject lateinit var updates: dev.bento.update.UpdateScheduler
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder().setWorkerFactory(workerFactory).setMinimumLoggingLevel(android.util.Log.WARN).build()
 
@@ -51,6 +54,7 @@ class BentoApplication : Application(), Configuration.Provider {
             }
             scheduler.ensureScheduled()
             shareCacheJanitor.start()
+            updates.ensureScheduled()
         }
     }
 

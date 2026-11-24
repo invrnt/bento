@@ -39,6 +39,7 @@ reads that manifest. **Everything builds, signs and verifies locally**: there is
    export BENTO_UPDATE_SIGNING_KEY_FILE=~/secure/bento-update-signing-key.pem
    export BENTO_UPDATE_PUBLIC_KEY=<base64 raw key>
    export BENTO_ANDROID_CERT_SHA256=<keystore SHA-256, optional pin checked against every APK>
+   export BENTO_SITE_HOST=<production site host>   # required (SEC-10); BENTO_SITE_URL defaults to https://$BENTO_SITE_HOST
    ```
 
    The keystore values can instead live in `~/.gradle/gradle.properties` as `bentoReleaseStoreFile`,

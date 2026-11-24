@@ -13,6 +13,7 @@
 #   BENTO_ANDROID_KEYSTORE, BENTO_ANDROID_KEYSTORE_PASSWORD, BENTO_ANDROID_KEY_ALIAS, BENTO_ANDROID_KEY_PASSWORD
 #   BENTO_UPDATE_SIGNING_KEY_FILE (PKCS#8 PEM path) or BENTO_UPDATE_SIGNING_KEY (PEM text), BENTO_UPDATE_PUBLIC_KEY
 #   BENTO_ANDROID_CERT_SHA256 (optional pin: the expected APK signing certificate SHA-256)
+#   BENTO_SITE_HOST (production site host, required), BENTO_SITE_URL (default https://$BENTO_SITE_HOST)
 set -euo pipefail
 umask 077
 
@@ -37,7 +38,7 @@ while [ $# -gt 0 ]; do
     --feed-port) FEED_PORT="${2:-}"; shift 2 ;;
     --dry-run) DRY_RUN=1; shift ;;
     --skip-build) SKIP_BUILD=1; shift ;;
-    -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
     *) die "unknown argument: $1" ;;
   esac
 done
@@ -70,6 +71,11 @@ if [ -z "$VERSION" ] && [ "$DRY_RUN" = 1 ]; then VERSION="0.1.0"; fi
 [[ "$VERSION" =~ ^(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})$ ]] || die "version must be X.Y.Z (pass --version or tag android-vX.Y.Z), got '$VERSION'"
 VERSION_CODE=$(( BASH_REMATCH[1] * 1000000 + BASH_REMATCH[2] * 1000 + BASH_REMATCH[3] ))
 TAG="android-v$VERSION"
+
+# --- Site host (SEC-10: App Links and share links must name the production site) -----------------------------------
+if [ "$DRY_RUN" = 1 ]; then BENTO_SITE_HOST="${BENTO_SITE_HOST:-bento-dry-run.test}"; fi
+[ -n "${BENTO_SITE_HOST:-}" ] || die "set BENTO_SITE_HOST to the production site host (for example bento.app)"
+BENTO_SITE_URL="${BENTO_SITE_URL:-https://$BENTO_SITE_HOST}"
 
 # --- Keys ------------------------------------------------------------------------------------------------------------
 FEED_URL=""
@@ -134,7 +140,8 @@ build() {
   fi
   step "Building $name (ABIs $(abis_for "$label"), versionCode $VERSION_CODE)"
   local args=(":app:assembleRelease" "-PbentoAbis=$(abis_for "$label")" "-PbentoVersion=$VERSION"
-    "-PbentoBuildPython=$BUILD_PYTHON" "-PbentoUpdatePublicKey=$BENTO_UPDATE_PUBLIC_KEY")
+    "-PbentoBuildPython=$BUILD_PYTHON" "-PbentoUpdatePublicKey=$BENTO_UPDATE_PUBLIC_KEY"
+    "-PbentoSiteHost=$BENTO_SITE_HOST" "-PbentoSiteUrl=$BENTO_SITE_URL")
   [ -n "$FEED_URL" ] && args+=("-PbentoUpdateFeedUrl=$FEED_URL")
   (cd "$ANDROID_DIR" && ./gradlew -Dorg.gradle.jvmargs=-Xmx2g --max-workers=2 --quiet "${args[@]}")
   cp "$ANDROID_DIR/app/build/outputs/apk/release/app-release.apk" "$OUT/$name"
