@@ -57,13 +57,13 @@ class FakeTelegramAccount:
             self._pending = None
             return AccountStatus(step=LoginStep.SIGNED_OUT, error_code="telegram_phone_invalid")
         self._pending = _PendingLogin(step=LoginStep.CODE_REQUIRED)
-        return AccountStatus(step=LoginStep.CODE_REQUIRED)
+        return self._pending_status(self._pending)
 
     async def submit_code(self, code: str) -> AccountStatus:
         if self._pending is None or self._pending.step != LoginStep.CODE_REQUIRED:
             raise TelegramAccountError("telegram_login_expired", "No phone login is in progress")
         if re.sub(r"\s", "", code) != FAKE_LOGIN_CODE:
-            return AccountStatus(step=LoginStep.CODE_REQUIRED, error_code="telegram_code_invalid")
+            return replace(self._pending_status(self._pending), error_code="telegram_code_invalid")
         authorization = await self._session.run(self._cloud.create_authorization, await self._session.announced_options())
         return await self._finish(authorization.id)
 
@@ -182,6 +182,8 @@ class FakeTelegramAccount:
             )
         if pending.step == LoginStep.PASSWORD_REQUIRED:
             return AccountStatus(step=LoginStep.PASSWORD_REQUIRED, password_hint=FAKE_PASSWORD_HINT)
+        if pending.step == LoginStep.CODE_REQUIRED:
+            return AccountStatus(step=LoginStep.CODE_REQUIRED, code_length=len(FAKE_LOGIN_CODE), code_delivery="app")
         return AccountStatus(step=pending.step)
 
     def _expired(self, token: FakeLoginToken | None) -> bool:

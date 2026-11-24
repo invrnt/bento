@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
+from collections.abc import Callable
 from pathlib import Path
 
 from bento.adapters.fake_telegram import store
@@ -37,10 +38,16 @@ class FakeVaultTransport:
         dialogs = await self._session.call(self._cloud.dialogs)
         return discover_vault_layouts(_candidates(dialogs))
 
-    async def create_vault(self, vault_id: str) -> VaultLayout:
+    async def create_vault(
+        self, vault_id: str, *, on_channel: Callable[[VaultChannelRole], None] | None = None
+    ) -> VaultLayout:
         if parse_channel_marker(channel_marker(VaultChannelRole.SYNC, vault_id)) != (VaultChannelRole.SYNC, vault_id):
             raise ValidationFailedError("Vault ids look like vlt_<id>", {"vault_id": vault_id})
-        return await self._session.call(self._create_vault, vault_id)
+        layout = await self._session.call(self._create_vault, vault_id)
+        if on_channel is not None:
+            for role in VaultChannelRole:
+                on_channel(role)
+        return layout
 
     async def read_header_text(self, layout: VaultLayout) -> str | None:
         chat, messages = await self._session.call(self._cloud.read_chat, layout.sync_channel_id)

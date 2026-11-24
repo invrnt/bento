@@ -37,6 +37,7 @@ from bento.domain.errors import (
     TelegramNotAvailableError,
     ValidationFailedError,
     VaultAlreadyExistsError,
+    VaultCreationInProgressError,
     VaultLockedError,
     VaultNotFoundError,
 )
@@ -45,6 +46,10 @@ from bento.domain.sync import SyncMessageKind, SyncState, SyncStatus
 from bento.domain.vault import (
     DEVICE_REMOVED_REASON,
     SESSION_CLOSED_REASON,
+    VaultChannelRole,
+    VaultCreationProgress,
+    VaultCreationState,
+    VaultCreationStep,
     VaultHeader,
     VaultLayout,
     VaultState,
@@ -233,10 +238,19 @@ class VaultService:
         self._kit: _CachedKit | None = None
         self._current_header: VaultHeader | None = None
         """Last header `read_header` verified at this device's current epoch, or that this process published."""
+        self._creation: VaultCreationProgress | None = None
 
     # VaultSessionPort
 
     async def status(self) -> VaultStatus:
+        creation = self._creation
+        if creation is not None and creation.state == VaultCreationState.RUNNING:
+            # Answer from memory while `create` talks to Telegram: onboarding polls this for the steps.
+            return VaultStatus(state=VaultState.NO_VAULT, creation=creation)
+        status = await self._status()
+        return replace(status, creation=creation) if creation is not None else status
+
+    async def _status(self) -> VaultStatus:
         try:
             ports = self._telegram()
         except TelegramNotAvailableError:
@@ -451,7 +465,34 @@ class VaultService:
 
         Safe to retry after a crash: keys are stored before anything is published and the layout only after the
         header, so a half-created vault of this device is resumed (with a fresh recovery code) instead of duplicated.
+        `status()` reports each step (`VaultStatus.creation`) while this runs.
         """
+        if self._creation is not None and self._creation.state == VaultCreationState.RUNNING:
+            raise VaultCreationInProgressError()
+        self._creation = VaultCreationProgress.started()
+        try:
+            created = await self._create()
+        except DomainError as exc:
+            self._creation = self._creation.failed(exc.code)
+            raise
+        except Exception:
+            self._creation = self._creation.failed("vault_creation_failed")
+            raise
+        self._creation = self._creation.finished()
+        return replace(created, status=replace(created.status, creation=self._creation))
+
+    def _creation_step(self, step: VaultCreationStep, state: VaultCreationState) -> None:
+        if self._creation is not None:
+            self._creation = self._creation.mark(step, state)
+
+    def _channel_ready(self, role: VaultChannelRole) -> None:
+        step = VaultCreationStep(role.value)
+        self._creation_step(step, VaultCreationState.DONE)
+        order = list(VaultCreationStep)
+        following = order[order.index(step) + 1]
+        self._creation_step(following, VaultCreationState.RUNNING)
+
+    async def _create(self) -> CreatedVault:
         ports = self._require_ports()
         account = _authorized(await ports.account.status())
         if await self._local(account) is not None:
@@ -469,7 +510,9 @@ class VaultService:
         else:
             keyring = self._crypto.generate_keyring(f"vlt_{secrets.token_hex(8)}")
             await self._write_keyring(keyring)
-        layout = await ports.transport.create_vault(keyring.vault_id)
+        self._creation_step(VaultCreationStep.FILES, VaultCreationState.RUNNING)
+        layout = await ports.transport.create_vault(keyring.vault_id, on_channel=self._channel_ready)
+        self._creation_step(VaultCreationStep.HEADER, VaultCreationState.RUNNING)
         recovery_code = self._crypto.generate_recovery_code()
         header = self._sign(
             VaultHeader(
@@ -487,9 +530,11 @@ class VaultService:
         await self._state.set_value(BOOTSTRAP_PENDING_KEY, "0")
         await self._remember_kit(keyring.vault_id, recovery_code, header.recovery)
         await self._save_layout(layout, account)
+        self._creation_step(VaultCreationStep.HEADER, VaultCreationState.DONE)
+        self._creation_step(VaultCreationStep.DEVICE, VaultCreationState.RUNNING)
         await self._register_device()
         await self._changed()
-        return CreatedVault(status=await self.status(), recovery_code=recovery_code)
+        return CreatedVault(status=await self._status(), recovery_code=recovery_code)
 
     async def unlock(self, recovery_code: str) -> VaultStatus:
         """Open the account's vault on this device with the recovery kit."""

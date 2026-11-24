@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
@@ -212,6 +212,53 @@ class VaultStatus:
     """The pinned header carries a recovery wrap of an older key epoch: a new kit must be generated."""
     reason: str | None = None
     """Why the vault is `locked` (`device_removed`) or `signed_out` (`session_closed`, `device_removed`) here."""
+    creation: VaultCreationProgress | None = None
+    """The last `POST /vault` of this process, step by step (also while it runs)."""
+
+
+class VaultCreationStep(StrEnum):
+    """Steps of `VaultService.create`: the three compartments (channels), then the header and this device."""
+
+    FILES = "files"
+    SYNC = "sync"
+    INBOX = "inbox"
+    HEADER = "header"
+    DEVICE = "device"
+
+
+class VaultCreationState(StrEnum):
+    PENDING = "pending"
+    RUNNING = "running"
+    DONE = "done"
+    FAILED = "failed"
+
+
+@dataclass(frozen=True, slots=True)
+class VaultCreationProgress:
+    state: VaultCreationState
+    steps: tuple[tuple[VaultCreationStep, VaultCreationState], ...]
+    error_code: str | None = None
+
+    @classmethod
+    def started(cls) -> VaultCreationProgress:
+        return cls(
+            state=VaultCreationState.RUNNING,
+            steps=tuple((step, VaultCreationState.PENDING) for step in VaultCreationStep),
+        )
+
+    def mark(self, step: VaultCreationStep, state: VaultCreationState) -> VaultCreationProgress:
+        return replace(self, steps=tuple((name, state if name == step else value) for name, value in self.steps))
+
+    def finished(self) -> VaultCreationProgress:
+        return replace(
+            self, state=VaultCreationState.DONE, steps=tuple((name, VaultCreationState.DONE) for name, _ in self.steps)
+        )
+
+    def failed(self, error_code: str) -> VaultCreationProgress:
+        steps = tuple(
+            (name, VaultCreationState.FAILED if value == VaultCreationState.RUNNING else value) for name, value in self.steps
+        )
+        return replace(self, state=VaultCreationState.FAILED, steps=steps, error_code=error_code)
 
 
 DEVICE_REMOVED_REASON = "device_removed"

@@ -39,6 +39,11 @@ class AccountStatus:
     password_hint: str | None = None
     error_code: str | None = None
     retry_after_seconds: int | None = None
+    code_length: int | None = None
+    """`code_required` only: digits of the code Telegram sent (from the sent-code type), when known."""
+    code_delivery: str | None = None
+    """`code_required` only: `app` (another Telegram session), `sms`, `call`, `flash_call`, `missed_call`,
+    `email`, `fragment_sms`, `firebase_sms`, or `None` when unknown."""
 
     @property
     def authorized(self) -> bool:
