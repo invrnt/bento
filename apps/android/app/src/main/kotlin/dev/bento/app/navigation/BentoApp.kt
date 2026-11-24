@@ -15,7 +15,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import dev.bento.designsystem.component.BentoNavItem
 import dev.bento.designsystem.component.BentoNavigationSuite
@@ -40,6 +42,8 @@ fun BentoApp(navigator: Navigator, engineState: EngineState, onExit: () -> Unit)
             NavDisplay(
                 backStack = navigator.backStack,
                 onBack = { if (!navigator.back()) onExit() },
+                // Each destination owns its ViewModels and saved state (cleared when it leaves the stack).
+                entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator(), rememberViewModelStoreNavEntryDecorator()),
                 entryProvider = entryProvider { bentoEntries(navigator) }
             )
         }
