@@ -24,6 +24,7 @@ class AttentionKind(StrEnum):
     NEW_DEVICE = "new_device"
     DEVICE_REMOVED = "device_removed"
     CLOCK_SKEW = "clock_skew"
+    IMPORT_FAILED = "import_failed"
 
 
 class AttentionAction(StrEnum):
@@ -31,6 +32,8 @@ class AttentionAction(StrEnum):
     OPEN_SETTINGS = "open_settings"
     SAVE_RECOVERY_KIT = "save_recovery_kit"
     OPEN_DEVICES = "open_devices"
+    DISMISS = "dismiss"
+    """`POST /android/imports/{import_id}/dismiss` (the app may offer to share the files again)."""
     NONE = "none"
 
 

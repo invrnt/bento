@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -36,7 +36,7 @@ class ImportNotFoundError(DomainError):
 @router.post("/android/imports", status_code=202, response_model=None)
 async def start_import(request: Request, body: ImportRequest) -> dict[str, Any] | JSONResponse:
     try:
-        job = _service(request).start(
+        job = await _service(request).start(
             [ContentImportItem(**item.model_dump()) for item in body.items], folder_id=body.folder_id, album_id=body.album_id
         )
         return _import(job)
@@ -47,7 +47,7 @@ async def start_import(request: Request, body: ImportRequest) -> dict[str, Any] 
 @router.get("/android/imports/{import_id}", response_model=None)
 async def get_import(import_id: str, request: Request) -> dict[str, Any] | JSONResponse:
     try:
-        job = _service(request).get(import_id)
+        job = await _service(request).get(import_id)
         if job is None:
             raise ImportNotFoundError(import_id)
         return _import(job)
@@ -55,7 +55,20 @@ async def get_import(import_id: str, request: Request) -> dict[str, Any] | JSONR
         return error_response(request, exc)
 
 
+@router.post("/android/imports/{import_id}/dismiss", status_code=204, response_model=None)
+async def dismiss_import(import_id: str, request: Request) -> Response | JSONResponse:
+    """Hides the `import_failed` Activity item of a finished import (404 while unknown or still running)."""
+    try:
+        if not await _service(request).dismiss(import_id):
+            raise ImportNotFoundError(import_id)
+        return Response(status_code=204)
+    except DomainError as exc:
+        return error_response(request, exc)
+
+
 def _import(job: ContentImport) -> dict[str, Any]:
+    """`items[].error`: `import_interrupted` (the app restarted mid-import: share the file again),
+    `content_unreadable`, `album_unavailable`, or an upload error code."""
     return {
         "import_id": job.id,
         "done": job.done,
@@ -72,7 +85,9 @@ def _service(request: Request) -> ContentImportService:
     if cached is not None:
         return cached
     from bento.adapters.backup.media import LocalMediaStaging
+    from bento.adapters.repositories.content_imports import SQLiteContentImportStore
     from bento.infrastructure import services
+    from bento.infrastructure.db.clock import SystemClock
 
     settings = request.app.state.settings
     components = pipeline(request)
@@ -88,6 +103,8 @@ def _service(request: Request) -> ContentImportService:
         ingestion=components.ingestion,
         staging=LocalMediaStaging(components.data_dir / "uploads" / "imports"),
         notifier=services.get_notifier(settings),
+        store=SQLiteContentImportStore(components.session_factory),
+        clock=SystemClock(),
         add_to_album=add_to_album,
     )
     request.app.state.content_imports = service

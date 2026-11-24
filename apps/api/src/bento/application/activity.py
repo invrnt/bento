@@ -52,6 +52,16 @@ class FailedInboxItem:
 
 
 @dataclass(frozen=True, slots=True)
+class FailedImport:
+    """A finished content import (Android share/SAF) with failed items, until dismissed."""
+
+    import_id: str
+    failed_items: int
+    error_code: str | None
+    """The most common item error (`import_interrupted`, `content_unreadable`, …)."""
+
+
+@dataclass(frozen=True, slots=True)
 class NewDevice:
     """A device this one first learned about through sync, not yet acknowledged by the person."""
 
@@ -82,6 +92,7 @@ class ActivitySnapshot:
     failed_backups: tuple[FailedBackupSource, ...] = ()
     failed_inbox: tuple[FailedInboxItem, ...] = ()
     new_devices: tuple[NewDevice, ...] = ()
+    failed_imports: tuple[FailedImport, ...] = ()
 
 
 class ActivitySourcePort(Protocol):
@@ -260,6 +271,17 @@ def _attention(inputs: ActivityInputs) -> list[AttentionItem]:
                 AttentionAction.NONE,
                 message_id=inbox.message_id,
                 code=inbox.error_code,
+            )
+        )
+    for failed_import in snapshot.failed_imports[:MAX_ATTENTION_PER_KIND]:
+        items.append(
+            _item(
+                f"import_failed:{failed_import.import_id}",
+                AttentionKind.IMPORT_FAILED,
+                AttentionAction.DISMISS,
+                import_id=failed_import.import_id,
+                count=failed_import.failed_items,
+                code=failed_import.error_code,
             )
         )
     return items

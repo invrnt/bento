@@ -23,7 +23,13 @@ from bento.application.drive import (
 )
 from bento.application.ingestion import AssetFileQueryService, AssetIngestionService, UploadedAssetFile
 from bento.application.jobs import JobsUseCases, ListJobsQuery
-from bento.application.photos import AddAlbumAssetCommand, CreateAlbumCommand, PhotosUseCases, TimelineQuery
+from bento.application.photos import (
+    AddAlbumAssetCommand,
+    CreateAlbumCommand,
+    PhotosUseCases,
+    TimelineQuery,
+    UpdateAlbumCommand,
+)
 from bento.application.storage_maintenance import StorageMaintenanceService
 from bento.domain.assets import Asset, AssetKind, AssetMode
 from bento.domain.drive import DriveItem, DriveSort, Folder, SortOrder
@@ -252,10 +258,17 @@ class AlbumResponse(BaseModel):
     created_at: str
     updated_at: str
     deleted_at: str | None = None
+    cover_asset_id: str | None = None
+    """Chosen on this device (not synced to other devices); `null` lets the client pick one."""
 
 
 class AlbumCreateRequest(BaseModel):
     title: str
+
+
+class AlbumPatchRequest(BaseModel):
+    title: str | None = Field(default=None, max_length=255)
+    cover_asset_id: str | None = Field(default=None, max_length=64)
 
 
 class AlbumItemRequest(BaseModel):
@@ -537,6 +550,32 @@ async def create_album(request: Request, body: AlbumCreateRequest) -> AlbumRespo
 async def album_detail(album_id: str, request: Request) -> AlbumResponse | JSONResponse:
     try:
         return _album_response(await _product_dependencies(request).photos.get_album(album_id))
+    except DomainError as exc:
+        return _domain_error_response(request, exc)
+
+
+@router.patch("/photos/albums/{album_id}", response_model=AlbumResponse)
+async def update_album(album_id: str, request: Request, body: AlbumPatchRequest) -> AlbumResponse | JSONResponse:
+    """`title` renames (synced); `cover_asset_id` picks the cover among the album's photos, `null` clears it."""
+    try:
+        album = await _product_dependencies(request).photos.update_album(
+            UpdateAlbumCommand(
+                album_id=album_id,
+                title=body.title if "title" in body.model_fields_set else None,
+                cover_asset_id=body.cover_asset_id,
+                set_cover="cover_asset_id" in body.model_fields_set,
+            )
+        )
+        return _album_response(album)
+    except DomainError as exc:
+        return _domain_error_response(request, exc)
+
+
+@router.delete("/photos/albums/{album_id}", response_model=AlbumResponse)
+async def delete_album(album_id: str, request: Request) -> AlbumResponse | JSONResponse:
+    """Deletes the album on every device; its photos stay in the library."""
+    try:
+        return _album_response(await _product_dependencies(request).photos.delete_album(album_id))
     except DomainError as exc:
         return _domain_error_response(request, exc)
 
@@ -1052,6 +1091,7 @@ def _album_response(album: Album) -> AlbumResponse:
         created_at=album.created_at.isoformat(),
         updated_at=album.updated_at.isoformat(),
         deleted_at=album.deleted_at.isoformat() if album.deleted_at else None,
+        cover_asset_id=album.cover_asset_id,
     )
 
 
