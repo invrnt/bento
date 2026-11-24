@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- feature/share (agent 40): Guardar en Bento sheet over other apps (product/android.md §4.9). -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="es">
+    <string name="share_title">Guardar en Bento</string>
+    <string name="share_loading">Preparando…</string>
+    <string name="share_summary">%1$s · %2$s</string>
+    <string name="share_destination">Carpeta</string>
+    <string name="share_destination_change">Cambiar la carpeta, ahora «%1$s»</string>
+    <string name="share_album">Añadir a álbum</string>
+    <string name="share_album_none">Ninguno</string>
+    <string name="share_album_title">Elegir álbum</string>
+    <string name="share_album_empty">Aún no tienes álbumes.</string>
+    <string name="share_pick_folder">Guardar aquí</string>
+    <string name="share_save">Guardar en Bento</string>
+    <string name="share_note">Se guardará como la nota «%1$s».</string>
+    <string name="share_note_fallback">Nota</string>
+    <string name="share_unreadable_title">No se puede leer</string>
+    <plurals name="share_unreadable">
+        <item quantity="one">%1$s archivo ya no está disponible en la otra app. Lo verás en Actividad.</item>
+        <item quantity="many">%1$s de archivos ya no están disponibles en la otra app. Los verás en Actividad.</item>
+        <item quantity="other">%1$s archivos ya no están disponibles en la otra app. Los verás en Actividad.</item>
+    </plurals>
+    <string name="share_nothing">No hay nada que Bento pueda guardar de lo que compartiste.</string>
+    <string name="share_close">Cerrar</string>
+    <string name="share_encrypted">Se cifra antes de subir a tu nube.</string>
+    <string name="share_thumbnail">Vista previa de «%1$s»</string>
+    <string name="share_more">+%1$s</string>
+</resources>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Direct Share (product/android.md §4.9): dynamic shortcuts "folder:<id>" with this category appear as targets. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <share-target android:targetClass="dev.bento.app.ShareActivity">
+        <data android:mimeType="*/*" />
+        <category android:name="dev.bento.share.category.FOLDER" />
+    </share-target>
+</shortcuts>
