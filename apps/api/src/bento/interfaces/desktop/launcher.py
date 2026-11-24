@@ -19,7 +19,7 @@ from alembic.config import Config
 from sqlalchemy.engine import URL
 
 from bento.adapters.security.key_store import WRAPPING_KEY_ENV
-from bento.infrastructure import process_secrets
+from bento.infrastructure import parent_watch, process_secrets
 from bento.infrastructure.child_processes import resolve_executable
 from bento.infrastructure.settings import Settings, get_settings, settings_database_path
 from bento.interfaces.desktop.security import TOKEN_ENV
@@ -42,6 +42,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     # Before anything else runs: per-launch secrets must not stay where child processes inherit them.
     process_secrets.adopt_environment_secrets((TOKEN_ENV, WRAPPING_KEY_ENV))
     arguments = _parser().parse_args(argv)
+    if arguments.command in ("api", "worker"):
+        # Long-running sidecars must not outlive the desktop host (crash, kill, lost session).
+        parent_watch.start_parent_watch()
     if arguments.command == "api":
         return _run_api(arguments)
     if arguments.command == "worker":
