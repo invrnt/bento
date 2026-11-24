@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search_field">Search Bento</string>
+    <string name="search_field_scoped">Search “%1$s”</string>
+    <string name="search_clear">Clear the text</string>
+    <string name="search_recent">Recent searches</string>
+    <string name="search_recent_clear">Clear history</string>
+    <string name="search_recent_remove">Remove “%1$s” from recent</string>
+    <string name="search_recent_local">Kept on this phone only.</string>
+    <string name="search_suggest_types">Types</string>
+    <string name="search_suggest_time">When</string>
+    <string name="search_suggest_folders">Recent folders</string>
+    <string name="search_suggest_albums">Albums</string>
+    <string name="search_kind_photos">Photos</string>
+    <string name="search_kind_videos">Videos</string>
+    <string name="search_kind_pdf">PDF</string>
+    <string name="search_kind_documents">Documents</string>
+    <string name="search_kind_sheets">Spreadsheets</string>
+    <string name="search_kind_folders">Folders</string>
+    <string name="search_kind_albums">Albums</string>
+    <string name="search_date_this_month">This month</string>
+    <string name="search_date_last_year">Last year</string>
+    <string name="search_date_range">%1$s – %2$s</string>
+    <string name="search_date_pick">Choose dates…</string>
+    <string name="search_date_apply">Apply</string>
+
+    <string name="search_filter_kind">Type</string>
+    <string name="search_filter_date">Date</string>
+    <string name="search_filter_folder">Folder</string>
+    <string name="search_filter_folder_value">In “%1$s”</string>
+    <string name="search_filter_any">Any</string>
+    <string name="search_filter_remove">Remove the “%1$s” filter</string>
+    <string name="search_filters_title">Filters</string>
+    <string name="search_folder_pick">Search here</string>
+    <string name="search_filter_kind_title">File type</string>
+    <string name="search_filter_date_title">Date</string>
+
+    <string name="search_group_photos">Photos and videos</string>
+    <string name="search_group_folders">Folders and albums</string>
+    <string name="search_group_files">Files</string>
+    <string name="search_group_documents">Documents</string>
+    <string name="search_load_more">Show more results</string>
+    <string name="search_searching">Searching…</string>
+    <string name="search_failed">Search failed. Try again.</string>
+    <string name="search_indexing">Some files are still being indexed: more results may show up in a while.</string>
+
+    <string name="search_reason_image_text">Text in the image: “%1$s”</string>
+    <string name="search_reason_page_text">Text on page %1$s: “%2$s”</string>
+    <string name="search_reason_document_text">Text in the document: “%1$s”</string>
+    <string name="search_reason_name">Name</string>
+    <string name="search_reason_folder_plain">Folder name</string>
+    <string name="search_reason_document_type">Document type</string>
+    <string name="search_reason_date">Date</string>
+    <string name="search_reason_album">Album</string>
+    <string name="search_reason_details">File details</string>
+    <string name="search_reason_recent">You used it recently</string>
+    <string name="search_reason_generic">Matches your search</string>
+    <string name="search_result_folder">Folder</string>
+    <string name="search_result_album">Album</string>
+    <string name="search_result_photo">Photo, %1$s</string>
+    <string name="search_result_video">Video, %1$s</string>
+
+    <string name="search_empty_title">We didn’t find “%1$s”</string>
+    <string name="search_empty_title_filters">No results with these filters</string>
+    <string name="search_empty_body">Check the spelling or try other words.</string>
+    <string name="search_empty_body_filters">Try removing some filters.</string>
+    <string name="search_empty_remove_filters">Remove filters</string>
+    <string name="search_empty_everywhere">Search all folders</string>
+</resources>

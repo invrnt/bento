@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="share_title">Save to Bento</string>
+    <string name="share_loading">Getting ready…</string>
+    <string name="share_summary">%1$s · %2$s</string>
+    <string name="share_destination">Folder</string>
+    <string name="share_destination_change">Change the folder, now “%1$s”</string>
+    <string name="share_album">Add to album</string>
+    <string name="share_album_none">None</string>
+    <string name="share_album_title">Choose an album</string>
+    <string name="share_album_empty">You don’t have albums yet.</string>
+    <string name="share_pick_folder">Save here</string>
+    <string name="share_save">Save to Bento</string>
+    <string name="share_note">It will be saved as the note “%1$s”.</string>
+    <string name="share_note_fallback">Note</string>
+    <string name="share_unreadable_title">Can’t be read</string>
+    <plurals name="share_unreadable">
+        <item quantity="one">%1$s file is no longer available in the other app. You’ll see it in Activity.</item>
+        <item quantity="other">%1$s files are no longer available in the other app. You’ll see them in Activity.</item>
+    </plurals>
+    <string name="share_nothing">There’s nothing Bento can save from what you shared.</string>
+    <string name="share_close">Close</string>
+    <string name="share_encrypted">It’s encrypted before it goes to your cloud.</string>
+    <string name="share_thumbnail">Preview of “%1$s”</string>
+    <string name="share_more">+%1$s</string>
+</resources>

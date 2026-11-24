@@ -385,6 +385,56 @@
       "name": "CameraOff",
       "lucide": "camera-off",
       "use": "Cámara sin permiso"
+    },
+    {
+      "name": "ArrowUpDown",
+      "lucide": "arrow-up-down",
+      "use": "Ordenar (Archivos)"
+    },
+    {
+      "name": "FolderPlus",
+      "lucide": "folder-plus",
+      "use": "Nueva carpeta"
+    },
+    {
+      "name": "Pin",
+      "lucide": "pin",
+      "use": "Disponible sin conexión"
+    },
+    {
+      "name": "PinOff",
+      "lucide": "pin-off",
+      "use": "Quitar sin conexión"
+    },
+    {
+      "name": "History",
+      "lucide": "history",
+      "use": "Búsquedas recientes"
+    },
+    {
+      "name": "SlidersHorizontal",
+      "lucide": "sliders-horizontal",
+      "use": "Filtros de búsqueda"
+    },
+    {
+      "name": "Calendar",
+      "lucide": "calendar",
+      "use": "Filtro de fecha"
+    },
+    {
+      "name": "Music",
+      "lucide": "music",
+      "use": "Reproductor de audio"
+    },
+    {
+      "name": "Code",
+      "lucide": "code",
+      "use": "Texto monoespaciado"
+    },
+    {
+      "name": "TextSearch",
+      "lucide": "text-search",
+      "use": "Buscar en el documento"
     }
   ]
 }

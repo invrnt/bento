@@ -81,7 +81,7 @@
             </intent-filter>
         </activity>
 
-        <!-- Share-to-Bento sheet shell; content by agent 40. -->
+        <!-- Share-to-Bento sheet (feature/share, agent 40): any MIME type, single or multiple, "Abrir con Bento", Direct Share. -->
         <activity
             android:name=".ShareActivity"
             android:excludeFromRecents="true"
@@ -98,6 +98,17 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="*/*" />
             </intent-filter>
+            <!-- ACTION_VIEW import: content URIs only (file: URIs from other apps are refused in feature/share). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <!-- Direct Share targets for the 4 most recent destination folders. -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/bento_share_targets" />
         </activity>
 
         <!-- Decrypted temporary copies for share/"Abrir con": per-URI read grants only. -->

@@ -19,7 +19,12 @@ sealed interface Route : NavKey {
     @Serializable data object Collections : Route
 
     // Full-screen destinations.
-    @Serializable data class Search(val query: String = "") : Route
+
+    /** Buscar; [folderId]/[folderName] scope it to a folder (`Buscar en esta carpeta`). */
+    @Serializable data class Search(val query: String = "", val folderId: String? = null, val folderName: String? = null) : Route
+
+    /** In-app reader for PDFs and text files (feature/files). */
+    @Serializable data class Document(val assetId: String) : Route
 
     @Serializable data class Viewer(val assetId: String) : Route
 

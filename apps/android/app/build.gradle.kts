@@ -61,6 +61,9 @@ dependencies {
     implementation(project(":feature:onboarding"))
     implementation(project(":feature:pairing"))
     implementation(project(":feature:devices"))
+    implementation(project(":feature:files"))
+    implementation(project(":feature:search"))
+    implementation(project(":feature:share"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

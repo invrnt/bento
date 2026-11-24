@@ -50,6 +50,8 @@ mlkit-text-recognition = "16.0.1"
 # Onboarding/pairing QR scanner (agent 38): bundled on-device model, no Play services download.
 camerax = "1.7.0"
 mlkit-barcode-scanning = "17.3.0"
+# Archivos › Escanear documento (agent 40): Play services document scanner, used only when available.
+mlkit-document-scanner = "16.0.0"
 
 # Tests
 junit4 = "4.13.2"
@@ -124,6 +126,7 @@ coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" 
 coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
 mlkit-text-recognition = { module = "com.google.mlkit:text-recognition", version.ref = "mlkit-text-recognition" }
 mlkit-barcode-scanning = { module = "com.google.mlkit:barcode-scanning", version.ref = "mlkit-barcode-scanning" }
+mlkit-document-scanner = { module = "com.google.android.gms:play-services-mlkit-document-scanner", version.ref = "mlkit-document-scanner" }
 camerax-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camerax" }
 camerax-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }
 camerax-compose = { module = "androidx.camera:camera-compose", version.ref = "camerax" }

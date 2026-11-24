@@ -17,6 +17,7 @@ import dev.bento.designsystem.component.BentoButton
 import dev.bento.designsystem.component.BentoButtonVariant
 import dev.bento.designsystem.theme.BentoTheme
 import dev.bento.feature.devices.DeviceReviewScreen
+import dev.bento.feature.files.DocumentScreen
 import dev.bento.feature.pairing.HostPairingScreen
 import dev.bento.feature.pairing.PairingRequestScreen
 import dev.bento.feature.recovery.RecoveryManageScreen
@@ -28,9 +29,10 @@ import dev.bento.strings.R as StringsR
  */
 fun EntryProviderScope<Route>.bentoEntries(navigator: Navigator) {
     entry<Route.Photos> { Placeholder("Fotos") }
-    entry<Route.Files> { key -> Placeholder("Archivos ${key.folderId.orEmpty()}") }
+    entry<Route.Files> { key -> FilesDestination(navigator, key) }
     entry<Route.Collections> { Placeholder("Colecciones") }
-    entry<Route.Search> { Placeholder("Buscar") }
+    entry<Route.Search> { key -> SearchDestination(navigator, key) }
+    entry<Route.Document> { key -> DocumentScreen(key.assetId, onBack = { navigator.back() }) }
     entry<Route.Viewer> { key -> Placeholder("Visor ${key.assetId}") }
     entry<Route.Album> { key -> Placeholder("Álbum ${key.albumId}") }
     entry<Route.Trash> { Placeholder("Papelera") }

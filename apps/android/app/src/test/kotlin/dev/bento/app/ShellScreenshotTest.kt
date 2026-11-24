@@ -44,11 +44,12 @@ class ShellScreenshotTest {
 
     @Test
     @Config(qualifiers = "w1000dp-h800dp-xhdpi")
-    fun expandedLightFiles() {
+    fun expandedLightTab() {
         compose.setContent {
-            val nav = Navigator().apply { selectTab(TopLevel.FILES) }
+            // A tab whose screen needs no Hilt graph (Archivos is a real Hilt screen since agent 40).
+            val nav = Navigator().apply { selectTab(TopLevel.COLLECTIONS) }
             BentoTheme(darkTheme = false, reducedMotion = true) { BentoApp(nav, EngineState.Stopped, onExit = {}) }
         }
-        compose.onRoot().captureRoboImage("src/test/screenshots/shell_expanded_light_files.png")
+        compose.onRoot().captureRoboImage("src/test/screenshots/shell_expanded_light_tab.png")
     }
 }
