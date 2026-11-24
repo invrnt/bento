@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="bento_channel_transfers">Backup and transfers</string>
+    <string name="bento_channel_transfers_description">Progress of backups and long transfers.</string>
+    <string name="bento_channel_attention">Needs your attention</string>
+    <string name="bento_channel_attention_description">Things that need you to act, like reconnecting Telegram.</string>
+    <string name="bento_channel_devices">Devices</string>
+    <string name="bento_channel_devices_description">Devices that want to join or were added to your cloud.</string>
+    <string name="bento_transfer_title_backup">Backing up photos</string>
+    <string name="bento_transfer_title_upload">Uploading files</string>
+    <string name="bento_transfer_title_download">Downloading files</string>
+    <string name="bento_transfer_title_import">Importing files</string>
+    <string name="bento_transfer_title_generic">Transferring files</string>
+    <string name="bento_transfer_preparing">Getting ready…</string>
+    <string name="bento_transfer_paused">Paused</string>
+    <string name="bento_transfer_pause">Pause</string>
+    <plurals name="bento_transfer_progress">
+        <item quantity="one">%1$d of %2$d file</item>
+        <item quantity="other">%1$d of %2$d files</item>
+    </plurals>
+    <plurals name="bento_transfer_finished_backup">
+        <item quantity="one">Done: %d photo backed up</item>
+        <item quantity="other">Done: %d photos backed up</item>
+    </plurals>
+    <string name="bento_attention_title">Bento needs your attention</string>
+    <string name="bento_attention_text">Open Bento to review it.</string>
+    <string name="bento_device_request_title">A new device wants to join</string>
+    <string name="bento_device_added_title">“%1$s” was added</string>
+    <string name="bento_device_review_text">Tap to review it.</string>
+</resources>
