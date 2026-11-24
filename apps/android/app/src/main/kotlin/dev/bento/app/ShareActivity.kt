@@ -1,47 +1,54 @@
 package dev.bento.app
 
+import android.app.Activity
+import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import dagger.hilt.android.AndroidEntryPoint
-import dev.bento.app.navigation.Placeholder
-import dev.bento.designsystem.theme.BentoShapes
 import dev.bento.designsystem.theme.BentoTheme
 import dev.bento.engine.BentoEngine
+import dev.bento.feature.share.ShareSheetHost
 import javax.inject.Inject
 
 /**
- * Translucent share-target shell (ACTION_SEND / SEND_MULTIPLE). Holds the `ui` holder while visible so the
- * engine is warm; the sheet content (`feature/share`) is agent 40's — it replaces the placeholder below.
+ * Translucent share-target shell (ACTION_SEND / SEND_MULTIPLE / VIEW, Direct Share). Holds the `ui` holder while
+ * visible so the engine is warm; the sheet (`feature/share`) hands the streams over and the activity finishes at once,
+ * without an exit animation, so the sending app is back within 200 ms (product/android.md §4.9).
  */
 @AndroidEntryPoint
 class ShareActivity : ComponentActivity() {
     @Inject lateinit var engine: BentoEngine
 
+    private var shared: Intent? by mutableStateOf(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         lifecycle.addObserver(EngineUiHolder(engine))
+        shared = intent
         setContent {
             BentoTheme {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(BentoShapes.sheet)
-                            .background(BentoTheme.colors.raised)
-                            .padding(24.dp)
-                    ) { Placeholder("Compartir") }
-                }
+                ShareSheetHost(intent = shared, onFinish = ::finishFast)
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        shared = intent
+    }
+
+    private fun finishFast() {
+        finish()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            overrideActivityTransition(Activity.OVERRIDE_TRANSITION_CLOSE, 0, 0)
+        } else {
+            @Suppress("DEPRECATION")
+            overridePendingTransition(0, 0)
         }
     }
 }
