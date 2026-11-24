@@ -23,7 +23,7 @@ Assumption: the repository is currently empty, so agents must create a new Docke
 - `product/`: behavior contracts for every user-facing and backend module.
 - `api/`: HTTP, event, error, and external service contracts.
 - `testing/`: required test strategy, layers, critical journeys, merge gates.
-- `execution/`: build order, parallel workstreams, and agent prompts.
+- `execution/`: build order, parallel workstreams, agent prompts, and local integration/CI (`execution/local-integration.md`, `scripts/local-ci.sh`; GitHub Actions is unavailable).
 
 ## Core Principles
 
