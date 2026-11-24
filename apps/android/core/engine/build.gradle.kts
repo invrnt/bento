@@ -20,6 +20,18 @@ android {
     buildTypes {
         getByName("debug") { buildConfigField("boolean", "ENGINE_DEBUG_TOOLS", "true") }
         getByName("release") { buildConfigField("boolean", "ENGINE_DEBUG_TOOLS", "false") }
+        // The Baseline Profile plugin's variants of the app (never shipped): non-debuggable release code with the
+        // fake cloud, so :baselineprofile and :benchmark can sign in and seed a library (docs/dev/android-performance.md).
+        listOf("nonMinifiedRelease", "benchmarkRelease").forEach { name ->
+            create(name) {
+                initWith(getByName("release"))
+                matchingFallbacks += "release"
+                buildConfigField("boolean", "ENGINE_DEBUG_TOOLS", "false")
+                buildConfigField("boolean", "ENGINE_BENCHMARK_TOOLS", "true")
+            }
+        }
+        getByName("debug") { buildConfigField("boolean", "ENGINE_BENCHMARK_TOOLS", "false") }
+        getByName("release") { buildConfigField("boolean", "ENGINE_BENCHMARK_TOOLS", "false") }
     }
 }
 

@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.bento.hilt)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.roborazzi)
+    alias(libs.plugins.androidx.baselineprofile)
 }
 
 val abis = providers.gradleProperty("bentoAbis").get().split(",").map { it.trim() }.filter { it.isNotEmpty() }
@@ -47,6 +48,14 @@ android {
     }
 }
 
+// Baseline + startup profiles from :baselineprofile (docs/dev/android-performance.md); regenerate on demand only.
+baselineProfile {
+    mergeIntoMain = true
+    saveInSrc = true
+    automaticGenerationDuringBuild = false
+    dexLayoutOptimization = true
+}
+
 roborazzi {
     outputDir.set(layout.projectDirectory.dir("src/test/screenshots"))
 }
@@ -80,6 +89,7 @@ dependencies {
     implementation(libs.androidx.hilt.work)
     implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
     implementation(libs.androidx.profileinstaller)
+    baselineProfile(project(":baselineprofile"))
     implementation(libs.androidx.tracing)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.compose.foundation)
