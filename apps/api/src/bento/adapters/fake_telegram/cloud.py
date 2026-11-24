@@ -160,6 +160,11 @@ class FakeTelegramCloud:
     def chat_log_path(self, chat_id: int) -> Path:
         return self._chat_dir(chat_id) / "chat.json"
 
+    def chat_signature(self, chat_id: int) -> tuple[int, int, int] | None:
+        """Changes whenever the chat changes (cheap activity check; works for remote clouds too)."""
+        signature = store.stat_signature(self.chat_log_path(chat_id))
+        return None if signature is None else (signature[0], signature[1], signature[2])
+
     def document_path(self, chat_id: int, message_id: int) -> Path:
         message = self.message(chat_id, message_id)
         if message is None or message.media is None:

@@ -98,7 +98,7 @@ class FakeVaultTransport:
         baseline: dict[int, int] = {}
         signatures: dict[int, tuple[int, int, int] | None] = {}
         for channel_id in channels:
-            signatures[channel_id] = store.stat_signature(self._cloud.chat_log_path(channel_id))
+            signatures[channel_id] = await self._session.run(self._cloud.chat_signature, channel_id)
             current = await self._session.run(self._cloud.last_message_id, channel_id)
             baseline[channel_id] = self._seen.get(channel_id, current)
             if current > baseline[channel_id]:
@@ -108,7 +108,7 @@ class FakeVaultTransport:
         while (remaining := deadline - loop.time()) > 0:
             await asyncio.sleep(min(self._session.options.poll_interval_seconds, remaining))
             for channel_id in channels:
-                signature = store.stat_signature(self._cloud.chat_log_path(channel_id))
+                signature = await self._session.run(self._cloud.chat_signature, channel_id)
                 if signature == signatures[channel_id]:
                     continue
                 signatures[channel_id] = signature

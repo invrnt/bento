@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     runtime_mode: Literal["headless", "desktop"] = Field(
         default="headless", validation_alias=AliasChoices("BENTO_RUNTIME_MODE", "runtime_mode")
     )
+    platform: Literal["auto", "android"] = Field(
+        default="auto", validation_alias=AliasChoices("BENTO_PLATFORM", "platform")
+    )
+    device_name: str = Field(default="", validation_alias=AliasChoices("BENTO_DEVICE_NAME", "device_name"))
     storage_backend: Literal["local", "telegram", "fake"] = "telegram"
     host: str = "127.0.0.1"
     api_port: int = Field(default=8000, ge=1, le=65535)
@@ -39,7 +43,7 @@ class Settings(BaseSettings):
     telegram_api_hash: str | None = Field(
         default=None, repr=False, validation_alias=AliasChoices("BENTO_TELEGRAM_API_HASH", "telegram_api_hash")
     )
-    ocr_provider: Literal["disabled", "mock", "rapidocr"] = Field(
+    ocr_provider: Literal["disabled", "mock", "rapidocr", "mlkit"] = Field(
         default="disabled", validation_alias=AliasChoices("OCR_PROVIDER", "BENTO_OCR_PROVIDER", "ocr_provider")
     )
     embeddings_provider: Literal["disabled", "mock", "jina"] = Field(
@@ -93,8 +97,23 @@ class Settings(BaseSettings):
         le=1_000_000,
         validation_alias=AliasChoices("BENTO_BACKUP_BANDWIDTH_LIMIT_KBPS", "backup_bandwidth_limit_kbps"),
     )
+    backup_wifi_only: bool = Field(
+        default=False, validation_alias=AliasChoices("BENTO_BACKUP_WIFI_ONLY", "backup_wifi_only")
+    )
+    backup_videos_on_metered: bool = Field(
+        default=False, validation_alias=AliasChoices("BENTO_BACKUP_VIDEOS_ON_METERED", "backup_videos_on_metered")
+    )
+    backup_only_charging: bool = Field(
+        default=False, validation_alias=AliasChoices("BENTO_BACKUP_ONLY_CHARGING", "backup_only_charging")
+    )
+    ocr_requires_charging: bool = Field(
+        default=False, validation_alias=AliasChoices("BENTO_OCR_REQUIRES_CHARGING", "ocr_requires_charging")
+    )
     fake_telegram_dir: str = Field(
         default="", validation_alias=AliasChoices("BENTO_FAKE_TELEGRAM_DIR", "fake_telegram_dir")
+    )
+    fake_telegram_url: str = Field(
+        default="", validation_alias=AliasChoices("BENTO_FAKE_TELEGRAM_URL", "fake_telegram_url")
     )
     _settings_snapshot: EffectiveSettingsSnapshot | None = PrivateAttr(default=None)
 
@@ -102,6 +121,8 @@ class Settings(BaseSettings):
     def _fake_backend_is_development_only(self) -> Settings:
         if self.storage_backend == "fake" and self.environment == "production":
             raise ValueError("The fake Telegram backend cannot be used in production")
+        if self.fake_telegram_url.strip() and self.environment == "production":
+            raise ValueError("The remote fake Telegram cloud cannot be used in production")
         return self
 
     @property
@@ -222,8 +243,21 @@ def deserialize_setting_value(key: str, value: str) -> Any:
         return value
 
 
+_installed: Settings | None = None
+
+
+def install_settings(settings: Settings | None) -> None:
+    """Make `get_settings()` return `settings` for the whole process (embedded hosts such as the Android engine
+    build `Settings` explicitly: no environment, no `.env`). `None` restores environment-based loading."""
+    global _installed
+    _installed = settings
+    get_settings.cache_clear()
+
+
 @lru_cache
 def get_settings() -> Settings:
+    if _installed is not None:
+        return _installed
     dotenv = {key: value for key, value in dotenv_values(".env").items() if value is not None}
     runtime_mode = os.environ.get("BENTO_RUNTIME_MODE", dotenv.get("BENTO_RUNTIME_MODE", "headless"))
     # Desktop imports legacy files deliberately through the preview/apply contract.

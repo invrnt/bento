@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from bento.adapters.backup.pipeline import ACTIVE_JOB_STATUSES, job_payload_value
 from bento.adapters.repositories.mappers import aware, require_aware
 from bento.adapters.settings import SQLiteSettingsRepository
-from bento.domain.backup import BackupFile, BackupFileState, BackupPolicy, BackupSource
+from bento.domain.backup import BackupFile, BackupFileState, BackupPolicy, BackupSource, BackupSourceKind
 from bento.domain.errors import SettingsRevisionConflictError, SettingsSourceLockedError
 from bento.domain.jobs import JobStatus, JobType
 from bento.infrastructure.db.engine import session_scope
@@ -59,6 +59,8 @@ class SQLiteBackupSourceRepository:
                     updated_at=source.updated_at,
                     last_scan_at=source.last_scan_at,
                     error_code=source.error_code,
+                    kind=source.kind.value,
+                    bucket_id=source.bucket_id,
                 )
             )
 
@@ -319,6 +321,8 @@ def _source_from_model(model: BackupSourceModel) -> BackupSource:
         updated_at=require_aware(model.updated_at),
         last_scan_at=aware(model.last_scan_at),
         error_code=model.error_code,
+        kind=BackupSourceKind(model.kind or BackupSourceKind.FOLDER.value),
+        bucket_id=model.bucket_id,
     )
 
 
@@ -333,6 +337,7 @@ def _file_from_model(model: BackupFileModel) -> BackupFile:
         sha256=model.sha256,
         asset_id=model.asset_id,
         error_code=model.error_code,
+        source_key=model.source_key,
     )
 
 
@@ -347,6 +352,7 @@ def _file_to_model(file: BackupFile) -> BackupFileModel:
         state=file.state.value,
         error_code=file.error_code,
         updated_at=file.updated_at,
+        source_key=file.source_key,
     )
 
 

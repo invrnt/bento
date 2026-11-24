@@ -96,12 +96,15 @@ def device_session_factory(settings: Settings) -> sessionmaker[Session]:
 
 
 def local_device_info(settings: Settings) -> LocalDeviceInfo:
-    platform, label = _platform()
+    platform, label = _platform(settings)
     hostname = socket.gethostname().split(".", 1)[0].strip() or "Bento"
-    return LocalDeviceInfo(name=f"{hostname} · {label}"[:64], platform=platform, app_version=settings.app_version)
+    name = settings.device_name.strip() or f"{hostname} · {label}"
+    return LocalDeviceInfo(name=name[:64], platform=platform, app_version=settings.app_version)
 
 
-def _platform() -> tuple[DevicePlatform, str]:
+def _platform(settings: Settings) -> tuple[DevicePlatform, str]:
+    if settings.platform == "android" or sys.platform == "android":
+        return DevicePlatform.ANDROID, "Android"
     if sys.platform.startswith("linux"):
         return DevicePlatform.LINUX, "Linux"
     if sys.platform == "darwin":
@@ -303,15 +306,18 @@ async def _respond(request: Request, call: Awaitable[PairingView]) -> PairingRes
 def pairing_response(view: PairingView, *, site_url: str = "") -> PairingResponse:
     session = view.session
     code = session.code
+    # With a public site configured, the link (and the QR) is the verified https App Link; else the custom scheme.
+    web_link = code.web_link(site_url) if code is not None and site_url.strip() else None
+    link = web_link or (code.link() if code is not None else None)
     return PairingResponse(
         id=session.id,
         role=session.role.value,
         transport=session.transport.value,
         state=session.state.value,
         code=code.format() if code is not None else None,
-        link=code.link() if code is not None else None,
-        web_link=code.web_link(site_url) if code is not None and site_url.strip() else None,
-        qr=qr_matrix(code.link()) if code is not None else None,
+        link=link,
+        web_link=web_link,
+        qr=qr_matrix(link) if link is not None else None,
         expires_at=session.expires_at.isoformat(),
         peer=PairingPeerResponse(device_name=session.peer.device_name, platform=session.peer.platform)
         if session.peer is not None

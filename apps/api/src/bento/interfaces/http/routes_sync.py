@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from datetime import datetime
 
 from fastapi import APIRouter, Request
@@ -44,6 +46,8 @@ class SyncStatusResponse(BaseModel):
     bootstrap: SyncBootstrapResponse | None
     waiting_until: str | None
     error: SyncErrorResponse | None
+    # Jobs held back by device conditions, by reason (`offline|thermal|battery|charging|wifi`); empty off Android.
+    waiting: dict[str, int] = {}
 
 
 class SyncNowResponse(BaseModel):
@@ -52,8 +56,23 @@ class SyncNowResponse(BaseModel):
 
 @router.get("/status", response_model=SyncStatusResponse)
 async def sync_status(request: Request) -> SyncStatusResponse:
-    status = await get_sync_status_provider(_settings(request)).status()
-    return _status_response(status)
+    settings = _settings(request)
+    status = await get_sync_status_provider(settings).status()
+    response = _status_response(status)
+    response.waiting = await _waiting(request, settings)
+    return response
+
+
+async def _waiting(request: Request, settings: Any) -> dict[str, int]:
+    from bento.infrastructure import services
+
+    deferral = services.get_job_eligibility(settings).current()
+    if deferral.empty:
+        return {}
+    from bento.interfaces.http.routes_content import pipeline
+
+    backlog = await pipeline(request).jobs.backlog(deferral=deferral)
+    return {reason.value: count for reason, count in backlog.deferred.items()}
 
 
 @router.post("/now", response_model=SyncNowResponse)

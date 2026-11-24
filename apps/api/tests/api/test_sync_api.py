@@ -38,6 +38,7 @@ def test_sync_is_disabled_for_local_storage(tmp_path: Path) -> None:
         "bootstrap": None,
         "waiting_until": None,
         "error": None,
+        "waiting": {},  # nothing is held back by device conditions off Android
     }
     assert client.post("/api/sync/now").json() == {"accepted": False}
 

@@ -1,4 +1,8 @@
-"""`FolderWatcherPort` on watchdog; events arrive on watchdog's thread and are debounced by the caller."""
+"""`FolderWatcherPort` on watchdog; events arrive on watchdog's thread and are debounced by the caller.
+
+watchdog is imported on first use only: the module stays importable where watchdog is not installed
+(the Android profile, which watches MediaStore instead).
+"""
 
 from __future__ import annotations
 
@@ -7,26 +11,35 @@ import threading
 from collections.abc import Callable
 from typing import Any
 
-from watchdog.events import FileSystemEventHandler
-
 from bento.adapters.backup.scanner import is_ignored_name
 
 _IGNORED_EVENT_TYPES = frozenset({"opened", "closed_no_write"})
 
 
-class _SourceEventHandler(FileSystemEventHandler):
-    def __init__(self, source_id: str, on_change: Callable[[str, str], None]) -> None:
-        super().__init__()
-        self._source_id = source_id
-        self._on_change = on_change
+_handler_class: type | None = None
 
-    def dispatch(self, event: Any) -> None:
-        if getattr(event, "event_type", "") in _IGNORED_EVENT_TYPES:
-            return
-        for raw in (getattr(event, "src_path", ""), getattr(event, "dest_path", "")):
-            path = os.fsdecode(raw) if raw else ""
-            if path and not is_ignored_name(os.path.basename(path)):
-                self._on_change(self._source_id, path)
+
+def _source_event_handler(source_id: str, on_change: Callable[[str, str], None]) -> Any:
+    global _handler_class
+    if _handler_class is None:
+        from watchdog.events import FileSystemEventHandler
+
+        class _SourceEventHandler(FileSystemEventHandler):  # type: ignore[misc]
+            def __init__(self, source_id: str, on_change: Callable[[str, str], None]) -> None:
+                super().__init__()
+                self._source_id = source_id
+                self._on_change = on_change
+
+            def dispatch(self, event: Any) -> None:
+                if getattr(event, "event_type", "") in _IGNORED_EVENT_TYPES:
+                    return
+                for raw in (getattr(event, "src_path", ""), getattr(event, "dest_path", "")):
+                    path = os.fsdecode(raw) if raw else ""
+                    if path and not is_ignored_name(os.path.basename(path)):
+                        self._on_change(self._source_id, path)
+
+        _handler_class = _SourceEventHandler
+    return _handler_class(source_id, on_change)
 
 
 class WatchdogFolderWatcher:
@@ -46,7 +59,7 @@ class WatchdogFolderWatcher:
                 observer.unschedule(current[1])
             self._watches.pop(source_id, None)
             # OSError (missing folder, inotify limits) propagates so the caller retries later.
-            watch = observer.schedule(_SourceEventHandler(source_id, on_change), path, recursive=True)
+            watch = observer.schedule(_source_event_handler(source_id, on_change), path, recursive=True)
             self._watches[source_id] = (path, watch)
 
     def unwatch(self, source_id: str) -> None:

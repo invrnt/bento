@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Protocol
 
@@ -47,6 +48,8 @@ class UploadedAssetFile:
     allow_duplicate: bool = True
     folder_resolver: Callable[[AssetMode], Awaitable[str | None]] | None = None
     origin: AssetOrigin = AssetOrigin.DEVICE
+    # Capture time known to the source (MediaStore `DATE_TAKEN`) when the file itself carries none.
+    taken_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,7 +87,7 @@ class AssetIngestionService:
                 sha256=metadata.sha256,
                 folder_id=file.folder_id,
                 mode=file.mode,
-                taken_at=metadata.taken_at,
+                taken_at=metadata.taken_at or file.taken_at,
                 exif=metadata.exif,
                 allow_duplicate=file.allow_duplicate,
                 ocr_enabled=False,

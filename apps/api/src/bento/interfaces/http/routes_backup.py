@@ -1,21 +1,29 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from bento.domain.backup import BackupPolicy, BackupSource
-from bento.domain.errors import DomainError
+from bento.domain.backup import BackupPolicy, BackupSource, BackupSuggestion
+from bento.domain.jobs import JobType
+from bento.domain.errors import BackupSourceInvalidError, DomainError
 from bento.interfaces.http.routes_content import error_response, pipeline
 
 router = APIRouter()
+_BACKUP_JOB_TYPES = frozenset({JobType.BACKUP_SCAN, JobType.BACKUP_UPLOAD, JobType.REMOTE_UPLOAD})
 
 
 class BackupSourceCreateRequest(BaseModel):
-    path: str = Field(min_length=1, max_length=4096)
+    kind: Literal["folder", "media_store"] = "folder"
+    path: str | None = Field(default=None, min_length=1, max_length=4096)
+    bucket_id: str | None = Field(default=None, min_length=1, max_length=64)
     label: str | None = Field(default=None, max_length=255)
+
+
+class FreeUpSpaceConfirmRequest(BaseModel):
+    media_ids: list[str] = Field(max_length=10_000)
 
 
 class BackupSourcePatchRequest(BaseModel):
@@ -45,7 +53,14 @@ async def list_backup_sources(request: Request) -> dict[str, Any] | JSONResponse
 @router.post("/backup/sources", response_model=None)
 async def add_backup_source(request: Request, body: BackupSourceCreateRequest) -> dict[str, Any] | JSONResponse:
     try:
-        return _source(await pipeline(request).backup.add_source(body.path, body.label))
+        backup = pipeline(request).backup
+        if body.kind == "media_store":
+            if not body.bucket_id:
+                raise BackupSourceInvalidError("invalid_bucket")
+            return _source(await backup.add_media_source(body.bucket_id, body.label))
+        if not body.path:
+            raise BackupSourceInvalidError("invalid_path")
+        return _source(await backup.add_source(body.path, body.label))
     except DomainError as exc:
         return error_response(request, exc)
 
@@ -82,7 +97,7 @@ async def scan_backup_source(source_id: str, request: Request) -> dict[str, Any]
 async def backup_suggestions(request: Request) -> dict[str, Any] | JSONResponse:
     try:
         items = await pipeline(request).backup.suggestions()
-        return {"items": [{"path": item.path, "label": item.label, "kind": item.kind.value} for item in items]}
+        return {"items": [_suggestion(item) for item in items]}
     except DomainError as exc:
         return error_response(request, exc)
 
@@ -116,9 +131,88 @@ async def report_power(request: Request, body: BackupPowerRequest) -> dict[str, 
         return error_response(request, exc)
 
 
+@router.get("/backup/status", response_model=None)
+async def backup_status(request: Request) -> dict[str, Any] | JSONResponse:
+    """Phone-backup header: pending work, what it waits for, today's progress, and media access."""
+    try:
+        from bento.domain.device import WaitReason
+        from bento.infrastructure import services
+
+        components = pipeline(request)
+        settings = request.app.state.settings
+        backlog = await components.jobs.backlog(
+            types=_BACKUP_JOB_TYPES, deferral=services.get_job_eligibility(settings).current()
+        )
+        summary = await components.backup.media_summary()
+        last = summary["last_backup_at"]
+        return {
+            "pending": await components.backup.pending_files() + backlog.remaining,
+            "waiting": {reason.value: backlog.deferred.get(reason, 0) for reason in WaitReason},
+            "uploaded_today": summary["uploaded_today"],
+            "last_backup_at": last.isoformat() if last is not None else None,  # type: ignore[union-attr]
+            "partial_access": summary["partial_access"],
+            "location_access": summary["location_access"],
+        }
+    except DomainError as exc:
+        return error_response(request, exc)
+
+
+@router.post("/backup/run-now", status_code=202, response_model=None)
+async def backup_run_now(request: Request) -> dict[str, Any] | JSONResponse:
+    """"Respaldar ahora": lifts the Wi-Fi rule for the current backlog (battery and thermal rules still apply)."""
+    try:
+        from bento.adapters.device_state import SQLiteRunNowState
+        from bento.infrastructure.db.clock import SystemClock
+        from bento.infrastructure.db.engine import create_app_session_factory
+
+        components = pipeline(request)
+        SQLiteRunNowState(create_app_session_factory(request.app.state.settings), SystemClock()).request()
+        await components.backup.enqueue_scans_for_all()
+        await components.backup.ensure_upload_job()
+        backlog = await components.jobs.backlog(types=_BACKUP_JOB_TYPES)
+        return {"accepted": True, "pending": await components.backup.pending_files() + backlog.remaining}
+    except DomainError as exc:
+        return error_response(request, exc)
+
+
+@router.get("/backup/free-up-space/preview", response_model=None)
+async def free_up_space_preview(request: Request, source_id: str | None = None) -> dict[str, Any] | JSONResponse:
+    try:
+        preview = await pipeline(request).backup.free_up_space_preview(source_id)
+        return {
+            "items": [
+                {"asset_id": item.asset_id, "media_id": item.media_id, "size_bytes": item.size_bytes} for item in preview.items
+            ],
+            "total_bytes": preview.total_bytes,
+            "count": len(preview.items),
+        }
+    except DomainError as exc:
+        return error_response(request, exc)
+
+
+@router.post("/backup/free-up-space/confirm", response_model=None)
+async def free_up_space_confirm(request: Request, body: FreeUpSpaceConfirmRequest) -> dict[str, Any] | JSONResponse:
+    try:
+        freed = await pipeline(request).backup.free_up_space_confirm(tuple(str(item)[:64] for item in body.media_ids))
+        return {"freed": freed}
+    except DomainError as exc:
+        return error_response(request, exc)
+
+
+def _suggestion(item: BackupSuggestion) -> dict[str, Any]:
+    body: dict[str, Any] = {"path": item.path, "label": item.label, "kind": item.kind.value}
+    if item.bucket_id is not None:
+        body.update(
+            {"id": item.bucket_id, "name": item.label, "count": item.count or 0, "sample_asset_hint": None, "suggested": item.suggested}
+        )
+    return body
+
+
 def _source(source: BackupSource) -> dict[str, Any]:
     return {
         "id": source.id,
+        "kind": source.kind.value,
+        "bucket_id": source.bucket_id,
         "path": source.path,
         "label": source.label,
         "enabled": source.enabled,

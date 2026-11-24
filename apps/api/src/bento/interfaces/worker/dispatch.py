@@ -9,6 +9,8 @@ from bento.application.indexing.embedding import EmbeddingIndexingService
 from bento.application.indexing import OCRIndexingService
 from bento.application.indexing.reindex import ReindexService
 from bento.application.media import PROCESSING_JOB_TYPES, MediaProcessingService, ProcessingCompletionService
+from bento.application.work_budget import WorkBudgetExceeded
+from bento.domain.device import JobDeferral
 from bento.domain.jobs import Job, JobStatus, JobType
 from bento.ports.jobs import JobQueuePort
 from bento.ports.repositories import ClockPort
@@ -35,12 +37,25 @@ class WorkerDispatcher:
     processing: ProcessingCompletionService | None = None
     reindex: ReindexService | None = None
 
-    async def process_one(self) -> bool:
-        job = await self.jobs.claim_next(self.worker_id)
+    async def process_one(
+        self, *, types: frozenset[JobType] | None = None, deferral: JobDeferral | None = None
+    ) -> bool:
+        """Claim and run one job. `types`/`deferral` narrow what may be claimed (only passed when set, so queues
+        without selective claiming keep working). Raises `WorkBudgetExceeded` after requeueing a job that stopped
+        at a safe boundary past its deadline."""
+        selection: dict[str, object] = {}
+        if types is not None:
+            selection["types"] = types
+        if deferral is not None and not deferral.empty:
+            selection["deferral"] = deferral
+        job = await self.jobs.claim_next(self.worker_id, **selection)  # type: ignore[call-arg]
         if job is None:
             return False
         try:
             await self._handle(job)
+        except WorkBudgetExceeded:
+            await self.jobs.save(job.release(self.clock.now()))
+            raise
         except Exception as exc:
             safe_error = _safe_error(exc)
             LOGGER.warning("Job %s failed: %s", job.id, safe_error)
