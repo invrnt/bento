@@ -82,7 +82,14 @@ class MediaStoreSuggestions:
 
     def suggestions(self) -> tuple[BackupSuggestion, ...]:
         return tuple(
-            BackupSuggestion(path=f"{MEDIA_STORE_PREFIX}{bucket.bucket_id}", label=bucket.name, kind=BackupSuggestionKind.PICTURES)
+            BackupSuggestion(
+                path=f"{MEDIA_STORE_PREFIX}{bucket.bucket_id}",
+                label=bucket.name,
+                kind=BackupSuggestionKind.MEDIA_STORE,
+                bucket_id=bucket.bucket_id,
+                count=bucket.count,
+                suggested=is_default_bucket(bucket),
+            )
             for bucket in self._library.buckets()
             if bucket.count > 0
         )

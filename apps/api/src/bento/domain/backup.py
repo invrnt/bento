@@ -33,6 +33,7 @@ class BackupSuggestionKind(StrEnum):
     DOCUMENTS = "documents"
     DESKTOP = "desktop"
     DOWNLOADS = "downloads"
+    MEDIA_STORE = "media_store"
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,6 +75,10 @@ class BackupSuggestion:
     path: str
     label: str
     kind: BackupSuggestionKind
+    # MediaStore buckets (Android): bucket id, item count, and whether it is on by default (Camera, Screenshots).
+    bucket_id: str | None = None
+    count: int | None = None
+    suggested: bool = False
 
 
 @dataclass(frozen=True, slots=True)

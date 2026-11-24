@@ -28,8 +28,9 @@ def test_backup_sources_crud_and_validation(tmp_path: Path) -> None:
     body = created.json()
     assert set(body) == {
         "id", "path", "label", "enabled", "state", "files_total", "files_done",
-        "files_pending", "bytes_pending", "last_scan_at", "error",
+        "files_pending", "bytes_pending", "last_scan_at", "error", "kind", "bucket_id",
     }
+    assert body["kind"] == "folder" and body["bucket_id"] is None
     assert body["label"] == "Imágenes" and body["enabled"] is True and body["state"] == "scanning"
 
     for path, reason in (

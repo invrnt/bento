@@ -28,7 +28,7 @@ from bento.adapters.backup.repositories import (
     SQLiteFolderLookup,
 )
 from bento.adapters.backup.scanner import LocalFolderScanner
-from bento.adapters.backup.suggestions import OsBackupSuggestions
+from bento.adapters.backup.media import LocalMediaStaging, SQLiteMediaBackupCatalog
 from bento.adapters.backup.trash import SQLiteTrashRepository
 from bento.adapters.jobs import SQLiteJobQueue
 from bento.adapters.manifest import SQLiteManifestJournal
@@ -55,6 +55,7 @@ from bento.domain.settings import SettingSource
 from bento.domain.storage import StorageBackend
 from bento.domain.sync import SyncStatus
 from bento.domain.vault import VaultStatus
+from bento.infrastructure import services
 from bento.infrastructure.db.clock import SystemClock
 from bento.infrastructure.db.engine import create_app_session_factory
 from bento.infrastructure.settings import Settings
@@ -200,7 +201,7 @@ def build_storage_pipeline(
         sources=SQLiteBackupSourceRepository(factory),
         files=SQLiteBackupFileRepository(factory),
         policy=policy,
-        suggestions=OsBackupSuggestions(),
+        suggestions=services.get_backup_suggestions(settings),
         scanner=LocalFolderScanner(),
         jobs=jobs,
         job_state=backup_jobs,
@@ -210,6 +211,10 @@ def build_storage_pipeline(
         ingestion=ingestion,
         folders=SQLiteFolderLookup(factory),
         folder_creator=drive,
+        media=services.get_media_library(settings),
+        media_staging=LocalMediaStaging(data_dir / "uploads" / "phone"),
+        media_catalog=SQLiteMediaBackupCatalog(factory),
+        device_name=_device_name(settings),
     )
     trash = TrashService(
         catalog=SQLiteTrashRepository(factory, clock, retention_days=settings.trash_retention_days),
@@ -268,6 +273,12 @@ def build_storage_pipeline(
     )
     holder["components"] = components
     return components
+
+
+def _device_name(settings: Settings) -> str:
+    from bento.infrastructure.mtproto.wiring import device_description
+
+    return device_description(settings).name
 
 
 def _locked_backup_settings(settings: Settings) -> dict[str, object]:

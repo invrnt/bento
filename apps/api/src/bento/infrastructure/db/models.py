@@ -337,11 +337,16 @@ class BackupSourceModel(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_scan_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error_code: Mapped[str | None] = mapped_column(String(64))
+    kind: Mapped[str] = mapped_column(String(16), nullable=False, default="folder", server_default="folder")
+    bucket_id: Mapped[str | None] = mapped_column(String(64))
 
 
 class BackupFileModel(Base):
     __tablename__ = "backup_files"
-    __table_args__ = (Index("ix_backup_files_state", "state"),)
+    __table_args__ = (
+        Index("ix_backup_files_state", "state"),
+        Index("ix_backup_files_source_key", "source_id", "source_key"),
+    )
 
     source_id: Mapped[str] = mapped_column(ForeignKey("backup_sources.id", ondelete="CASCADE"), primary_key=True)
     relative_path: Mapped[str] = mapped_column(String(4096), primary_key=True)
@@ -352,6 +357,7 @@ class BackupFileModel(Base):
     state: Mapped[str] = mapped_column(String(16), nullable=False)
     error_code: Mapped[str | None] = mapped_column(String(64))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    source_key: Mapped[str | None] = mapped_column(String(64))
 
 
 class UploadSessionModel(Base):
@@ -383,6 +389,7 @@ class CacheEntryModel(Base):
     path: Mapped[str] = mapped_column(String(4096), nullable=False)
     size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
     last_accessed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    pinned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("0"))
 
 
 class InboxItemModel(Base):

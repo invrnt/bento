@@ -8,8 +8,9 @@ import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field, replace
 from datetime import timedelta
+from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
-from typing import Protocol
+from typing import BinaryIO, Protocol
 
 from bento.application.drive import CreateFolderCommand
 from bento.application.ingestion.assets import UploadedAssetFile
@@ -20,17 +21,22 @@ from bento.domain.backup import (
     BackupFileState,
     BackupPolicy,
     BackupSource,
+    BackupSourceKind,
     BackupSourceState,
     BackupSuggestion,
+    MediaItem,
 )
 from bento.domain.drive import Folder
 from bento.domain.errors import BackupSourceInvalidError, DomainError, ValidationFailedError
 from bento.domain.jobs import JobStatus, JobType
-from bento.ports.backup import BackupPolicyRepositoryPort, BackupSourceRepositoryPort, BackupSuggestionsPort
+from bento.application.work_budget import check_safe_boundary
+from bento.ports.backup import BackupPolicyRepositoryPort, BackupSourceRepositoryPort, BackupSuggestionsPort, MediaLibraryPort
 from bento.ports.jobs import JobQueuePort
 from bento.ports.repositories import ClockPort
 
 BACKUP_ROOT_FOLDER = "Respaldo"
+PHONE_ROOT_FOLDER = "Del teléfono"
+MEDIA_STORE_PREFIX = "media_store:"
 BACKUP_SCAN_PRIORITY = 5
 BACKUP_UPLOAD_PRIORITY = 6
 BACKUP_UPLOAD_BATCH = 20
@@ -121,6 +127,48 @@ class FolderCreatorPort(Protocol):
 
 class BackupIngestionPort(Protocol):
     async def upload_file(self, file: UploadedAssetFile) -> UploadAssetResult: ...
+
+
+class MediaStagingPort(Protocol):
+    """Streams phone media once: hashing for dedupe, or copying into a staging file for local-first ingest."""
+
+    def sha256(self, stream: BinaryIO) -> str: ...
+
+    def stage(self, stream: BinaryIO, filename: str) -> Path: ...
+
+
+class MediaBackupCatalogPort(Protocol):
+    async def asset_for_sha256(self, sha256: str) -> str | None:
+        """A live asset with this content (from any device), or None."""
+        ...
+
+    async def done_media_files(self, source_ids: tuple[str, ...]) -> tuple[BackupFile, ...]: ...
+
+    async def verified_originals(self, asset_ids: tuple[str, ...]) -> dict[str, str]:
+        """Asset id -> plaintext sha256 for assets whose original has a confirmed remote copy."""
+        ...
+
+    async def mark_freed(self, source_ids: tuple[str, ...], media_ids: tuple[str, ...]) -> int: ...
+
+    async def summary(self, since: datetime) -> tuple[int, datetime | None]:
+        """(files done since `since`, last time any file finished)."""
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class FreeUpSpaceItem:
+    asset_id: str
+    media_id: str
+    size_bytes: int
+
+
+@dataclass(frozen=True, slots=True)
+class FreeUpSpacePreview:
+    items: tuple[FreeUpSpaceItem, ...]
+
+    @property
+    def total_bytes(self) -> int:
+        return sum(item.size_bytes for item in self.items)
 
 
 @dataclass(frozen=True, slots=True)
@@ -245,7 +293,16 @@ class BackupService:
         folder_creator: FolderCreatorPort | None = None,
         settle_seconds: float = SETTLE_SECONDS,
         wall_clock: Callable[[], float] = time.time,
+        media: MediaLibraryPort | None = None,
+        media_staging: MediaStagingPort | None = None,
+        media_catalog: MediaBackupCatalogPort | None = None,
+        device_name: str = "",
     ) -> None:
+        self._media = media
+        self._media_staging = media_staging
+        self._media_catalog = media_catalog
+        self._device_name = device_name
+        self._media_items: dict[str, dict[str, MediaItem]] = {}
         self._settle_seconds = settle_seconds
         self._wall_clock = wall_clock
         self._sources = sources
@@ -292,6 +349,36 @@ class BackupService:
             updated_at=now,
         )
         await self._sources.save(source)
+        await self.enqueue_scan(source.id)
+        return await self.get_source(source.id)
+
+    async def add_media_source(self, bucket_id: str, label: str | None = None) -> BackupSource:
+        """Back up a MediaStore bucket into `Del teléfono/<device name>/<bucket name>` (Android)."""
+        if self._media is None:
+            raise BackupSourceInvalidError("media_store_unavailable")
+        bucket_id = (bucket_id or "").strip()
+        if not bucket_id or len(bucket_id) > 64:
+            raise BackupSourceInvalidError("invalid_bucket")
+        buckets = {bucket.bucket_id: bucket for bucket in await asyncio.to_thread(self._media.buckets)}
+        bucket = buckets.get(bucket_id)
+        if bucket is None:
+            raise BackupSourceInvalidError("not_found")
+        path = f"{MEDIA_STORE_PREFIX}{bucket_id}"
+        if any(source.path == path for source in await self._sources.list()):
+            raise BackupSourceInvalidError("duplicate")
+        now = self._clock.now()
+        source = BackupSource(
+            id=self._new_id(),
+            path=path,
+            label=_clean_label(label) or _clean_label(bucket.name) or "Fotos",
+            enabled=True,
+            created_at=now,
+            updated_at=now,
+            kind=BackupSourceKind.MEDIA_STORE,
+            bucket_id=bucket_id,
+        )
+        await self._sources.save(source)
+        await self._media_folder(source)
         await self.enqueue_scan(source.id)
         return await self.get_source(source.id)
 
@@ -415,6 +502,8 @@ class BackupService:
             return ScanSummary(skipped=True)
         if (await self._policy.get()).effective_paused:
             return ScanSummary(skipped=True)
+        if source.kind == BackupSourceKind.MEDIA_STORE:
+            return await self._scan_media(source, retry_failed=retry_failed)
         root = Path(source.path)
         try:
             info = await asyncio.to_thread(self._scanner.inspect, source.path)
@@ -494,6 +583,7 @@ class BackupService:
             source = sources.get(file.source_id)
             if source is None or not source.enabled:
                 continue
+            check_safe_boundary()  # bounded runs stop between files; the rest stays pending
             outcome = await self._upload_one(source, file)
             if outcome is None:
                 unsettled += 1
@@ -510,6 +600,8 @@ class BackupService:
     async def _upload_one(self, source: BackupSource, file: BackupFile) -> BackupFileState | None:
         """Resulting state, or None when the file is still being written and must wait."""
         assert self._ingestion is not None
+        if source.kind == BackupSourceKind.MEDIA_STORE:
+            return await self._upload_media(source, file)
         root = Path(source.path)
         current = await asyncio.to_thread(self._scanner.stat, root, file.relative_path)
         if current is None:
@@ -569,6 +661,213 @@ class BackupService:
             parent_id = existing
         return parent_id
 
+    # Phone media (MediaStore) ------------------------------------------------------------------------
+
+    async def _scan_media(self, source: BackupSource, *, retry_failed: bool) -> ScanSummary:
+        if self._media is None or source.bucket_id is None:
+            await self._sources.save(replace(source, error_code="source_unavailable", updated_at=self._clock.now()))
+            return ScanSummary(skipped=True)
+        try:
+            items = await asyncio.to_thread(lambda: list(self._media.scan(source.bucket_id)))  # type: ignore[union-attr,arg-type]
+        except Exception:  # noqa: BLE001 - bridge failures (permission revoked) surface as a source error
+            await self._sources.save(replace(source, error_code="source_unavailable", updated_at=self._clock.now()))
+            return ScanSummary(skipped=True)
+        self._media_items[source.id] = {item.media_id: item for item in items}
+        known = await self._files.snapshot(source.id)
+        by_key = {file.source_key: file for file in known.values() if file.source_key}
+        now = self._clock.now()
+        changed: list[BackupFile] = []
+        stale_paths: list[str] = []
+        for item in items:
+            existing = by_key.get(item.media_id)
+            relative = _media_relative_path(item)
+            if existing is not None and existing.relative_path != relative:
+                stale_paths.append(existing.relative_path)
+                existing = None
+            scanned = ScannedFile(relative_path=relative, size_bytes=item.size_bytes, mtime_ns=item.change_token)
+            if existing is not None and existing.state == BackupFileState.FREED:
+                continue
+            if needs_upload(existing, scanned, retry_failed=retry_failed):
+                changed.append(
+                    BackupFile(
+                        source_id=source.id,
+                        relative_path=relative,
+                        size_bytes=item.size_bytes,
+                        mtime_ns=item.change_token,
+                        state=BackupFileState.PENDING,
+                        updated_at=now,
+                        source_key=item.media_id,
+                    )
+                )
+        seen = {item.media_id for item in items}
+        vanished = [
+            file.relative_path
+            for file in known.values()
+            if file.source_key not in seen and file.state != BackupFileState.FREED
+        ]
+        if changed:
+            await self._files.save_many(tuple(changed))
+        removed = 0
+        if vanished or stale_paths:
+            removed = await self._files.delete_paths(source.id, tuple(vanished + stale_paths))
+        await self._sources.save(replace(source, last_scan_at=now, error_code=None, updated_at=now))
+        counts = await self._files.counts(source.id)
+        if counts.get(BackupFileState.PENDING.value, 0) or counts.get(BackupFileState.UPLOADING.value, 0):
+            await self.ensure_upload_job()
+        return ScanSummary(queued=len(changed), removed=removed)
+
+    async def _upload_media(self, source: BackupSource, file: BackupFile) -> BackupFileState:
+        """Hash while streaming from the fd; a vault asset with the same sha256 is linked (no upload), otherwise
+        the file is staged and ingested local-first (`origin=device`), then uploads follow by policy."""
+        assert self._ingestion is not None
+        if self._media is None or self._media_staging is None or file.source_key is None:
+            await self._files.save_many((replace(file, state=BackupFileState.FAILED, error_code="source_unavailable"),))
+            return BackupFileState.FAILED
+        item = await self._media_item(source, file.source_key)
+        if item is None:
+            await self._files.delete_paths(source.id, (file.relative_path,))
+            return BackupFileState.SKIPPED
+        uploading = replace(
+            file,
+            size_bytes=item.size_bytes,
+            mtime_ns=item.change_token,
+            state=BackupFileState.UPLOADING,
+            error_code=None,
+            updated_at=self._clock.now(),
+        )
+        await self._files.save_many((uploading,))
+        require_original = await asyncio.to_thread(self._location_access)
+        staging = self._media_staging
+        media = self._media
+        try:
+            sha256 = await asyncio.to_thread(_with_stream, media, item, require_original, staging.sha256)
+            asset_id = await self._media_catalog.asset_for_sha256(sha256) if self._media_catalog is not None else None
+            if asset_id is None:
+                staged = await asyncio.to_thread(
+                    _with_stream, media, item, require_original, lambda stream: staging.stage(stream, item.display_name)
+                )
+                try:
+                    result = await self._ingestion.upload_file(
+                        UploadedAssetFile(
+                            source_path=staged,
+                            original_filename=item.display_name,
+                            declared_mime_type=item.mime_type,
+                            allow_duplicate=True,
+                            folder_resolver=lambda _mode: self._media_folder(source),
+                            taken_at=_taken_at(item),
+                        )
+                    )
+                finally:
+                    staged.unlink(missing_ok=True)
+                asset_id = result.asset.id
+                sha256 = result.asset.metadata.sha256
+        except DomainError as exc:
+            await self._files.save_many((replace(uploading, state=BackupFileState.FAILED, error_code=exc.code[:64]),))
+            return BackupFileState.FAILED
+        except Exception:  # noqa: BLE001 - unreadable content, revoked permission, bridge failure
+            await self._files.save_many((replace(uploading, state=BackupFileState.FAILED, error_code="source_unreadable"),))
+            return BackupFileState.FAILED
+        await self._files.save_many(
+            (replace(uploading, state=BackupFileState.DONE, sha256=sha256, asset_id=asset_id, updated_at=self._clock.now()),)
+        )
+        return BackupFileState.DONE
+
+    async def _media_item(self, source: BackupSource, media_id: str) -> MediaItem | None:
+        items = self._media_items.get(source.id)
+        if items is None or media_id not in items:
+            if self._media is None or source.bucket_id is None:
+                return None
+            scanned = await asyncio.to_thread(lambda: list(self._media.scan(source.bucket_id)))  # type: ignore[union-attr,arg-type]
+            items = self._media_items[source.id] = {item.media_id: item for item in scanned}
+        return items.get(media_id)
+
+    def _location_access(self) -> bool:
+        try:
+            return bool(self._media is not None and self._media.access().location)
+        except Exception:  # noqa: BLE001
+            return False
+
+    async def _media_folder(self, source: BackupSource) -> str | None:
+        if self._folders is None or self._folder_creator is None:
+            return None
+        parent_id: str | None = None
+        for name in (PHONE_ROOT_FOLDER, self._device_name or "Teléfono", source.label):
+            name = _clean_label(name) or "_"
+            existing = await self._folders.find_child(parent_id, name)
+            if existing is None:
+                existing = (await self._folder_creator.create_folder(CreateFolderCommand(name=name, parent_id=parent_id))).id
+            parent_id = existing
+        return parent_id
+
+    async def free_up_space_preview(self, source_id: str | None = None) -> FreeUpSpacePreview:
+        """Phone originals whose upload is verified: remote copy confirmed and sha256 equal to the local hash."""
+        if self._media is None or self._media_catalog is None:
+            return FreeUpSpacePreview(items=())
+        candidates = await self._verified_media_files(await self._media_source_ids(source_id))
+        present = await asyncio.to_thread(self._media.existing, tuple(file.source_key or "" for file in candidates))
+        return FreeUpSpacePreview(
+            items=tuple(
+                FreeUpSpaceItem(asset_id=file.asset_id or "", media_id=file.source_key or "", size_bytes=file.size_bytes)
+                for file in candidates
+                if file.source_key in present
+            )
+        )
+
+    async def free_up_space_confirm(self, media_ids: tuple[str, ...]) -> int:
+        """Kotlin deleted these originals through `MediaStore.createDeleteRequest`; assets and thumbnails stay."""
+        if self._media_catalog is None or not media_ids:
+            return 0
+        # Only verified items count: an id that was not uploaded and verified is ignored. (They are gone from
+        # MediaStore by now, so presence is not checked here.)
+        source_ids = await self._media_source_ids(None)
+        verified = {file.source_key for file in await self._verified_media_files(source_ids)}
+        accepted = tuple(media_id for media_id in media_ids if media_id in verified)
+        return await self._media_catalog.mark_freed(source_ids, accepted)
+
+    async def _verified_media_files(self, source_ids: tuple[str, ...]) -> list[BackupFile]:
+        assert self._media_catalog is not None
+        files = await self._media_catalog.done_media_files(source_ids)
+        verified = await self._media_catalog.verified_originals(tuple(sorted({f.asset_id for f in files if f.asset_id})))
+        return [
+            file
+            for file in files
+            if file.asset_id and file.source_key and file.sha256 and verified.get(file.asset_id) == file.sha256
+        ]
+
+    async def media_summary(self) -> dict[str, object]:
+        today = self._clock.now().astimezone(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+        uploaded_today, last_backup_at = (
+            await self._media_catalog.summary(today) if self._media_catalog is not None else (0, None)
+        )
+        access = None
+        if self._media is not None:
+            try:
+                access = await asyncio.to_thread(self._media.access)
+            except Exception:  # noqa: BLE001
+                access = None
+        return {
+            "uploaded_today": uploaded_today,
+            "last_backup_at": last_backup_at,
+            "partial_access": bool(access and access.partial and not access.full),
+            "location_access": True if self._media is None else bool(access and access.location),
+        }
+
+    async def pending_files(self) -> int:
+        total = 0
+        for source in await self._sources.list():
+            if source.enabled:
+                counts = await self._files.counts(source.id)
+                total += counts.get(BackupFileState.PENDING.value, 0) + counts.get(BackupFileState.UPLOADING.value, 0)
+        return total
+
+    async def _media_source_ids(self, source_id: str | None) -> tuple[str, ...]:
+        sources = [s for s in await self._sources.list() if s.kind == BackupSourceKind.MEDIA_STORE]
+        if source_id is not None:
+            sources = [s for s in sources if s.id == source_id]
+            if not sources:
+                raise BackupSourceNotFoundError(source_id)
+        return tuple(source.id for source in sources)
+
     # Helpers -----------------------------------------------------------------------------------------
 
     async def _require(self, source_id: str) -> BackupSource:
@@ -611,3 +910,19 @@ def _clean_label(label: str | None) -> str | None:
 
 def _excluded(path: Path, exclude: tuple[Path, ...]) -> bool:
     return any(path == item or path.is_relative_to(item) for item in exclude)
+
+
+def _media_relative_path(item: MediaItem) -> str:
+    name = item.display_name.replace("/", "_").replace("\x00", "").strip() or item.media_id
+    return name[:MAX_LABEL_LENGTH]
+
+
+def _taken_at(item: MediaItem) -> datetime | None:
+    if item.date_taken_ms is None or item.date_taken_ms <= 0:
+        return None
+    return datetime.fromtimestamp(item.date_taken_ms / 1000, tz=UTC)
+
+
+def _with_stream(media: MediaLibraryPort, item: MediaItem, require_original: bool, use: Callable[[BinaryIO], object]) -> object:
+    with media.open(item, require_original=require_original) as stream:
+        return use(stream)
