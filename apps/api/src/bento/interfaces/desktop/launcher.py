@@ -47,6 +47,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_migrations()
     if arguments.command == "probe":
         return _run_probe(arguments)
+    if arguments.command == "fake-telegram-serve":
+        return _run_fake_telegram_serve(arguments)
     raise AssertionError(f"Unhandled command: {arguments.command}")
 
 
@@ -71,6 +73,13 @@ def _parser() -> argparse.ArgumentParser:
         choices=("runtime", "writable-directory", "model-file", "ffmpeg", "ocr", "telegram"),
     )
     probe.add_argument("--path")
+
+    fake = subparsers.add_parser(
+        "fake-telegram-serve", help="development only: serve a fake Telegram cloud directory over HTTP"
+    )
+    fake.add_argument("--dir", required=True, help="fake cloud directory (shared with local processes)")
+    fake.add_argument("--port", type=int, default=0, help="TCP port (0: OS-assigned, printed on stdout)")
+    fake.add_argument("--host", default="127.0.0.1", help="bind address (an emulator reaches the host as 10.0.2.2)")
     return parser
 
 
@@ -148,6 +157,23 @@ def _run_worker() -> int:
 
 def _run_migrations() -> int:
     run_migrations(get_settings(), migrations_dir=_bundle_root() / "migrations")
+    return 0
+
+
+def _run_fake_telegram_serve(arguments: argparse.Namespace) -> int:
+    if os.environ.get("ENVIRONMENT", "local") == "production":
+        raise SystemExit("fake-telegram-serve is not available in production")
+    if not 0 <= arguments.port <= 65535:
+        raise SystemExit("port must be between 0 and 65535")
+    from bento.adapters.fake_telegram.remote import serve
+
+    def ready(port: int) -> None:
+        print(f"BENTO_FAKE_TELEGRAM_READY {json.dumps({'port': port}, separators=(',', ':'))}", flush=True)
+
+    try:
+        serve(Path(arguments.dir).expanduser(), host=arguments.host, port=arguments.port, on_ready=ready)
+    except KeyboardInterrupt:
+        pass
     return 0
 
 

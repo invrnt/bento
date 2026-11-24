@@ -112,12 +112,17 @@ class Settings(BaseSettings):
     fake_telegram_dir: str = Field(
         default="", validation_alias=AliasChoices("BENTO_FAKE_TELEGRAM_DIR", "fake_telegram_dir")
     )
+    fake_telegram_url: str = Field(
+        default="", validation_alias=AliasChoices("BENTO_FAKE_TELEGRAM_URL", "fake_telegram_url")
+    )
     _settings_snapshot: EffectiveSettingsSnapshot | None = PrivateAttr(default=None)
 
     @model_validator(mode="after")
     def _fake_backend_is_development_only(self) -> Settings:
         if self.storage_backend == "fake" and self.environment == "production":
             raise ValueError("The fake Telegram backend cannot be used in production")
+        if self.fake_telegram_url.strip() and self.environment == "production":
+            raise ValueError("The remote fake Telegram cloud cannot be used in production")
         return self
 
     @property

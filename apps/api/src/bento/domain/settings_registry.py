@@ -94,6 +94,8 @@ SETTINGS_REGISTRY: tuple[SettingDefinition, ...] = (
     _field("backup_only_charging", ("BENTO_BACKUP_ONLY_CHARGING",), "backup", Type.BOOLEAN, False),
     _field("ocr_requires_charging", ("BENTO_OCR_REQUIRES_CHARGING",), "ai", Type.BOOLEAN, False),
     _field("fake_telegram_dir", ("BENTO_FAKE_TELEGRAM_DIR",), "advanced", Type.PATH, "", apply=Apply.RESTART_SERVICES),
+    # Debug only: a `fake-telegram-serve` URL shared by emulator and host processes (never in production).
+    _field("fake_telegram_url", ("BENTO_FAKE_TELEGRAM_URL",), "advanced", Type.STRING, "", apply=Apply.RESTART_SERVICES, editable=False),
 )
 
 SETTINGS_BY_KEY = {item.key: item for item in SETTINGS_REGISTRY}
