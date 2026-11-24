@@ -14,7 +14,6 @@ import queue
 import secrets
 import shlex
 import signal
-import socket
 import subprocess
 import sys
 import threading
@@ -183,12 +182,6 @@ def _popen_kwargs() -> dict[str, Any]:
     return {}
 
 
-def free_loopback_port() -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
-        probe.bind(("127.0.0.1", 0))
-        return int(probe.getsockname()[1])
-
-
 @dataclass
 class Child:
     name: str
@@ -233,16 +226,13 @@ class Child:
 
 
 class ApiChild(Child):
-    """The API sidecar: `api --ephemeral` (announces its port), or `api --port N` on older backends."""
+    """The API sidecar: `api --ephemeral` binds an OS-chosen loopback port and announces it."""
 
     port: int | None = None
-    ephemeral: bool = True
 
     def start(self) -> None:
         self.port = None
-        args = ["api", "--ephemeral"] if self.ephemeral else ["api", "--port", str(free_loopback_port())]
-        if not self.ephemeral:
-            self.port = int(args[-1])
+        args = ["api", "--ephemeral"]
         log = self.log_handle()
         self.process = subprocess.Popen(
             sidecar_argv(*args),
@@ -360,18 +350,7 @@ class Supervisor:
 
     def start_api(self) -> None:
         self.api.start()
-        try:
-            self.api.wait_ready(self.token, self.ready_timeout)
-        except CliError:
-            process = self.api.process
-            # Older backends reject `--ephemeral` (argparse exit 2): fall back to a free port.
-            if self.api.ephemeral and process is not None and process.poll() == 2:
-                self.log("api does not support --ephemeral; using a fixed loopback port")
-                self.api.ephemeral = False
-                self.api.start()
-                self.api.wait_ready(self.token, self.ready_timeout)
-            else:
-                raise
+        self.api.wait_ready(self.token, self.ready_timeout)
 
     def write_endpoint(self) -> None:
         write_private_json(

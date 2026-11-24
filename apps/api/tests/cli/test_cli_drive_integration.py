@@ -1,8 +1,4 @@
-"""CLI journeys against a real API (local storage) on a loopback thread.
-
-When agent 31's CLI-support endpoints are not in this checkout yet, `cli_endpoints_shim` provides the same
-contract; once they are merged the very same tests run against the real endpoints.
-"""
+"""CLI journeys against a real API (local storage) on a loopback thread."""
 
 from __future__ import annotations
 

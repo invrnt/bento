@@ -62,19 +62,10 @@ def test_two_devices_setup_pair_by_code_and_share_files(tmp_path: Path) -> None:
             assert created.json["recovery_code"]
             assert cli("laptop", "status").code == 0
 
-            # The CLI-support endpoints (agent 31) may not be merged yet: then the journey shares a folder
-            # created through the raw API instead of an uploaded file.
-            probe = cli("laptop", "api", "GET", "/drive/resolve", "--query", "path=/")
-            paths_supported = probe.code == 0
-            if paths_supported:
-                document = tmp_path / "factura.txt"
-                document.write_text("factura de agua")
-                uploaded = cli("laptop", "upload", str(document), "--to", "/Documentos")
-                assert uploaded.code == 0 and uploaded.json["uploaded"] == 1, uploaded.stdout + uploaded.stderr
-            else:
-                assert probe.error["code"] == "endpoint_not_available"
-                made = cli("laptop", "api", "POST", "/drive/folders", "--data", '{"name": "Documentos"}')
-                assert made.code == 0, made.stderr
+            document = tmp_path / "factura.txt"
+            document.write_text("factura de agua")
+            uploaded = cli("laptop", "upload", str(document), "--to", "/Documentos")
+            assert uploaded.code == 0 and uploaded.json["uploaded"] == 1, uploaded.stdout + uploaded.stderr
 
             # Device B: signs in to the same account, the vault exists but B has no keys yet.
             assert cli("desktop", "login").code == 0
@@ -102,11 +93,8 @@ def test_two_devices_setup_pair_by_code_and_share_files(tmp_path: Path) -> None:
 
             def synced() -> bool:
                 cli("desktop", "sync", "now")
-                if paths_supported:
-                    listing = cli("desktop", "ls", "/Documentos")
-                    return listing.code == 0 and [item["name"] for item in listing.json["items"]] == ["factura.txt"]
-                root = cli("desktop", "api", "GET", "/drive/items")
-                return root.code == 0 and [item["name"] for item in root.json["items"]] == ["Documentos"]
+                listing = cli("desktop", "ls", "/Documentos")
+                return listing.code == 0 and [item["name"] for item in listing.json["items"]] == ["factura.txt"]
 
             wait_for(synced)
         finally:

@@ -10,6 +10,10 @@ organization, and tell them what you did.
 - Always pass `--json`. Each command prints exactly one JSON document on stdout; errors are one JSON
   document on stderr: `{"error": {"code", "message", "details", "exit_code"}}`. Branch on `error.code`
   and the exit code, never on human text.
+- Long-running commands (`login`, `pair --wait`, `join`) also write progress events to stderr as one JSON
+  object per line, e.g. `{"event": "pairing_code", "code": "K7Q2-MXR9-T4WA", ...}`,
+  `{"event": "pairing_sas", "sas": [...]}`, `{"event": "login_qr", "qr_url": "tg://login?token=..."}`.
+  Read them to relay the code, emojis or QR link to the person while the command keeps waiting.
 - Discover the CLI with `bento commands --json` (every command, argument, flag and output shape).
 - Bento paths are absolute, `/`-separated: `/Documentos/Facturas/2024`. A trailing `/` means "must be a
   folder". `id:<id>` addresses an item directly and is always unambiguous. Every JSON item has `id` and

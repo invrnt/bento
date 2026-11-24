@@ -97,7 +97,6 @@ def migrated_data_dir(base: Path) -> Path:
 @dataclass
 class LiveApi:
     url: str
-    shimmed: bool
     cli_env: dict[str, str]
 
     def cli(self, *args: str, stdin: str = "") -> CliResult:
@@ -115,11 +114,9 @@ def live_api(tmp_path: Path, cli_env: dict[str, str]) -> Iterator[LiveApi]:
 
     from bento.infrastructure.settings import Settings
     from bento.interfaces.http.main import create_app
-    from tests.cli import cli_endpoints_shim
 
     data_dir = migrated_data_dir(tmp_path)
     app = create_app(Settings(data_dir=str(data_dir), storage_backend="local"))
-    shimmed = cli_endpoints_shim.install(app)
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     listener.bind(("127.0.0.1", 0))
     listener.listen(64)
@@ -133,7 +130,7 @@ def live_api(tmp_path: Path, cli_env: dict[str, str]) -> Iterator[LiveApi]:
             raise RuntimeError("API did not start")
         time.sleep(0.02)
     try:
-        yield LiveApi(url=f"http://127.0.0.1:{port}", shimmed=shimmed, cli_env=cli_env)
+        yield LiveApi(url=f"http://127.0.0.1:{port}", cli_env=cli_env)
     finally:
         server.should_exit = True
         thread.join(timeout=10)

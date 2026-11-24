@@ -359,3 +359,14 @@ def test_target_resolution_order(tmp_path: Path) -> None:
     _write_endpoint(profile.endpoint_file, 5002, os.getpid(), "daemon")
     resolve_target(options, environ=env, check=lambda url, token: False, start_daemon=start)
     assert started == ["default", "default"]
+
+
+def test_events_are_ndjson_on_stderr_only_in_json_mode() -> None:
+    out, stdout, stderr = _output(json_mode=True)
+    out.event("pairing_code", {"code": "K7Q2-MXR9-T4WA"})
+    out.result({"ok": True})
+    assert json.loads(stderr.getvalue()) == {"event": "pairing_code", "code": "K7Q2-MXR9-T4WA"}
+    assert json.loads(stdout.getvalue()) == {"ok": True}
+    human, human_stdout, human_stderr = _output(json_mode=False)
+    human.event("pairing_code", {"code": "K7Q2-MXR9-T4WA"})
+    assert human_stdout.getvalue() == "" and human_stderr.getvalue() == ""

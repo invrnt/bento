@@ -20,4 +20,21 @@ Exit: backend suite green (including new tests), CLI tests green, desktop tests 
 
 ## Status
 
-See the bottom of this file (updated by the orchestrator at the end of the stage).
+Stage 18 complete on `feature/cli` (2026-11-24).
+
+**Delivered**
+
+- Backend: `domain/drive_paths.py`, `application/drive_paths.py`, `/drive/resolve|tree|paths`, `/drive/folders/ensure`, `/assets/lookup`; headless `BENTO_API_TOKEN` and desktop `BENTO_DESKTOP_CLI_TOKEN`; `bento-sidecar api --ephemeral`.
+- CLI (`interfaces/cli`): every command group in `product/cli.md`, `--json` with NDJSON progress events on stderr for `login`/`pair --wait`/`join`, exit codes, profile daemon supervisor and service files, desktop discovery, resumable folder uploads with content-hash dedupe, recursive downloads, terminal QR, setup wizard, Stremio-like pairing, `commands --json`, `guide`, `api`, completion; es/en.
+- Desktop writes `<userData>/bento-desktop/cli-endpoint.json` with a per-launch CLI token.
+- Distribution: PyInstaller onedir (`packaging/bento-cli.spec`, `scripts/build_cli.py`), `scripts/install/{install.sh,install.ps1,build_deb.sh}`, `.github/workflows/cli-release.yml` (tags `cli-v*`), user docs (es/en) and `docs/dev/cli.md`.
+
+**Verification**
+
+- Backend + CLI tests green (CLI 213, including a two-daemon fake-Telegram e2e journey with relay pairing), desktop 333, site 50.
+- Manual smoke on Linux: daemon start → QR login → vault create → upload tree (re-run uploads nothing) → mkdir -p/mv/rename/rm/tree/find/download → second profile `join CODE` via relay double → sees the organized library.
+
+**Not verified**
+
+- Real Telegram account (same pending owner action as Stage 17), `build_deb.sh` (no `dpkg-deb` locally), `install.ps1`, the CLI release workflow on GitHub runners, macOS/Windows daemons on real machines.
+
