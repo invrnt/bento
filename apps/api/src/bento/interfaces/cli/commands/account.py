@@ -182,6 +182,7 @@ def login_flow(
         # Resume a QR login that is still valid (e.g. after `login --no-wait`) instead of replacing it.
         if not (status.get("step") == "qr_pending" and status.get("qr_url") and not _expired(status)):
             status = dict(ctx.api.post("/account/login/qr"))
+        ctx.out.event("login_qr", {"qr_url": status.get("qr_url"), "qr_expires_at": status.get("qr_expires_at")})
         show_qr(ctx, status.get("qr"), title=ctx.t("login.qr_title"), hint=ctx.t("login.qr_hint"))
         if not wait:
             return status
@@ -196,6 +197,7 @@ def login_flow(
                 status = dict(ctx.api.post("/account/login/qr"))
             if status.get("step") == "qr_pending" and status.get("qr_url") != shown:
                 shown = status.get("qr_url")
+                ctx.out.event("login_qr", {"qr_url": status.get("qr_url"), "qr_expires_at": status.get("qr_expires_at")})
                 show_qr(ctx, status.get("qr"), title=ctx.t("login.qr_refreshed"))
             if status.get("step") == "signed_out":
                 status = dict(ctx.api.post("/account/login/qr"))

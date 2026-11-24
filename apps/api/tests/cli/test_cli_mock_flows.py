@@ -460,3 +460,17 @@ def test_find_adds_paths(mock_cli: Callable[..., CliResult]) -> None:
     result = mock_cli(["find", "luz", "--json"], api)
     assert result.json["items"][0]["path"] == "/Documentos/luz.pdf"
     assert api.calls("GET", "/search")[0].url.params["q"] == "luz"
+
+
+def test_pair_json_streams_code_and_sas_events_before_the_final_document(mock_cli: Callable[..., CliResult]) -> None:
+    api = FakeApi()
+    api.on("POST", "/pairing/host", _pairing("waiting"))
+    peer = {"device_name": "Servidor", "platform": "linux"}
+    api.on("GET", "/pairing/pair_1", _pairing("awaiting_approval", peer=peer, sas=["🐙", "🌵", "🎈", "🚀"]), _pairing("completed", peer=peer))
+    api.on("POST", "/pairing/pair_1/approve", _pairing("approving", peer=peer))
+    result = mock_cli(["pair", "--approve", "--json"], api)
+    assert result.code == 0, result.stderr
+    events = [json.loads(line) for line in result.stderr.splitlines() if line.startswith("{")]
+    assert [event["event"] for event in events] == ["pairing_code", "pairing_sas"]
+    assert events[0]["code"] == "K7Q2-MXR9-T4WA" and events[1]["sas"] == ["🐙", "🌵", "🎈", "🚀"]
+    assert json.loads(result.stdout)["state"] == "completed"

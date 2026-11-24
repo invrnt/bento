@@ -63,6 +63,7 @@ def render_pairing(out: Output, pairing: dict[str, Any]) -> None:
 
 def _announce_code(ctx: Context, pairing: dict[str, Any]) -> None:
     if ctx.out.json_mode:
+        ctx.out.event("pairing_code", {key: pairing.get(key) for key in ("id", "code", "link", "web_link", "expires_at")})
         show_qr(ctx, pairing.get("qr"), title=ctx.t("pair.qr_title"))
         return
     ctx.out.line(ctx.t("pair.code_title"))
@@ -97,6 +98,7 @@ def follow_host(ctx: Context, pairing: dict[str, Any], *, approve: bool) -> dict
                 peer = (pairing.get("peer") or {}).get("device_name", "?")
                 ctx.out.note(ctx.t("pair.peer_connected", peer=peer))
                 ctx.out.note(ctx.t("pair.sas_host", sas=sas_text(pairing)))
+                ctx.out.event("pairing_sas", {"id": pairing_id, "sas": pairing.get("sas"), "peer": pairing.get("peer")})
                 announced_sas = True
             if approve:
                 pairing = dict(ctx.api.post(f"/pairing/{pairing_id}/approve"))
@@ -152,6 +154,7 @@ def follow_guest(ctx: Context, pairing: dict[str, Any], *, fallback: bool = Fals
             raise pairing_error(pairing)
         if state == "awaiting_approval" and pairing.get("sas") and not shown_sas:
             shown_sas = True
+            ctx.out.event("pairing_sas", {"id": pairing_id, "sas": pairing.get("sas"), "peer": pairing.get("peer")})
             if fallback:
                 ctx.out.note(ctx.t("pair.sas_fallback", sas=sas_text(pairing)))
                 if ctx.out.interactive and not ctx.out.json_mode:
@@ -169,6 +172,7 @@ def follow_guest(ctx: Context, pairing: dict[str, Any], *, fallback: bool = Fals
             ctx.out.note(ctx.t("pair.sas_guest", sas=sas_text(pairing)))
         if state == "needs_telegram_login" and pairing.get("telegram_qr") and pairing.get("telegram_qr") != shown_qr:
             shown_qr = pairing.get("telegram_qr")
+            ctx.out.event("login_qr", {"pairing_id": pairing_id, "qr": shown_qr})
             show_qr(ctx, shown_qr, title=ctx.t("pair.telegram_login_title"), hint=ctx.t("login.qr_hint"))
             deadline = time.monotonic() + AFTER_APPROVAL_SECONDS
         if state in {"approving", "bootstrapping"}:

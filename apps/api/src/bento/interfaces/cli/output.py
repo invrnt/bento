@@ -114,6 +114,14 @@ class Output:
         self.stdout.write(text + "\n")
         self.stdout.flush()
 
+    def event(self, name: str, data: dict[str, Any]) -> None:
+        """Progress event for long-running commands: one compact NDJSON line on stderr in JSON mode
+        (stdout still carries exactly one final document); nothing in human mode."""
+        if not self.json_mode:
+            return
+        self.stderr.write(json.dumps({"event": name, **data}, ensure_ascii=False, default=str) + "\n")
+        self.stderr.flush()
+
     def note(self, text: str) -> None:
         """Human hints and status (stderr); silent with --json or --quiet."""
         if self.json_mode or self.quiet:
