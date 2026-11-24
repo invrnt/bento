@@ -48,6 +48,7 @@ fun manifestJson(
 ): ByteArray {
     val filename = "bento-android-$version-$arch.apk"
     val assetUrl = url ?: "https://github.com/invrnt/bento/releases/download/android-v$version/$filename"
+    val certList = certs.joinToString(",") { "\"$it\"" }
     return """
         {
           "schemaVersion": 1,
@@ -59,9 +60,11 @@ fun manifestJson(
           "repository": "$repository",
           "target": "android-$arch",
           "assets": [
-            {"platform": "android", "arch": "$arch", "kind": "apk", "filename": "$filename", "url": "$assetUrl", "sha256": "$sha256", "size": $size}
+            {"platform": "android", "arch": "$arch", "kind": "apk", "filename": "$filename", "url": "$assetUrl",
+             "sha256": "$sha256", "size": $size}
           ],
-          "android": {"packageName": "$packageName", "versionCode": $versionCode, "minSdk": $minSdk, "signingCertificateSha256": [${certs.joinToString(",") { "\"$it\"" }}]}
+          "android": {"packageName": "$packageName", "versionCode": $versionCode, "minSdk": $minSdk,
+                      "signingCertificateSha256": [$certList]}
         }
     """.trimIndent().toByteArray()
 }

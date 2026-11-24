@@ -76,8 +76,10 @@ class UpdateSignatureTest {
         )
         cases.forEach { assertFalse(it, UpdateSignature.verify(manifest, it.toByteArray(), listOf(key.raw))) }
         val tooMany = (1..5).joinToString(",") { """{"keyId":"${key.keyId}","signature":"$sig"}""" }
-        assertFalse(UpdateSignature.verify(manifest, """{"schemaVersion":1,"algorithm":"ed25519","signatures":[$tooMany]}""".toByteArray(), listOf(key.raw)))
-        assertFalse(UpdateSignature.verify(manifest, ByteArray(UpdateSignature.MAX_SIGNATURE_BYTES + 1) { ' '.code.toByte() }, listOf(key.raw)))
+        val tooManyDocument = """{"schemaVersion":1,"algorithm":"ed25519","signatures":[$tooMany]}""".toByteArray()
+        assertFalse(UpdateSignature.verify(manifest, tooManyDocument, listOf(key.raw)))
+        val oversized = ByteArray(UpdateSignature.MAX_SIGNATURE_BYTES + 1) { ' '.code.toByte() }
+        assertFalse(UpdateSignature.verify(manifest, oversized, listOf(key.raw)))
     }
 
     @Test

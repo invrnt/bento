@@ -10,6 +10,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 
 /** The download failed for a reason that is not the network (checksum, size, storage). */
 class UpdateDownloadException(val failure: UpdateFailure, message: String) : IOException(message)
@@ -77,37 +78,42 @@ class ApkDownloader(
             .apply { if (offset > 0) header("Range", "bytes=$offset-") }
             .build()
         client.newCall(request).execute().use { response ->
-            val append = when {
-                response.code == HTTP_PARTIAL && offset > 0 -> {
-                    val start = response.header("Content-Range")?.let(CONTENT_RANGE::find)?.groupValues?.get(1)?.toLongOrNull()
-                    if (start != offset) throw IOException("Unexpected Content-Range")
-                    true
-                }
-                response.code == HTTP_RANGE_NOT_SATISFIABLE && offset > 0 -> {
-                    // The partial file is either complete or stale; start again next time if it is stale.
-                    part.delete()
-                    throw IOException("Range not satisfiable")
-                }
-                response.isSuccessful -> false
-                else -> throw IOException("HTTP ${response.code}")
-            }
-            val body = response.body
+            val append = resumes(response, offset, part)
             var written = if (append) offset else 0L
             FileOutputStream(part, append).use { out ->
-                val source = body.source()
+                val source = response.body.source()
                 val buffer = ByteArray(BUFFER)
-                while (true) {
+                var read = source.read(buffer)
+                while (read != -1) {
                     kotlin.coroutines.coroutineContext.ensureActive()
-                    val read = source.read(buffer)
-                    if (read == -1) break
                     written += read
                     if (written > asset.size) throw UpdateDownloadException(UpdateFailure.Checksum, "Larger than signed size")
                     out.write(buffer, 0, read)
                     onProgress(written.toFloat() / asset.size)
+                    read = source.read(buffer)
                 }
                 out.fd.sync()
             }
         }
+    }
+
+    /** True to append to [part] (a matching 206), false to start over (200); throws on anything else. */
+    private fun resumes(response: Response, offset: Long, part: File): Boolean = when {
+        response.code == HTTP_PARTIAL && offset > 0 -> {
+            val start = response.header("Content-Range")?.let(CONTENT_RANGE::find)?.groupValues?.get(1)?.toLongOrNull()
+            if (start != offset) throw IOException("Unexpected Content-Range")
+            true
+        }
+
+        response.code == HTTP_RANGE_NOT_SATISFIABLE && offset > 0 -> {
+            // The partial file is stale (the full size is checked before any request): start again next time.
+            part.delete()
+            throw IOException("Range not satisfiable")
+        }
+
+        response.isSuccessful -> false
+
+        else -> throw IOException("HTTP ${response.code}")
     }
 
     /** Deletes APKs and partial files of other releases. */

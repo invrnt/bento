@@ -27,12 +27,12 @@ import dev.bento.designsystem.component.CalloutTone
 import dev.bento.designsystem.component.ProgressBar
 import dev.bento.designsystem.component.SettingsRow
 import dev.bento.designsystem.generated.BentoIcons
+import dev.bento.strings.R as StringsR
 import dev.bento.update.UpdateChecker
 import dev.bento.update.UpdateFailure
 import dev.bento.update.UpdateState
 import java.text.NumberFormat
 import javax.inject.Inject
-import dev.bento.strings.R as StringsR
 
 /** Callbacks of the card and the row; the stateful [UpdateCard]/[UpdateRow] bind them to [UpdateChecker]. */
 data class UpdateActions(
@@ -101,6 +101,7 @@ fun UpdateCardContent(state: UpdateState, actions: UpdateActions, modifier: Modi
             Primary(StringsR.string.update_download, actions.onDownload)
             Ghost(StringsR.string.update_not_now, actions.onDismiss)
         }
+
         is UpdateState.Downloading -> Card(
             modifier,
             CalloutTone.Info,
@@ -112,6 +113,7 @@ fun UpdateCardContent(state: UpdateState, actions: UpdateActions, modifier: Modi
                 Ghost(StringsR.string.update_cancel, actions.onCancel)
             }
         }
+
         is UpdateState.Ready -> if (state.needsPermission) {
             Card(
                 modifier,
@@ -136,6 +138,7 @@ fun UpdateCardContent(state: UpdateState, actions: UpdateActions, modifier: Modi
                 Ghost(StringsR.string.update_not_now, actions.onDismiss)
             }
         }
+
         is UpdateState.Installing -> Card(
             modifier,
             CalloutTone.Info,
@@ -143,6 +146,7 @@ fun UpdateCardContent(state: UpdateState, actions: UpdateActions, modifier: Modi
             stringResource(StringsR.string.update_installing_body),
             action = null
         )
+
         is UpdateState.Failed -> Card(
             modifier,
             CalloutTone.Warning,
@@ -153,6 +157,7 @@ fun UpdateCardContent(state: UpdateState, actions: UpdateActions, modifier: Modi
             if (state.reason != UpdateFailure.Incompatible) Primary(StringsR.string.update_retry, actions.onRetry)
             Ghost(StringsR.string.update_not_now, actions.onDismiss)
         }
+
         UpdateState.Unavailable, UpdateState.Checking, is UpdateState.Idle -> Unit
     }
 }
@@ -161,19 +166,28 @@ fun UpdateCardContent(state: UpdateState, actions: UpdateActions, modifier: Modi
 fun UpdateRowContent(state: UpdateState, installedVersion: String, actions: UpdateActions, modifier: Modifier = Modifier) {
     val (summary, onClick) = when (state) {
         UpdateState.Unavailable -> stringResource(StringsR.string.update_row_unavailable) to null
-        is UpdateState.Idle -> stringResource(if (state.upToDate) StringsR.string.update_row_up_to_date else StringsR.string.update_row_check) to
-            actions.onCheck
+
+        is UpdateState.Idle -> {
+            val text = if (state.upToDate) StringsR.string.update_row_up_to_date else StringsR.string.update_row_check
+            stringResource(text) to actions.onCheck
+        }
+
         UpdateState.Checking -> stringResource(StringsR.string.update_row_checking) to null
+
         is UpdateState.Available -> stringResource(StringsR.string.update_row_available, state.release.version) to actions.onDownload
+
         is UpdateState.Downloading -> state.progress?.let {
             stringResource(StringsR.string.update_row_downloading, state.release.version, percent(it))
         }.orEmpty().ifEmpty { stringResource(StringsR.string.update_row_downloading_unknown, state.release.version) } to null
+
         is UpdateState.Ready -> if (state.needsPermission) {
             stringResource(StringsR.string.update_permission_title) to actions.onOpenSettings
         } else {
             stringResource(StringsR.string.update_row_ready, state.release.version) to actions.onInstall
         }
+
         is UpdateState.Installing -> stringResource(StringsR.string.update_row_installing) to null
+
         is UpdateState.Failed -> stringResource(failureText(state.reason)) to actions.onRetry
     }
     SettingsRow(

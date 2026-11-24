@@ -87,9 +87,14 @@ class UpdateInstallReceiver : BroadcastReceiver() {
                 confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 runCatching { context.startActivity(confirm) }.onFailure { checker.onInstallResult(InstallResult.Failed) }
             }
+
             PackageInstaller.STATUS_SUCCESS -> checker.onInstallResult(InstallResult.Installed)
+
             PackageInstaller.STATUS_FAILURE_ABORTED -> checker.onInstallResult(InstallResult.Cancelled)
-            else -> checker.onInstallResult(if (status == PackageInstaller.STATUS_FAILURE_STORAGE) InstallResult.NoSpace else InstallResult.Failed)
+
+            PackageInstaller.STATUS_FAILURE_STORAGE -> checker.onInstallResult(InstallResult.NoSpace)
+
+            else -> checker.onInstallResult(InstallResult.Failed)
         }
     }
 }

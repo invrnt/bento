@@ -62,7 +62,8 @@ data class UpdateRelease(
     val notes: String,
     val sizeBytes: Long,
     val asset: UpdateAsset,
-    val signingCertificates: Set<String>
+    val signingCertificates: Set<String>,
+    val minSdk: Int = 29
 )
 
 sealed interface ManifestVerdict {
@@ -101,24 +102,33 @@ object ManifestParser {
         tagVersion: String?,
         allowLoopbackHttp: Boolean = false
     ): ManifestVerdict {
-        if (manifestBytes.isEmpty() || manifestBytes.size > MAX_MANIFEST_BYTES) return ManifestVerdict.Rejected(UpdateFailure.Manifest)
-        if (publicKeys.isEmpty() || !UpdateSignature.verify(manifestBytes, signatureBytes, publicKeys)) {
-            return ManifestVerdict.Rejected(UpdateFailure.Signature)
-        }
-        val manifest = decodeUtf8(manifestBytes)?.let { text ->
-            try {
-                json.decodeFromString(UpdateManifest.serializer(), text)
-            } catch (_: SerializationException) {
-                null
-            } catch (_: IllegalArgumentException) {
-                null
+        val signed = manifestBytes.size in 1..MAX_MANIFEST_BYTES &&
+            publicKeys.isNotEmpty() &&
+            UpdateSignature.verify(manifestBytes, signatureBytes, publicKeys)
+        val release = if (signed) {
+            decode(manifestBytes)?.let {
+                validate(it, installed, repository, tagVersion, allowLoopbackHttp)
             }
-        } ?: return ManifestVerdict.Rejected(UpdateFailure.Manifest)
-        val release = validate(manifest, installed, repository, tagVersion, allowLoopbackHttp)
-            ?: return ManifestVerdict.Rejected(UpdateFailure.Manifest)
-        if (release.versionCode <= installed.versionCode) return ManifestVerdict.UpToDate
-        if (manifest.android.minSdk > installed.sdkInt) return ManifestVerdict.Rejected(UpdateFailure.Incompatible)
-        return ManifestVerdict.Newer(release)
+        } else {
+            null
+        }
+        return when {
+            !signed -> ManifestVerdict.Rejected(UpdateFailure.Signature)
+            release == null -> ManifestVerdict.Rejected(UpdateFailure.Manifest)
+            release.versionCode <= installed.versionCode -> ManifestVerdict.UpToDate
+            release.minSdk > installed.sdkInt -> ManifestVerdict.Rejected(UpdateFailure.Incompatible)
+            else -> ManifestVerdict.Newer(release)
+        }
+    }
+
+    private fun decode(bytes: ByteArray): UpdateManifest? = decodeUtf8(bytes)?.let { text ->
+        try {
+            json.decodeFromString(UpdateManifest.serializer(), text)
+        } catch (_: SerializationException) {
+            null
+        } catch (_: IllegalArgumentException) {
+            null
+        }
     }
 
     private fun validate(
@@ -129,39 +139,52 @@ object ManifestParser {
         allowLoopbackHttp: Boolean
     ): UpdateRelease? {
         val code = versionCode(manifest.version) ?: return null
-        val android = manifest.android
-        val headerValid = manifest.schemaVersion == 1 &&
-            (tagVersion == null || tagVersion == manifest.version) &&
-            manifest.repository == repository &&
-            manifest.target == installed.arch.target &&
-            COMMIT.matches(manifest.commit) &&
-            manifest.releaseName.length <= 200 &&
-            manifest.notes.length <= 4000 &&
-            android.packageName == installed.packageName &&
-            android.versionCode == code &&
-            android.minSdk in 21..100 &&
-            android.signingCertificateSha256.size in 1..4 &&
-            android.signingCertificateSha256.all(SHA256::matches)
-        if (!headerValid || manifest.assets.size != 1) return null
-        val asset = manifest.assets.single()
-        val assetValid = asset.platform == "android" &&
-            asset.arch == installed.arch.id &&
-            asset.kind == "apk" &&
-            FILENAME.matches(asset.filename) &&
-            asset.filename.contains(manifest.version) &&
-            SHA256.matches(asset.sha256) &&
-            asset.size in 1..MAX_APK_BYTES &&
-            isAllowedDownloadUrl(asset.url, asset.filename, allowLoopbackHttp)
-        if (!assetValid) return null
+        val asset = manifest.assets.singleOrNull() ?: return null
+        val valid = headerChecks(manifest, code, installed, repository, tagVersion).all { it } &&
+            assetChecks(asset, manifest.version, installed.arch, allowLoopbackHttp).all { it }
+        if (!valid) return null
         return UpdateRelease(
             version = manifest.version,
             versionCode = code,
             notes = manifest.notes,
             sizeBytes = asset.size,
             asset = asset,
-            signingCertificates = android.signingCertificateSha256.toSet()
+            signingCertificates = manifest.android.signingCertificateSha256.toSet(),
+            minSdk = manifest.android.minSdk
         )
     }
+
+    private fun headerChecks(
+        manifest: UpdateManifest,
+        code: Long,
+        installed: InstalledApp,
+        repository: String,
+        tagVersion: String?
+    ) = listOf(
+        manifest.schemaVersion == 1,
+        tagVersion == null || tagVersion == manifest.version,
+        manifest.repository == repository,
+        manifest.target == installed.arch.target,
+        COMMIT.matches(manifest.commit),
+        manifest.releaseName.length <= 200,
+        manifest.notes.length <= 4000,
+        manifest.android.packageName == installed.packageName,
+        manifest.android.versionCode == code,
+        manifest.android.minSdk in 21..100,
+        manifest.android.signingCertificateSha256.size in 1..4,
+        manifest.android.signingCertificateSha256.all(SHA256::matches)
+    )
+
+    private fun assetChecks(asset: UpdateAsset, version: String, arch: UpdateArch, allowLoopbackHttp: Boolean) = listOf(
+        asset.platform == "android",
+        asset.arch == arch.id,
+        asset.kind == "apk",
+        FILENAME.matches(asset.filename),
+        asset.filename.contains(version),
+        SHA256.matches(asset.sha256),
+        asset.size in 1..MAX_APK_BYTES,
+        isAllowedDownloadUrl(asset.url, asset.filename, allowLoopbackHttp)
+    )
 
     /** HTTPS URL ending in the asset's file name; plain HTTP only to 127.0.0.1 for the local release dry run. */
     fun isAllowedDownloadUrl(url: String, filename: String, allowLoopbackHttp: Boolean): Boolean {

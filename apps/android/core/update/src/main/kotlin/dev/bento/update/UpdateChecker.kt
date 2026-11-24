@@ -113,11 +113,14 @@ class UpdateChecker(
         )
         return when (verdict) {
             ManifestVerdict.UpToDate -> upToDate()
+
             is ManifestVerdict.Rejected -> UpdateState.Failed(verdict.failure)
+
             is ManifestVerdict.Newer -> {
                 downloader.pruneOthers(verdict.release.asset)
                 val apk = downloader.existing(verdict.release.asset)
-                if (apk != null && verifySigner(apk, verdict.release) == null) readyState(verdict.release) else UpdateState.Available(verdict.release)
+                val verified = apk != null && verifySigner(apk, verdict.release) == null
+                if (verified) readyState(verdict.release) else UpdateState.Available(verdict.release)
             }
         }
     }
@@ -217,8 +220,11 @@ class UpdateChecker(
         mutable.value = when (result) {
             // Usually the process is replaced before this arrives; the next start sees the new versionCode.
             InstallResult.Installed -> UpdateState.Idle(preferences.lastCheckedAt, upToDate = true)
+
             InstallResult.Cancelled -> UpdateState.Ready(release, cancelled = true)
+
             InstallResult.NoSpace -> UpdateState.Failed(UpdateFailure.Storage, release)
+
             InstallResult.Failed -> UpdateState.Failed(UpdateFailure.Install, release)
         }
     }

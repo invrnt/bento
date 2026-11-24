@@ -4,6 +4,7 @@ import java.security.MessageDigest
 import java.util.Base64
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.intOrNull
@@ -58,25 +59,34 @@ object UpdateSignature {
         }
     }
 
+    /** The (keyId, signature) entries of a well-formed document, or `null`; any deviation from the format rejects it. */
     private fun parseDocument(bytes: ByteArray): List<Pair<String, String>>? {
         if (bytes.isEmpty() || bytes.size > MAX_SIGNATURE_BYTES) return null
-        val text = decodeUtf8(bytes) ?: return null
-        val root = runCatching { strict.parseToJsonElement(text) }.getOrNull() as? JsonObject ?: return null
-        if (root.keys != setOf("schemaVersion", "algorithm", "signatures")) return null
-        val schema = root["schemaVersion"] as? JsonPrimitive
-        val algorithm = root["algorithm"] as? JsonPrimitive
-        if (schema == null || schema.isString || schema.intOrNull != 1 || schema.content != "1") return null
-        if (algorithm == null || !algorithm.isString || algorithm.content != "ed25519") return null
-        val signatures = root["signatures"] as? JsonArray ?: return null
-        if (signatures.isEmpty() || signatures.size > MAX_SIGNATURES) return null
+        return runCatching { strictEntries(requireNotNull(decodeUtf8(bytes))) }.getOrNull()
+    }
+
+    private fun strictEntries(text: String): List<Pair<String, String>> {
+        val root = strict.parseToJsonElement(text) as JsonObject
+        require(root.keys == setOf("schemaVersion", "algorithm", "signatures"))
+        val schema = root.getValue("schemaVersion") as JsonPrimitive
+        require(!schema.isString && schema.content == "1" && schema.intOrNull == 1)
+        require(root.getValue("algorithm").stringValue() == "ed25519")
+        val signatures = root.getValue("signatures") as JsonArray
+        require(signatures.size in 1..MAX_SIGNATURES)
         return signatures.map { element ->
-            val entry = element as? JsonObject ?: return null
-            if (entry.keys != setOf("keyId", "signature")) return null
-            val keyId = (entry["keyId"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return null
-            val signature = (entry["signature"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return null
-            if (!KEY_ID.matches(keyId) || !SIGNATURE.matches(signature)) return null
+            val entry = element as JsonObject
+            require(entry.keys == setOf("keyId", "signature"))
+            val keyId = entry.getValue("keyId").stringValue()
+            val signature = entry.getValue("signature").stringValue()
+            require(KEY_ID.matches(keyId) && SIGNATURE.matches(signature))
             keyId to signature
         }
+    }
+
+    private fun JsonElement.stringValue(): String {
+        val primitive = this as JsonPrimitive
+        require(primitive.isString)
+        return primitive.content
     }
 }
 

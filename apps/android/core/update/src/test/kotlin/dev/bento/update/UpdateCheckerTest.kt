@@ -94,7 +94,10 @@ class UpdateCheckerTest {
     @Test
     fun withoutAKeyTheUpdaterIsUnavailableAndOffline() = runTest {
         var called = false
-        feedResult = { called = true; null }
+        feedResult = {
+            called = true
+            null
+        }
         val checker = checker(keys = emptyList())
         assertEquals(UpdateState.Unavailable, checker.check())
         assertFalse(called)
