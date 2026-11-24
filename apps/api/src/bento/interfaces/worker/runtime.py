@@ -119,6 +119,7 @@ class WorkerRuntime:
             while not stop_event.is_set():
                 if self.mode == "full" and await self._process_one():
                     continue
+                self._flush_notifications()
                 self._wake.clear()
                 waiters = [asyncio.ensure_future(stop_event.wait()), asyncio.ensure_future(self._wake.wait())]
                 try:
@@ -131,6 +132,12 @@ class WorkerRuntime:
             await asyncio.gather(*tasks, return_exceptions=True)
             await pipeline_loop
             await stop_sync_loop(sync_task)
+
+    def _flush_notifications(self) -> None:
+        """Deliver progress the 1 Hz limiter is still holding once its window has closed."""
+        flush = getattr(services.get_notifier(self.settings), "flush", None)
+        if callable(flush):
+            flush()
 
     async def run_until(self, deadline_epoch_ms: int, kinds: list[str] | None = None) -> RunResult:
         """Run eligible jobs (of `kinds`, or all) until `deadline_epoch_ms` or until none is eligible."""
@@ -154,6 +161,7 @@ class WorkerRuntime:
         except Exception:  # noqa: BLE001 - reported to the host; the job itself was failed by the dispatcher
             LOGGER.exception("Bounded worker run failed")
             reason = "error"
+        self._flush_notifications()
         backlog = await self.backlog(types)
         if reason == "idle" and backlog.deferred and not backlog.runnable:
             reason = "conditions"

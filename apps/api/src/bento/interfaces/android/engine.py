@@ -39,9 +39,6 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger("bento.android.engine")
 
-API_TOKEN_ENV = "BENTO_API_TOKEN"  # same name as `interfaces/http/request_guard.API_TOKEN_ENV`
-WRAPPING_KEY_ENV = "BENTO_DEVICE_WRAPPING_KEY"  # same name as `adapters/security/key_store.WRAPPING_KEY_ENV`
-MIN_TOKEN_LENGTH = 32
 WRAPPING_KEY_BYTES = 32
 API_START_TIMEOUT_SECONDS = 30.0
 WORKER_RESTART_BACKOFF_SECONDS = (1.0, 5.0, 30.0)
@@ -127,6 +124,8 @@ def configure(config: Mapping[str, Any]) -> dict[str, object]:
         raise EngineConfigError(f"Missing config keys: {missing}")
     if config["platform"] != "android":
         raise EngineConfigError("platform must be 'android'")
+    from bento.interfaces.http.request_guard import API_TOKEN_ENV, MIN_TOKEN_LENGTH
+
     token = str(config["api_token"])
     if len(token) < MIN_TOKEN_LENGTH:
         raise EngineConfigError(f"api_token must contain at least {MIN_TOKEN_LENGTH} characters")
@@ -152,6 +151,7 @@ def configure(config: Mapping[str, Any]) -> dict[str, object]:
             raise EngineConfigError(f"Invalid settings: {exc.__class__.__name__}") from None
 
         from bento.adapters.android.host import AndroidHost
+        from bento.adapters.security.key_store import WRAPPING_KEY_ENV
         from bento.adapters.security.primitives import b64url_encode
 
         try:
