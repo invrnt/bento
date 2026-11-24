@@ -68,6 +68,12 @@ class TimelinePositionalSourceTest {
     private val source = TimelinePositionalSource(backend::page, { months }, { published = it }, jumps)
 
     @Test
+    fun `the first page is the head request (it refreshes the Fotos UI cache)`() = runTest {
+        source.load(PagingSource.LoadParams.Refresh(null, 120, true))
+        assertNull(backend.requests.first().first)
+    }
+
+    @Test
     fun `refresh reports placeholders for the whole library`() = runTest {
         val page = source.load(PagingSource.LoadParams.Refresh(null, 120, true)) as PagingSource.LoadResult.Page
         assertEquals(120, page.data.size)

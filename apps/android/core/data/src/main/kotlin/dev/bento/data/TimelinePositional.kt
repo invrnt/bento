@@ -63,12 +63,12 @@ class TimelinePositionalSource(
         val layout = layout ?: TimelineLayout(fetchIndex()).also { built ->
             layout = built
             synchronized(cursors) {
+                // Position 0 stays the head request (null cursor): only that page refreshes the Fotos UI cache.
+                // (`putIfAbsent` would replace it: a null value counts as absent.)
                 cursors[0] = null
                 built.months.forEachIndexed { i, month ->
-                    if (month.firstCursor !=
-                        null
-                    ) {
-                        cursors.putIfAbsent(built.starts[i], month.firstCursor)
+                    if (month.firstCursor != null && !cursors.containsKey(built.starts[i])) {
+                        cursors[built.starts[i]] = month.firstCursor
                     }
                 }
             }
