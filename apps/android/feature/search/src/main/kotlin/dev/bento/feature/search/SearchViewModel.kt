@@ -7,6 +7,7 @@ import dev.bento.api.ApiException
 import dev.bento.api.generated.AlbumResponse
 import dev.bento.api.generated.BentoEndpoints
 import dev.bento.api.generated.SearchItemResponse
+import dev.bento.designsystem.trace.InteractionTrace
 import dev.bento.feature.files.Destination
 import dev.bento.feature.files.FileKinds
 import dev.bento.feature.files.FilesPreferences
@@ -128,6 +129,7 @@ class SearchViewModel @Inject constructor(
 
     fun setQuery(query: String) {
         if (query == _state.value.query) return
+        if (query.isNotBlank() && _state.value.results.isEmpty()) InteractionTrace.beginIfIdle(InteractionTrace.SEARCH_RESULTS)
         _state.update { it.copy(query = query) }
         runSearch()
     }

@@ -10,8 +10,11 @@ import dev.bento.background.BackgroundScheduler
 import dev.bento.background.BentoNotifications
 import dev.bento.background.NotificationDriver
 import dev.bento.data.Invalidations
+import dev.bento.designsystem.theme.preloadBentoFonts
 import dev.bento.engine.BentoEngine
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -48,6 +51,8 @@ class BentoApplication : Application(), Configuration.Provider {
         trace("bento.app.onCreate") {
             // Interpreter warm-up on a background thread; the first frame never waits for it.
             engine.warmUp()
+            // Typefaces resolved before the first text measure (docs/dev/android-performance.md, TTID).
+            CoroutineScope(Dispatchers.Default).launch { preloadBentoFonts(this@BentoApplication) }
             BentoNotifications.createChannels(this)
             BentoNotifications.launchIntent = { context ->
                 Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)

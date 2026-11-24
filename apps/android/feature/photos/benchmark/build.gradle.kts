@@ -3,9 +3,8 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-// Photos journeys measured from another process (product/android.md §13): timeline scroll over a seeded
-// library of >= 10,000 photos and viewer open, plus instrumented journey 7. Emulator numbers are indicative;
-// agent 42 runs the release matrix with a non-debuggable benchmark build and Baseline Profiles.
+// Instrumented Fotos journeys (7 and the Fotos parts of 1, 2, 5) against the debug app, driven from another process
+// with the shared :benchmark-common driver. The §13 Fotos Macrobenchmarks live in apps/android/benchmark.
 android {
     namespace = "dev.bento.feature.photos.benchmark"
     compileSdk = libs.versions.compileSdk.get().toInt()
@@ -24,11 +23,5 @@ android {
 }
 
 dependencies {
-    implementation(libs.androidx.test.runner)
-    implementation(libs.androidx.test.ext.junit)
-    implementation(libs.androidx.test.uiautomator)
-    implementation(libs.androidx.benchmark.macro)
-    implementation(libs.androidx.exifinterface)
-    implementation(libs.okhttp)
-    implementation(libs.kotlinx.serialization.json)
+    implementation(project(":benchmark-common"))
 }

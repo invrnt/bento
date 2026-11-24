@@ -136,7 +136,7 @@ object EngineModule {
             listeners = setOf(observers, imports),
             log = log
         )
-        if (buildInfo.debugTools) {
+        if (buildInfo.debugTools || BuildConfig.ENGINE_BENCHMARK_TOOLS) {
             engine.state.onEach { state ->
                 if (state is EngineState.Ready) DebugOptions.publishEndpoint(context, state) else DebugOptions.clearEndpoint(context)
             }.launchIn(scope)

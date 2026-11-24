@@ -25,14 +25,15 @@ data class EngineBuildInfo(
 /** Builds [EngineConfig] from the storage layout of architecture/android-runtime.md §10. */
 class EngineConfigFactory(private val context: Context, private val build: EngineBuildInfo) {
     fun create(): EngineConfig {
-        val debug = if (build.debugTools) DebugOptions.read(context) else emptyMap()
+        val tools = build.debugTools || BuildConfig.ENGINE_BENCHMARK_TOOLS
+        val debug = if (tools) DebugOptions.read(context) else emptyMap()
         return EngineConfig(
             // Catalog, key store and logs are excluded from backup (architecture/android-runtime.md §10).
             dataDir = File(context.noBackupFilesDir, "bento").absolutePath,
             noBackupDir = context.noBackupFilesDir.absolutePath,
             cacheDir = context.cacheDir.absolutePath,
-            environment = if (build.debugTools) "debug" else "production",
-            storageBackend = if (build.debugTools) debug["storage_backend"] ?: "fake" else "telegram",
+            environment = if (tools) "debug" else "production",
+            storageBackend = if (tools) debug["storage_backend"] ?: "fake" else "telegram",
             telegramApiId = build.telegramApiId?.takeIf { it.isNotBlank() },
             telegramApiHash = build.telegramApiHash?.takeIf { it.isNotBlank() },
             relayUrl = build.relayUrl?.takeIf { it.isNotBlank() },
@@ -90,6 +91,9 @@ object MigrationAssets {
  * Debug builds only. `filesDir/dev-options.json` (written by tests with `run-as`) tunes the fake backend;
  * `noBackupFilesDir/dev-endpoint.json` exposes port + token to the `:smoke` instrumentation, which runs in
  * another process. Neither file exists in release builds.
+ *
+ * The non-debuggable benchmark variants (`ENGINE_BENCHMARK_TOOLS`, never shipped) have no `run-as`: they publish the
+ * endpoint under the app-specific external files dir, which the shell (Macrobenchmark) can read.
  */
 object DebugOptions {
     private const val OPTIONS = "dev-options.json"
@@ -109,12 +113,15 @@ object DebugOptions {
             put("token", ready.token)
             put("pid", android.os.Process.myPid())
         }
-        File(context.noBackupFilesDir, ENDPOINT).writeText(payload.toString())
+        File(endpointDir(context), ENDPOINT).writeText(payload.toString())
     }
 
     fun clearEndpoint(context: Context) {
-        File(context.noBackupFilesDir, ENDPOINT).delete()
+        File(endpointDir(context), ENDPOINT).delete()
     }
+
+    private fun endpointDir(context: Context): File =
+        if (BuildConfig.ENGINE_BENCHMARK_TOOLS) context.getExternalFilesDir(null) ?: context.noBackupFilesDir else context.noBackupFilesDir
 }
 
 /** Starts/stops the MediaStore and conditions observers with the engine and forwards their events. */

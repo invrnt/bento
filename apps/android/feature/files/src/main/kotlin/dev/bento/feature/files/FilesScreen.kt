@@ -43,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -105,6 +106,7 @@ import dev.bento.designsystem.format.pluralCountResource
 import dev.bento.designsystem.generated.BentoIcons
 import dev.bento.designsystem.theme.BentoShapes
 import dev.bento.designsystem.theme.BentoTheme
+import dev.bento.designsystem.trace.InteractionTrace
 import dev.bento.feature.files.di.FilesEntryPoint
 import dev.bento.strings.R as StringsR
 import java.io.File
@@ -160,6 +162,7 @@ fun FilesScreen(
 ) {
     val context = LocalContext.current
     val state by viewModel.state.collectAsStateWithLifecycle()
+    if (!state.loading && state.items.isNotEmpty()) SideEffect { InteractionTrace.end(InteractionTrace.FILES_OPEN) }
     val uploads by viewModel.uploads.state.collectAsStateWithLifecycle()
     val audio by viewModel.audio.state.collectAsStateWithLifecycle()
     val snackbar = remember { BentoSnackbarHostState() }

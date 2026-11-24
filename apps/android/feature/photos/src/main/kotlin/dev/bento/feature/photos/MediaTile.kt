@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -93,6 +94,7 @@ fun rememberThumbnailPainter(asset: AssetResponse, sizePx: Int): androidx.compos
     }
     val painter = rememberAsyncImagePainter(request, loader)
     val state by painter.state.collectAsState()
+    if (state is AsyncImagePainter.State.Success) SideEffect(FirstThumbnail::markShown)
     return painter.takeIf { state is AsyncImagePainter.State.Success }
 }
 

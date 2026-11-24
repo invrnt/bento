@@ -1,26 +1,15 @@
 package dev.bento.feature.photos
 
-import androidx.tracing.Trace
+import dev.bento.designsystem.trace.InteractionTrace
 
 /**
  * Async trace slice `bento.viewer.open`: from the tile tap to the viewer's first frame that shows the photo (the
  * shared thumbnail). Macrobenchmark reads it with `TraceSectionMetric` (budget: first frame <= 100 ms, §13).
  */
 object ViewerOpenTrace {
-    const val SECTION = "bento.viewer.open"
-    private const val COOKIE = 39
+    const val SECTION = InteractionTrace.VIEWER_OPEN
 
-    @Volatile private var open = false
+    fun begin() = InteractionTrace.begin(SECTION)
 
-    fun begin() {
-        if (open) Trace.endAsyncSection(SECTION, COOKIE)
-        open = true
-        Trace.beginAsyncSection(SECTION, COOKIE)
-    }
-
-    fun end() {
-        if (!open) return
-        open = false
-        Trace.endAsyncSection(SECTION, COOKIE)
-    }
+    fun end() = InteractionTrace.end(SECTION)
 }

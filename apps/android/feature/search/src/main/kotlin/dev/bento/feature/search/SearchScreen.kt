@@ -32,6 +32,7 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
@@ -83,6 +84,7 @@ import dev.bento.designsystem.component.Thumbnail
 import dev.bento.designsystem.generated.BentoIcons
 import dev.bento.designsystem.theme.BentoShapes
 import dev.bento.designsystem.theme.BentoTheme
+import dev.bento.designsystem.trace.InteractionTrace
 import dev.bento.feature.files.Destination
 import dev.bento.feature.files.FileKinds
 import dev.bento.feature.files.FolderPickerBody
@@ -150,6 +152,7 @@ fun SearchScreen(
         }
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
+    if (state.results.isNotEmpty()) SideEffect { InteractionTrace.end(InteractionTrace.SEARCH_RESULTS) }
     val loader = remember(context) { runCatching { FilesEntryPoint.get(context).imageLoader() }.getOrNull() }
     val actions = SearchActions(
         onBack = onBack,

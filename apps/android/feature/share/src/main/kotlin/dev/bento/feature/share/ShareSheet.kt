@@ -51,6 +51,7 @@ import dev.bento.designsystem.format.pluralCountResource
 import dev.bento.designsystem.generated.BentoIcons
 import dev.bento.designsystem.theme.BentoShapes
 import dev.bento.designsystem.theme.BentoTheme
+import dev.bento.designsystem.trace.InteractionTrace
 import dev.bento.feature.files.FileKinds
 import dev.bento.feature.files.FolderBrowserState
 import dev.bento.feature.files.FolderPickerBody
@@ -81,7 +82,10 @@ fun ShareSheetHost(intent: Intent?, onFinish: () -> Unit, viewModel: ShareViewMo
     val browser by viewModel.folderBrowser.state.collectAsStateWithLifecycle()
     val loader = remember(context) { runCatching { FilesEntryPoint.get(context).imageLoader() }.getOrNull() }
     val actions = ShareActions(
-        onSave = { if (viewModel.save()) onFinish() },
+        onSave = {
+            InteractionTrace.begin(InteractionTrace.SHARE_DISMISS)
+            if (viewModel.save()) onFinish() else InteractionTrace.end(InteractionTrace.SHARE_DISMISS)
+        },
         onClose = onFinish,
         onPicker = viewModel::showPicker,
         onAlbum = viewModel::setAlbum

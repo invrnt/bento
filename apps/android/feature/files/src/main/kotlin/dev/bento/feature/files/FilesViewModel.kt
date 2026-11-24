@@ -11,6 +11,7 @@ import dev.bento.api.generated.TelegramChatResponse
 import dev.bento.data.Invalidations
 import dev.bento.data.Topic
 import dev.bento.data.Undoable
+import dev.bento.designsystem.trace.InteractionTrace
 import dev.bento.strings.R as StringsR
 import java.io.File
 import javax.inject.Inject
@@ -293,6 +294,7 @@ class FilesViewModel @Inject constructor(
         }
         val asset = item.asset
         if (item.folder != null || asset == null) {
+            InteractionTrace.begin(InteractionTrace.FILES_OPEN)
             navigateTo(item.id)
             return
         }

@@ -1,6 +1,7 @@
 package dev.bento.feature.photos
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.ReportDrawnWhen
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -193,6 +194,7 @@ fun PhotosContent(
     }
     BackHandler(enabled = selection.active) { selection.clear() }
     TrackJank("Fotos", gridState.current.isScrollInProgress)
+    ReportDrawnWhen { load == PhotosLoad.Empty || load == PhotosLoad.Error || FirstThumbnail.shown.value }
     // A card that arrives while the grid sits at the top is inserted above the first visible item (lazy lists keep
     // the visible item in place), so it would never be seen: reveal it.
     LaunchedEffect(card != null) {
