@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Distribution v1: signed APK updates handed to the system installer (product/android.md §2). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application>
+        <!-- PackageInstaller session results; reached only through the PendingIntent this app gives the installer. -->
+        <receiver
+            android:name="dev.bento.update.UpdateInstallReceiver"
+            android:exported="false" />
+    </application>
+</manifest>
