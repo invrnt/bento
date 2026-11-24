@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from bento.domain.assets import Asset
-from bento.domain.drive import DriveItem, Folder
+from bento.domain.drive import DriveItem, DriveSort, Folder, SortOrder
 from bento.domain.errors import AssetNotFoundError, FolderNotFoundError
 from bento.domain.manifest import ManifestEntityType, ManifestEventType
 from bento.ports.manifest import ManifestJournalPort
@@ -45,6 +45,8 @@ class ListDriveItemsQuery:
     folder_id: str | None = None
     cursor: str | None = None
     limit: int = 50
+    sort: DriveSort | None = None
+    order: SortOrder | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +96,8 @@ class DriveUseCases:
             folder_id=query.folder_id,
             cursor=query.cursor,
             limit=query.limit,
+            sort=query.sort,
+            order=query.order,
         )
         return ListDriveItemsResult(items=items, next_cursor=next_cursor)
 

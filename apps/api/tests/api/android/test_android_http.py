@@ -169,7 +169,11 @@ def test_offline_pins_and_local_storage(android) -> None:  # type: ignore[no-unt
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"%PDF-1.4 pin me")
         session.add(CacheEntryModel(blob_ref_id=blob.id, path=str(path), size_bytes=15, last_accessed_at=datetime(2020, 1, 1, tzinfo=UTC)))
+    detail = client.get(f"/api/assets/{asset['id']}").json()
+    assert (detail["offline_pinned"], detail["locally_available"]) == (False, True)  # cached, evictable
     assert client.put(f"/api/assets/{asset['id']}/offline").json()["pinned"] is True
+    detail = client.get(f"/api/assets/{asset['id']}").json()
+    assert (detail["offline_pinned"], detail["locally_available"]) == (True, True)
     storage = client.get("/api/storage/local").json()
     assert storage["pinned_bytes"] == 15 and storage["pinned_count"] == 1 and storage["cache_limit_bytes"] == components.cache_max_bytes
     assert set(storage) == {"cache_bytes", "cache_files", "pinned_bytes", "pinned_count", "cache_limit_bytes", "thumbs_bytes"}
@@ -182,6 +186,8 @@ def test_offline_pins_and_local_storage(android) -> None:  # type: ignore[no-unt
     assert result.deleted_files == 0 and path.exists()
     assert client.delete(f"/api/assets/{asset['id']}/offline").json()["pinned"] is False
     assert asyncio.run(components.cache.evict(max_bytes=0)).deleted_files == 1
+    detail = client.get(f"/api/assets/{asset['id']}").json()
+    assert (detail["offline_pinned"], detail["locally_available"]) == (False, False)  # remote only now
     assert client.put("/api/assets/asset_missing/offline").status_code == 404
 
 

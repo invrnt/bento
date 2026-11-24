@@ -57,3 +57,60 @@ class DriveItem:
     updated_at: datetime
     asset: Asset | None = None
     folder: Folder | None = None
+    item_count: int | None = None
+    """Folders only: live direct children (subfolders and files)."""
+
+
+class DriveSort(StrEnum):
+    NAME = "name"
+    MODIFIED = "modified"
+    SIZE = "size"
+    KIND = "kind"
+
+
+class SortOrder(StrEnum):
+    ASC = "asc"
+    DESC = "desc"
+
+
+def sort_drive_items(
+    items: list[DriveItem] | tuple[DriveItem, ...], sort: DriveSort | None, order: SortOrder | None = None
+) -> list[DriveItem]:
+    """Without `sort`: newest first, folders and files mixed (the historical listing).
+
+    With `sort`, folders always come first (like file managers) and both groups follow the key and `order`
+    (default `asc`, `desc` for `modified`). Folders sort by item count for `size` and by name for `kind`;
+    ties break on the name and then the id, so pages are stable."""
+    if sort is None:
+        return sorted(items, key=lambda item: (item.updated_at, item.type.value, item.id), reverse=True)
+    descending = (order or (SortOrder.DESC if sort == DriveSort.MODIFIED else SortOrder.ASC)) == SortOrder.DESC
+    folders = [item for item in items if item.type == DriveItemType.FOLDER]
+    files = [item for item in items if item.type != DriveItemType.FOLDER]
+    return _sorted_group(folders, sort, descending) + _sorted_group(files, sort, descending)
+
+
+def _sorted_group(items: list[DriveItem], sort: DriveSort, descending: bool) -> list[DriveItem]:
+    def name_key(item: DriveItem) -> tuple[str, str]:
+        return (item.name.casefold(), item.id)
+
+    # Stable sorts: the tie-breaker first, then the primary key.
+    ordered = sorted(items, key=name_key)
+    if sort == DriveSort.NAME:
+        return sorted(ordered, key=name_key, reverse=descending)
+    if sort == DriveSort.MODIFIED:
+        return sorted(ordered, key=lambda item: item.updated_at, reverse=descending)
+    if sort == DriveSort.SIZE:
+        return sorted(ordered, key=_size_key, reverse=descending)
+    return sorted(ordered, key=_kind_key, reverse=descending)
+
+
+def _size_key(item: DriveItem) -> int:
+    if item.asset is not None:
+        return item.asset.metadata.size_bytes
+    return item.item_count or 0
+
+
+def _kind_key(item: DriveItem) -> tuple[str, str]:
+    if item.asset is None:
+        return ("", "")
+    return (item.asset.kind.value, item.asset.metadata.mime_type)
