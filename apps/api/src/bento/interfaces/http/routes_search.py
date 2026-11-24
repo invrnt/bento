@@ -9,10 +9,18 @@ from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel
 
 from bento.application.search import SearchAssetsQuery, SearchUseCase
-from bento.domain.search import SearchFacet, SearchHit, SearchResultType
+from bento.domain.search import SearchFacet, SearchHit, SearchOrigin, SearchResultType
 from bento.infrastructure.settings import Settings
 
 router = APIRouter()
+
+
+class SearchSnippetResponse(BaseModel):
+    text: str
+    highlights: list[tuple[int, int]]
+    """`[start, end)` offsets into `text`, in UTF-16 code units."""
+    source: str
+    """The match reason the excerpt comes from (`ocr_text`, `filename`, `folder_name`, `album`)."""
 
 
 class SearchItemResponse(BaseModel):
@@ -24,7 +32,18 @@ class SearchItemResponse(BaseModel):
     thumbnail_url: str | None
     score: float
     reason: str
+    """Spanish sentence for the web UI; clients that localize use `match_reasons`."""
     processing_state: str | None
+    match_reasons: list[str] = []
+    """Codes, strongest first: `ocr_text`, `filename`, `folder_name`, `album`, `semantic`, `metadata`,
+    `document_type`, `exif_date`, `date`, `indexed_text`, `recent`."""
+    snippet: SearchSnippetResponse | None = None
+    folder_id: str | None = None
+    """The containing folder (for folder hits, the parent)."""
+    folder_name: str | None = None
+    mime_type: str | None = None
+    origin: str | None = None
+    """Assets only: `device`, `peer` (synced from another device), `telegram_inbox`, `telegram_import`."""
 
 
 class SearchFacetResponse(BaseModel):
@@ -53,9 +72,13 @@ async def search(
     date_to: Annotated[date | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     cursor: Annotated[str | None, Query()] = None,
+    origin: Annotated[SearchOrigin | None, Query()] = None,
 ) -> SearchResponse:
+    """`origin` keeps assets this device got a given way (`device`, `peer`, `telegram`, `telegram_inbox`,
+    `telegram_import`); folders and albums are left out while it is set."""
     results = await _search_dependencies(request).search.execute(
         SearchAssetsQuery(
+            origin=origin,
             text=q,
             result_type=type_,
             folder_id=folder_id,
@@ -167,6 +190,18 @@ def _item_response(item: SearchHit) -> SearchItemResponse:
         score=item.score,
         reason=item.reason,
         processing_state=item.processing_state.value if item.processing_state is not None else None,
+        match_reasons=[reason.value for reason in item.match_reasons],
+        snippet=(
+            SearchSnippetResponse(
+                text=item.snippet.text, highlights=list(item.snippet.highlights), source=item.snippet.source.value
+            )
+            if item.snippet is not None
+            else None
+        ),
+        folder_id=item.folder_id,
+        folder_name=item.folder_name,
+        mime_type=item.mime_type,
+        origin=item.origin.value if item.origin is not None else None,
     )
 
 
