@@ -45,6 +45,10 @@ class FilesScreenshotTest {
 
     @Test fun list() = shot("list") { Files(live) }
 
+    @Test
+    @Config(qualifiers = BentoScreenshots.LANDSCAPE_QUALIFIERS)
+    fun listLandscape() = BentoScreenshots.captureLandscape(compose, "screenshots", "list") { Files(live) }
+
     @Test fun grid() = shot("grid") { Files(live.copy(layout = FilesLayout.Grid)) }
 
     @Test fun subfolderWithBreadcrumbs() = shot("subfolder") {
@@ -62,6 +66,12 @@ class FilesScreenshotTest {
     @Test fun emptyFolder() = shot("empty-folder") { Files(FilesState(loading = false, folderId = "f", breadcrumbs = crumbs.take(1))) }
 
     @Test fun selection() = shot("selection") { Files(live.copy(selection = setOf("a_tax", "a_sheet"))) }
+
+    @Test
+    @Config(qualifiers = BentoScreenshots.LANDSCAPE_QUALIFIERS)
+    fun selectionLandscape() = BentoScreenshots.captureLandscape(compose, "screenshots", "selection") {
+        Files(live.copy(selection = setOf("a_tax", "a_sheet")))
+    }
 
     @Test fun uploading() = shot("uploading") {
         Files(

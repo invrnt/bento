@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -52,7 +53,8 @@ sealed interface Hero {
 /**
  * Frame for every onboarding, pairing, recovery and device step: optional back button, hero, title (a TalkBack
  * heading), body, scrollable content, and a bottom action area so primary actions stay in the thumb zone
- * (product/android.md §1.3). Content is centered at ≤ 560 dp on wide windows and reflows at 200 % font.
+ * (product/android.md §1.3). Content is centered at ≤ 560 dp on wide windows and reflows at 200 % font. In a
+ * compact-height window (a phone on its side) the actions scroll after the content instead, so they never cover it.
  */
 @Composable
 fun SetupScaffold(
@@ -66,6 +68,7 @@ fun SetupScaffold(
     content: @Composable ColumnScope.() -> Unit = {}
 ) {
     val c = BentoTheme.colors
+    val pinActions = LocalConfiguration.current.screenHeightDp >= COMPACT_HEIGHT_DP
     Column(
         modifier
             .fillMaxSize()
@@ -103,9 +106,13 @@ fun SetupScaffold(
                 }
                 Spacer(Modifier.height(24.dp))
                 content()
+                if (actions != null && !pinActions) {
+                    Spacer(Modifier.height(24.dp))
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) { actions() }
+                }
             }
         }
-        if (actions != null) {
+        if (actions != null && pinActions) {
             Column(
                 Modifier
                     .fillMaxWidth()
@@ -118,6 +125,9 @@ fun SetupScaffold(
         }
     }
 }
+
+/** Window size class boundary for compact height (Material). */
+private const val COMPACT_HEIGHT_DP = 480
 
 @Composable
 private fun HeroSlot(hero: Hero) {
