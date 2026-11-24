@@ -57,6 +57,7 @@
             android:exported="true"
             android:launchMode="singleTask"
             android:supportsPictureInPicture="true"
+            android:taskAffinity=""
             android:theme="@style/Theme.Bento.Splash"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
@@ -72,7 +73,7 @@
                     android:host="join"
                     android:scheme="bento" />
             </intent-filter>
-            <!-- Verified App Links: https://<site>/join#v=1&c=… -->
+            <!-- Verified App Links: https://<site>/join#v=1&c=… (the site also serves /join/). -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -80,6 +81,7 @@
                 <data android:scheme="https" />
                 <data android:host="${bentoSiteHost}" />
                 <data android:path="/join" />
+                <data android:path="/join/" />
             </intent-filter>
         </activity>
 
