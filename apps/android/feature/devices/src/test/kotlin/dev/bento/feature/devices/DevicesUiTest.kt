@@ -26,7 +26,19 @@ class DevicesUiTest {
     fun reviewCardActions() {
         val taps = mutableListOf<String>()
         val device = d(TrustFixtures.device("d_new", "Equipo raro", platform = "windows", needsReview = true))
-        compose.setContent { BentoTheme { ReviewCard(device, busy = false, failed = false, actions = DevicesActions(onAcknowledge = { taps += "mine" }, onRemove = { taps += "remove" })) } }
+        compose.setContent {
+            BentoTheme {
+                ReviewCard(
+                    device,
+                    busy = false,
+                    failed = false,
+                    actions = DevicesActions(onAcknowledge = {
+                        taps +=
+                            "mine"
+                    }, onRemove = { taps += "remove" })
+                )
+            }
+        }
         compose.onNodeWithText("Se añadió «Equipo raro · Windows» a tu nube").assertExists()
         compose.onNodeWithText("Es mío").performClick()
         compose.onNodeWithText("No lo reconozco").performClick()
@@ -38,7 +50,10 @@ class DevicesUiTest {
         val removal = RemovalState(
             device = d(TrustFixtures.device("d_lap", "Portátil")),
             loadingPreview = false,
-            recipients = listOf(d(TrustFixtures.device("d_me", "Pixel 8", platform = "android", current = true)), d(TrustFixtures.device("d_new", "Equipo raro", needsReview = true))),
+            recipients = listOf(
+                d(TrustFixtures.device("d_me", "Pixel 8", platform = "android", current = true)),
+                d(TrustFixtures.device("d_new", "Equipo raro", needsReview = true))
+            ),
             excluded = setOf("d_new")
         )
         var confirmed = false

@@ -72,6 +72,8 @@ class OnboardingLogicTest {
             "network_error" to SignInProblem.Network,
             "whatever" to SignInProblem.Generic
         )
-        map.forEach { (code, problem) -> assertEquals(code, problem, TelegramSignInViewModel.problemOf(dev.bento.feature.recovery.ApiProblem(code))) }
+        map.forEach { (code, problem) ->
+            assertEquals(code, problem, TelegramSignInViewModel.problemOf(dev.bento.feature.recovery.ApiProblem(code)))
+        }
     }
 }

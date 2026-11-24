@@ -453,7 +453,13 @@ private fun PasswordStep(
         BentoTextField(
             state = password,
             label = stringResource(StringsR.string.onboarding_password_label),
-            error = if (state.problem == SignInProblem.PasswordInvalid) stringResource(StringsR.string.onboarding_error_password_invalid) else null,
+            error = if (state.problem ==
+                SignInProblem.PasswordInvalid
+            ) {
+                stringResource(StringsR.string.onboarding_error_password_invalid)
+            } else {
+                null
+            },
             secure = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             onKeyboardAction = { actions.onSubmitPassword(password.text.toString()) }

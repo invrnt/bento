@@ -5,10 +5,10 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
-import androidx.compose.ui.test.onNodeWithContentDescription
 import dev.bento.designsystem.theme.BentoTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -58,7 +58,16 @@ class OnboardingUiTest {
     @Test
     fun withTheTelegramAppContinueIsOffered() {
         var continued = false
-        set { TelegramSignInContent(SignInState(loading = false), telegramAppInstalled = true, actions = SignInActions(onContinueWithTelegram = { continued = true })) }
+        set {
+            TelegramSignInContent(
+                SignInState(loading = false),
+                telegramAppInstalled = true,
+                actions = SignInActions(onContinueWithTelegram = {
+                    continued =
+                        true
+                })
+            )
+        }
         compose.onNodeWithText("Telegram te pedirá confirmar el inicio de sesión de Bento.").assertExists()
         compose.onNodeWithText("Continuar con Telegram").performClick()
         assertTrue(continued)
@@ -69,7 +78,13 @@ class OnboardingUiTest {
         val submitted = mutableListOf<String>()
         set {
             TelegramSignInContent(
-                SignInState(view = SignInView.Code, loading = false, resendSeconds = 42, national = "3001234567", country = PhoneNumbers.preselect("co", null)),
+                SignInState(
+                    view = SignInView.Code,
+                    loading = false,
+                    resendSeconds = 42,
+                    national = "3001234567",
+                    country = PhoneNumbers.preselect("co", null)
+                ),
                 telegramAppInstalled = true,
                 actions = SignInActions(onSubmitCode = { submitted += it }),
                 clipboardCode = "54321"
@@ -119,7 +134,13 @@ class OnboardingUiTest {
     fun floodWaitSaysItRetriesByItself() {
         set {
             TelegramSignInContent(
-                SignInState(view = SignInView.Phone, loading = false, problem = SignInProblem.FloodWait, floodWaitSeconds = 180, national = "3001234567"),
+                SignInState(
+                    view = SignInView.Phone,
+                    loading = false,
+                    problem = SignInProblem.FloodWait,
+                    floodWaitSeconds = 180,
+                    national = "3001234567"
+                ),
                 telegramAppInstalled = false,
                 actions = SignInActions()
             )
@@ -131,7 +152,11 @@ class OnboardingUiTest {
     @Test
     fun phoneStepEnablesSendWithAPlausibleNumber() {
         set {
-            TelegramSignInContent(SignInState(view = SignInView.Phone, loading = false, national = "3001234567"), telegramAppInstalled = false, actions = SignInActions())
+            TelegramSignInContent(
+                SignInState(view = SignInView.Phone, loading = false, national = "3001234567"),
+                telegramAppInstalled = false,
+                actions = SignInActions()
+            )
         }
         compose.onNodeWithText("Enviar código").assertIsEnabled()
         compose.onNodeWithText("Código 57").assertExists()

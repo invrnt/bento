@@ -29,7 +29,12 @@ class PairingUiTest {
     @Test
     fun sasEmojisAreOneTalkBackSentence() {
         compose.setContent {
-            BentoTheme { JoinContent(JoinState(step = JoinStep.Pairing, pairing = p(TrustFixtures.pairing("awaiting_approval", sas = TrustFixtures.SAS))), JoinActions()) }
+            BentoTheme {
+                JoinContent(
+                    JoinState(step = JoinStep.Pairing, pairing = p(TrustFixtures.pairing("awaiting_approval", sas = TrustFixtures.SAS))),
+                    JoinActions()
+                )
+            }
         }
         compose.onNodeWithContentDescription("Emojis de verificación: 🐙 🌵 🎈 🚀").assertExists()
         compose.onNodeWithText("Confirma en tu computador").assertExists()
@@ -41,7 +46,18 @@ class PairingUiTest {
         compose.setContent {
             BentoTheme {
                 JoinContent(
-                    JoinState(step = JoinStep.Pairing, pairing = p(TrustFixtures.pairing("awaiting_approval", transport = "telegram", sas = TrustFixtures.SAS, vault = true, peer = null))),
+                    JoinState(
+                        step = JoinStep.Pairing,
+                        pairing = p(
+                            TrustFixtures.pairing(
+                                "awaiting_approval",
+                                transport = "telegram",
+                                sas = TrustFixtures.SAS,
+                                vault = true,
+                                peer = null
+                            )
+                        )
+                    ),
                     JoinActions(onMatch = { taps += "match" }, onNoMatch = { taps += "no" })
                 )
             }
@@ -57,7 +73,13 @@ class PairingUiTest {
         var signIn = false
         compose.setContent {
             BentoTheme {
-                JoinContent(JoinState(step = JoinStep.Entry, entryMode = EntryMode.Type, joinProblem = PairingProblem.RelayUnavailable), JoinActions(onNoDevice = { signIn = true }))
+                JoinContent(
+                    JoinState(step = JoinStep.Entry, entryMode = EntryMode.Type, joinProblem = PairingProblem.RelayUnavailable),
+                    JoinActions(onNoDevice = {
+                        signIn =
+                            true
+                    })
+                )
             }
         }
         compose.onNodeWithText("Iniciar sesión en Telegram").performClick()
@@ -69,8 +91,17 @@ class PairingUiTest {
         compose.setContent {
             BentoTheme {
                 HostPairingContent(
-                    HostState(pairing = p(TrustFixtures.pairing("waiting", role = "host", code = "K7Q2-MXR9-T4WA", peer = null)), starting = false, secondsLeft = 125),
-                    {}, {}, {}, {}, { true }, {}
+                    HostState(
+                        pairing = p(TrustFixtures.pairing("waiting", role = "host", code = "K7Q2-MXR9-T4WA", peer = null)),
+                        starting = false,
+                        secondsLeft = 125
+                    ),
+                    {},
+                    {},
+                    {},
+                    {},
+                    { true },
+                    {}
                 )
             }
         }
@@ -84,7 +115,11 @@ class PairingUiTest {
 
     @Test
     fun requestTakenIsExplained() {
-        compose.setContent { BentoTheme { PairingRequestContent(RequestReviewState(loading = false, problem = PairingProblem.RequestTaken), {}, {}, {}) } }
-        compose.onNodeWithText("Otro dispositivo respondió a esta solicitud. Si no fuiste tú, cancela en el dispositivo nuevo.").assertExists()
+        compose.setContent {
+            BentoTheme { PairingRequestContent(RequestReviewState(loading = false, problem = PairingProblem.RequestTaken), {}, {}, {}) }
+        }
+        compose.onNodeWithText(
+            "Otro dispositivo respondió a esta solicitud. Si no fuiste tú, cancela en el dispositivo nuevo."
+        ).assertExists()
     }
 }

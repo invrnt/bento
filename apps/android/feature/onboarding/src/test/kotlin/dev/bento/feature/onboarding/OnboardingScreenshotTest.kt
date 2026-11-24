@@ -27,9 +27,15 @@ class OnboardingScreenshotTest {
     private val co = PhoneNumbers.preselect("co", null)
     private val ana = TelegramAccountResponse("Ana", "+57 ••• 12", false, 1, "ana")
     private fun status(json: String) = BentoJson.decodeFromString(AccountStatusResponse.serializer(), json)
+
     @Composable
     private fun signIn(state: SignInState, app: Boolean = true, clipboard: String? = null) {
-        TelegramSignInContent(state.copy(loading = false, country = co), telegramAppInstalled = app, actions = SignInActions(), clipboardCode = clipboard)
+        TelegramSignInContent(
+            state.copy(loading = false, country = co),
+            telegramAppInstalled = app,
+            actions = SignInActions(),
+            clipboardCode = clipboard
+        )
     }
 
     @Test fun welcome() = shot("welcome") { WelcomeContent({}, {}, {}) }
@@ -44,29 +50,47 @@ class OnboardingScreenshotTest {
 
     @Test fun phone() = shot("signin-phone") { signIn(SignInState(view = SignInView.Phone, national = "3001234567")) }
 
-    @Test fun phoneInvalid() = shot("signin-phone-invalid") { signIn(SignInState(view = SignInView.Phone, national = "300", problem = SignInProblem.PhoneInvalid)) }
+    @Test fun phoneInvalid() = shot("signin-phone-invalid") {
+        signIn(SignInState(view = SignInView.Phone, national = "300", problem = SignInProblem.PhoneInvalid))
+    }
 
     @Test fun phoneFloodWait() = shot("signin-phone-flood-wait") {
         signIn(SignInState(view = SignInView.Phone, national = "3001234567", problem = SignInProblem.FloodWait, floodWaitSeconds = 180))
     }
 
-    @Test fun phoneNetwork() = shot("signin-phone-network") { signIn(SignInState(view = SignInView.Phone, national = "3001234567", problem = SignInProblem.Network)) }
+    @Test fun phoneNetwork() = shot("signin-phone-network") {
+        signIn(SignInState(view = SignInView.Phone, national = "3001234567", problem = SignInProblem.Network))
+    }
 
-    @Test fun code() = shot("signin-code") { signIn(SignInState(view = SignInView.Code, national = "3001234567", resendSeconds = 42), clipboard = "54321") }
+    @Test fun code() = shot("signin-code") {
+        signIn(SignInState(view = SignInView.Code, national = "3001234567", resendSeconds = 42), clipboard = "54321")
+    }
 
-    @Test fun codeInvalid() = shot("signin-code-invalid") { signIn(SignInState(view = SignInView.Code, national = "3001234567", problem = SignInProblem.CodeInvalid)) }
+    @Test fun codeInvalid() = shot("signin-code-invalid") {
+        signIn(SignInState(view = SignInView.Code, national = "3001234567", problem = SignInProblem.CodeInvalid))
+    }
 
-    @Test fun codeExpired() = shot("signin-code-expired") { signIn(SignInState(view = SignInView.Code, national = "3001234567", problem = SignInProblem.Expired)) }
+    @Test fun codeExpired() = shot("signin-code-expired") {
+        signIn(SignInState(view = SignInView.Code, national = "3001234567", problem = SignInProblem.Expired))
+    }
 
     @Test fun password() = shot("signin-password") {
         signIn(SignInState(view = SignInView.Password, status = status(TrustFixtures.account("password_required", hint = "el perro"))))
     }
 
     @Test fun passwordInvalid() = shot("signin-password-invalid") {
-        signIn(SignInState(view = SignInView.Password, status = status(TrustFixtures.account("password_required", hint = "el perro")), problem = SignInProblem.PasswordInvalid))
+        signIn(
+            SignInState(
+                view = SignInView.Password,
+                status = status(TrustFixtures.account("password_required", hint = "el perro")),
+                problem = SignInProblem.PasswordInvalid
+            )
+        )
     }
 
-    @Test fun qr() = shot("signin-qr") { signIn(SignInState(view = SignInView.Qr, status = status(TrustFixtures.account("qr_pending", qrUrl = "tg://x")))) }
+    @Test fun qr() = shot("signin-qr") {
+        signIn(SignInState(view = SignInView.Qr, status = status(TrustFixtures.account("qr_pending", qrUrl = "tg://x"))))
+    }
 
     @Test fun creating() = shot("creating") { CreatingContent(ana, null, CreatingState(), {}) }
 

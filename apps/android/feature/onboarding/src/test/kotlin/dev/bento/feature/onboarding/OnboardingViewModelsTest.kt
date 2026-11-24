@@ -97,7 +97,9 @@ class OnboardingViewModelsTest {
         assertEquals(SignInView.Password, vm.state.value.view)
         assertEquals("demo", vm.state.value.status?.passwordHint)
 
-        api.on("POST /api/account/login/password") { TrustFixtures.account("password_required", error = "telegram_password_invalid", hint = "demo") }
+        api.on("POST /api/account/login/password") {
+            TrustFixtures.account("password_required", error = "telegram_password_invalid", hint = "demo")
+        }
         vm.submitPassword("nope")
         advanceUntilIdle()
         assertEquals(SignInProblem.PasswordInvalid, vm.state.value.problem)
@@ -109,7 +111,13 @@ class OnboardingViewModelsTest {
         var calls = 0
         api.on("POST /api/account/login/phone") {
             calls++
-            if (calls == 1) TrustFixtures.account("signed_out", error = "telegram_flood_wait", retryAfter = 3) else TrustFixtures.account("code_required")
+            if (calls ==
+                1
+            ) {
+                TrustFixtures.account("signed_out", error = "telegram_flood_wait", retryAfter = 3)
+            } else {
+                TrustFixtures.account("code_required")
+            }
         }
         val vm = signIn()
         vm.start("co", null)
@@ -133,7 +141,9 @@ class OnboardingViewModelsTest {
     fun continueWithTelegramOpensTheLinkAndPollsUntilAuthorized() = runTest(main.dispatcher) {
         var status = TrustFixtures.account("qr_pending", qrUrl = "tg://login?token=abc", expiresAt = "2099-01-01T00:00:00+00:00")
         api.on("GET /api/account") { status }
-        api.on("POST /api/account/login/qr") { TrustFixtures.account("qr_pending", qrUrl = "tg://login?token=abc", expiresAt = "2099-01-01T00:00:00+00:00") }
+        api.on("POST /api/account/login/qr") {
+            TrustFixtures.account("qr_pending", qrUrl = "tg://login?token=abc", expiresAt = "2099-01-01T00:00:00+00:00")
+        }
         val vm = signIn()
         vm.start(null, null)
         advanceUntilIdle()
@@ -173,7 +183,11 @@ class OnboardingViewModelsTest {
         assertFalse(vm.state.value.busy)
     }
 
-    private fun onboarding() = OnboardingViewModel(VaultRepository(api.endpoints()), login, AppGateResolver(VaultRepository(api.endpoints()), store))
+    private fun onboarding() = OnboardingViewModel(
+        VaultRepository(api.endpoints()),
+        login,
+        AppGateResolver(VaultRepository(api.endpoints()), store)
+    )
 
     private val ana = dev.bento.api.generated.TelegramAccountResponse("Ana", null, false, 1, "ana")
 

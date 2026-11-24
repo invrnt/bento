@@ -33,7 +33,13 @@ object TrustFixtures {
         hint: String? = null,
         expiresAt: String? = null
     ): String {
-        val account = if (step == "authorized") """{"user_id":1,"display_name":"Ana","username":"ana","phone_masked":"+57 ••• 12","premium":false}""" else "null"
+        val account = if (step ==
+            "authorized"
+        ) {
+            """{"user_id":1,"display_name":"Ana","username":"ana","phone_masked":"+57 ••• 12","premium":false}"""
+        } else {
+            "null"
+        }
         val details = retryAfter?.let { ""","details":{"retry_after_seconds":$it}""" }.orEmpty()
         val err = error?.let { """{"code":"$it","message":"$it"$details}""" } ?: "null"
         val qr = if (step == "qr_pending") QR else "null"
@@ -81,6 +87,7 @@ object TrustFixtures {
 
     fun sync(state: String = "idle", done: Long? = null, total: Long? = null): String {
         val bootstrap = if (done != null && total != null) """{"done":$done,"total":$total}""" else "null"
-        return """{"state":"$state","pending_ops":0,"last_push_at":null,"last_pull_at":null,"bootstrap":$bootstrap,"waiting_until":null,"error":null}"""
+        return """{"state":"$state","pending_ops":0,"last_push_at":null,"last_pull_at":null,"bootstrap":$bootstrap,""" +
+            """"waiting_until":null,"error":null}"""
     }
 }

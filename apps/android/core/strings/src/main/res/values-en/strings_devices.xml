@@ -4,7 +4,7 @@
     <string name="devices_title">Devices</string>
     <string name="devices_body">Every device connected to your cloud. Each one has its own Telegram session.</string>
     <string name="devices_loading">Loading your devices…</string>
-    <string name="devices_load_failed">Your devices couldn\'t be loaded.</string>
+    <string name="devices_load_failed">Your devices couldn’t be loaded.</string>
     <string name="devices_add">Add device</string>
     <string name="devices_section_all">Connected to your cloud</string>
     <string name="devices_this_phone">This phone</string>
@@ -18,48 +18,48 @@
     <string name="devices_connect">Connect my Telegram</string>
 
     <string name="devices_request_title">A new device wants to join</string>
-    <string name="devices_request_body">\"%1$s\" asked for access to your cloud. Check that it\'s yours before adding it.</string>
+    <string name="devices_request_body">\"%1$s\" asked for access to your cloud. Check that it’s yours before adding it.</string>
 
     <string name="devices_review_screen_title">Review this device</string>
     <string name="devices_review_title">\"%1$s\" was added to your cloud</string>
     <string name="devices_review_body">It was added on %1$s from another of your devices. Do you recognize it?</string>
-    <string name="devices_review_mine">It\'s mine</string>
-    <string name="devices_review_unknown">I don\'t recognize it</string>
-    <string name="devices_review_failed">Your answer couldn\'t be saved. Try again.</string>
+    <string name="devices_review_mine">It’s mine</string>
+    <string name="devices_review_unknown">I don’t recognize it</string>
+    <string name="devices_review_failed">Your answer couldn’t be saved. Try again.</string>
 
     <string name="devices_rename_title">Rename device</string>
     <string name="devices_rename_label">Device name</string>
-    <string name="devices_rename_failed">The name couldn\'t be changed. Try again.</string>
+    <string name="devices_rename_failed">The name couldn’t be changed. Try again.</string>
 
     <string name="devices_remove_action">Remove device</string>
     <string name="devices_remove_title">Remove \"%1$s\"?</string>
     <string name="devices_remove_consequence_sync">It will stop syncing and its Telegram session will be closed.</string>
-    <string name="devices_remove_consequence_local">What it already downloaded stays on that device: it can\'t be erased remotely.</string>
-    <string name="devices_remove_consequence_kit">Bento will change your cloud\'s keys and give you a new recovery kit. The current one will stop working.</string>
+    <string name="devices_remove_consequence_local">What it already downloaded stays on that device: it can’t be erased remotely.</string>
+    <string name="devices_remove_consequence_kit">Bento will change your cloud’s keys and give you a new recovery kit. The current one will stop working.</string>
     <string name="devices_remove_keep_title">They keep access</string>
-    <string name="devices_remove_keep_body">They receive the new keys. Turn off the ones you don\'t recognize to remove them too.</string>
+    <string name="devices_remove_keep_body">They receive the new keys. Turn off the ones you don’t recognize to remove them too.</string>
     <string name="devices_remove_keep_loading">Looking for your other devices…</string>
-    <string name="devices_remove_keep_failed">The device list couldn\'t be loaded. You can still remove this device.</string>
+    <string name="devices_remove_keep_failed">The device list couldn’t be loaded. You can still remove this device.</string>
     <string name="devices_remove_this_keeps">This phone: always keeps access</string>
     <string name="devices_remove_unreviewed">Not reviewed</string>
     <plurals name="devices_remove_excluded">
         <item quantity="one">%1$d more device will also be removed</item>
         <item quantity="other">%1$d more devices will also be removed</item>
     </plurals>
-    <string name="devices_remove_excluded_body">They won\'t receive the new keys, so they can\'t open what you upload from now on. Their Telegram session stays open until you close it from Telegram › Settings › Devices.</string>
+    <string name="devices_remove_excluded_body">They won’t receive the new keys, so they can’t open what you upload from now on. Their Telegram session stays open until you close it from Telegram › Settings › Devices.</string>
     <string name="devices_remove_confirm">Remove device</string>
     <plurals name="devices_remove_confirm_many">
         <item quantity="one">Remove %1$d device</item>
         <item quantity="other">Remove %1$d devices</item>
     </plurals>
-    <string name="devices_remove_failed">The device couldn\'t be removed. Try again.</string>
+    <string name="devices_remove_failed">The device couldn’t be removed. Try again.</string>
     <string name="devices_remove_exclusion_invalid">The device list changed while you were reviewing it. Review it again and retry.</string>
     <string name="devices_removed">You removed \"%1$s\" from your cloud.</string>
     <plurals name="devices_removed_more">
         <item quantity="one">You removed \"%1$s\" and %2$d more device from your cloud.</item>
         <item quantity="other">You removed \"%1$s\" and %2$d more devices from your cloud.</item>
     </plurals>
-    <string name="devices_session_open">Telegram doesn\'t allow closing the session of \"%1$s\" yet. Close it from Telegram › Settings › Devices.</string>
+    <string name="devices_session_open">Telegram doesn’t allow closing the session of \"%1$s\" yet. Close it from Telegram › Settings › Devices.</string>
     <string name="devices_excluded_sessions_open">The other devices you removed keep their Telegram session. Close it from Telegram › Settings › Devices.</string>
 
     <string name="devices_removed_self_title">This phone was removed from your cloud</string>

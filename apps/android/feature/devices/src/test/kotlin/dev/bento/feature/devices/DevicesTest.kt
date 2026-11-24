@@ -29,7 +29,11 @@ class DevicesTest {
             )
         }
     }
-    private fun vm() = DevicesViewModel(DevicesRepository(api.endpoints(), Invalidations()), PairingRepository(api.endpoints()), VaultRepository(api.endpoints()))
+    private fun vm() = DevicesViewModel(
+        DevicesRepository(api.endpoints(), Invalidations()),
+        PairingRepository(api.endpoints()),
+        VaultRepository(api.endpoints())
+    )
 
     @Test
     fun thisPhoneFirstThenReviews() = runTest(main.dispatcher) {
@@ -67,10 +71,17 @@ class DevicesTest {
     @Test
     fun removalWithExclusionsYieldsTheMandatoryKit() = runTest(main.dispatcher) {
         api.on("GET /api/devices/d_lap/removal-preview") {
-            """{"recipients":[${TrustFixtures.device("d_me", "Pixel 8", current = true)},${TrustFixtures.device("d_new", "Equipo raro", needsReview = true)}]}"""
+            """{"recipients":[${TrustFixtures.device(
+                "d_me",
+                "Pixel 8",
+                current = true
+            )},${TrustFixtures.device("d_new", "Equipo raro", needsReview = true)}]}"""
         }
         api.on("DELETE /api/devices/d_lap") {
-            """{"device":${TrustFixtures.device("d_lap", "Portátil")},"telegram_session_closed":false,"recovery_code":"${TrustFixtures.RECOVERY_CODE}",""" +
+            """{"device":${TrustFixtures.device(
+                "d_lap",
+                "Portátil"
+            )},"telegram_session_closed":false,"recovery_code":"${TrustFixtures.RECOVERY_CODE}",""" +
                 """"recovery_qr":${TrustFixtures.QR},"removed_device_ids":["d_lap","d_new"]}"""
         }
         val vm = vm()

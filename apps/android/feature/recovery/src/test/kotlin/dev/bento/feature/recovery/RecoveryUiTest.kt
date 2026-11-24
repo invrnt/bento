@@ -39,10 +39,11 @@ class RecoveryUiTest {
     @Test
     fun kitSetsFlagSecureAndClearsItWhenLeaving() {
         var shown by mutableStateOf(true)
+        val viewModel = RecoveryKitViewModel(VaultRepository(FakeApiTransport().endpoints()))
         compose.setContent {
             BentoTheme {
                 if (shown) {
-                    RecoveryKitScreen(code, null, KitOccasion.FirstRun, onConfirmed = {}, onLater = {}, viewModel = RecoveryKitViewModel(VaultRepository(FakeApiTransport().endpoints())))
+                    RecoveryKitScreen(code, null, KitOccasion.FirstRun, onConfirmed = {}, onLater = {}, viewModel = viewModel)
                 }
             }
         }
@@ -119,7 +120,9 @@ class RecoveryUiTest {
         SensitiveClipboard.clearIfOurs(clipboard, "someone-else")
         assertTrue(clipboard.hasPrimaryClip())
         SensitiveClipboard.clearIfOurs(clipboard, description.label.toString())
-        assertFalse(clipboard.hasPrimaryClip() && clipboard.primaryClip!!.itemCount > 0 && clipboard.primaryClip!!.getItemAt(0).text != null)
+        assertFalse(
+            clipboard.hasPrimaryClip() && clipboard.primaryClip!!.itemCount > 0 && clipboard.primaryClip!!.getItemAt(0).text != null
+        )
     }
 
     @Test
@@ -127,7 +130,8 @@ class RecoveryUiTest {
         val field = TextFieldState()
         compose.setContent {
             BentoTheme {
-                RecoveryEntryContent(RecoveryEntryState(error = UnlockError.Checksum), clipboardCode = code, onSubmit = {}, onEdited = {}, code = field)
+                RecoveryEntryContent(RecoveryEntryState(error = UnlockError.Checksum), clipboardCode = code, onSubmit = {
+                }, onEdited = {}, code = field)
             }
         }
         compose.onNodeWithText("Revisa el código: algún carácter no es correcto.").assertExists()
@@ -138,8 +142,9 @@ class RecoveryUiTest {
 
     @Test
     fun entryEnablesUnlockOnlyWithAFullCodeAndSetsFlagSecure() {
+        val viewModel = RecoveryEntryViewModel(VaultRepository(FakeApiTransport().endpoints()))
         compose.setContent {
-            BentoTheme { RecoveryEntryScreen(onUnlocked = {}, camera = {}, viewModel = RecoveryEntryViewModel(VaultRepository(FakeApiTransport().endpoints()))) }
+            BentoTheme { RecoveryEntryScreen(onUnlocked = {}, camera = {}, viewModel = viewModel) }
         }
         compose.onNodeWithText("Desbloquear").assertIsNotEnabled()
         assertTrue(secure())
@@ -149,7 +154,12 @@ class RecoveryUiTest {
     fun scannerDeniedFallsBackToTyping() {
         var settings = false
         compose.setContent {
-            BentoTheme { QrScannerPanel(onCode = {}, accept = { true }, camera = {}, access = CameraAccess.Denied, onOpenSettings = { settings = true }) }
+            BentoTheme {
+                QrScannerPanel(onCode = {}, accept = { true }, camera = {}, access = CameraAccess.Denied, onOpenSettings = {
+                    settings =
+                        true
+                })
+            }
         }
         compose.onNodeWithText("Sin acceso a la cámara", substring = true).assertExists()
         compose.onNodeWithText("Abrir Ajustes").performClick()
@@ -160,7 +170,12 @@ class RecoveryUiTest {
     fun scannerAsksWithARationaleFirst() {
         var asked = false
         compose.setContent {
-            BentoTheme { QrScannerPanel(onCode = {}, accept = { true }, camera = {}, access = CameraAccess.Unknown, onRequestAccess = { asked = true }) }
+            BentoTheme {
+                QrScannerPanel(onCode = {}, accept = { true }, camera = {}, access = CameraAccess.Unknown, onRequestAccess = {
+                    asked =
+                        true
+                })
+            }
         }
         compose.onNodeWithText("Bento usa la cámara solo para leer el código QR. No guarda imágenes.").assertExists()
         compose.onNodeWithText("Permitir cámara").performClick()

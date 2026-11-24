@@ -208,6 +208,7 @@ internal fun GuestPairingStep(state: JoinState, pairing: PairingResponse, action
  * The host could not sign this phone in with the forwarded token. On the same phone the Telegram app confirms the
  * login; a cloud password is typed here; another phone can scan the QR.
  */
+@Suppress("LongMethod")
 @Composable
 private fun NeedsTelegramLogin(state: JoinState, pairing: PairingResponse, actions: JoinActions, modifier: Modifier) {
     val login = state.guestLogin

@@ -26,7 +26,13 @@ class RecoveryKitPdfTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val bitmap = Bitmap.createBitmap(RecoveryKitPdf.PAGE_WIDTH, RecoveryKitPdf.PAGE_HEIGHT, Bitmap.Config.ARGB_8888)
         bitmap.eraseColor(Color.WHITE)
-        val document = RecoveryKitDocument(TrustFixtures.RECOVERY_CODE, QrMatrix.fromRows(listOf("101", "010", "101")), "Ana", "2026-11-24T10:00:00+00:00")
+        val document =
+            RecoveryKitDocument(
+                TrustFixtures.RECOVERY_CODE,
+                QrMatrix.fromRows(listOf("101", "010", "101")),
+                "Ana",
+                "2026-11-24T10:00:00+00:00"
+            )
         RecoveryKitPdf.draw(context, Canvas(bitmap), document)
         var inked = 0
         for (y in 0 until bitmap.height step 4) for (x in 0 until bitmap.width step 4) if (bitmap.getPixel(x, y) != Color.WHITE) inked++

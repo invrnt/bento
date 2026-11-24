@@ -1,5 +1,6 @@
 package dev.bento.feature.pairing
 
+import androidx.lifecycle.viewModelScope
 import androidx.test.core.app.ApplicationProvider
 import dev.bento.api.BentoHttp
 import dev.bento.feature.onboarding.AppGateResolver
@@ -9,13 +10,12 @@ import dev.bento.feature.recovery.VaultRepository
 import dev.bento.testing.FakeApiTransport
 import dev.bento.testing.MainDispatcherRule
 import dev.bento.testing.TrustFixtures
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.cancel
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -143,10 +143,18 @@ class PairingTest {
     @Test
     fun fallbackRequiresCoincidenAndNoCoincidenCancels() = runTest(main.dispatcher) {
         api.on("GET /api/vault") { TrustFixtures.vault(state = "locked") }
-        val awaiting = TrustFixtures.pairing("awaiting_approval", transport = "telegram", sas = TrustFixtures.SAS, vault = true, peer = null)
+        val awaiting = TrustFixtures.pairing(
+            "awaiting_approval",
+            transport = "telegram",
+            sas = TrustFixtures.SAS,
+            vault = true,
+            peer = null
+        )
         api.on("POST /api/pairing/request") { awaiting }
         api.on("GET /api/pairing/pair_1") { awaiting }
-        api.on("POST /api/pairing/pair_1/confirm") { TrustFixtures.pairing("approving", transport = "telegram", sas = TrustFixtures.SAS, vault = true, peer = null) }
+        api.on("POST /api/pairing/pair_1/confirm") {
+            TrustFixtures.pairing("approving", transport = "telegram", sas = TrustFixtures.SAS, vault = true, peer = null)
+        }
         api.on("DELETE /api/pairing/pair_1") { TrustFixtures.pairing("cancelled", transport = "telegram") }
         val vm = join()
         vm.start(null, choose = true)
@@ -185,7 +193,9 @@ class PairingTest {
         advanceTimeBy(1_100)
         assertEquals("rejected", vm.state.value.pairing?.state)
 
-        api.on("POST /api/pairing/requests/req_1/review") { throw dev.bento.api.ApiErrors.from(409, """{"error":{"code":"pairing_request_taken","message":"x"}}""") }
+        api.on("POST /api/pairing/requests/req_1/review") {
+            throw dev.bento.api.ApiErrors.from(409, """{"error":{"code":"pairing_request_taken","message":"x"}}""")
+        }
         val review = PairingRequestViewModel(repo)
         review.review("req_1")
         advanceUntilIdle()

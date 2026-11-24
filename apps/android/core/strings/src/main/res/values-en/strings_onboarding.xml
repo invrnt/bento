@@ -16,15 +16,15 @@
     <string name="onboarding_not_now">Not now</string>
 
     <string name="onboarding_signin_title">Connect your Telegram</string>
-    <string name="onboarding_signin_body">Bento will keep your encrypted cloud in your own account. Your messages aren\'t touched.</string>
-    <string name="onboarding_signin_telegram_note">Telegram will ask you to confirm Bento\'s sign-in.</string>
-    <string name="onboarding_signin_no_telegram_app">We couldn\'t find the Telegram app on this phone. Sign in with your number or a QR code.</string>
+    <string name="onboarding_signin_body">Bento will keep your encrypted cloud in your own account. Your messages aren’t touched.</string>
+    <string name="onboarding_signin_telegram_note">Telegram will ask you to confirm Bento’s sign-in.</string>
+    <string name="onboarding_signin_no_telegram_app">We couldn’t find the Telegram app on this phone. Sign in with your number or a QR code.</string>
     <string name="onboarding_signin_waiting_telegram">Waiting for confirmation in Telegram…</string>
     <string name="onboarding_signin_reopen_telegram">Open Telegram again</string>
     <string name="onboarding_signin_use_phone">Use my phone number</string>
     <string name="onboarding_signin_show_qr">Show QR code</string>
     <string name="onboarding_phone_title">Your Telegram number</string>
-    <string name="onboarding_phone_body">Use the number you sign in to Telegram with. We\'ll send a code to your Telegram app.</string>
+    <string name="onboarding_phone_body">Use the number you sign in to Telegram with. We’ll send a code to your Telegram app.</string>
     <string name="onboarding_phone_country_code">Code %1$s</string>
     <string name="onboarding_phone_country_change">Change country</string>
     <string name="onboarding_phone_country_title">Country</string>
@@ -57,16 +57,16 @@
     <string name="onboarding_qr_step2">Go to Settings › Devices › Link Desktop Device.</string>
     <string name="onboarding_qr_step3">Scan this code. It refreshes by itself.</string>
     <string name="onboarding_qr_waiting">Waiting for you to scan the code…</string>
-    <string name="onboarding_error_code_invalid">That code isn\'t right. Check it and try again.</string>
+    <string name="onboarding_error_code_invalid">That code isn’t right. Check it and try again.</string>
     <string name="onboarding_error_expired">The sign-in expired. Start again.</string>
-    <string name="onboarding_error_password_invalid">That password isn\'t right. Try again.</string>
-    <string name="onboarding_error_phone_invalid">That number doesn\'t look valid. Check the country and the number.</string>
+    <string name="onboarding_error_password_invalid">That password isn’t right. Try again.</string>
+    <string name="onboarding_error_phone_invalid">That number doesn’t look valid. Check the country and the number.</string>
     <string name="onboarding_error_network">No connection to Telegram. Check your internet and try again.</string>
-    <string name="onboarding_error_not_available">This version of Bento can\'t connect to Telegram. You can use Bento only on this phone.</string>
-    <string name="onboarding_error_telegram_app_missing">Telegram couldn\'t be opened. Sign in with your number.</string>
-    <string name="onboarding_error_generic">Couldn\'t sign in to Telegram. Try again.</string>
+    <string name="onboarding_error_not_available">This version of Bento can’t connect to Telegram. You can use Bento only on this phone.</string>
+    <string name="onboarding_error_telegram_app_missing">Telegram couldn’t be opened. Sign in with your number.</string>
+    <string name="onboarding_error_generic">Couldn’t sign in to Telegram. Try again.</string>
     <string name="onboarding_error_flood_title">Telegram asked to wait</string>
-    <string name="onboarding_error_flood_body">Telegram asked to wait %1$s. We\'ll try again by ourselves.</string>
+    <string name="onboarding_error_flood_body">Telegram asked to wait %1$s. We’ll try again by ourselves.</string>
     <string name="onboarding_error_flood_ready">Trying again…</string>
 
     <string name="onboarding_creating_title">Creating your cloud</string>
@@ -78,13 +78,13 @@
     <string name="onboarding_creating_step_working">in progress</string>
     <string name="onboarding_creating_step_done">done</string>
     <string name="onboarding_creating_slow">Telegram is slow, still working…</string>
-    <string name="onboarding_creating_failed">Your cloud couldn\'t be created. Your account is untouched.</string>
+    <string name="onboarding_creating_failed">Your cloud couldn’t be created. Your account is untouched.</string>
     <string name="onboarding_creating_failed_hint">Check your internet connection and try again.</string>
 
     <string name="onboarding_notifications_title">Should we tell you about the backup?</string>
-    <string name="onboarding_notifications_body">We\'ll only tell you about backup progress and when something needs your attention.</string>
+    <string name="onboarding_notifications_body">We’ll only tell you about backup progress and when something needs your attention.</string>
     <string name="onboarding_notifications_allow">Allow notifications</string>
-    <string name="onboarding_notifications_denied_note">If you\'d rather not get them, progress stays visible inside Bento.</string>
+    <string name="onboarding_notifications_denied_note">If you’d rather not get them, progress stays visible inside Bento.</string>
 
     <string name="onboarding_done_title">All set</string>
     <string name="onboarding_done_body">Everything you keep here is also in your Telegram, encrypted.</string>
@@ -98,8 +98,8 @@
     <string name="onboarding_done_open">Go to my photos</string>
 
     <string name="onboarding_reconnect_title">Bento was disconnected from Telegram</string>
-    <string name="onboarding_reconnect_body">Bento\'s session in your Telegram was closed. Your library is still on this phone.</string>
-    <string name="onboarding_reconnect_note">Connect your Telegram again to keep syncing and backing up. Meanwhile you can see everything that\'s already here.</string>
+    <string name="onboarding_reconnect_body">Bento’s session in your Telegram was closed. Your library is still on this phone.</string>
+    <string name="onboarding_reconnect_note">Connect your Telegram again to keep syncing and backing up. Meanwhile you can see everything that’s already here.</string>
     <string name="onboarding_reconnect_later">Keep browsing my library</string>
     <string name="onboarding_reconnect_signin_title">Connect your Telegram again</string>
     <string name="onboarding_reconnect_signin_body">Use the same Telegram account as on your other devices.</string>

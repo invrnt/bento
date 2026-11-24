@@ -55,11 +55,22 @@ class DevicesScreenshotTest {
     @Test fun removalLoading() = shot("removal-loading") { RemovalSheetBody(RemovalState(devices[2]), DevicesActions()) }
 
     @Test fun removalExclusions() = shot("removal-exclusions") {
-        RemovalSheetBody(RemovalState(devices[2], loadingPreview = false, recipients = listOf(devices[0], devices[1], devices[3]), excluded = setOf("d_new")), DevicesActions())
+        RemovalSheetBody(
+            RemovalState(
+                devices[2],
+                loadingPreview = false,
+                recipients = listOf(devices[0], devices[1], devices[3]),
+                excluded = setOf("d_new")
+            ),
+            DevicesActions()
+        )
     }
 
     @Test fun removalFailed() = shot("removal-failed") {
-        RemovalSheetBody(RemovalState(devices[2], loadingPreview = false, previewFailed = true, failed = RemovalFailure.Generic), DevicesActions())
+        RemovalSheetBody(
+            RemovalState(devices[2], loadingPreview = false, previewFailed = true, failed = RemovalFailure.Generic),
+            DevicesActions()
+        )
     }
 
     @Test fun removedSelf() = shot("this-phone-removed") { DeviceRemovedScreen({}, {}, {}) }
