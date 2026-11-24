@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import BinaryIO
 
-from bento.application.content_imports import IMPORT_FAILED_ATTENTION, ContentImportItem, ContentImportService
+from bento.application.content_imports import ContentImportItem, ContentImportService
 from bento.application.upload import UploadAssetResult
 from bento.domain.imports import IMPORT_INTERRUPTED, ContentImport, ImportItemState
 from bento.ports.device import ContentDescription, ContentHandleError, NotifierEvent
@@ -127,9 +127,8 @@ def test_progress_is_persisted_and_failures_raise_attention(tmp_path: Path) -> N
         stored = await store.get(job.id)
         assert stored is not None and stored.done
         assert [(item.status, item.error) for item in stored.items] == [("done", None), ("failed", "content_unreadable")]
-        names = [event.name for event in notifier.events]
-        assert names[-2:] == ["attention", "transfer_finished"]
-        assert notifier.events[-2].payload == {"code": IMPORT_FAILED_ATTENTION, "count": 1}
+        assert notifier.events[-1].name == "transfer_finished"
+        assert notifier.events[-1].payload == {"kind": "import", "count": 1, "failed": 1}
 
     asyncio.run(scenario())
 
@@ -150,7 +149,7 @@ def test_a_restart_fails_the_unfinished_items_with_import_interrupted(tmp_path: 
         recovered = await second.get(job.id)
         assert recovered is not None and recovered.done
         assert [(item.status, item.error) for item in recovered.items] == [("failed", IMPORT_INTERRUPTED)] * 2
-        assert [event.payload for event in notifier.events] == [{"code": IMPORT_FAILED_ATTENTION, "count": 1}]
+        assert notifier.events == []  # the Activity announcer notifies `import_failed`
         assert await second.recover() == 0  # once per process
         assert await second.dismiss(job.id) is True
         ingestion.gate.set()

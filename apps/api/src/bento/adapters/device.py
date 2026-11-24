@@ -21,6 +21,9 @@ class PermissiveDeviceConditions:
 
 
 class NullNotifier:
+    delivers = False
+    """Nothing listens: callers may skip work done only to notify."""
+
     def emit(self, event: NotifierEvent) -> None:
         return None
 

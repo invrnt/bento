@@ -40,6 +40,7 @@ from bento.adapters.search.sqlite_vec import SQLiteVecSearchIndex
 from bento.adapters.storage.cache import CachedBlobPathResolver, CachedBlobSourceMaterializer, SQLiteBlobCache
 from bento.adapters.storage.local_blob_store import LocalBlobStoreAdapter
 from bento.adapters.storage.maintenance import LocalEphemeralCache, SQLiteStorageInventory
+from bento.adapters.sync.store import SQLiteSyncStateStore
 from bento.application.activity import ActivityService
 from bento.application.backup import BackupService
 from bento.application.content import FULL_FETCH_THRESHOLD_BYTES, AssetContentService
@@ -241,6 +242,8 @@ def build_storage_pipeline(
         downloads=content.tracker,
         sync_status=_sync_status(settings),
         vault_status=_vault_status(settings),
+        notifier=services.get_notifier(settings),
+        announced=SQLiteSyncStateStore(factory),
     )
 
     maintenance = StorageMaintenanceService(

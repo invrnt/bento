@@ -53,6 +53,7 @@ from bento.domain.pairing import (
 from bento.domain.security import DeviceIdentity, VaultKeyring
 from bento.domain.sync import SyncMessageKind, SyncMessageRef
 from bento.domain.vault import VaultHeader, VaultLayout, VaultState, VaultStatus, canonical_json
+from bento.ports.device import NotifierPort, pairing_request
 from bento.ports.pairing import DeviceRepositoryPort, PairingChannelPort, PairingRelayPort
 from bento.ports.security import (
     FallbackPairingKeysPort,
@@ -611,8 +612,10 @@ class PairingService:
         sync_state: SyncStateRepositoryPort | None = None,
         timeouts: PairingTimeouts | None = None,
         clock: Callable[[], datetime] = _utcnow,
+        notifier: NotifierPort | None = None,
     ) -> None:
         self._relay = relay
+        self._notifier = notifier
         self._crypto = crypto
         self._vault_crypto = vault_crypto
         self._vault = vault
@@ -1431,6 +1434,7 @@ class PairingService:
                 self._index.reset(layout.vault_id)
             if self._index.cursor is None:
                 self._index.cursor = await self._initial_cursor(layout)
+            known = set(self._index.requests)
             for _ in range(50):
                 refs = await self._transport.list_sync_messages(layout, after_message_id=self._index.cursor, limit=100)
                 for ref in refs:
@@ -1440,6 +1444,20 @@ class PairingService:
                         self._index_message(message, own_device_id=context.device.device_id)
                 if len(refs) < 100:
                     break
+            self._announce_requests(known)
+
+    def _announce_requests(self, known: set[str]) -> None:
+        """`pairing_request` once per request this scan found that is still waiting for an answer."""
+        if self._notifier is None:
+            return
+        ttl = timedelta(seconds=self._timeouts.request_ttl)
+        now = self._clock()
+        for request_id, request in self._index.requests.items():
+            if request_id in known or request_id in self._index.answered or request.created_at + ttl <= now:
+                continue
+            self._notifier.emit(
+                pairing_request(request_id, device_name=request.device_name, platform=request.platform.value)
+            )
 
     def _index_message(self, message: FallbackMessage, *, own_device_id: str) -> None:
         index = self._index

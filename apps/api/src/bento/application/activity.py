@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import math
 from collections.abc import Awaitable, Callable
@@ -21,6 +22,7 @@ from bento.domain.backup import BackupPolicy
 from bento.domain.sync import SyncState, SyncStatus
 from bento.domain.vault import DEVICE_REMOVED_REASON, VaultState, VaultStatus
 from bento.ports.backup import BackupPolicyRepositoryPort
+from bento.ports.device import NotifierPort, attention
 from bento.ports.repositories import ClockPort
 
 LOGGER = logging.getLogger("bento.activity")
@@ -95,6 +97,20 @@ class ActivitySnapshot:
     failed_imports: tuple[FailedImport, ...] = ()
 
 
+class AnnouncedStorePort(Protocol):
+    """Where the ids of already announced attention items live (`sync_state`), across processes and restarts."""
+
+    async def get_value(self, key: str) -> str | None: ...
+
+    async def set_value(self, key: str, value: str) -> None: ...
+
+
+ANNOUNCED_KEY = "activity.announced"
+MAX_ANNOUNCED_IDS = 500
+UNANNOUNCED_KINDS = frozenset({AttentionKind.NEW_DEVICE})
+"""Kinds with their own notifier event (`new_device`, emitted by the sync engine)."""
+
+
 class ActivitySourcePort(Protocol):
     async def snapshot(self, *, now: datetime) -> ActivitySnapshot: ...
 
@@ -123,7 +139,11 @@ class ActivityService:
         downloads: DownloadStatsPort | None = None,
         sync_status: Callable[[], Awaitable[SyncStatus | None]] | None = None,
         vault_status: Callable[[], Awaitable[VaultStatus | None]] | None = None,
+        notifier: NotifierPort | None = None,
+        announced: AnnouncedStorePort | None = None,
     ) -> None:
+        self._notifier = notifier
+        self._announced = announced
         self._source = source
         self._policy = policy
         self._clock = clock
@@ -143,6 +163,30 @@ class ActivityService:
                 now=now,
             )
         )
+
+
+    async def announce(self) -> int:
+        """Emits `attention {code, count}` per kind for attention items not announced before; returns how many
+        items were new. Ids are kept in `sync_state`, so each item notifies once even across background runs."""
+        if self._notifier is None or self._announced is None or not getattr(self._notifier, "delivers", True):
+            return 0
+        activity = await self.current()
+        current = [item for item in activity.attention if item.kind not in UNANNOUNCED_KINDS]
+        try:
+            stored = json.loads(await self._announced.get_value(ANNOUNCED_KEY) or "[]")
+        except ValueError:
+            stored = []
+        known = {item for item in stored if isinstance(item, str)} if isinstance(stored, list) else set()
+        fresh = [item for item in current if item.id not in known]
+        counts: dict[str, int] = {}
+        for item in fresh:
+            counts[item.kind.value] = counts.get(item.kind.value, 0) + 1
+        for code, count in counts.items():
+            self._notifier.emit(attention(code, count=count))
+        ids = sorted({item.id for item in current})[:MAX_ANNOUNCED_IDS]
+        if fresh or set(ids) != known:
+            await self._announced.set_value(ANNOUNCED_KEY, json.dumps(ids))
+        return len(fresh)
 
 
 def build_activity(inputs: ActivityInputs) -> Activity:

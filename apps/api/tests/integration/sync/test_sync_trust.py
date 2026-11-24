@@ -333,3 +333,42 @@ def test_snapshot_device_rows_need_no_review_on_a_bootstrapping_device(tmp_path:
         assert (await SQLiteActivitySource(tablet.factory).snapshot(now=clock.now())).new_devices == ()
 
     asyncio.run(scenario())
+
+
+def test_a_pull_that_introduces_a_device_emits_new_device_once(trio: Trio) -> None:
+    from bento.ports.device import NotifierEvent
+
+    laptop, desktop, phone = trio
+    events: list[NotifierEvent] = []
+
+    class Notifier:
+        def emit(self, event: NotifierEvent) -> None:
+            events.append(event)
+
+    async def scenario() -> None:
+        assert phone.vault.keyring is not None
+        desktop.engine._notifier = Notifier()  # noqa: SLF001 - the worker passes the host notifier here
+        await desktop.pull()
+        events.clear()  # devices already introduced before this test's op
+        tablet = CRYPTO.generate_device_identity()
+        stamp = desktop.clock.now()
+        hlc = f"{int(stamp.timestamp() * 1000):016d}-000002-{phone.device_id}"
+        await post_batch(
+            phone,
+            phone.vault.keyring,
+            raw_op(
+                SyncEntity.DEVICE,
+                tablet.device_id,
+                hlc,
+                {"name": "Tablet", "platform": "android", "public_key": phone_public_key(phone), "added_at": stamp.isoformat()},
+                device=phone.device_id,
+            ),
+        )
+        await desktop.pull()
+        assert [(event.name, event.payload) for event in events] == [
+            ("new_device", {"device_id": tablet.device_id, "name": "Tablet"})
+        ]
+        await desktop.pull()
+        assert len(events) == 1
+
+    asyncio.run(scenario())

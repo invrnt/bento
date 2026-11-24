@@ -34,6 +34,7 @@ LOGGER = logging.getLogger("bento.worker")
 WorkerMode = Literal["full", "drain"]
 StoppedReason = Literal["idle", "deadline", "conditions", "error", "stopped"]
 IDLE_POLL_SECONDS = 1.0
+ANNOUNCE_INTERVAL_SECONDS = 30.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,6 +75,7 @@ class WorkerRuntime:
         self._eligibility = services.get_job_eligibility(settings)
         self._job_lock: asyncio.Lock | None = None
         self._wake: asyncio.Event | None = None
+        self._announced_at = float("-inf")
 
     @property
     def dispatcher(self) -> WorkerDispatcher:
@@ -119,6 +121,7 @@ class WorkerRuntime:
             while not stop_event.is_set():
                 if self.mode == "full" and await self._process_one():
                     continue
+                await self._announce_attention()
                 self._flush_notifications()
                 self._wake.clear()
                 waiters = [asyncio.ensure_future(stop_event.wait()), asyncio.ensure_future(self._wake.wait())]
@@ -132,6 +135,19 @@ class WorkerRuntime:
             await asyncio.gather(*tasks, return_exceptions=True)
             await pipeline_loop
             await stop_sync_loop(sync_task)
+
+    async def _announce_attention(self, *, force: bool = False) -> None:
+        """At most every `ANNOUNCE_INTERVAL_SECONDS` (and at the end of bounded runs): notify new Activity items."""
+        now = self._clock()
+        if not force and now - self._announced_at < ANNOUNCE_INTERVAL_SECONDS:
+            return
+        self._announced_at = now
+        from bento.infrastructure.storage_pipeline import get_storage_pipeline
+
+        try:
+            await get_storage_pipeline(self.settings).activity.announce()
+        except Exception as exc:  # noqa: BLE001 - notifications are best effort
+            LOGGER.debug("Attention announcement skipped: %s", exc.__class__.__name__)
 
     def _flush_notifications(self) -> None:
         """Deliver progress the 1 Hz limiter is still holding once its window has closed."""
@@ -161,6 +177,7 @@ class WorkerRuntime:
         except Exception:  # noqa: BLE001 - reported to the host; the job itself was failed by the dispatcher
             LOGGER.exception("Bounded worker run failed")
             reason = "error"
+        await self._announce_attention(force=True)
         self._flush_notifications()
         backlog = await self.backlog(types)
         if reason == "idle" and backlog.deferred and not backlog.runnable:

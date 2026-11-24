@@ -34,7 +34,6 @@ from bento.ports.device import (
     ContentHandleError,
     ContentImportsPort,
     NotifierPort,
-    attention,
     transfer_finished,
     transfer_progress,
 )
@@ -53,7 +52,7 @@ __all__ = [
 MAX_IMPORT_ITEMS = 500
 KEEP_FINISHED_IMPORTS = 50
 IMPORT_FAILED_ATTENTION = "import_failed"
-"""Activity item code (and `attention` notifier code) of imports with failed items."""
+"""Activity item code of imports with failed items (the Activity announcer notifies `attention` for it)."""
 PROCESS_OWNER = uuid.uuid4().hex
 """This process: imports owned by another one lost their fds."""
 
@@ -143,14 +142,9 @@ class ContentImportService:
             return 0
         self._recovered = True
         interrupted = 0
-        affected = 0
         for job in await self._store.unfinished(other_than_owner=self._owner):
-            count = job.interrupt()
-            interrupted += count
-            affected += 1 if job.failed else 0
+            interrupted += job.interrupt()
             await self._store.replace_items(job, finished_at=self._clock.now())
-        if affected:
-            self._notifier.emit(attention(IMPORT_FAILED_ATTENTION, count=affected))
         return interrupted
 
     async def _run(self, job: ContentImport, items: list[ContentImportItem]) -> None:
@@ -193,8 +187,6 @@ class ContentImportService:
         job.done = True
         self._forget(job.id)
         failed = job.failed
-        if failed:
-            self._notifier.emit(attention(IMPORT_FAILED_ATTENTION, count=1))
         self._notifier.emit(transfer_finished("import", count=total - failed, failed=failed))
 
     def _forget(self, import_id: str) -> None:

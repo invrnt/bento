@@ -76,6 +76,7 @@ def build_pairing_components(settings: Settings) -> PairingComponents:
         verify_commitment=verify_commitment,
         local_device=local_device_info(settings),
         sync_state=SQLiteSyncStateStore(session_factory),
+        notifier=services.get_notifier(settings),
     )
     _live_services.add(pairing)
     return PairingComponents(
