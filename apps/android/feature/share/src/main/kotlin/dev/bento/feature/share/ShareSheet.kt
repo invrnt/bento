@@ -50,6 +50,7 @@ import dev.bento.designsystem.component.Thumbnail
 import dev.bento.designsystem.generated.BentoIcons
 import dev.bento.designsystem.theme.BentoShapes
 import dev.bento.designsystem.theme.BentoTheme
+import dev.bento.designsystem.trace.InteractionTrace
 import dev.bento.feature.files.FileKinds
 import dev.bento.feature.files.FolderBrowserState
 import dev.bento.feature.files.FolderPickerBody
@@ -58,7 +59,6 @@ import dev.bento.feature.files.SheetBody
 import dev.bento.feature.files.Sizes
 import dev.bento.feature.files.di.FilesEntryPoint
 import dev.bento.strings.R as StringsR
-import dev.bento.designsystem.trace.InteractionTrace
 
 data class ShareActions(
     val onSave: () -> Unit = {},

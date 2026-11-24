@@ -11,6 +11,7 @@ import dev.bento.api.generated.TelegramChatResponse
 import dev.bento.data.Invalidations
 import dev.bento.data.Topic
 import dev.bento.data.Undoable
+import dev.bento.designsystem.trace.InteractionTrace
 import dev.bento.strings.R as StringsR
 import java.io.File
 import javax.inject.Inject
@@ -26,7 +27,6 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import dev.bento.designsystem.trace.InteractionTrace
 
 /** Bottom sheets of Archivos (one at a time). */
 sealed interface FilesSheet {

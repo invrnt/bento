@@ -80,6 +80,7 @@ import dev.bento.designsystem.component.Thumbnail
 import dev.bento.designsystem.generated.BentoIcons
 import dev.bento.designsystem.theme.BentoShapes
 import dev.bento.designsystem.theme.BentoTheme
+import dev.bento.designsystem.trace.InteractionTrace
 import dev.bento.feature.files.Destination
 import dev.bento.feature.files.FileKinds
 import dev.bento.feature.files.FolderPickerBody
@@ -88,7 +89,6 @@ import dev.bento.feature.files.di.FilesEntryPoint
 import dev.bento.strings.R as StringsR
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import dev.bento.designsystem.trace.InteractionTrace
 
 data class SearchActions(
     val onBack: () -> Unit = {},

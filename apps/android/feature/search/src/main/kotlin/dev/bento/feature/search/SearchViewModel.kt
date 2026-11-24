@@ -7,6 +7,7 @@ import dev.bento.api.ApiException
 import dev.bento.api.generated.AlbumResponse
 import dev.bento.api.generated.BentoEndpoints
 import dev.bento.api.generated.SearchItemResponse
+import dev.bento.designsystem.trace.InteractionTrace
 import dev.bento.feature.files.Destination
 import dev.bento.feature.files.FileKinds
 import dev.bento.feature.files.FilesPreferences
@@ -27,7 +28,6 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import dev.bento.designsystem.trace.InteractionTrace
 
 /** Filter sheets of Buscar (Tipo, Fecha, Carpeta). */
 enum class FilterSheet { Kind, Date, Folder }
