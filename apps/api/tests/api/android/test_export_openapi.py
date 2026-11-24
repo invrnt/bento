@@ -23,9 +23,18 @@ def test_export_is_deterministic_and_covers_the_android_contract() -> None:
         "/api/photos/timeline/index",
         "/api/assets/{asset_id}/offline",
         "/api/storage/local",
+        "/api/events",
+        "/api/android/imports/{import_id}/dismiss",
+        "/api/photos/albums/{album_id}",
     ):
         assert path in paths, path
     assert any(parameter["name"] == "size" for parameter in paths["/api/assets/{asset_id}/thumbnail"]["get"]["parameters"])
+    assert {"patch", "delete", "get"} <= set(paths["/api/photos/albums/{album_id}"])
+    drive = {parameter["name"] for parameter in paths["/api/drive/items"]["get"]["parameters"]}
+    assert {"sort", "order"} <= drive
+    assert "origin" in {parameter["name"] for parameter in paths["/api/search"]["get"]["parameters"]}
+    asset = schema["components"]["schemas"]["AssetResponse"]["properties"]
+    assert {"offline_pinned", "locally_available", "exif"} <= set(asset)
     assert schema["info"]["version"] == "0.0.0"
 
 

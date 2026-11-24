@@ -53,3 +53,7 @@ Event record:
 - Event write is part of successful use-case completion where practical.
 - JSONL export can be async but must be idempotent.
 - Telegram journal failure must not corrupt local state; record partial failure and retry.
+
+## Change Stream
+
+`GET /api/events` (Server-Sent Events) announces which topics changed (`library`, `jobs`, `imports`, `sync`) so clients refetch instead of polling; see `api/android-endpoints.md` § 11 Events. It carries no data and replays nothing.
