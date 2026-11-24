@@ -30,6 +30,7 @@ class StringResourceParityTest {
                 val translatable = node.getAttribute("translatable") != "false"
                 val signatures = when (node.tagName) {
                     "string" -> mapOf("" to placeholders(node.textContent))
+
                     "plurals" -> {
                         val items = node.getElementsByTagName("item")
                         (0 until items.length).associate { idx ->
@@ -37,10 +38,12 @@ class StringResourceParityTest {
                             item.getAttribute("quantity") to placeholders(item.textContent)
                         }
                     }
+
                     "string-array" -> {
                         val items = node.getElementsByTagName("item")
                         (0 until items.length).associate { idx -> idx.toString() to placeholders(items.item(idx).textContent) }
                     }
+
                     else -> error("Unexpected <${node.tagName}> in ${file.name}")
                 }
                 val key = "${node.tagName}:$name"

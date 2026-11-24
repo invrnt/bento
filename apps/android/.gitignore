@@ -1,7 +1,15 @@
 .gradle/
+.kotlin/
 build/
 local.properties
-.kotlin/
+captures/
+*.apk
+*.aab
+*.apks
+*.jks
+*.keystore
+python-wheels/dist/
+python-wheels/work/
 *.iml
 .idea/
 scripts/node_modules/

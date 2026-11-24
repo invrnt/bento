@@ -12,7 +12,7 @@ dependencies {
     testImplementation(libs.lint.api)
     testImplementation(libs.lint.checks)
     testImplementation(libs.lint.tests)
-    testImplementation(libs.junit)
+    testImplementation(libs.junit4)
 }
 
 tasks.jar {

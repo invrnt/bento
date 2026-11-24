@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.RUN_USER_INITIATED_JOBS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+    <application>
+        <!-- User-initiated data transfer jobs (Android 14+). -->
+        <service
+            android:name="dev.bento.background.TransferJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+        <!-- Android 13 and older: the same transfers as a dataSync foreground service. -->
+        <service
+            android:name="dev.bento.background.TransferForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+        <!-- Expedited WorkManager runs on Android 11 and older run as this FGS: it transfers data. -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
+        <receiver
+            android:name="dev.bento.background.TransferActionReceiver"
+            android:exported="false" />
+    </application>
+</manifest>

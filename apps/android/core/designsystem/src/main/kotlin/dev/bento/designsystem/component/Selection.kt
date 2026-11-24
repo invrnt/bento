@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -35,19 +37,17 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import dev.bento.designsystem.generated.BentoTokens
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.foundation.text.BasicText
-import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.bento.designsystem.generated.BentoIcons
+import dev.bento.designsystem.generated.BentoTokens
 import dev.bento.designsystem.theme.BentoElevation
 import dev.bento.designsystem.theme.BentoHaptic
 import dev.bento.designsystem.theme.BentoShapes
@@ -70,7 +70,7 @@ public fun <T> SegmentedButtons(
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
     iconOnly: Boolean = false,
-    tickHaptic: Boolean = false,
+    tickHaptic: Boolean = false
 ) {
     require(options.size in 2..5) { "SegmentedButtons needs 2–5 options" }
     val c = BentoTheme.colors
@@ -82,10 +82,14 @@ public fun <T> SegmentedButtons(
             .heightIn(min = 48.dp)
             .clip(BentoShapes.control)
             .background(c.sunken)
-            .padding(4.dp),
+            .padding(4.dp)
     ) {
         val segment = maxWidth / options.size
-        val offset by animateDpAsState(segment * index, if (motion.reduced) androidx.compose.animation.core.snap() else motion.state(), label = "segment")
+        val offset by animateDpAsState(
+            segment * index,
+            if (motion.reduced) androidx.compose.animation.core.snap() else motion.state(),
+            label = "segment"
+        )
         val shadow = BentoTheme.shadows.sm.first().color
         // The indicator is drawn behind the row so it always matches its height (labels may wrap at 200 %).
         Row(
@@ -97,7 +101,7 @@ public fun <T> SegmentedButtons(
                     val w = segment.toPx()
                     drawRoundRect(shadow, Offset(x, 1.dp.toPx()), Size(w, size.height), radius)
                     drawRoundRect(c.raised, Offset(x, 0f), Size(w, size.height), radius)
-                },
+                }
         ) {
             options.forEachIndexed { i, option ->
                 val isSelected = i == index
@@ -116,14 +120,14 @@ public fun <T> SegmentedButtons(
                         },
                         role = Role.RadioButton,
                         interactionSource = remember { MutableInteractionSource() },
-                        indication = ripple(),
+                        indication = ripple()
                     )
                     .then(if (iconOnly) Modifier.semantics { contentDescription = option.label } else Modifier)
                 val body: @Composable () -> Unit = {
                     Row(
                         Modifier.padding(horizontal = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
-                        verticalAlignment = Alignment.CenterVertically,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         if (option.icon != null) {
                             BentoIcon(option.icon, contentDescription = null, tint = if (isSelected) c.accentInk else content)
@@ -135,7 +139,7 @@ public fun <T> SegmentedButtons(
                                 style = BentoTheme.typography.label.copy(color = content, textAlign = TextAlign.Center),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                autoSize = TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = BentoTheme.typography.label.fontSize),
+                                autoSize = TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = BentoTheme.typography.label.fontSize)
                             )
                         }
                     }
@@ -158,7 +162,7 @@ private fun ChipFrame(
     trailingIcon: ImageVector?,
     enabled: Boolean,
     modifier: Modifier,
-    interaction: Modifier,
+    interaction: Modifier
 ) {
     val c = BentoTheme.colors
     val motion = BentoTheme.motion
@@ -175,7 +179,7 @@ private fun ChipFrame(
             .then(interaction)
             .heightIn(min = 36.dp)
             .padding(horizontal = 14.dp),
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.Center
     ) {
         CompositionLocalProvider(LocalContentColor provides content) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -196,14 +200,19 @@ public fun BentoChip(
     modifier: Modifier = Modifier,
     leadingIcon: ImageVector? = null,
     trailingIcon: ImageVector? = null,
-    enabled: Boolean = true,
+    enabled: Boolean = true
 ) {
     val interaction = remember { MutableInteractionSource() }
     ChipFrame(
-        label, selected = false, leadingIcon, trailingIcon, enabled, modifier,
+        label,
+        selected = false,
+        leadingIcon,
+        trailingIcon,
+        enabled,
+        modifier,
         Modifier
             .clickable(interaction, ripple(), enabled = enabled, role = Role.Button, onClick = onClick)
-            .bentoFocusRing(interaction, BentoShapes.full),
+            .bentoFocusRing(interaction, BentoShapes.full)
     )
 }
 
@@ -215,14 +224,19 @@ public fun BentoFilterChip(
     onSelectedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     leadingIcon: ImageVector? = null,
-    enabled: Boolean = true,
+    enabled: Boolean = true
 ) {
     val interaction = remember { MutableInteractionSource() }
     ChipFrame(
-        label, selected, leadingIcon, trailingIcon = null, enabled, modifier,
+        label,
+        selected,
+        leadingIcon,
+        trailingIcon = null,
+        enabled,
+        modifier,
         Modifier
             .toggleable(selected, interaction, ripple(), enabled, Role.Checkbox, onSelectedChange)
-            .bentoFocusRing(interaction, BentoShapes.full),
+            .bentoFocusRing(interaction, BentoShapes.full)
     )
 }
 
@@ -249,7 +263,7 @@ public fun BentoSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, 
             disabledCheckedBorderColor = Color.Transparent,
             disabledUncheckedThumbColor = c.inkSubtle.copy(alpha = DISABLED_ALPHA),
             disabledUncheckedTrackColor = c.sunken,
-            disabledUncheckedBorderColor = c.line,
-        ),
+            disabledUncheckedBorderColor = c.line
+        )
     )
 }

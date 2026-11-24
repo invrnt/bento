@@ -1,6 +1,7 @@
 package dev.bento.designsystem.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material3.ColorScheme
@@ -9,7 +10,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
@@ -40,7 +40,7 @@ internal val LocalBentoIsMedia = staticCompositionLocalOf { false }
 public fun BentoTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     reducedMotion: Boolean? = null,
-    content: @Composable () -> Unit,
+    content: @Composable () -> Unit
 ) {
     val colors = if (darkTheme) BentoTokens.DarkColors else BentoTokens.LightColors
     val shadows = if (darkTheme) BentoTokens.DarkShadows else BentoTokens.LightShadows
@@ -56,7 +56,7 @@ public fun BentoMediaTheme(reducedMotion: Boolean? = null, content: @Composable 
             surface = BentoTokens.media,
             raised = BentoTokens.mediaRaised,
             subtle = BentoTokens.mediaRaised,
-            sunken = BentoTokens.media,
+            sunken = BentoTokens.media
         )
     }
     BentoThemeImpl(colors, BentoTokens.DarkShadows, dark = true, media = true, reducedMotion = reducedMotion, content = content)
@@ -69,12 +69,13 @@ private fun BentoThemeImpl(
     dark: Boolean,
     media: Boolean,
     reducedMotion: Boolean?,
-    content: @Composable () -> Unit,
+    content: @Composable () -> Unit
 ) {
     val scheme = remember(colors, dark) { bentoColorScheme(colors, dark) }
     val systemReduced = rememberSystemReducedMotion()
     val motion = remember(reducedMotion, systemReduced) { BentoMotion(reduced = reducedMotion ?: systemReduced) }
-    val selection = remember(colors) { TextSelectionColors(handleColor = colors.accent, backgroundColor = colors.accent.copy(alpha = 0.28f)) }
+    val selection =
+        remember(colors) { TextSelectionColors(handleColor = colors.accent, backgroundColor = colors.accent.copy(alpha = 0.28f)) }
     MaterialTheme(colorScheme = scheme, typography = BentoTypography.Default.material, shapes = BentoShapes.material) {
         CompositionLocalProvider(
             LocalBentoColors provides colors,
@@ -85,7 +86,7 @@ private fun BentoThemeImpl(
             LocalBentoMotion provides motion,
             LocalContentColor provides colors.ink,
             LocalTextSelectionColors provides selection,
-            content = content,
+            content = content
         )
     }
 }
@@ -93,23 +94,29 @@ private fun BentoThemeImpl(
 /** Accessors for the current Bento theme. */
 public object BentoTheme {
     public val colors: BentoColors
-        @Composable @ReadOnlyComposable get() = LocalBentoColors.current
+        @Composable @ReadOnlyComposable
+        get() = LocalBentoColors.current
 
     public val typography: BentoTypography
-        @Composable @ReadOnlyComposable get() = LocalBentoTypography.current
+        @Composable @ReadOnlyComposable
+        get() = LocalBentoTypography.current
 
     public val shadows: BentoShadowTokens
-        @Composable @ReadOnlyComposable get() = LocalBentoShadows.current
+        @Composable @ReadOnlyComposable
+        get() = LocalBentoShadows.current
 
     public val motion: BentoMotion
-        @Composable @ReadOnlyComposable get() = LocalBentoMotion.current
+        @Composable @ReadOnlyComposable
+        get() = LocalBentoMotion.current
 
     public val isDark: Boolean
-        @Composable @ReadOnlyComposable get() = LocalBentoIsDark.current
+        @Composable @ReadOnlyComposable
+        get() = LocalBentoIsDark.current
 
     /** True inside [BentoMediaTheme]. */
     public val isMedia: Boolean
-        @Composable @ReadOnlyComposable get() = LocalBentoIsMedia.current
+        @Composable @ReadOnlyComposable
+        get() = LocalBentoIsMedia.current
 }
 
 /** Corner radii with the nested rule (outer = inner + gap), brand.md §6 + the mobile control exception. */
@@ -131,7 +138,7 @@ public object BentoShapes {
         small = sm,
         medium = control,
         large = lg,
-        extraLarge = xl,
+        extraLarge = xl
     )
 }
 
@@ -190,7 +197,7 @@ private fun lightScheme(c: BentoColors): ColorScheme = lightColorScheme(
     tertiaryFixed = c.subtle,
     tertiaryFixedDim = c.sunken,
     onTertiaryFixed = c.ink,
-    onTertiaryFixedVariant = c.inkMuted,
+    onTertiaryFixedVariant = c.inkMuted
 )
 
 private fun darkScheme(c: BentoColors): ColorScheme = darkColorScheme(
@@ -241,5 +248,5 @@ private fun darkScheme(c: BentoColors): ColorScheme = darkColorScheme(
     tertiaryFixed = c.subtle,
     tertiaryFixedDim = c.sunken,
     onTertiaryFixed = c.ink,
-    onTertiaryFixedVariant = c.inkMuted,
+    onTertiaryFixedVariant = c.inkMuted
 )

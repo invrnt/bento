@@ -58,8 +58,8 @@ import dev.bento.designsystem.theme.BentoElevation
 import dev.bento.designsystem.theme.BentoShapes
 import dev.bento.designsystem.theme.BentoTheme
 import dev.bento.designsystem.theme.bentoShadow
-import java.util.Locale
 import dev.bento.strings.R as StringsR
+import java.util.Locale
 
 /** Tones shared by Badge, StatusDot and progress (brand.md §11). `Shu` is reserved for the brand moments. */
 public enum class BentoTone { Neutral, Accent, Success, Warning, Danger, Shu }
@@ -139,7 +139,7 @@ public fun Badge(
     dot: Boolean = false,
     pulse: Boolean = false,
     icon: ImageVector? = null,
-    size: BadgeSize = BadgeSize.Small,
+    size: BadgeSize = BadgeSize.Small
 ) {
     val colors = BentoTheme.colors.tone(tone)
     Row(
@@ -149,7 +149,7 @@ public fun Badge(
             .background(colors.soft)
             .padding(horizontal = if (size == BadgeSize.Small) 8.dp else 10.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         when {
             dot -> StatusDot(tone = tone, pulse = pulse, size = 6.dp)
@@ -169,7 +169,7 @@ public fun ProgressBar(
     modifier: Modifier = Modifier,
     label: String? = null,
     tone: BentoTone = BentoTone.Accent,
-    height: Dp = 6.dp,
+    height: Dp = 6.dp
 ) {
     val colors = BentoTheme.colors
     val fill = colors.tone(tone).solid
@@ -187,7 +187,8 @@ public fun ProgressBar(
     } else {
         Modifier.semantics(mergeDescendants = true) {
             contentDescription = label
-            progressBarRangeInfo = if (progress == null) ProgressBarRangeInfo.Indeterminate else ProgressBarRangeInfo(progress.coerceIn(0f, 1f), 0f..1f)
+            progressBarRangeInfo =
+                if (progress == null) ProgressBarRangeInfo.Indeterminate else ProgressBarRangeInfo(progress.coerceIn(0f, 1f), 0f..1f)
             if (percent != null) stateDescription = percent
         }
     }
@@ -195,7 +196,7 @@ public fun ProgressBar(
         modifier
             .fillMaxWidth()
             .height(height)
-            .then(semanticsModifier),
+            .then(semanticsModifier)
     ) {
         val radius = CornerRadius(this.size.height / 2f)
         drawRoundRect(colors.sunken, cornerRadius = radius)
@@ -206,7 +207,12 @@ public fun ProgressBar(
         } else {
             val segment = this.size.width * 0.32f
             val x = (this.size.width + segment) * phase - segment
-            drawRoundRect(fill, topLeft = Offset(x.coerceAtLeast(0f), 0f), size = Size((segment + x.coerceAtMost(0f)).coerceAtMost(this.size.width - x.coerceAtLeast(0f)), this.size.height), cornerRadius = radius)
+            drawRoundRect(
+                fill,
+                topLeft = Offset(x.coerceAtLeast(0f), 0f),
+                size = Size((segment + x.coerceAtMost(0f)).coerceAtMost(this.size.width - x.coerceAtLeast(0f)), this.size.height),
+                cornerRadius = radius
+            )
         }
     }
 }
@@ -220,7 +226,7 @@ public fun ProgressRing(
     strokeWidth: Dp = 3.dp,
     color: Color = BentoTheme.colors.accent,
     trackColor: Color = Color.Transparent,
-    label: String? = null,
+    label: String? = null
 ) {
     val motion = BentoTheme.motion
     val animated by animateFloatAsState((progress ?: 0f).coerceIn(0f, 1f), motion.state(), label = "ring")
@@ -238,11 +244,18 @@ public fun ProgressRing(
             } else {
                 Modifier.semantics {
                     contentDescription = label
-                    progressBarRangeInfo = if (progress == null) ProgressBarRangeInfo.Indeterminate else ProgressBarRangeInfo(progress.coerceIn(0f, 1f), 0f..1f)
+                    progressBarRangeInfo =
+                        if (progress ==
+                            null
+                        ) {
+                            ProgressBarRangeInfo.Indeterminate
+                        } else {
+                            ProgressBarRangeInfo(progress.coerceIn(0f, 1f), 0f..1f)
+                        }
                     if (percent != null) stateDescription = percent
                 }
-            },
-        ),
+            }
+        )
     ) {
         val stroke = strokeWidth.toPx()
         val inset = stroke / 2f
@@ -268,7 +281,7 @@ public fun Callout(
     body: String? = null,
     icon: ImageVector? = null,
     announce: BentoAnnounce = BentoAnnounce.None,
-    action: (@Composable () -> Unit)? = null,
+    action: (@Composable () -> Unit)? = null
 ) {
     val c = BentoTheme.colors
     val tc = c.tone(tone.asTone())
@@ -286,12 +299,23 @@ public fun Callout(
             .background(container)
             .border(1.dp, border, BentoShapes.lg)
             .announce(announce)
-            .padding(14.dp),
+            .padding(14.dp)
     ) {
         val wide = maxWidth >= 520.dp
         val text: @Composable () -> Unit = {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                BentoIcon(icon ?: tone.icon(), contentDescription = null, tint = if (tone == CalloutTone.Neutral) c.inkMuted else tc.ink, size = BentoIconSize.Standard)
+                BentoIcon(
+                    icon ?: tone.icon(),
+                    contentDescription = null,
+                    tint = if (tone ==
+                        CalloutTone.Neutral
+                    ) {
+                        c.inkMuted
+                    } else {
+                        tc.ink
+                    },
+                    size = BentoIconSize.Standard
+                )
                 Column(Modifier.semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     if (title != null) Text(title, color = c.ink, style = BentoTheme.typography.bodyStrong)
                     if (body != null) Text(body, color = c.inkMuted, style = BentoTheme.typography.body)
@@ -326,7 +350,7 @@ public fun AttentionCard(
     tone: CalloutTone = CalloutTone.Info,
     icon: ImageVector? = null,
     onDismiss: (() -> Unit)? = null,
-    dismissLabel: String = stringResource(StringsR.string.ds_dismiss),
+    dismissLabel: String = stringResource(StringsR.string.ds_dismiss)
 ) {
     val c = BentoTheme.colors
     val tc = c.tone(tone.asTone())
@@ -338,7 +362,7 @@ public fun AttentionCard(
             .background(c.raised)
             .border(1.dp, c.line, BentoShapes.lg)
             .padding(start = 16.dp, top = 16.dp, bottom = 16.dp, end = if (onDismiss != null) 4.dp else 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Box(Modifier.size(40.dp).clip(BentoShapes.md).background(tc.soft), contentAlignment = Alignment.Center) {
             BentoIcon(icon ?: tone.icon(), contentDescription = null, tint = tc.ink)
@@ -364,7 +388,7 @@ public fun EmptyState(
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
     compact: Boolean = false,
-    action: (@Composable () -> Unit)? = null,
+    action: (@Composable () -> Unit)? = null
 ) {
     val c = BentoTheme.colors
     Box(
@@ -375,11 +399,11 @@ public fun EmptyState(
                 drawRoundRect(
                     c.lineStrong.copy(alpha = 0.8f),
                     cornerRadius = CornerRadius(18.dp.toPx()),
-                    style = Stroke(1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx()))),
+                    style = Stroke(1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())))
                 )
             }
             .padding(horizontal = 24.dp, vertical = if (compact) 32.dp else 48.dp),
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.Center
     ) {
         Column(Modifier.widthIn(max = 384.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(
@@ -389,7 +413,7 @@ public fun EmptyState(
                     .clip(BentoShapes.lg)
                     .background(c.raised)
                     .border(1.dp, c.line, BentoShapes.lg),
-                contentAlignment = Alignment.Center,
+                contentAlignment = Alignment.Center
             ) {
                 if (icon != null) BentoIcon(icon, contentDescription = null, tint = c.inkMuted) else EmptyCompartments(c.inkMuted)
             }
@@ -398,9 +422,15 @@ public fun EmptyState(
                 color = c.ink,
                 style = BentoTheme.typography.sectionTitle,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 16.dp).semantics { heading() },
+                modifier = Modifier.padding(top = 16.dp).semantics { heading() }
             )
-            Text(body, color = c.inkMuted, style = BentoTheme.typography.body, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 6.dp))
+            Text(
+                body,
+                color = c.inkMuted,
+                style = BentoTheme.typography.body,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 6.dp)
+            )
             if (action != null) Box(Modifier.padding(top = 20.dp)) { action() }
         }
     }
@@ -428,7 +458,7 @@ public fun LoadingState(modifier: Modifier = Modifier, label: String = stringRes
             .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }
             .padding(vertical = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)
     ) {
         BentoLoader(contentDescription = null)
         Text(label, color = BentoTheme.colors.inkMuted, style = BentoTheme.typography.label)
@@ -442,7 +472,7 @@ public fun ErrorState(
     modifier: Modifier = Modifier,
     title: String = stringResource(StringsR.string.common_error_title),
     onRetry: (() -> Unit)? = null,
-    retryLabel: String = stringResource(StringsR.string.common_action_retry),
+    retryLabel: String = stringResource(StringsR.string.common_action_retry)
 ) {
     val c = BentoTheme.colors
     Column(
@@ -453,7 +483,7 @@ public fun ErrorState(
             .border(1.dp, c.danger.copy(alpha = 0.25f), BentoShapes.lg)
             .announce(BentoAnnounce.Assertive)
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             BentoIcon(BentoIcons.TriangleAlert, contentDescription = null, tint = c.dangerInk)
@@ -463,7 +493,13 @@ public fun ErrorState(
             }
         }
         if (onRetry != null) {
-            BentoButton(retryLabel, onRetry, size = BentoButtonSize.Small, leadingIcon = BentoIcons.RotateCw, modifier = Modifier.padding(start = 32.dp))
+            BentoButton(
+                retryLabel,
+                onRetry,
+                size = BentoButtonSize.Small,
+                leadingIcon = BentoIcons.RotateCw,
+                modifier = Modifier.padding(start = 32.dp)
+            )
         }
     }
 }

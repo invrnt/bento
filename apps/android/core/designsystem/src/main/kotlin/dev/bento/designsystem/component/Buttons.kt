@@ -54,7 +54,7 @@ public enum class BentoButtonVariant { Primary, Secondary, Ghost, Danger, Danger
 public enum class BentoButtonSize(internal val height: Dp, internal val padding: Dp, internal val icon: Dp) {
     Small(40.dp, 14.dp, 18.dp),
     Medium(48.dp, 18.dp, 20.dp),
-    Large(56.dp, 24.dp, 20.dp),
+    Large(56.dp, 24.dp, 20.dp)
 }
 
 internal data class ButtonColors(val container: Color, val content: Color, val border: Color?)
@@ -75,6 +75,8 @@ internal fun buttonColors(variant: BentoButtonVariant, c: BentoColors, pressed: 
  * Bento button. Labels are verbs ("Subir archivos"), never "OK". While [loading] the button is busy: it keeps its
  * label, shows a ring instead of the leading icon, ignores taps and announces [loadingLabel].
  */
+// Variant x state color matrix; splitting it hides the token mapping.
+@Suppress("CyclomaticComplexMethod")
 @Composable
 public fun BentoButton(
     text: String,
@@ -86,7 +88,7 @@ public fun BentoButton(
     trailingIcon: ImageVector? = null,
     enabled: Boolean = true,
     loading: Boolean = false,
-    loadingLabel: String = stringResource(StringsR.string.ds_loading),
+    loadingLabel: String = stringResource(StringsR.string.ds_loading)
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
@@ -107,7 +109,10 @@ public fun BentoButton(
         modifier
             .minimumInteractiveComponentSize()
             .semantics { if (loading) stateDescription = loadingLabel }
-            .graphicsLayer { scaleX = pressScale; scaleY = pressScale }
+            .graphicsLayer {
+                scaleX = pressScale
+                scaleY = pressScale
+            }
             .alpha(if (enabled) 1f else DISABLED_ALPHA)
             .then(if (enabled && elevation != BentoElevation.None) Modifier.bentoShadow(elevation, shape) else Modifier)
             .clip(shape)
@@ -118,13 +123,13 @@ public fun BentoButton(
                 indication = ripple(),
                 enabled = active,
                 role = Role.Button,
-                onClick = onClick,
+                onClick = onClick
             )
             .bentoFocusRing(interaction, shape)
             .heightIn(min = size.height)
             .defaultMinSize(minWidth = size.height)
             .padding(PaddingValues(horizontal = size.padding)),
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.Center
     ) {
         CompositionLocalProvider(LocalContentColor provides content) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -137,7 +142,7 @@ public fun BentoButton(
                     style = if (size == BentoButtonSize.Large) BentoTheme.typography.bodyStrong else BentoTheme.typography.label,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(vertical = 4.dp),
+                    modifier = Modifier.padding(vertical = 4.dp)
                 )
                 if (trailingIcon != null) BentoIcon(trailingIcon, contentDescription = null, size = size.icon)
             }
@@ -151,6 +156,8 @@ public enum class BentoIconButtonVariant { Ghost, Secondary, Accent, Overlay }
  * Icon-only control: always has [contentDescription] and a long-press/hover tooltip with the same text.
  * [dense] draws a 40 dp visual inside the 48 dp touch target.
  */
+// Variant x state color matrix; splitting it hides the token mapping.
+@Suppress("CyclomaticComplexMethod")
 @Composable
 public fun BentoIconButton(
     icon: ImageVector,
@@ -161,16 +168,35 @@ public fun BentoIconButton(
     dense: Boolean = false,
     enabled: Boolean = true,
     selected: Boolean = false,
-    tint: Color = Color.Unspecified,
+    tint: Color = Color.Unspecified
 ) {
     val c = BentoTheme.colors
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val (container, content) = when (variant) {
-        BentoIconButtonVariant.Ghost -> (if (selected) c.accentSoft else if (pressed) c.pressed else Color.Transparent) to
-            (if (selected) c.accentInk else if (pressed) c.ink else c.inkMuted)
+        BentoIconButtonVariant.Ghost -> (
+            if (selected) {
+                c.accentSoft
+            } else if (pressed) {
+                c.pressed
+            } else {
+                Color.Transparent
+            }
+            ) to
+            (
+                if (selected) {
+                    c.accentInk
+                } else if (pressed) {
+                    c.ink
+                } else {
+                    c.inkMuted
+                }
+                )
+
         BentoIconButtonVariant.Secondary -> (if (pressed) c.subtle else c.raised) to c.ink
+
         BentoIconButtonVariant.Accent -> (if (pressed) c.accentSoftHover else c.accentSoft) to c.accentInk
+
         BentoIconButtonVariant.Overlay -> c.black.copy(alpha = if (pressed) 0.55f else 0.4f) to c.white
     }
     val animatedContainer by animateColorAsState(container, BentoTheme.motion.color(), label = "icon-button")
@@ -187,13 +213,13 @@ public fun BentoIconButton(
                 .clickable(interaction, ripple(), enabled = enabled, role = Role.Button, onClickLabel = null, onClick = onClick)
                 .semantics { if (selected) this.selected = true }
                 .bentoFocusRing(interaction, BentoShapes.full),
-            contentAlignment = Alignment.Center,
+            contentAlignment = Alignment.Center
         ) {
             BentoIcon(
                 icon,
                 contentDescription = contentDescription,
                 tint = if (tint != Color.Unspecified) tint else content,
-                size = if (dense) BentoIconSize.Standard else BentoIconSize.Large,
+                size = if (dense) BentoIconSize.Standard else BentoIconSize.Large
             )
         }
     }
@@ -206,12 +232,22 @@ public fun BentoFab(
     icon: ImageVector,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    expanded: Boolean = true,
+    expanded: Boolean = true
 ) {
     val c = BentoTheme.colors
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val container by animateColorAsState(if (pressed && !BentoTheme.isDark) c.accentHover else c.accent, BentoTheme.motion.color(), label = "fab")
+    val container by animateColorAsState(
+        if (pressed &&
+            !BentoTheme.isDark
+        ) {
+            c.accentHover
+        } else {
+            c.accent
+        },
+        BentoTheme.motion.color(),
+        label = "fab"
+    )
     Box(
         modifier
             .bentoShadow(BentoElevation.Lg, BentoShapes.lg)
@@ -223,7 +259,7 @@ public fun BentoFab(
             .heightIn(min = 56.dp)
             .defaultMinSize(minWidth = 56.dp)
             .padding(horizontal = if (expanded) 20.dp else 16.dp),
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.Center
     ) {
         CompositionLocalProvider(LocalContentColor provides c.onAccent) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -29,13 +29,19 @@ class ThemeTest {
     fun everyMaterialSlotIsABentoToken() {
         for ((dark, tokens, baseline) in listOf(
             Triple(false, BentoTokens.LightColors, lightColorScheme()),
-            Triple(true, BentoTokens.DarkColors, darkColorScheme()),
+            Triple(true, BentoTokens.DarkColors, darkColorScheme())
         )) {
             val scheme = slots(bentoColorScheme(tokens, dark))
             // A slot may coincide with the baseline only when the Bento token itself has that value (e.g. white).
             val defaults = slots(baseline)
             val same = scheme.filter { (name, color) -> defaults.getValue(name) == color }
-            assertTrue("slots equal to the Material baseline must be plain white/black tokens: $same", same.values.all { it == Color.White || it == Color.Black })
+            assertTrue(
+                "slots equal to the Material baseline must be plain white/black tokens: $same",
+                same.values.all {
+                    it == Color.White ||
+                        it == Color.Black
+                }
+            )
             assertTrue("ColorScheme exposes its slots (${scheme.size})", scheme.size >= 48)
             val allowed = tokens.javaClass.declaredFields.filter { it.type == Long::class.javaPrimitiveType }.map {
                 it.isAccessible = true
@@ -75,7 +81,11 @@ class ThemeTest {
     @Test
     fun typographyUsesGeistAndTheMobileScale() {
         val t = BentoTypography.Default
-        val styles: List<TextStyle> = listOf(t.hero, t.pageTitle, t.monthHeader, t.sectionTitle, t.body, t.bodyStrong, t.label, t.labelStrong, t.metadata, t.caption, t.badge, t.numeric)
+        val styles: List<TextStyle> =
+            listOf(
+                t.hero, t.pageTitle, t.monthHeader, t.sectionTitle, t.body, t.bodyStrong,
+                t.label, t.labelStrong, t.metadata, t.caption, t.badge, t.numeric
+            )
         styles.forEach { assertEquals(GeistFamily, it.fontFamily) }
         assertEquals(GeistMonoFamily, t.mono.fontFamily)
         styles.forEach { assertTrue("no text below 12 sp", it.fontSize.value >= 12f) }

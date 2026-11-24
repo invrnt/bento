@@ -58,9 +58,10 @@ class ContrastTest {
         add(Pair3("accent-ink (nav icon)", "accent-soft", c.accentInk, c.accentSoft))
         val kinds = listOf(
             "folder" to (c.kindFolder to c.kindFolderSoft), "pdf" to (c.kindPdf to c.kindPdfSoft), "doc" to (c.kindDoc to c.kindDocSoft),
-            "sheet" to (c.kindSheet to c.kindSheetSoft), "slides" to (c.kindSlides to c.kindSlidesSoft), "image" to (c.kindImage to c.kindImageSoft),
+            "sheet" to (c.kindSheet to c.kindSheetSoft), "slides" to (c.kindSlides to c.kindSlidesSoft),
+            "image" to (c.kindImage to c.kindImageSoft),
             "video" to (c.kindVideo to c.kindVideoSoft), "audio" to (c.kindAudio to c.kindAudioSoft),
-            "archive" to (c.kindArchive to c.kindArchiveSoft), "text" to (c.kindText to c.kindTextSoft),
+            "archive" to (c.kindArchive to c.kindArchiveSoft), "text" to (c.kindText to c.kindTextSoft)
         )
         for ((name, pair) in kinds) add(Pair3("kind-$name", "kind-$name-soft", pair.first, pair.second))
     }
@@ -73,7 +74,10 @@ class ContrastTest {
 
     @Test
     fun textPairsMeetAa() {
-        val failures = (textPairs(BentoTokens.LightColors, light = true).map { "light" to it } + textPairs(BentoTokens.DarkColors, light = false).map { "dark" to it })
+        val failures = (
+            textPairs(BentoTokens.LightColors, light = true).map { "light" to it } +
+                textPairs(BentoTokens.DarkColors, light = false).map { "dark" to it }
+            )
             .filter { (_, p) -> ratio(p.fgColor, p.bgColor) < 4.5 }
             .map { (theme, p) -> "$theme:${p.fg}/${p.bg} = ${"%.2f".format(ratio(p.fgColor, p.bgColor))}" }
         assertEquals("Text pairs below 4.5:1", emptyList<String>(), failures)

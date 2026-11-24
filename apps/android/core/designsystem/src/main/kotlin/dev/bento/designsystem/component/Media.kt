@@ -81,7 +81,7 @@ public fun Thumbnail(
     selectionMode: Boolean = false,
     aspectRatio: Float = 1f,
     placeholder: @Composable BoxScope.() -> Unit = {},
-    overlays: @Composable BoxScope.() -> Unit = {},
+    overlays: @Composable BoxScope.() -> Unit = {}
 ) {
     val c = BentoTheme.colors
     val motion = BentoTheme.motion
@@ -89,7 +89,10 @@ public fun Thumbnail(
     val hasImage = painter != null
     LaunchedEffect(hasImage) {
         if (hasImage) {
-            alpha.animateTo(1f, tween(if (motion.reduced) BentoTokens.Duration.fast else BentoTokens.Duration.base, easing = BentoTokens.Easing.easeOut))
+            alpha.animateTo(
+                1f,
+                tween(if (motion.reduced) BentoTokens.Duration.fast else BentoTokens.Duration.base, easing = BentoTokens.Easing.easeOut)
+            )
         } else {
             alpha.snapTo(0f)
         }
@@ -102,7 +105,7 @@ public fun Thumbnail(
         modifier
             .aspectRatio(aspectRatio)
             .background(if (selected) c.accentSoft else c.sunken)
-            .semantics { if (contentDescription != null) this.contentDescription = contentDescription },
+            .semantics { if (contentDescription != null) this.contentDescription = contentDescription }
     ) {
         Box(
             Modifier
@@ -115,10 +118,14 @@ public fun Thumbnail(
                     shape = RoundedCornerShape(radius * inset)
                     clip = inset > 0f
                 }
-                .background(c.sunken),
+                .background(c.sunken)
         ) {
             if (painter == null || alpha.value < 1f) {
-                Box(Modifier.fillMaxSize().testTag(BentoTestTags.ThumbnailPlaceholder), contentAlignment = Alignment.Center, content = placeholder)
+                Box(
+                    Modifier.fillMaxSize().testTag(BentoTestTags.ThumbnailPlaceholder),
+                    contentAlignment = Alignment.Center,
+                    content = placeholder
+                )
             }
             if (painter != null) {
                 Image(
@@ -128,7 +135,7 @@ public fun Thumbnail(
                     modifier = Modifier
                         .fillMaxSize()
                         .testTag(BentoTestTags.ThumbnailImage)
-                        .graphicsLayer { this.alpha = alpha.value },
+                        .graphicsLayer { this.alpha = alpha.value }
                 )
             }
         }
@@ -148,7 +155,7 @@ public fun SelectionCheck(selected: Boolean, modifier: Modifier = Modifier) {
             .background(if (selected) c.accent else c.black.copy(alpha = 0.18f))
             .border(1.5.dp, if (selected) c.raised else c.white.copy(alpha = 0.9f), BentoShapes.full)
             .clearAndSetSemantics {},
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.Center
     ) {
         if (selected) BentoIcon(BentoIcons.Check, contentDescription = null, tint = c.onAccent, size = 14.dp)
     }
@@ -164,7 +171,7 @@ public fun VideoBadge(duration: String?, modifier: Modifier = Modifier) {
             .background(c.black.copy(alpha = 0.5f))
             .padding(horizontal = 6.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(3.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         BentoIcon(BentoIcons.Play, contentDescription = null, tint = c.white, size = 12.dp)
         if (duration != null) Text(duration, color = c.white, style = BentoTheme.typography.badge.copy(fontFeatureSettings = "tnum"))
@@ -187,13 +194,18 @@ public fun BentoFavorite(favorite: Boolean, modifier: Modifier = Modifier, size:
             else -> c.inkMuted
         },
         size = size,
-        modifier = modifier,
+        modifier = modifier
     )
 }
 
 /** Toggle button for favorites with the correct TalkBack state ("Añadir a favoritos" / "Quitar de favoritos"). */
 @Composable
-public fun BentoFavoriteButton(favorite: Boolean, onFavoriteChange: (Boolean) -> Unit, modifier: Modifier = Modifier, onMedia: Boolean = false) {
+public fun BentoFavoriteButton(
+    favorite: Boolean,
+    onFavoriteChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    onMedia: Boolean = false
+) {
     val label = stringResource(if (favorite) StringsR.string.ds_favorite_remove else StringsR.string.ds_favorite_add)
     BentoTooltip(label, modifier) {
         Box(
@@ -201,9 +213,17 @@ public fun BentoFavoriteButton(favorite: Boolean, onFavoriteChange: (Boolean) ->
                 .minimumInteractiveComponentSize()
                 .size(48.dp)
                 .clip(BentoShapes.full)
-                .toggleable(favorite, remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, ripple(), role = Role.Switch, onValueChange = onFavoriteChange)
+                .toggleable(
+                    favorite,
+                    remember {
+                        androidx.compose.foundation.interaction.MutableInteractionSource()
+                    },
+                    ripple(),
+                    role = Role.Switch,
+                    onValueChange = onFavoriteChange
+                )
                 .semantics { contentDescription = label },
-            contentAlignment = Alignment.Center,
+            contentAlignment = Alignment.Center
         ) {
             BentoFavorite(favorite, size = BentoIconSize.Large, onMedia = onMedia)
         }
@@ -216,7 +236,7 @@ public data class FloatingAction(
     val icon: ImageVector,
     val label: String,
     val onClick: () -> Unit,
-    val destructive: Boolean = false,
+    val destructive: Boolean = false
 )
 
 /**
@@ -231,7 +251,7 @@ public fun FloatingActionBar(
     modifier: Modifier = Modifier,
     title: String? = null,
     overflow: List<FloatingAction> = emptyList(),
-    closeLabel: String = stringResource(StringsR.string.ds_clear_selection),
+    closeLabel: String = stringResource(StringsR.string.ds_clear_selection)
 ) {
     val motion = BentoTheme.motion
     AnimatedVisibility(visible, modifier, enter = motion.slideUpIn, exit = motion.slideDownOut) {
@@ -245,7 +265,7 @@ internal fun FloatingActionBarContent(
     onClose: () -> Unit,
     title: String?,
     overflow: List<FloatingAction>,
-    closeLabel: String,
+    closeLabel: String
 ) {
     val c = BentoTheme.colors
     var menu by remember { mutableStateOf(false) }
@@ -261,11 +281,18 @@ internal fun FloatingActionBarContent(
             .border(1.dp, c.line, BentoShapes.xl)
             .testTag(BentoTestTags.FloatingActionBar)
             .padding(horizontal = 6.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         BentoIconButton(BentoIcons.X, closeLabel, onClose)
         if (title != null) {
-            Text(title, color = c.ink, style = BentoTheme.typography.labelStrong.copy(fontFeatureSettings = "tnum"), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 4.dp).weight(1f))
+            Text(
+                title,
+                color = c.ink,
+                style = BentoTheme.typography.labelStrong.copy(fontFeatureSettings = "tnum"),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(start = 4.dp).weight(1f)
+            )
         } else {
             Box(Modifier.weight(1f))
         }
@@ -281,7 +308,7 @@ internal fun FloatingActionBarContent(
                     shape = BentoShapes.lg,
                     containerColor = c.raised,
                     tonalElevation = 0.dp,
-                    shadowElevation = 8.dp,
+                    shadowElevation = 8.dp
                 ) {
                     overflow.forEach { action ->
                         val tint = if (action.destructive) c.dangerInk else c.ink
@@ -292,7 +319,7 @@ internal fun FloatingActionBarContent(
                                 menu = false
                                 action.onClick()
                             },
-                            modifier = Modifier.heightIn(min = 48.dp),
+                            modifier = Modifier.heightIn(min = 48.dp)
                         )
                     }
                 }

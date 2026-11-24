@@ -1,10 +1,12 @@
 pluginManagement {
+    includeBuild("build-logic")
     repositories {
         google()
         mavenCentral()
         gradlePluginPortal()
     }
 }
+
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
@@ -12,8 +14,16 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
+
 rootProject.name = "bento-android"
 
+include(":app")
+include(":core:engine")
+include(":core:api")
+include(":core:data")
+include(":core:background")
+include(":core:testing")
+include(":smoke")
 include(":core:strings")
 include(":core:designsystem")
 include(":core:designsystem-lint")

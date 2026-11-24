@@ -19,14 +19,14 @@ import dev.bento.designsystem.generated.BentoTokens
 public val GeistFamily: FontFamily = FontFamily(
     listOf(400, 500, 600).map { weight ->
         Font(R.font.geist_variable, FontWeight(weight), variationSettings = FontVariation.Settings(FontVariation.weight(weight)))
-    },
+    }
 )
 
 @OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
 public val GeistMonoFamily: FontFamily = FontFamily(
     listOf(400, 500, 600).map { weight ->
         Font(R.font.geist_mono_variable, FontWeight(weight), variationSettings = FontVariation.Settings(FontVariation.weight(weight)))
-    },
+    }
 )
 
 private const val TABULAR = "tnum"
@@ -40,7 +40,7 @@ private fun style(size: Int, line: Int, weight: Int, tracking: Float = 0f, famil
         letterSpacing = tracking.em,
         fontFeatureSettings = features,
         platformStyle = PlatformTextStyle(includeFontPadding = false),
-        lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None),
+        lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
     )
 
 /**
@@ -64,7 +64,7 @@ public data class BentoTypography(
     val mono: TextStyle,
     val monoLarge: TextStyle,
     /** Tabular figures for counters, sizes and progress in Geist. */
-    val numeric: TextStyle,
+    val numeric: TextStyle
 ) {
     /** The 15 baseline Material roles (the expressive "emphasized" roles are not public in Material 3 1.4). */
     internal val material: Typography by lazy {
@@ -83,7 +83,7 @@ public data class BentoTypography(
             bodySmall = metadata,
             labelLarge = labelStrong,
             labelMedium = metadata.copy(fontWeight = FontWeight.Medium),
-            labelSmall = caption.copy(fontWeight = FontWeight.Medium),
+            labelSmall = caption.copy(fontWeight = FontWeight.Medium)
         )
     }
 
@@ -105,7 +105,7 @@ public data class BentoTypography(
             badge = style(12, 16, 500),
             mono = style(14, 20, 500, family = GeistMonoFamily, features = TABULAR),
             monoLarge = style(20, 28, 500, tracking = 0.04f, family = GeistMonoFamily, features = TABULAR),
-            numeric = style(13, 18, 500, features = TABULAR),
+            numeric = style(13, 18, 500, features = TABULAR)
         )
     }
 }

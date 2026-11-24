@@ -39,7 +39,7 @@ public fun BentoIcon(
     contentDescription: String?,
     modifier: Modifier = Modifier,
     tint: Color = LocalContentColor.current,
-    size: Dp = BentoIconSize.Standard,
+    size: Dp = BentoIconSize.Standard
 ) {
     Icon(imageVector = icon, contentDescription = contentDescription, modifier = modifier.size(size), tint = tint)
 }
@@ -55,12 +55,12 @@ public fun BentoTooltip(label: String, modifier: Modifier = Modifier, content: @
             PlainTooltip(
                 shape = BentoShapes.sm,
                 containerColor = colors.tooltip,
-                contentColor = colors.inkInverse,
+                contentColor = colors.inkInverse
             ) { Text(label, style = BentoTheme.typography.metadata) }
         },
         state = rememberTooltipState(),
         modifier = modifier,
-        content = content,
+        content = content
     )
 }
 

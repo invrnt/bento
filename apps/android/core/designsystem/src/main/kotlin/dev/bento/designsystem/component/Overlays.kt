@@ -71,7 +71,7 @@ public fun BentoSheetHandle(modifier: Modifier = Modifier) {
             .fillMaxWidth()
             .padding(top = 10.dp, bottom = 6.dp)
             .semantics { contentDescription = label },
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.Center
     ) {
         Box(Modifier.size(width = 36.dp, height = 4.dp).clip(BentoShapes.full).background(BentoTheme.colors.lineStrong))
     }
@@ -86,7 +86,7 @@ internal fun BentoSheetBody(title: String?, content: @Composable ColumnScope.() 
                 title,
                 color = BentoTheme.colors.ink,
                 style = BentoTheme.typography.sectionTitle,
-                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp).semantics { heading() },
+                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp).semantics { heading() }
             )
         }
         content()
@@ -106,7 +106,7 @@ public fun BentoSheet(
     sheetState: BentoSheetState = rememberBentoSheetState(),
     title: String? = null,
     secure: Boolean = false,
-    content: @Composable ColumnScope.() -> Unit,
+    content: @Composable ColumnScope.() -> Unit
 ) {
     val c = BentoTheme.colors
     ModalBottomSheet(
@@ -120,7 +120,7 @@ public fun BentoSheet(
         tonalElevation = 0.dp,
         scrimColor = c.scrim,
         dragHandle = { BentoSheetHandle() },
-        properties = ModalBottomSheetProperties(securePolicy = if (secure) SecureFlagPolicy.SecureOn else SecureFlagPolicy.Inherit),
+        properties = ModalBottomSheetProperties(securePolicy = if (secure) SecureFlagPolicy.SecureOn else SecureFlagPolicy.Inherit)
     ) {
         BentoSheetBody(title, content)
     }
@@ -135,7 +135,7 @@ internal fun BentoDialogCard(
     onConfirm: () -> Unit,
     dismissLabel: String,
     onDismiss: () -> Unit,
-    icon: ImageVector,
+    icon: ImageVector
 ) {
     val c = BentoTheme.colors
     Column(
@@ -145,12 +145,19 @@ internal fun BentoDialogCard(
             .clip(BentoShapes.xl)
             .background(c.raised)
             .padding(24.dp)
-            .semantics { paneTitle = title },
+            .semantics { paneTitle = title }
     ) {
         Box(Modifier.size(44.dp).clip(BentoShapes.lg).background(c.dangerSoft), contentAlignment = Alignment.Center) {
             BentoIcon(icon, contentDescription = null, tint = c.dangerInk)
         }
-        Text(title, color = c.ink, style = BentoTheme.typography.sectionTitle, modifier = Modifier.padding(top = 16.dp).semantics { heading() })
+        Text(
+            title,
+            color = c.ink,
+            style = BentoTheme.typography.sectionTitle,
+            modifier = Modifier.padding(top = 16.dp).semantics {
+                heading()
+            }
+        )
         Text(consequence, color = c.inkMuted, style = BentoTheme.typography.body, modifier = Modifier.padding(top = 6.dp))
         BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 24.dp)) {
             if (maxWidth < 340.dp) {
@@ -181,7 +188,7 @@ public fun BentoDialog(
     onConfirm: () -> Unit,
     onDismissRequest: () -> Unit,
     dismissLabel: String = stringResource(StringsR.string.common_action_cancel),
-    icon: ImageVector = BentoIcons.Trash2,
+    icon: ImageVector = BentoIcons.Trash2
 ) {
     BasicAlertDialog(onDismissRequest = onDismissRequest, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(Modifier.padding(horizontal = 24.dp), contentAlignment = Alignment.Center) {

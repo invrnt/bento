@@ -50,6 +50,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -63,7 +64,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.LocalDensity
 import dev.bento.designsystem.generated.BentoIcons
 import dev.bento.designsystem.theme.BentoShapes
 import dev.bento.designsystem.theme.BentoTheme
@@ -79,7 +79,7 @@ public fun BentoTopBar(
     onSearchClick: () -> Unit,
     modifier: Modifier = Modifier,
     windowInsets: WindowInsets = WindowInsets.statusBars,
-    avatar: @Composable () -> Unit = {},
+    avatar: @Composable () -> Unit = {}
 ) {
     val c = BentoTheme.colors
     val interaction = remember { MutableInteractionSource() }
@@ -89,7 +89,7 @@ public fun BentoTopBar(
             .windowInsetsPadding(windowInsets)
             .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
             Modifier
@@ -103,7 +103,7 @@ public fun BentoTopBar(
                 .semantics(mergeDescendants = true) {}
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             BentoIcon(BentoIcons.Search, contentDescription = null, tint = c.inkSubtle)
             Text(searchLabel, color = c.inkMuted, style = BentoTheme.typography.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -119,6 +119,8 @@ public enum class AvatarStatus { Idle, Syncing, Attention, Offline, Paused }
  * Account avatar with the global status ring: none = all synced; accent arc = syncing (determinate with [progress]);
  * warning dot = attention; dimmed + CloudOff = offline; pause glyph = backup paused. TalkBack reads name and status.
  */
+// One status-to-badge mapping plus its semantics; kept together for review against android.md.
+@Suppress("CyclomaticComplexMethod", "LongMethod")
 @Composable
 public fun StatusAvatar(
     name: String,
@@ -127,16 +129,20 @@ public fun StatusAvatar(
     modifier: Modifier = Modifier,
     progress: Float? = null,
     image: Painter? = null,
-    size: Dp = 36.dp,
+    size: Dp = 36.dp
 ) {
     val c = BentoTheme.colors
     val motion = BentoTheme.motion
     val statusText = when (status) {
         AvatarStatus.Idle -> stringResource(StringsR.string.ds_avatar_idle)
+
         AvatarStatus.Syncing -> progress?.let { stringResource(StringsR.string.ds_avatar_syncing_progress, formatPercent(it)) }
             ?: stringResource(StringsR.string.ds_avatar_syncing)
+
         AvatarStatus.Attention -> stringResource(StringsR.string.ds_avatar_attention)
+
         AvatarStatus.Offline -> stringResource(StringsR.string.ds_avatar_offline)
+
         AvatarStatus.Paused -> stringResource(StringsR.string.ds_avatar_paused)
     }
     val description = stringResource(StringsR.string.ds_avatar_label, name, statusText)
@@ -156,9 +162,12 @@ public fun StatusAvatar(
             .clearAndSetSemantics {
                 contentDescription = description
                 role = Role.Button
-                onClick { onClick(); true }
+                onClick {
+                    onClick()
+                    true
+                }
             },
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.Center
     ) {
         if (status == AvatarStatus.Syncing) {
             Canvas(Modifier.size(ringSize)) {
@@ -167,7 +176,23 @@ public fun StatusAvatar(
                 val arc = Size(this.size.width - stroke, this.size.height - stroke)
                 drawArc(c.accentSoft, 0f, 360f, false, Offset(inset, inset), arc, style = Stroke(stroke))
                 val sweep = progress?.let { 360f * it.coerceIn(0f, 1f) } ?: 110f
-                drawArc(c.accent, (if (progress == null) spin else 0f) - 90f, sweep, false, Offset(inset, inset), arc, style = Stroke(stroke, cap = StrokeCap.Round))
+                drawArc(
+                    c.accent,
+                    (
+                        if (progress ==
+                            null
+                        ) {
+                            spin
+                        } else {
+                            0f
+                        }
+                        ) - 90f,
+                    sweep,
+                    false,
+                    Offset(inset, inset),
+                    arc,
+                    style = Stroke(stroke, cap = StrokeCap.Round)
+                )
             }
         }
         Box(
@@ -176,7 +201,7 @@ public fun StatusAvatar(
                 .alpha(if (status == AvatarStatus.Offline) 0.5f else 1f)
                 .clip(BentoShapes.full)
                 .background(c.accentSoft),
-            contentAlignment = Alignment.Center,
+            contentAlignment = Alignment.Center
         ) {
             if (image != null) {
                 Image(image, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
@@ -186,14 +211,30 @@ public fun StatusAvatar(
                 Text(
                     initials(name),
                     color = c.accentInk,
-                    style = BentoTheme.typography.labelStrong.copy(fontSize = (size.value * 0.38f / fontScale).sp, lineHeight = (size.value * 0.5f / fontScale).sp),
+                    style = BentoTheme.typography.labelStrong.copy(
+                        fontSize = (size.value * 0.38f / fontScale).sp,
+                        lineHeight = (
+                            size.value *
+                                0.5f /
+                                fontScale
+                            ).sp
+                    )
                 )
             }
         }
         val badge: (@Composable () -> Unit)? = when (status) {
-            AvatarStatus.Attention -> { { Box(Modifier.size(10.dp).clip(BentoShapes.full).background(c.warning)) } }
-            AvatarStatus.Offline -> { { BentoIcon(BentoIcons.CloudOff, contentDescription = null, tint = c.inkMuted, size = 12.dp) } }
-            AvatarStatus.Paused -> { { BentoIcon(BentoIcons.Pause, contentDescription = null, tint = c.inkMuted, size = 10.dp) } }
+            AvatarStatus.Attention -> {
+                { Box(Modifier.size(10.dp).clip(BentoShapes.full).background(c.warning)) }
+            }
+
+            AvatarStatus.Offline -> {
+                { BentoIcon(BentoIcons.CloudOff, contentDescription = null, tint = c.inkMuted, size = 12.dp) }
+            }
+
+            AvatarStatus.Paused -> {
+                { BentoIcon(BentoIcons.Pause, contentDescription = null, tint = c.inkMuted, size = 10.dp) }
+            }
+
             else -> null
         }
         if (badge != null) {
@@ -205,7 +246,7 @@ public fun StatusAvatar(
                     .clip(BentoShapes.full)
                     .background(c.raised)
                     .border(1.dp, if (status == AvatarStatus.Attention) c.raised else c.line, BentoShapes.full),
-                contentAlignment = Alignment.Center,
+                contentAlignment = Alignment.Center
             ) { badge() }
         }
     }
@@ -233,7 +274,7 @@ public fun BentoNavigationSuite(
     onReselect: (String) -> Unit = {},
     layout: NavigationLayout? = null,
     railHeader: (@Composable () -> Unit)? = null,
-    content: @Composable () -> Unit,
+    content: @Composable () -> Unit
 ) {
     val c = BentoTheme.colors
     BoxWithConstraints(modifier.fillMaxSize().background(c.tray)) {
@@ -244,6 +285,7 @@ public fun BentoNavigationSuite(
                 Box(Modifier.weight(1f).fillMaxWidth()) { content() }
                 BentoNavigationBar(items, selectedKey, choose)
             }
+
             NavigationLayout.Rail -> Row(Modifier.fillMaxSize()) {
                 BentoNavigationRail(items, selectedKey, choose, railHeader)
                 Box(Modifier.weight(1f).fillMaxHeight()) { content() }
@@ -263,7 +305,7 @@ internal fun BentoNavigationBar(items: List<BentoNavItem>, selectedKey: String, 
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .heightIn(min = 72.dp)
                 .selectableGroup(),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             items.forEach { item ->
                 NavDestination(item, item.key == selectedKey, { onChoose(item.key) }, Modifier.weight(1f))
@@ -273,7 +315,12 @@ internal fun BentoNavigationBar(items: List<BentoNavItem>, selectedKey: String, 
 }
 
 @Composable
-internal fun BentoNavigationRail(items: List<BentoNavItem>, selectedKey: String, onChoose: (String) -> Unit, header: (@Composable () -> Unit)?) {
+internal fun BentoNavigationRail(
+    items: List<BentoNavItem>,
+    selectedKey: String,
+    onChoose: (String) -> Unit,
+    header: (@Composable () -> Unit)?
+) {
     Column(
         Modifier
             .fillMaxHeight()
@@ -283,7 +330,7 @@ internal fun BentoNavigationRail(items: List<BentoNavItem>, selectedKey: String,
             .padding(vertical = 16.dp)
             .selectableGroup(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         if (header != null) {
             header()
@@ -297,7 +344,11 @@ internal fun BentoNavigationRail(items: List<BentoNavItem>, selectedKey: String,
 private fun NavDestination(item: BentoNavItem, selected: Boolean, onClick: () -> Unit, modifier: Modifier) {
     val c = BentoTheme.colors
     val motion = BentoTheme.motion
-    val indicator by animateColorAsState(if (selected) c.accentSoft else c.accentSoft.copy(alpha = 0f), motion.color(), label = "nav-indicator")
+    val indicator by animateColorAsState(
+        if (selected) c.accentSoft else c.accentSoft.copy(alpha = 0f),
+        motion.color(),
+        label = "nav-indicator"
+    )
     val iconTint by animateColorAsState(if (selected) c.accentInk else c.inkSubtle, motion.color(), label = "nav-icon")
     Column(
         modifier
@@ -307,18 +358,18 @@ private fun NavDestination(item: BentoNavItem, selected: Boolean, onClick: () ->
                 onClick = onClick,
                 role = Role.Tab,
                 interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(bounded = false, radius = 36.dp),
+                indication = ripple(bounded = false, radius = 36.dp)
             )
             .padding(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Box(
             Modifier
                 .size(width = 64.dp, height = 32.dp)
                 .clip(BentoShapes.full)
                 .background(indicator),
-            contentAlignment = Alignment.Center,
+            contentAlignment = Alignment.Center
         ) {
             BentoIcon(item.icon, contentDescription = null, tint = iconTint, size = BentoIconSize.Large)
             if (item.badge != null) {
@@ -328,9 +379,15 @@ private fun NavDestination(item: BentoNavItem, selected: Boolean, onClick: () ->
         Text(
             item.label,
             color = if (selected) c.ink else c.inkMuted,
-            style = if (selected) BentoTheme.typography.metadata.copy(fontWeight = FontWeight.SemiBold) else BentoTheme.typography.metadata.copy(fontWeight = FontWeight.Medium),
+            style = if (selected) {
+                BentoTheme.typography.metadata.copy(
+                    fontWeight = FontWeight.SemiBold
+                )
+            } else {
+                BentoTheme.typography.metadata.copy(fontWeight = FontWeight.Medium)
+            },
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

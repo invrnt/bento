@@ -21,13 +21,13 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertWidthIsAtLeast
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.click
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -172,7 +172,7 @@ class PrimitiveBehaviorTest {
             AvatarStatus.Syncing to "Sincronizando",
             AvatarStatus.Attention to "Algo necesita tu atención",
             AvatarStatus.Offline to "Sin conexión",
-            AvatarStatus.Paused to "Respaldo en pausa",
+            AvatarStatus.Paused to "Respaldo en pausa"
         )
         for ((s, text) in expected) {
             status = s
@@ -228,11 +228,11 @@ class PrimitiveBehaviorTest {
                 visible = visible,
                 actions = listOf(
                     FloatingAction(BentoIcons.Share2, "Compartir", { events += "share" }),
-                    FloatingAction(BentoIcons.Trash2, "Eliminar", { events += "delete" }, destructive = true),
+                    FloatingAction(BentoIcons.Trash2, "Eliminar", { events += "delete" }, destructive = true)
                 ),
                 overflow = listOf(FloatingAction(BentoIcons.Send, "Enviar por Telegram…", { events += "telegram" })),
                 onClose = { events += "close" },
-                title = "2 seleccionados",
+                title = "2 seleccionados"
             )
         }
         compose.onNodeWithTag(BentoTestTags.FloatingActionBar).assertDoesNotExist()
@@ -291,13 +291,19 @@ class PrimitiveBehaviorTest {
         // 40 dp visuals (36 dp for chips) must still take a tap 3 dp outside their drawn edge.
         val clicks = mutableListOf<String>()
         setBento {
-            androidx.compose.foundation.layout.Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(24.dp)) {
+            androidx.compose.foundation.layout.Column(
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(24.dp)
+            ) {
                 BentoButton("Guardar", { clicks += "button" }, size = BentoButtonSize.Small)
                 BentoIconButton(BentoIcons.EllipsisVertical, "Más opciones", { clicks += "icon" }, dense = true)
                 BentoFilterChip("Fotos", selected = false, onSelectedChange = { clicks += "chip" })
             }
         }
-        for (node in listOf(compose.onNodeWithText("Guardar"), compose.onNodeWithContentDescription("Más opciones"), compose.onNodeWithText("Fotos"))) {
+        for (node in listOf(
+            compose.onNodeWithText("Guardar"),
+            compose.onNodeWithContentDescription("Más opciones"),
+            compose.onNodeWithText("Fotos")
+        )) {
             node.performTouchInput { click(androidx.compose.ui.geometry.Offset(centerX, -3.dp.toPx())) }
         }
         compose.runOnIdle { assertEquals(listOf("button", "icon", "chip"), clicks) }
@@ -322,7 +328,7 @@ class PrimitiveBehaviorTest {
                 listOf(SegmentOption("grid", "Cuadrícula"), SegmentOption("list", "Lista")),
                 selected = selected,
                 onSelect = { selected = it },
-                tickHaptic = true,
+                tickHaptic = true
             )
         }
         compose.onNodeWithText("Cuadrícula").assertIsSelected()
@@ -354,10 +360,13 @@ class PrimitiveBehaviorTest {
         setBento {
             Box(Modifier.requiredWidth(width.dp)) {
                 BentoNavigationSuite(
-                    listOf(BentoNavItem("photos", "Fotos", BentoNavIcons.Images), BentoNavItem("files", "Archivos", BentoNavIcons.FolderClosed)),
+                    listOf(
+                        BentoNavItem("photos", "Fotos", BentoNavIcons.Images),
+                        BentoNavItem("files", "Archivos", BentoNavIcons.FolderClosed)
+                    ),
                     selectedKey = "photos",
                     onSelect = { events += "select:$it" },
-                    onReselect = { events += "reselect:$it" },
+                    onReselect = { events += "reselect:$it" }
                 ) {}
             }
         }
@@ -392,7 +401,7 @@ class PrimitiveBehaviorTest {
                 consequence = "Dejará de sincronizar.",
                 confirmLabel = "Quitar dispositivo",
                 onConfirm = { events += "confirm" },
-                onDismissRequest = { events += "dismiss" },
+                onDismissRequest = { events += "dismiss" }
             )
         }
         compose.onNodeWithText("Dejará de sincronizar.").assertExists()

@@ -46,7 +46,6 @@ import dev.bento.designsystem.component.BentoNavigationSuite
 import dev.bento.designsystem.component.BentoSheetBody
 import dev.bento.designsystem.component.BentoSheetHandle
 import dev.bento.designsystem.component.BentoSnackbar
-import dev.bento.designsystem.component.BentoSnackbarPreviewData
 import dev.bento.designsystem.component.BentoSnackbarTone
 import dev.bento.designsystem.component.BentoTextField
 import dev.bento.designsystem.component.BentoTone
@@ -80,6 +79,7 @@ import dev.bento.designsystem.component.StatusDot
 import dev.bento.designsystem.component.SwitchRow
 import dev.bento.designsystem.component.Thumbnail
 import dev.bento.designsystem.component.VideoBadge
+import dev.bento.designsystem.component.bentoSnackbarPreviewData
 import dev.bento.designsystem.component.fileKindLabel
 import dev.bento.designsystem.generated.BentoIconCatalog
 import dev.bento.designsystem.generated.BentoIcons
@@ -138,15 +138,15 @@ internal val sampleQr: QrMatrix = QrMatrix.fromRows(
         "101110100010110110010",
         "101110101101011011101",
         "100000100110101100010",
-        "111111101011010110101",
-    ),
+        "111111101011010110101"
+    )
 )
 
 @Composable
 private fun navItems(): List<BentoNavItem> = listOf(
     BentoNavItem("photos", "Fotos", BentoNavIcons.Images),
     BentoNavItem("files", "Archivos", BentoNavIcons.FolderClosed),
-    BentoNavItem("collections", "Colecciones", BentoNavIcons.SquareLibrary),
+    BentoNavItem("collections", "Colecciones", BentoNavIcons.SquareLibrary)
 )
 
 @Composable
@@ -157,7 +157,7 @@ private fun Placeholder(height: Int) {
             .height(height.dp)
             .padding(8.dp)
             .clip(BentoShapes.xl)
-            .background(BentoTheme.colors.surface),
+            .background(BentoTheme.colors.surface)
     )
 }
 
@@ -188,12 +188,12 @@ public val BentoSpecimens: List<Specimen> = listOf(
             BentoTopBar(
                 stringResource(StringsR.string.common_action_search_bento),
                 onSearchClick = {},
-                windowInsets = androidx.compose.foundation.layout.WindowInsets(0),
+                windowInsets = androidx.compose.foundation.layout.WindowInsets(0)
             ) { StatusAvatar("Ana Pérez", AvatarStatus.Syncing, onClick = {}, progress = 0.42f) }
             BentoTopBar(
                 stringResource(StringsR.string.common_action_search_bento),
                 onSearchClick = {},
-                windowInsets = androidx.compose.foundation.layout.WindowInsets(0),
+                windowInsets = androidx.compose.foundation.layout.WindowInsets(0)
             ) { StatusAvatar("Ana Pérez", AvatarStatus.Idle, onClick = {}) }
         }
     },
@@ -218,7 +218,7 @@ public val BentoSpecimens: List<Specimen> = listOf(
                 "files",
                 {},
                 layout = NavigationLayout.Rail,
-                railHeader = { BrandMark(size = 32.dp) },
+                railHeader = { BrandMark(size = 32.dp) }
             ) { Placeholder(360) }
         }
     },
@@ -235,7 +235,7 @@ public val BentoSpecimens: List<Specimen> = listOf(
                     },
                     onClick = {},
                     variant = v,
-                    leadingIcon = if (v == BentoButtonVariant.Primary) BentoIcons.Upload else null,
+                    leadingIcon = if (v == BentoButtonVariant.Primary) BentoIcons.Upload else null
                 )
             }
         }
@@ -250,7 +250,8 @@ public val BentoSpecimens: List<Specimen> = listOf(
                 BentoButton("Reintentar", {}, leadingIcon = BentoIcons.RotateCw)
                 BentoButton("Continuar", {}, trailingIcon = BentoIcons.ChevronRight, variant = BentoButtonVariant.Primary, enabled = false)
             }
-            BentoButton("Liberar espacio en el teléfono", {}, Modifier.fillMaxWidth(), variant = BentoButtonVariant.Primary, size = BentoButtonSize.Large)
+            BentoButton("Liberar espacio en el teléfono", {
+            }, Modifier.fillMaxWidth(), variant = BentoButtonVariant.Primary, size = BentoButtonSize.Large)
         }
     },
     Specimen("icon-button") {
@@ -264,7 +265,10 @@ public val BentoSpecimens: List<Specimen> = listOf(
                 BentoIconButton(BentoIcons.Trash2, "Eliminar", {}, enabled = false)
             }
             Box(Modifier.clip(BentoShapes.lg).background(samplePhotoBrush(2)).padding(8.dp)) {
-                Row { BentoIconButton(BentoIcons.ArrowLeft, "Atrás", {}, variant = BentoIconButtonVariant.Overlay); BentoIconButton(BentoIcons.Share2, "Compartir", {}, variant = BentoIconButtonVariant.Overlay) }
+                Row {
+                    BentoIconButton(BentoIcons.ArrowLeft, "Atrás", {}, variant = BentoIconButtonVariant.Overlay)
+                    BentoIconButton(BentoIcons.Share2, "Compartir", {}, variant = BentoIconButtonVariant.Overlay)
+                }
             }
         }
     },
@@ -281,7 +285,12 @@ public val BentoSpecimens: List<Specimen> = listOf(
             BentoTextField(rememberTextFieldState(), "Nombre del álbum", placeholder = "Viaje a Cartagena")
             BentoTextField(rememberTextFieldState("Vacaciones 2024"), "Nombre del álbum", hint = "Puedes cambiarlo después.")
             BentoTextField(rememberTextFieldState("ana@"), "Correo", error = "Escribe un correo completo.", leadingIcon = BentoIcons.User)
-            BentoTextField(rememberTextFieldState("contraseña"), "Contraseña de Telegram", secure = true, hint = "La de verificación en dos pasos.")
+            BentoTextField(
+                rememberTextFieldState("contraseña"),
+                "Contraseña de Telegram",
+                secure = true,
+                hint = "La de verificación en dos pasos."
+            )
             BentoTextField(rememberTextFieldState("Solo lectura"), "Carpeta", enabled = false)
         }
     },
@@ -290,11 +299,15 @@ public val BentoSpecimens: List<Specimen> = listOf(
             CodeField(rememberTextFieldState(), "Código de vinculación", hint = "Lo ves en el computador, en Añadir dispositivo.")
             CodeField(rememberTextFieldState("7KQ2M9"), "Código de vinculación")
             CodeField(rememberTextFieldState("7KQ2M9XWD4PH"), "Código de vinculación")
-            CodeField(rememberTextFieldState("7KQ2M9XWD4PA"), "Código de vinculación", error = "El código no coincide. Revísalo en el computador.")
+            CodeField(
+                rememberTextFieldState("7KQ2M9XWD4PA"),
+                "Código de vinculación",
+                error = "El código no coincide. Revísalo en el computador."
+            )
             CodeField(
                 rememberTextFieldState("ABCD1234EFGH5678JKMN9012PQRS3456TVWX"),
                 "Código de recuperación",
-                length = CrockfordCode.RECOVERY_LENGTH,
+                length = CrockfordCode.RECOVERY_LENGTH
             )
         }
     },
@@ -304,14 +317,14 @@ public val BentoSpecimens: List<Specimen> = listOf(
                 listOf(SegmentOption("auto", "Automático"), SegmentOption("light", "Claro"), SegmentOption("dark", "Oscuro")),
                 selected = "light",
                 onSelect = {},
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth()
             )
             SegmentedButtons(
                 listOf(SegmentOption("grid", "Cuadrícula", BentoIcons.LayoutGrid), SegmentOption("list", "Lista", BentoIcons.List)),
                 selected = "grid",
                 onSelect = {},
                 iconOnly = true,
-                modifier = Modifier.width(128.dp),
+                modifier = Modifier.width(128.dp)
             )
         }
     },
@@ -331,7 +344,9 @@ public val BentoSpecimens: List<Specimen> = listOf(
             Column(Modifier.fillMaxWidth().clip(BentoShapes.sheet).background(BentoTheme.colors.raised)) {
                 BentoSheetHandle()
                 BentoSheetBody("Cuenta y actividad") {
-                    ListRow("Todo al día", supporting = "1,2 TB en tu nube · 3 dispositivos", leading = { StatusAvatar("Ana Pérez", AvatarStatus.Idle, {}) })
+                    ListRow("Todo al día", supporting = "1,2 TB en tu nube · 3 dispositivos", leading = {
+                        StatusAvatar("Ana Pérez", AvatarStatus.Idle, {})
+                    })
                     SettingsRow("Dispositivos", {}, icon = BentoIcons.Smartphone, value = "3")
                     SettingsRow("Ajustes", {}, icon = BentoIcons.Settings2)
                 }
@@ -347,7 +362,7 @@ public val BentoSpecimens: List<Specimen> = listOf(
                 onConfirm = {},
                 dismissLabel = stringResource(StringsR.string.common_action_cancel),
                 onDismiss = {},
-                icon = BentoIcons.Trash2,
+                icon = BentoIcons.Trash2
             )
         }
     },
@@ -360,22 +375,28 @@ public val BentoSpecimens: List<Specimen> = listOf(
                 tone = CalloutTone.Warning,
                 title = "Telegram pidió esperar",
                 body = stringResource(StringsR.string.common_error_flood_wait, "4 min"),
-                announce = BentoAnnounce.Polite,
+                announce = BentoAnnounce.Polite
             ) { BentoButton("Ver actividad", {}, size = BentoButtonSize.Small) }
-            Callout(tone = CalloutTone.Danger, title = stringResource(StringsR.string.common_error_session_revoked), body = "Tu biblioteca sigue visible.") {
-                BentoButton(stringResource(StringsR.string.common_action_reconnect), {}, size = BentoButtonSize.Small, variant = BentoButtonVariant.Primary)
+            Callout(
+                tone = CalloutTone.Danger,
+                title = stringResource(StringsR.string.common_error_session_revoked),
+                body = "Tu biblioteca sigue visible."
+            ) {
+                BentoButton(stringResource(StringsR.string.common_action_reconnect), {
+                }, size = BentoButtonSize.Small, variant = BentoButtonVariant.Primary)
             }
         }
     },
     Specimen("attention-card") {
         Group {
-            AttentionCard("Hay una versión nueva", "Bento 1.2 trae mejoras de respaldo.", "Actualizar", {}, icon = BentoIcons.Download, onDismiss = {})
+            AttentionCard("Hay una versión nueva", "Bento 1.2 trae mejoras de respaldo.", "Actualizar", {
+            }, icon = BentoIcons.Download, onDismiss = {})
             AttentionCard(
                 "El teléfono no tiene espacio",
                 "Pausamos el respaldo hasta que haya espacio.",
                 stringResource(StringsR.string.common_action_free_space),
                 {},
-                tone = CalloutTone.Warning,
+                tone = CalloutTone.Warning
             )
         }
     },
@@ -446,20 +467,26 @@ public val BentoSpecimens: List<Specimen> = listOf(
                     FloatingAction(BentoIcons.Share2, "Compartir", {}),
                     FloatingAction(BentoIcons.ImagePlus, "Añadir a álbum", {}),
                     FloatingAction(BentoIcons.Heart, "Favorito", {}),
-                    FloatingAction(BentoIcons.Trash2, "Eliminar", {}, destructive = true),
+                    FloatingAction(BentoIcons.Trash2, "Eliminar", {}, destructive = true)
                 ),
                 onClose = {},
                 title = pluralStringResource(StringsR.plurals.common_count_selected, 12, "12"),
                 overflow = listOf(FloatingAction(BentoIcons.Send, "Enviar por Telegram…", {})),
-                closeLabel = "Cancelar selección",
+                closeLabel = "Cancelar selección"
             )
         }
     },
     Specimen("snackbar") {
         Group {
-            BentoSnackbar(BentoSnackbarPreviewData("Se movió a la Papelera", stringResource(StringsR.string.common_action_undo)))
-            BentoSnackbar(BentoSnackbarPreviewData("Álbum creado", null, BentoSnackbarTone.Success))
-            BentoSnackbar(BentoSnackbarPreviewData(stringResource(StringsR.string.common_error_generic), stringResource(StringsR.string.common_action_retry), BentoSnackbarTone.Danger))
+            BentoSnackbar(bentoSnackbarPreviewData("Se movió a la Papelera", stringResource(StringsR.string.common_action_undo)))
+            BentoSnackbar(bentoSnackbarPreviewData("Álbum creado", null, BentoSnackbarTone.Success))
+            BentoSnackbar(
+                bentoSnackbarPreviewData(
+                    stringResource(StringsR.string.common_error_generic),
+                    stringResource(StringsR.string.common_action_retry),
+                    BentoSnackbarTone.Danger
+                )
+            )
         }
     },
     Specimen("sas-emoji") {
@@ -494,7 +521,8 @@ public val BentoSpecimens: List<Specimen> = listOf(
         Column(Modifier.fillMaxWidth().background(BentoTheme.colors.surface)) {
             SettingsRow("Idioma", {}, icon = BentoIcons.Settings2, value = "Español")
             SettingsRow("Dispositivos", {}, summary = "3 dispositivos en tu nube", icon = BentoIcons.Smartphone)
-            SwitchRow("Respaldo del teléfono", checked = true, onCheckedChange = {}, summary = "Solo con Wi-Fi", icon = BentoIcons.CloudUpload)
+            SwitchRow("Respaldo del teléfono", checked = true, onCheckedChange = {
+            }, summary = "Solo con Wi-Fi", icon = BentoIcons.CloudUpload)
             SwitchRow("Bloqueo de la app", checked = false, onCheckedChange = {}, icon = BentoIcons.Lock)
             SwitchRow("Usar datos móviles", checked = false, onCheckedChange = {}, enabled = false)
         }
@@ -524,7 +552,7 @@ public val BentoSpecimens: List<Specimen> = listOf(
         val swatches = listOf(
             "tray" to c.tray, "surface" to c.surface, "raised" to c.raised, "subtle" to c.subtle, "sunken" to c.sunken,
             "ink" to c.ink, "ink-muted" to c.inkMuted, "ink-subtle" to c.inkSubtle, "accent" to c.accent, "accent-soft" to c.accentSoft,
-            "accent-ink" to c.accentInk, "shu" to c.shu, "success" to c.success, "warning" to c.warning, "danger" to c.danger,
+            "accent-ink" to c.accentInk, "shu" to c.shu, "success" to c.success, "warning" to c.warning, "danger" to c.danger
         )
         Group {
             Flow {
@@ -536,5 +564,5 @@ public val BentoSpecimens: List<Specimen> = listOf(
                 }
             }
         }
-    },
+    }
 )

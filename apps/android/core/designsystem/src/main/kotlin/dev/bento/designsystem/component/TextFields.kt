@@ -60,8 +60,8 @@ import dev.bento.designsystem.theme.BentoHaptic
 import dev.bento.designsystem.theme.BentoShapes
 import dev.bento.designsystem.theme.BentoTheme
 import dev.bento.designsystem.theme.bentoHaptics
-import kotlinx.coroutines.flow.distinctUntilChanged
 import dev.bento.strings.R as StringsR
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 @Composable
 private fun FieldFrame(
@@ -71,19 +71,49 @@ private fun FieldFrame(
     error: String?,
     enabled: Boolean,
     modifier: Modifier,
-    field: @Composable () -> Unit,
+    field: @Composable () -> Unit
 ) {
     val c = BentoTheme.colors
     Column(modifier.alpha(if (enabled) 1f else DISABLED_ALPHA), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         // The field node carries label, hint and error for TalkBack; the visible copies are not read twice.
-        if (!hideLabel) Text(label, color = c.ink, style = BentoTheme.typography.label, modifier = Modifier.semantics { hideFromAccessibility() })
+        if (!hideLabel) {
+            Text(
+                label,
+                color = c.ink,
+                style = BentoTheme.typography.label,
+                modifier = Modifier.semantics {
+                    hideFromAccessibility()
+                }
+            )
+        }
         field()
         when {
             error != null -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                BentoIcon(BentoIcons.CircleAlert, contentDescription = null, tint = c.dangerInk, size = BentoIconSize.Dense, modifier = Modifier.padding(top = 1.dp))
-                Text(error, color = c.dangerInk, style = BentoTheme.typography.metadata, modifier = Modifier.semantics { hideFromAccessibility() })
+                BentoIcon(
+                    BentoIcons.CircleAlert,
+                    contentDescription = null,
+                    tint = c.dangerInk,
+                    size = BentoIconSize.Dense,
+                    modifier = Modifier.padding(top = 1.dp)
+                )
+                Text(
+                    error,
+                    color = c.dangerInk,
+                    style = BentoTheme.typography.metadata,
+                    modifier = Modifier.semantics {
+                        hideFromAccessibility()
+                    }
+                )
             }
-            hint != null -> Text(hint, color = c.inkMuted, style = BentoTheme.typography.metadata, modifier = Modifier.semantics { hideFromAccessibility() })
+
+            hint != null -> Text(
+                hint,
+                color = c.inkMuted,
+                style = BentoTheme.typography.metadata,
+                modifier = Modifier.semantics {
+                    hideFromAccessibility()
+                }
+            )
         }
     }
 }
@@ -109,7 +139,7 @@ private fun fieldDecorator(
     placeholder: String?,
     showPlaceholder: Boolean,
     placeholderStyle: TextStyle,
-    trailing: (@Composable () -> Unit)?,
+    trailing: (@Composable () -> Unit)?
 ): TextFieldDecorator {
     val c = BentoTheme.colors
     val (borderColor, borderWidth) = fieldBorder(focused, error)
@@ -123,7 +153,7 @@ private fun fieldDecorator(
                 .border(borderWidth, borderColor, BentoShapes.control)
                 .padding(start = if (leadingIcon != null) 12.dp else 14.dp, end = if (trailing != null) 2.dp else 14.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             if (leadingIcon != null) BentoIcon(leadingIcon, contentDescription = null, tint = c.inkSubtle)
             Box(Modifier.weight(1f).padding(vertical = 14.dp)) {
@@ -158,7 +188,7 @@ public fun BentoTextField(
     trailing: (@Composable () -> Unit)? = null,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     onKeyboardAction: KeyboardActionHandler? = null,
-    inputTransformation: InputTransformation? = null,
+    inputTransformation: InputTransformation? = null
 ) {
     val c = BentoTheme.colors
     val interaction = remember { MutableInteractionSource() }
@@ -172,13 +202,15 @@ public fun BentoTextField(
             contentDescription = description
             if (error != null) error(error)
         }
-    val revealToggle: (@Composable () -> Unit)? = if (!secure) trailing else {
+    val revealToggle: (@Composable () -> Unit)? = if (!secure) {
+        trailing
+    } else {
         {
             BentoIconButton(
                 icon = if (revealed) BentoIcons.EyeOff else BentoIcons.Eye,
                 contentDescription = stringResource(if (revealed) StringsR.string.ds_password_hide else StringsR.string.ds_password_show),
                 onClick = { revealed = !revealed },
-                dense = true,
+                dense = true
             )
             trailing?.invoke()
         }
@@ -191,7 +223,7 @@ public fun BentoTextField(
         placeholder = placeholder,
         showPlaceholder = state.text.isEmpty(),
         placeholderStyle = textStyle.copy(color = c.inkMuted),
-        trailing = revealToggle,
+        trailing = revealToggle
     )
 
     FieldFrame(label, hideLabel, hint, error, enabled, modifier) {
@@ -207,7 +239,7 @@ public fun BentoTextField(
                 interactionSource = interaction,
                 cursorBrush = SolidColor(c.accent),
                 decorator = decorator,
-                textObfuscationMode = if (revealed) TextObfuscationMode.Visible else TextObfuscationMode.RevealLastTyped,
+                textObfuscationMode = if (revealed) TextObfuscationMode.Visible else TextObfuscationMode.RevealLastTyped
             )
         } else {
             BasicTextField(
@@ -221,7 +253,7 @@ public fun BentoTextField(
                 lineLimits = if (singleLine) TextFieldLineLimits.SingleLine else TextFieldLineLimits.MultiLine(),
                 interactionSource = interaction,
                 cursorBrush = SolidColor(c.accent),
-                decorator = decorator,
+                decorator = decorator
             )
         }
     }
@@ -267,7 +299,7 @@ public fun CodeField(
     enabled: Boolean = true,
     imeAction: ImeAction = ImeAction.Done,
     onKeyboardAction: KeyboardActionHandler? = null,
-    onComplete: (String) -> Unit = {},
+    onComplete: (String) -> Unit = {}
 ) {
     val c = BentoTheme.colors
     val haptics = bentoHaptics()
@@ -308,7 +340,7 @@ public fun CodeField(
                 capitalization = KeyboardCapitalization.Characters,
                 autoCorrectEnabled = false,
                 keyboardType = KeyboardType.Ascii,
-                imeAction = imeAction,
+                imeAction = imeAction
             ),
             onKeyboardAction = onKeyboardAction,
             // Pairing codes fit one line; recovery codes (9 groups) wrap at the dashes instead of scrolling.
@@ -323,8 +355,8 @@ public fun CodeField(
                 placeholder = placeholder,
                 showPlaceholder = count == 0,
                 placeholderStyle = style.copy(color = c.inkMuted),
-                trailing = null,
-            ),
+                trailing = null
+            )
         )
     }
 }

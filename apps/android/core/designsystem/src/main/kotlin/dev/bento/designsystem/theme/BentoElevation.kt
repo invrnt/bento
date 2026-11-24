@@ -31,7 +31,7 @@ public fun Modifier.bentoShadow(level: BentoElevation, shape: Shape): Modifier =
     for (layer in layersFor(level).filterNot { it.inset }) {
         result = result.dropShadow(
             shape,
-            Shadow(radius = layer.blur, color = layer.color, spread = layer.spread, offset = DpOffset(layer.x, layer.y)),
+            Shadow(radius = layer.blur, color = layer.color, spread = layer.spread, offset = DpOffset(layer.x, layer.y))
         )
     }
     this.then(result)

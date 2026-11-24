@@ -27,8 +27,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.bento.designsystem.generated.BentoIcons
@@ -51,7 +51,7 @@ public fun ListRow(
     onLongClick: (() -> Unit)? = null,
     onClickLabel: String? = null,
     selected: Boolean = false,
-    enabled: Boolean = true,
+    enabled: Boolean = true
 ) {
     val c = BentoTheme.colors
     val container by animateColorAsState(if (selected) c.accentSoft else Color.Transparent, BentoTheme.motion.color(), label = "row")
@@ -71,16 +71,16 @@ public fun ListRow(
                         onClickLabel = onClickLabel,
                         role = Role.Button,
                         onLongClick = onLongClick,
-                        onClick = onClick ?: {},
+                        onClick = onClick ?: {}
                     )
                 } else {
                     Modifier
-                },
+                }
             )
             .semantics(mergeDescendants = true) { if (selected) this.selected = true }
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         if (leading != null) leading()
         Column(Modifier.weight(1f)) {
@@ -99,18 +99,18 @@ public fun SectionHeader(
     title: String,
     modifier: Modifier = Modifier,
     actionLabel: String? = null,
-    onAction: (() -> Unit)? = null,
+    onAction: (() -> Unit)? = null
 ) {
     val c = BentoTheme.colors
     Row(
         modifier.fillMaxWidth().heightIn(min = 48.dp).padding(start = 16.dp, end = if (actionLabel != null) 4.dp else 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             title,
             color = c.inkMuted,
             style = BentoTheme.typography.labelStrong,
-            modifier = Modifier.weight(1f).semantics { heading() },
+            modifier = Modifier.weight(1f).semantics { heading() }
         )
         if (actionLabel != null && onAction != null) BentoTextAction(actionLabel, onAction)
     }
@@ -134,7 +134,7 @@ public fun SettingsRow(
     icon: ImageVector? = null,
     value: String? = null,
     showChevron: Boolean = true,
-    enabled: Boolean = true,
+    enabled: Boolean = true
 ) {
     val c = BentoTheme.colors
     ListRow(
@@ -149,7 +149,7 @@ public fun SettingsRow(
             }
         },
         onClick = onClick,
-        enabled = enabled,
+        enabled = enabled
     )
 }
 
@@ -162,7 +162,7 @@ public fun SwitchRow(
     modifier: Modifier = Modifier,
     summary: String? = null,
     icon: ImageVector? = null,
-    enabled: Boolean = true,
+    enabled: Boolean = true
 ) {
     val c = BentoTheme.colors
     val interaction = remember { MutableInteractionSource() }
@@ -174,7 +174,7 @@ public fun SwitchRow(
             .toggleable(checked, interaction, ripple(), enabled, Role.Switch, onCheckedChange)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         if (icon != null) RowIcon(icon)
         Column(Modifier.weight(1f)) {

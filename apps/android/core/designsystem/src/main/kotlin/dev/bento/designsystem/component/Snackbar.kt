@@ -18,8 +18,8 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,13 +35,13 @@ import dev.bento.designsystem.theme.BentoElevation
 import dev.bento.designsystem.theme.BentoShapes
 import dev.bento.designsystem.theme.BentoTheme
 import dev.bento.designsystem.theme.bentoShadow
+import dev.bento.strings.R as StringsR
+import kotlin.coroutines.resume
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlin.coroutines.resume
-import dev.bento.strings.R as StringsR
 
 public enum class BentoSnackbarResult { Dismissed, ActionPerformed }
 
@@ -54,7 +54,7 @@ public class BentoSnackbarData internal constructor(
     public val actionLabel: String?,
     public val durationMillis: Long,
     public val tone: BentoSnackbarTone,
-    private val continuation: CancellableContinuation<BentoSnackbarResult>?,
+    private val continuation: CancellableContinuation<BentoSnackbarResult>?
 ) {
     public fun performAction() {
         if (continuation?.isActive == true) continuation.resume(BentoSnackbarResult.ActionPerformed)
@@ -80,7 +80,7 @@ public class BentoSnackbarHostState {
         message: String,
         actionLabel: String? = null,
         durationMillis: Long = if (actionLabel != null) UNDO_DURATION_MS else DEFAULT_DURATION_MS,
-        tone: BentoSnackbarTone = BentoSnackbarTone.Neutral,
+        tone: BentoSnackbarTone = BentoSnackbarTone.Neutral
     ): BentoSnackbarResult = mutex.withLock {
         try {
             suspendCancellableCoroutine { cont -> current = BentoSnackbarData(message, actionLabel, durationMillis, tone, cont) }
@@ -100,10 +100,10 @@ public class BentoSnackbarHostState {
 }
 
 /** Static data for previews and screenshots. */
-internal fun BentoSnackbarPreviewData(
+internal fun bentoSnackbarPreviewData(
     message: String,
     actionLabel: String?,
-    tone: BentoSnackbarTone = BentoSnackbarTone.Neutral,
+    tone: BentoSnackbarTone = BentoSnackbarTone.Neutral
 ): BentoSnackbarData = BentoSnackbarData(message, actionLabel, BentoSnackbarHostState.DEFAULT_DURATION_MS, tone, continuation = null)
 
 @Composable
@@ -126,7 +126,7 @@ internal fun BentoSnackbar(data: BentoSnackbarData, modifier: Modifier = Modifie
             .semantics { liveRegion = if (data.tone == BentoSnackbarTone.Danger) LiveRegionMode.Assertive else LiveRegionMode.Polite }
             .padding(start = 16.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         if (icon != null) BentoIcon(icon, contentDescription = null, tint = tint)
         Text(data.message, color = c.ink, style = BentoTheme.typography.body, modifier = Modifier.weight(1f).padding(vertical = 14.dp))
@@ -147,7 +147,7 @@ public fun BentoTextAction(text: String, onClick: () -> Unit, modifier: Modifier
             .clip(BentoShapes.md)
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 12.dp),
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.Center
     ) {
         Text(text, color = c.accentInk, style = BentoTheme.typography.labelStrong)
     }
@@ -171,7 +171,7 @@ public fun BentoSnackbarHost(hostState: BentoSnackbarHostState, modifier: Modifi
                 current.durationMillis,
                 containsIcons = true,
                 containsText = true,
-                containsControls = current.actionLabel != null,
+                containsControls = current.actionLabel != null
             ) ?: current.durationMillis
             delay(timeout)
             current.dismiss()

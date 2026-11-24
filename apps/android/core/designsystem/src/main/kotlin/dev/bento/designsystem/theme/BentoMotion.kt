@@ -59,26 +59,34 @@ public class BentoMotion(public val reduced: Boolean) {
 
     /** `animate-slide-up`: floating bars, upload cards, snackbars. */
     public val slideUpIn: EnterTransition
-        get() = if (reduced) fadeIn else {
+        get() = if (reduced) {
+            fadeIn
+        } else {
             fadeIn(tween(BentoTokens.Duration.slideUp, easing = easeOut)) +
                 slideInVertically(tween(BentoTokens.Duration.slideUp, easing = easeOut)) { it / 2 }
         }
 
     public val slideDownOut: ExitTransition
-        get() = if (reduced) fadeOut else {
+        get() = if (reduced) {
+            fadeOut
+        } else {
             fadeOut(tween(BentoTokens.Duration.base, easing = easeOut)) +
                 slideOutVertically(tween(BentoTokens.Duration.base, easing = easeOut)) { it / 2 }
         }
 
     /** `animate-pop-in`: menus, dialogs (opacity + 3 % scale). */
     public val popIn: EnterTransition
-        get() = if (reduced) fadeIn else {
+        get() = if (reduced) {
+            fadeIn
+        } else {
             fadeIn(tween(BentoTokens.Duration.popIn, easing = easeOut)) +
                 scaleIn(tween(BentoTokens.Duration.popIn, easing = easeOut), initialScale = 0.97f)
         }
 
     public val popOut: ExitTransition
-        get() = if (reduced) fadeOut else {
+        get() = if (reduced) {
+            fadeOut
+        } else {
             fadeOut(tween(BentoTokens.Duration.fast, easing = easeOut)) +
                 scaleOut(tween(BentoTokens.Duration.fast, easing = easeOut), targetScale = 0.97f)
         }

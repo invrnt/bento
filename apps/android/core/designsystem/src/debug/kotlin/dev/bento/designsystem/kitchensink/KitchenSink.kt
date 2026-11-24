@@ -83,11 +83,11 @@ public fun KitchenSinkScreen() {
                             listOf(
                                 SegmentOption(ThemeChoice.System, "Automático"),
                                 SegmentOption(ThemeChoice.Light, "Claro"),
-                                SegmentOption(ThemeChoice.Dark, "Oscuro"),
+                                SegmentOption(ThemeChoice.Dark, "Oscuro")
                             ),
                             selected = theme,
                             onSelect = { theme = it },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                     SwitchRow("Reducir movimiento", reducedMotion, { reducedMotion = it })
@@ -112,10 +112,10 @@ public fun KitchenSinkScreen() {
                     visible = selecting,
                     actions = listOf(
                         FloatingAction(BentoIcons.Share2, "Compartir", {}),
-                        FloatingAction(BentoIcons.Trash2, "Eliminar", { selecting = false }, destructive = true),
+                        FloatingAction(BentoIcons.Trash2, "Eliminar", { selecting = false }, destructive = true)
                     ),
                     onClose = { selecting = false },
-                    title = "2 seleccionados",
+                    title = "2 seleccionados"
                 )
                 BentoSnackbarHost(snackbars)
             }
@@ -132,7 +132,7 @@ public fun KitchenSinkScreen() {
                 consequence = "Dejará de sincronizar y tendrá que volver a unirse con un código.",
                 confirmLabel = "Quitar dispositivo",
                 onConfirm = { dialog = false },
-                onDismissRequest = { dialog = false },
+                onDismissRequest = { dialog = false }
             )
         }
     }

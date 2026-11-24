@@ -20,7 +20,7 @@ public enum class BentoHaptic {
     Confirm,
 
     /** Invalid code. */
-    Reject,
+    Reject
 }
 
 public fun interface BentoHaptics {
@@ -32,10 +32,13 @@ internal class ViewHaptics(private val view: View) : BentoHaptics {
     override fun perform(haptic: BentoHaptic) {
         val constant = when (haptic) {
             BentoHaptic.LongPress -> HapticFeedbackConstants.LONG_PRESS
+
             BentoHaptic.SegmentTick ->
                 if (Build.VERSION.SDK_INT >= 34) HapticFeedbackConstants.SEGMENT_TICK else HapticFeedbackConstants.CLOCK_TICK
+
             BentoHaptic.Confirm ->
                 if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.VIRTUAL_KEY
+
             BentoHaptic.Reject ->
                 if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.REJECT else HapticFeedbackConstants.LONG_PRESS
         }

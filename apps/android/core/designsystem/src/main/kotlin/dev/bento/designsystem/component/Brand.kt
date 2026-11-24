@@ -63,14 +63,18 @@ private fun DrawScope.cell(rect: Mark.Rect, color: Color, alpha: Float = 1f) {
         topLeft = Offset(rect.x, rect.y),
         size = Size(rect.w, rect.h),
         cornerRadius = CornerRadius(Mark.CELL_RADIUS),
-        alpha = alpha,
+        alpha = alpha
     )
 }
 
 private fun Modifier.markSemantics(contentDescription: String?): Modifier =
-    if (contentDescription == null) this else semantics {
-        this.contentDescription = contentDescription
-        role = Role.Image
+    if (contentDescription == null) {
+        this
+    } else {
+        semantics {
+            this.contentDescription = contentDescription
+            role = Role.Image
+        }
     }
 
 /**
@@ -101,13 +105,20 @@ public fun BrandLogo(modifier: Modifier = Modifier, markSize: Dp = 28.dp, label:
     Row(
         modifier.semantics(mergeDescendants = true) {},
         horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         BrandMark(size = markSize)
         Text(
             label,
             color = BentoTheme.colors.ink,
-            style = BentoTheme.typography.sectionTitle.copy(fontWeight = FontWeight.SemiBold, letterSpacing = (-0.03).em, fontSize = (markSize.value * 0.64f).sp),
+            style = BentoTheme.typography.sectionTitle.copy(
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = (-0.03).em,
+                fontSize = (
+                    markSize.value *
+                        0.64f
+                    ).sp
+            )
         )
     }
 }
@@ -121,7 +132,7 @@ public fun BrandLogo(modifier: Modifier = Modifier, markSize: Dp = 28.dp, label:
 public fun BentoLoader(
     modifier: Modifier = Modifier,
     size: Dp = 32.dp,
-    contentDescription: String? = stringResource(StringsR.string.ds_loading),
+    contentDescription: String? = stringResource(StringsR.string.ds_loading)
 ) {
     val colors = BentoTheme.colors
     val reduced = BentoTheme.motion.reduced
@@ -141,9 +152,9 @@ public fun BentoLoader(
                         LOW at BentoTokens.Duration.bento
                     },
                     repeatMode = RepeatMode.Restart,
-                    initialStartOffset = androidx.compose.animation.core.StartOffset(STAGGER_MS * index),
+                    initialStartOffset = androidx.compose.animation.core.StartOffset(STAGGER_MS * index)
                 ),
-                label = "cell-$index",
+                label = "cell-$index"
             )
         }
     }
@@ -153,7 +164,7 @@ public fun BentoLoader(
                 this.contentDescription = contentDescription
                 progressBarRangeInfo = ProgressBarRangeInfo.Indeterminate
             }
-        },
+        }
     ) {
         scale(this.size.width / Mark.GRID, pivot = Offset.Zero) {
             drawRoundRect(
@@ -161,7 +172,7 @@ public fun BentoLoader(
                 topLeft = Offset(1f, 1f),
                 size = Size(30f, 30f),
                 cornerRadius = CornerRadius(8.5f),
-                style = Stroke(width = 1.5f),
+                style = Stroke(width = 1.5f)
             )
             cell(Mark.tall, colors.inkSubtle, alphas[0].value)
             cell(Mark.top, colors.inkSubtle, alphas[1].value)

@@ -45,7 +45,7 @@ import dev.bento.strings.R as StringsR
 public fun SasEmojiRow(
     emojis: List<String>,
     modifier: Modifier = Modifier,
-    contentDescription: String = stringResource(StringsR.string.ds_sas_label, emojis.joinToString(" ")),
+    contentDescription: String = stringResource(StringsR.string.ds_sas_label, emojis.joinToString(" "))
 ) {
     val c = BentoTheme.colors
     BoxWithConstraints(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -55,7 +55,7 @@ public fun SasEmojiRow(
                 this.contentDescription = contentDescription
                 role = Role.Image
             },
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             emojis.forEach { emoji ->
                 Box(
@@ -65,7 +65,7 @@ public fun SasEmojiRow(
                         .clip(BentoShapes.xl)
                         .background(c.subtle)
                         .border(1.dp, c.line, BentoShapes.xl),
-                    contentAlignment = Alignment.Center,
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(emoji, fontSize = if (tile > 64.dp) 36.sp else 32.sp, textAlign = TextAlign.Center)
                 }
@@ -101,7 +101,7 @@ public class QrMatrix(public val size: Int, private val modules: BooleanArray) {
 public fun QrView(
     matrix: QrMatrix,
     modifier: Modifier = Modifier,
-    contentDescription: String = stringResource(StringsR.string.ds_qr_label),
+    contentDescription: String = stringResource(StringsR.string.ds_qr_label)
 ) {
     val dark = BentoTokens.LightColors.ink
     val light = BentoTokens.LightColors.white
@@ -117,7 +117,7 @@ public fun QrView(
                 this.contentDescription = contentDescription
                 role = Role.Image
             }
-            .padding(8.dp),
+            .padding(8.dp)
     ) {
         Canvas(Modifier.fillMaxSize()) {
             val total = matrix.size + QUIET_ZONE * 2
@@ -140,6 +140,8 @@ private const val QUIET_ZONE = 4
 public enum class FileKind { Folder, Pdf, Doc, Sheet, Slides, Image, Video, Audio, Archive, Text }
 
 /** Kind tile: `kind-*` icon on `kind-*-soft`. Decorative unless [contentDescription] is given. */
+// Exhaustive FileKind -> token/icon table.
+@Suppress("CyclomaticComplexMethod")
 @Composable
 public fun KindIcon(kind: FileKind, modifier: Modifier = Modifier, large: Boolean = false, contentDescription: String? = null) {
     val c = BentoTheme.colors
@@ -180,9 +182,9 @@ public fun KindIcon(kind: FileKind, modifier: Modifier = Modifier, large: Boolea
                     }
                 } else {
                     Modifier.clearAndSetSemantics {}
-                },
+                }
             ),
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.Center
     ) {
         BentoIcon(icon, contentDescription = null, tint = tint, size = if (large) BentoIconSize.Large else BentoIconSize.Standard)
     }
@@ -201,5 +203,5 @@ public fun fileKindLabel(kind: FileKind): String = stringResource(
         FileKind.Audio -> StringsR.string.ds_kind_audio
         FileKind.Archive -> StringsR.string.ds_kind_archive
         FileKind.Text -> StringsR.string.ds_kind_text
-    },
+    }
 )

@@ -45,7 +45,7 @@ class PrimitiveScreenshotTest(private val specimen: Specimen) {
         Variant("dark", dark = true, fontScale = 1f, width = 411),
         Variant("font-200", dark = false, fontScale = 2f, width = 411),
         Variant("compact", dark = false, fontScale = 1f, width = 320),
-        Variant("expanded", dark = true, fontScale = 1f, width = 840),
+        Variant("expanded", dark = true, fontScale = 1f, width = 840)
     )
 
     @Test
