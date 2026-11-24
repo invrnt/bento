@@ -14,6 +14,7 @@ Called from Kotlin through Chaquopy. Plain Python functions with JSON-serializab
 | `start_worker(mode: "full" \| "drain")` | — | `full`: normal job loop with Telethon update handlers. `drain`: no update handlers; used by background runs. |
 | `run_worker_until(deadline_epoch_ms: int, kinds: list[str] \| None) -> dict` | job kinds filter (`None` = all eligible) | Runs eligible jobs until the deadline or no eligible job; stops at the next safe step boundary. Returns `{ran, remaining, next_eligible_at, stopped_reason: "idle\|deadline\|conditions\|error"}`. |
 | `stop(timeout_ms: int)` | — | Graceful stop of API, worker, Telethon clients. |
+| `on_event(kind: str, payload_json: str)` | `media_changed`, `conditions`, `access_changed`, `low_memory` | Thread-safe hand-off from Kotlin into the worker loop; never blocks the caller. |
 | `status() -> dict` | — | `{api_port, worker: "stopped\|full\|drain", telegram: "disconnected\|connected\|signed_out", last_error}` (no secrets). |
 
 ## 2. Device conditions

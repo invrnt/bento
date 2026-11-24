@@ -86,6 +86,23 @@ Every Android capability enters the backend through an existing or new **port**,
 | `ContentImportsPort` (new, `ports/device.py`) | `content_imports.py` | `ContentImports` | Kotlin opens a content URI, detaches the fd, and registers it under a one-time handle; Python adopts and closes it (`api/android-endpoints.md` §4). |
 | Content import from share/SAF (small items) | — (HTTP) | — | Kotlin streams the content URI to `POST /api/assets/upload` (multipart, chunked) or, for large items, uses `POST /api/android/imports` with an fd handle (§`api/android-endpoints.md`). |
 
+### 5.1 Bridge signatures (binding for agents 35 and 36)
+
+- Application id `dev.bento.app`; Kotlin root package `dev.bento`; bridges live in `dev.bento.engine.bridge`.
+- Kotlin passes bridge **instances** in `configure(config)["bridges"]` (keys below); Python never looks classes up by name, so tests inject plain Python fakes with the same methods.
+- Arguments are primitives/strings; structured results are **JSON strings** (snake_case keys). Failures throw `dev.bento.engine.bridge.BridgeException(code: String, message: String)`; adapters map `code` to typed Python errors (`unsupported`, `not_found`, `permission_denied`, `io`, `cancelled`).
+- `source` arguments are an absolute path or `fd:<n>` (a file descriptor owned by the caller).
+- Kotlin → Python notifications go through `bento.interfaces.android.engine.on_event(kind: str, payload_json: str)` (thread-safe, non-blocking; kinds `media_changed`, `conditions`, `access_changed`, `low_memory`).
+
+| Key | Kotlin interface | Methods |
+|---|---|---|
+| `media_tools` | `MediaTools` | `thumbnail(source, output, maxSide: Int, quality: Int, format: String /* jpeg\|webp */): String` → `{width,height}`; `videoFrame(source, output, maxSide: Int, quality: Int, atMs: Long): String` → `{width,height,duration_ms}`; `pdfPage(source, output, page: Int, maxSide: Int): String` → `{width,height,page_count}`; `metadata(source, mime: String): String` → `{width,height,duration_ms,taken_at,orientation,exif:{make,model,lens,f_number,exposure_time,iso,focal_length,gps:{lat,lon}?}}` |
+| `ocr` | `Ocr` | `available(): Boolean`; `recognize(source, maxSide: Int): String` → `{text, language, lines:[{text, box:[x,y,w,h], confidence}]}` |
+| `media_store` | `MediaStoreSource` | `access(): String` → `{full, partial, location}`; `buckets(): String` → `[{bucket_id, name, relative_path, count, video_count}]`; `scan(bucketId: String, afterMediaId: Long, limit: Int): String` → `{items:[MediaItem], next_after: Long?}`; `changes(sinceGeneration: Long, limit: Int): String` → `{items:[MediaItem], max_generation}`; `exists(mediaIds: String /* JSON list */): String` → JSON list of ids still present; `openFd(uri: String, requireOriginal: Boolean): Int` (detached; Python closes). `MediaItem = {media_id, uri, bucket_id, display_name, mime_type, size_bytes, date_taken_ms, date_modified_s, generation, width, height, duration_ms, relative_path}` |
+| `conditions` | `DeviceConditions` | `snapshot(): String` → `DeviceConditions` JSON (`api/android-endpoints.md` §2) |
+| `notifier` | `Notifier` | `emit(event: String, payloadJson: String)` (events of `api/android-endpoints.md` §7) |
+| `content_imports` | `ContentImports` | `describe(handle: Long): String` → `{display_name, mime_type, size_bytes?}`; `adopt(handle: Long): Int` (one-time detached fd) |
+
 Bridge rules: calls are coarse (one call per file, never per byte); bridges never hold Python objects; exceptions map to typed Python errors; every bridge has a Kotlin interface + fake for JVM tests.
 
 ## 6. Background execution
