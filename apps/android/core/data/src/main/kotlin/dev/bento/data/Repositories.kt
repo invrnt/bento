@@ -66,13 +66,18 @@ class TimelineRepository(
     /** First screen from the UI cache (cold start), or null. */
     fun cachedFirstScreen(): List<AssetResponse>? = uiCache.read(CACHE_KEY, AssetResponse.serializer())
 
-    fun timeline(pageSize: Int = PageSizes.GRID): Flow<PagingData<TimelineEntry>> {
+    /**
+     * The timeline with day separators and optimistic edits. [cacheScope] owns the page cache (a view model scope);
+     * the overlay is combined after `cachedIn` so each optimistic change re-presents cached pages instead of
+     * re-collecting a spent PagingData.
+     */
+    fun timeline(pageSize: Int = PageSizes.GRID, cacheScope: CoroutineScope = scope): Flow<PagingData<TimelineEntry>> {
         val factory = invalidations.pagingFactory(scope, Topic.TIMELINE) { CursorPagingSource(::fetchPhotos) }
         val pages = Pager(
             PagingConfig(pageSize = pageSize, initialLoadSize = pageSize, enablePlaceholders = false),
             pagingSourceFactory = factory
         ).flow
-        return decorate(pages, daySeparators = true)
+        return decorate(pages, cacheScope, daySeparators = true)
     }
 
     private val jumps = java.util.concurrent.atomic.AtomicReference<Int?>(null)
@@ -103,7 +108,7 @@ class TimelineRepository(
             ),
             pagingSourceFactory = factory
         ).flow
-        return decorate(pages, daySeparators = true)
+        return decorate(pages, scope, daySeparators = true)
     }
 
     /**
@@ -119,12 +124,16 @@ class TimelineRepository(
     }
 
     /** Favoritos / Videos: the timeline filtered on the device (the backend has no filter yet). */
-    fun filteredTimeline(predicate: (AssetResponse) -> Boolean, pageSize: Int = PageSizes.GRID): Flow<PagingData<TimelineEntry>> {
+    fun filteredTimeline(
+        predicate: (AssetResponse) -> Boolean,
+        cacheScope: CoroutineScope,
+        pageSize: Int = PageSizes.GRID
+    ): Flow<PagingData<TimelineEntry>> {
         val factory = invalidations.pagingFactory(scope, Topic.TIMELINE) {
             FilteredTimelineSource(::fetchPhotos, { predicate(it.asset) })
         }
         val pages = Pager(PagingConfig(pageSize = pageSize, enablePlaceholders = false), pagingSourceFactory = factory).flow
-        return decorate(pages, daySeparators = true, keep = predicate)
+        return decorate(pages, cacheScope, daySeparators = true, keep = predicate)
     }
 
     private suspend fun fetchPhotos(cursor: String?, limit: Int): CursorPage<TimelineEntry.Photo> {
@@ -137,9 +146,10 @@ class TimelineRepository(
     /** Optimistic overlay (favorite, trash) + day separators over raw photo pages. */
     private fun decorate(
         pages: Flow<PagingData<TimelineEntry.Photo>>,
+        cacheScope: CoroutineScope,
         daySeparators: Boolean,
         keep: (AssetResponse) -> Boolean = { true }
-    ): Flow<PagingData<TimelineEntry>> = combine(pages, overlay.changes) { data, changes ->
+    ): Flow<PagingData<TimelineEntry>> = combine(pages.cachedIn(cacheScope), overlay.changes) { data, changes ->
         val visible = data.filter { !overlay.isHidden(it.asset.id, changes) }
             .map { photo -> photo.copy(asset = overlay.apply(photo.asset.id, photo.asset, changes)) }
             .filter { keep(it.asset) }

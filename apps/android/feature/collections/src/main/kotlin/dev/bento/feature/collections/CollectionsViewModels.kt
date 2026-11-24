@@ -197,7 +197,8 @@ class FilteredViewModel @AssistedInject constructor(
         when (filter) {
             MediaFilter.Favorites -> { asset: AssetResponse -> asset.favorite }
             MediaFilter.Videos -> MediaFormat::isVideo
-        }
+        },
+        viewModelScope
     ).cachedIn(viewModelScope)
     val cells: Flow<PagingData<GridCell>> = pages.map { it.toGridCells(dayHeaders = true) }.cachedIn(viewModelScope)
     val monthCells: Flow<PagingData<GridCell>> = pages.map { it.toGridCells(dayHeaders = false) }.cachedIn(viewModelScope)
