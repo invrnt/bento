@@ -20,6 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
@@ -70,6 +71,8 @@ class SettingsViewModel @Inject constructor(
 
     init {
         local.prefs.onEach { prefs -> _state.update { it.copy(prefs = prefs) } }.launchIn(viewModelScope)
+        // Every time the engine (re)starts: a load made while it was starting may have come back empty.
+        engine.state.filterIsInstance<dev.bento.engine.EngineState.Ready>().onEach { refresh() }.launchIn(viewModelScope)
         refresh()
     }
 

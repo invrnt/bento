@@ -254,6 +254,7 @@ class BackupJourneysTest {
         firstRun(backupOn = false, notNow = "Not now", later = "Later", goToPhotos = "Go to my photos", library = "Files")
         journey.navigate(Route.Settings())
         journey.waitText("Phone backup", 60_000)
+        journey.waitText("in your cloud", 60_000, substring = true) // the account card's usage line
         journey.capture("en-settings-home")
         journey.tap("Phone backup")
         journey.waitText("Backup is off", 60_000)

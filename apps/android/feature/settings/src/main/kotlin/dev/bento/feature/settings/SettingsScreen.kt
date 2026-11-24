@@ -101,6 +101,7 @@ fun SettingsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val activity = context.findActivity()
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) { viewModel.refresh() }
     val diagnostics = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
         uri?.let(viewModel::exportDiagnostics)
     }
@@ -342,7 +343,9 @@ private fun AccountCard(state: SettingsUiState) {
             bytes,
             pluralStringResource(StringsR.plurals.common_count_devices, devices, devices)
         )
-    } ?: stringResource(if (state.signedIn) StringsR.string.common_state_loading else StringsR.string.settings_account_local)
+    } ?: stringResource(
+        if (state.loading || state.signedIn) StringsR.string.common_state_loading else StringsR.string.settings_account_local
+    )
     Row(
         Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(BentoShapes.lg).background(c.raised).padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
