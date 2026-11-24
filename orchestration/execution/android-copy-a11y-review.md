@@ -21,6 +21,46 @@ Paths below are relative to `apps/android/`. `res/` means `core/strings/src/main
 | 200 % font and landscape | ⚠️ 200 %: three clipping defects in the goldens (A-1, A-2, A-4). **There are no landscape goldens at all** (A-7). |
 | Accessibility Scanner clean | Not run (no device). A-8 and A-12 are what the Scanner is likely to flag. |
 
+## Fix status (Stage 22g, copy/a11y fix agent)
+
+Branch `t3/android-copy-accessibility-fixes`. "Fixed" means changed in code and covered by the named test or golden. Findings in `feature/activity` and `feature/settings` belong to agent 41.
+
+| ID | Sev. | Status | Where / verification |
+|---|---|---|---|
+| C-1 | minor | Fixed | patch; new `StringResourceParityTest.spanishManyFormsSayDe` |
+| C-2 | minor | Fixed | patch (nbsp units) + its 6 test assertions |
+| C-3 | minor | Fixed | patch; `copyFollowsTheVoiceRules` now rejects `\"` in `values-en` |
+| C-4 | minor | Fixed | `files_action_failed`, `pairing_host_action_failed`, `photos_action_failed` deleted; call sites use `common_error_generic` |
+| C-5 | minor | Fixed | the 19 dead keys deleted; `viewer_seek_*`, `viewer_controls_show`, `search_filter_remove` now used (A-2, A-3, A-9); PDF keys see A-10; `common_*` reserved keys left for agent 41 |
+| C-6 | minor | Fixed | new `common_metadata_pair` (replaces `collections_phone_row` / `collections_trash_row`) via `metadataPair()` in `LibraryScreens.kt`; new `common_label_value` for the onboarding step label |
+| C-7 | major | Fixed | patch (`en favoritos`, `en la selección`); `MediaGridUiTest` |
+| C-8, C-8c | minor | Fixed | patch |
+| C-8b | minor | **Open, product decision** | "Imágenes › Bento" vs "Pictures › Bento" needs the product owner |
+| C-9 | major | Fixed | patch; the count is also grouped now (`pluralCountResource`) |
+| C-10, C-11, C-13 | minor | Fixed | patch |
+| C-12 | major | Fixed | one formatter, `core/designsystem` `format/BentoFormat.kt` (`count`, `plural`, `bytes`, `formatCount`, `pluralCountResource`), used by `BentoNotifications` and every in-app count listed; `NotificationCopyTest` ("12.400 de 18.000 archivos", "Listo: 18.000 fotos respaldadas"). Note: es follows CLDR minimum grouping, so 4-digit numbers stay ungrouped ("1240"); product §5's "1.240" example would need a product call |
+| C-14 | minor | Agent 41 | `common_state_offline` wording, account sheet |
+| A-1 | major | Fixed | `SelectionTopBar`: one line, ellipsis, select-all as `Check` icon button; `MediaGridUiTest`, golden `photos-selection/*` |
+| A-2 | major | Fixed | "Mostrar/Ocultar controles" custom action on photo and video pages (also on the poster before the player exists); `ViewerContentTest` (both tests on custom actions) |
+| A-3 | major | Fixed | −10 s / play / +10 s `TransportButtons`; scrubber focusable with focus ring, ←/→ = ±5 s, keeps progress range + set-progress; `VideoSeekTest` (3 tests), golden `viewer-video-controls/*` |
+| A-4 | major | Fixed | `FloatingActionBar(compactTitle = …)`: shows the count when the title does not fit (measured, so also at 1×, where it was "2 sel…"), full title stays the content description; `PrimitiveBehaviorTest.floatingActionBarShowsOnlyTheCountWhenTheTitleDoesNotFit`, golden `files/selection/*` |
+| A-5 | major | Fixed | `FieldFrame`: always-present assertive live region carrying the error; `PrimitiveBehaviorTest.fieldErrorIsAnAssertiveLiveRegionSoAutoSubmittedCodesAnnounceIt`. TalkBack spot-check on device: see handoff |
+| A-6 | major | Fixed | resend line is a `FlowRow`; golden `signin-code/font-200` |
+| A-7 | major | Fixed | `BentoScreenshots.landscape` + `captureLandscape` + `LANDSCAPE_QUALIFIERS` (891 × 411 dp, `land`); goldens `onboarding/{welcome,signin-code}`, `recovery/kit-firstrun`, `photos/{photos-grid,photos-selection}`, `viewer/{viewer-photo,viewer-video-controls}`, `files/{list,selection}` `/landscape.png`. `sheet-item-menu` not added (sheets render in their own window outside the harness). The new goldens caught a real defect: `SetupScaffold` pinned its actions over ~40 % of a 411 dp-high window, hiding the code field and the recovery code; in a compact-height window (< 480 dp) the actions now scroll after the content (portrait unchanged) |
+| A-8 | minor | Fixed | `BentoChip(selected, role)`; search chips use `Role.DropdownList` |
+| A-9 | minor | Fixed | "Tipo: Fotos" description + "Quitar el filtro «Tipo»" custom action; `SearchUiTest.activeFilterChipNamesItsFilterIsADropdownAndCanBeRemoved`. The missing **Origen** filter is a contract gap, not done |
+| A-10 | minor | Fixed | PDF search already announces "n de m" in a polite live region; unused `files_pdf_matches`, `files_pdf_no_text`, `files_pdf_loading` deleted |
+| A-11 | minor | Fixed | grid `Ctrl +`/`Ctrl =` and `Ctrl −` change density |
+| A-12 | minor | **Not done** | keyboard zoom needs the zoom state hoisted out of `PhotoPage` to the focused pager box; left for a follow-up |
+| A-13 | minor | Fixed (except photo tiles) | focus ring on `BentoTextAction`, `ListRow` (so file rows), `SwitchRow`, `StatusAvatar`, `FileTile`. Photo tiles skipped on purpose: `bentoFocusRing` is `composed` + a state collector per tile, too costly for the photo grid's frame budget |
+| A-14 | minor | Already fixed | recent rows already have a trailing remove icon button |
+| A-15 | minor | Fixed | disabled Confirmar carries `recovery_confirm_hint` as state description |
+| A-16 | minor | Fixed | confirmed: Material's tooltip anchor added an unlabeled long-click node. `BentoTooltip` now uses `enableUserInput = false` with a non-consuming pointer observer (long-press, mouse hover); `PrimitiveBehaviorTest.iconButtonTooltipAnchorIsNotASecondFocusStop` + existing long-press test |
+| A-17 | minor | Fixed | `MediaFormat.bytes` and `Sizes.format` removed; `BentoFormat.bytes` (SI steps, as Android shows sizes) everywhere, so Files no longer shows 1024-based sizes that disagree with Photos ("812 MB", was "774 MB") |
+| Reduced motion | — | Fixed | viewer arrow-key paging cuts instead of sliding with reduced motion |
+| Dark selection circle | — | Fixed | unselected `SelectionCheck` on a 40 % scrim |
+| Ajustes › Acerca de notice | — | Agent 41 | must render `common_telegram_api_notice`; apply A-5/A-13 via shared primitives |
+
 ## Counts
 
 | Severity | Copy | Accessibility | Total |
