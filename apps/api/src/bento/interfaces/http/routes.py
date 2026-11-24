@@ -48,6 +48,7 @@ from bento.interfaces.http.routes_content import router as content_router
 from bento.interfaces.http.routes_dev import router as dev_router
 from bento.interfaces.http.routes_devices import router as devices_router
 from bento.interfaces.http.routes_drive_paths import router as drive_paths_router
+from bento.interfaces.http.routes_events import router as events_router
 from bento.interfaces.http.routes_pairing import router as pairing_router
 from bento.interfaces.http.routes_trash import router as trash_router
 from bento.interfaces.http.routes_search import router as search_router
@@ -72,6 +73,7 @@ router.include_router(activity_router)
 router.include_router(sync_router)
 router.include_router(drive_paths_router)
 router.include_router(android_router)
+router.include_router(events_router)
 
 
 class HealthResponse(BaseModel):
