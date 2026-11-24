@@ -12,6 +12,7 @@ Español: [Guías de Bento](../es/README.md).
 - [Connect your Telegram](connect-telegram.md): with a QR code or your phone number.
 - [Add a device](add-a-device.md): your library on another computer with one code.
 - [Recovery kit](recovery-kit.md): the spare key to your cloud.
+- [Bento for Android](android.md): install, add the phone, back up the camera roll and free up space.
 
 ## Every day
 
