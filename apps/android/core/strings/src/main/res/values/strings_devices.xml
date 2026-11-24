@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- feature/devices (agent 38): Ajustes › Dispositivos, new-device review, removal, this phone removed (product/android.md §9, §11). -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="es">
+    <string name="devices_title">Dispositivos</string>
+    <string name="devices_body">Todos los dispositivos conectados a tu nube. Cada uno tiene su propia sesión de Telegram.</string>
+    <string name="devices_loading">Cargando tus dispositivos…</string>
+    <string name="devices_load_failed">No se pudieron cargar tus dispositivos.</string>
+    <string name="devices_add">Añadir dispositivo</string>
+    <string name="devices_section_all">Conectados a tu nube</string>
+    <string name="devices_this_phone">Este teléfono</string>
+    <string name="devices_active_now">Activo ahora</string>
+    <string name="devices_last_seen">Visto %1$s</string>
+    <string name="devices_added_on">Añadido el %1$s</string>
+    <string name="devices_new">Nuevo</string>
+    <string name="devices_options">Opciones de «%1$s»</string>
+    <string name="devices_local_title">Usa Bento en todos tus dispositivos</string>
+    <string name="devices_local_body">Conecta tu Telegram para añadir otros dispositivos y mantenerlos sincronizados.</string>
+    <string name="devices_connect">Conectar mi Telegram</string>
+
+    <string name="devices_request_title">Un dispositivo nuevo quiere unirse</string>
+    <string name="devices_request_body">«%1$s» pidió acceso a tu nube. Revisa que sea tuyo antes de añadirlo.</string>
+
+    <string name="devices_review_screen_title">Revisa este dispositivo</string>
+    <string name="devices_review_title">Se añadió «%1$s» a tu nube</string>
+    <string name="devices_review_body">Se añadió el %1$s desde otro de tus dispositivos. ¿Lo reconoces?</string>
+    <string name="devices_review_mine">Es mío</string>
+    <string name="devices_review_unknown">No lo reconozco</string>
+    <string name="devices_review_failed">No se pudo guardar tu respuesta. Inténtalo otra vez.</string>
+
+    <string name="devices_rename_title">Renombrar dispositivo</string>
+    <string name="devices_rename_label">Nombre del dispositivo</string>
+    <string name="devices_rename_failed">No se pudo cambiar el nombre. Inténtalo otra vez.</string>
+
+    <string name="devices_remove_action">Quitar dispositivo</string>
+    <string name="devices_remove_title">¿Quitar «%1$s»?</string>
+    <string name="devices_remove_consequence_sync">Dejará de sincronizarse y se cerrará su sesión de Telegram.</string>
+    <string name="devices_remove_consequence_local">Lo que ya descargó seguirá en ese dispositivo: no se puede borrar a distancia.</string>
+    <string name="devices_remove_consequence_kit">Bento cambiará las claves de tu nube y te dará un kit de recuperación nuevo. El actual dejará de funcionar.</string>
+    <string name="devices_remove_keep_title">Seguirán teniendo acceso</string>
+    <string name="devices_remove_keep_body">Recibirán las claves nuevas. Desactiva los que no reconozcas para quitarlos también.</string>
+    <string name="devices_remove_keep_loading">Buscando tus otros dispositivos…</string>
+    <string name="devices_remove_keep_failed">No se pudo cargar la lista de dispositivos. Puedes quitar este dispositivo igualmente.</string>
+    <string name="devices_remove_this_keeps">Este teléfono: siempre conserva el acceso</string>
+    <string name="devices_remove_unreviewed">Sin revisar</string>
+    <plurals name="devices_remove_excluded">
+        <item quantity="one">También se quitará %1$d dispositivo más</item>
+        <item quantity="many">También se quitarán %1$d de dispositivos más</item>
+        <item quantity="other">También se quitarán %1$d dispositivos más</item>
+    </plurals>
+    <string name="devices_remove_excluded_body">No recibirán las claves nuevas, así que no podrán abrir lo que subas a partir de ahora. Su sesión de Telegram seguirá abierta hasta que la cierres desde Telegram › Ajustes › Dispositivos.</string>
+    <string name="devices_remove_confirm">Quitar dispositivo</string>
+    <plurals name="devices_remove_confirm_many">
+        <item quantity="one">Quitar %1$d dispositivo</item>
+        <item quantity="many">Quitar %1$d de dispositivos</item>
+        <item quantity="other">Quitar %1$d dispositivos</item>
+    </plurals>
+    <string name="devices_remove_failed">No se pudo quitar el dispositivo. Inténtalo otra vez.</string>
+    <string name="devices_remove_exclusion_invalid">La lista de dispositivos cambió mientras la revisabas. Revísala otra vez y vuelve a intentarlo.</string>
+    <string name="devices_removed">Quitaste «%1$s» de tu nube.</string>
+    <plurals name="devices_removed_more">
+        <item quantity="one">Quitaste «%1$s» y %2$d dispositivo más de tu nube.</item>
+        <item quantity="many">Quitaste «%1$s» y %2$d de dispositivos más de tu nube.</item>
+        <item quantity="other">Quitaste «%1$s» y %2$d dispositivos más de tu nube.</item>
+    </plurals>
+    <string name="devices_session_open">Telegram todavía no permite cerrar la sesión de «%1$s». Ciérrala desde Telegram › Ajustes › Dispositivos.</string>
+    <string name="devices_excluded_sessions_open">Los demás dispositivos que quitaste conservan su sesión de Telegram. Ciérrala desde Telegram › Ajustes › Dispositivos.</string>
+
+    <!-- This phone was removed (§11) -->
+    <string name="devices_removed_self_title">Este teléfono se quitó de tu nube</string>
+    <string name="devices_removed_self_body">Otro de tus dispositivos lo quitó, así que dejó de sincronizarse. Tu biblioteca sigue en este teléfono: no se borró nada.</string>
+    <string name="devices_removed_self_next">Para volver a sincronizar, únelo otra vez desde otro dispositivo o con tu kit de recuperación. Bento lo añadirá como un dispositivo nuevo.</string>
+    <string name="devices_removed_self_rejoin">Volver a unirme</string>
+    <string name="devices_removed_self_recovery">Usar mi kit de recuperación</string>
+    <string name="devices_removed_self_later">Ver mi biblioteca</string>
+</resources>

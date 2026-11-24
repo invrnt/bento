@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- feature/recovery (agent 38): recovery kit, code entry, kit management, in-app QR scanner. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="es">
+    <!-- Kit (product/android.md §4.1 step 5). -->
+    <string name="recovery_kit_title">Guarda tu kit de recuperación</string>
+    <string name="recovery_kit_why">Si pierdes todos tus dispositivos, tu Telegram y este código son la única forma de recuperar tu nube.</string>
+    <string name="recovery_kit_new_title">Guarda tu nuevo kit de recuperación</string>
+    <string name="recovery_kit_new_body">Tu código anterior ya no funciona. Guarda este para poder recuperar tu nube.</string>
+    <string name="recovery_kit_new_after_removal">Las claves de tu nube cambiaron al quitar el dispositivo, así que tu código anterior ya no funciona. Guarda este.</string>
+    <string name="recovery_code_label">Código de recuperación</string>
+    <string name="recovery_code_spoken">Código de recuperación: %1$s</string>
+    <string name="recovery_action_save_pdf">Guardar PDF</string>
+    <string name="recovery_action_print">Imprimir</string>
+    <string name="recovery_action_copy">Copiar</string>
+    <string name="recovery_copied">Copiado. Se borrará del portapapeles en 1 minuto; pégalo ya donde lo vayas a guardar.</string>
+    <string name="recovery_copy_failed">No se pudo copiar. Guarda el PDF o escríbelo a mano.</string>
+    <string name="recovery_pdf_file_name">Kit de recuperación de Bento.pdf</string>
+    <string name="recovery_pdf_saved">PDF guardado.</string>
+    <string name="recovery_pdf_failed">No se pudo guardar el PDF. Inténtalo otra vez.</string>
+    <string name="recovery_print_failed">No se pudo abrir la impresión. Guarda el PDF en su lugar.</string>
+    <string name="recovery_keep_safe">Guárdalo fuera de este teléfono. Cualquiera que tenga tu Telegram y este código puede abrir tu nube.</string>
+    <string name="recovery_confirm_label">Último grupo del código</string>
+    <string name="recovery_confirm_hint">Escríbelo para confirmar que guardaste el kit.</string>
+    <string name="recovery_confirm_submit">Confirmar</string>
+    <string name="recovery_confirm_mismatch">Ese grupo no coincide. Revisa el último grupo del código.</string>
+    <string name="recovery_confirm_failed">No se pudo confirmar. Inténtalo otra vez.</string>
+    <string name="recovery_later">Más tarde</string>
+
+    <!-- The printed / saved kit: same content as the desktop kit (apps/web RecoveryKitSheet). -->
+    <string name="recovery_sheet_title">Kit de recuperación de Bento</string>
+    <string name="recovery_sheet_tagline">Tu nube privada, en orden.</string>
+    <string name="recovery_sheet_account">Cuenta de Telegram</string>
+    <string name="recovery_sheet_created">Nube creada el</string>
+    <string name="recovery_sheet_printed">Kit generado el</string>
+    <string name="recovery_sheet_keep">Guárdalo fuera de tus dispositivos. Con tu Telegram y este código puedes recuperar todo.</string>
+    <string name="recovery_sheet_how_to">Para usarlo: abre Bento en un dispositivo nuevo, elige «Ya uso Bento en otro dispositivo» › «No tengo el otro dispositivo», inicia sesión en Telegram y escribe este código o escanea el QR.</string>
+    <string name="recovery_sheet_warning_title">Importante:</string>
+    <string name="recovery_sheet_warning">cualquier persona con acceso a tu Telegram y a este código puede abrir tu nube. No lo compartas ni lo guardes junto a tu teléfono.</string>
+    <string name="recovery_sheet_footer">%1$s no guarda copias de este código. Si generas uno nuevo, este dejará de funcionar.</string>
+
+    <!-- Code entry (§4.2 "Without the other device"). -->
+    <string name="recovery_entry_title">Escribe tu código de recuperación</string>
+    <string name="recovery_entry_body">Está en tu kit de recuperación de Bento: 9 grupos de 4 caracteres.</string>
+    <string name="recovery_entry_hint">Puedes escribirlo con o sin guiones, pegarlo o escanear el QR del kit.</string>
+    <string name="recovery_entry_paste">Pegar el código copiado</string>
+    <string name="recovery_entry_scan">Escanear el QR del kit</string>
+    <string name="recovery_entry_scan_hint">Apunta al código QR de tu kit de recuperación.</string>
+    <string name="recovery_entry_scan_wrong">Ese QR no es un kit de recuperación de Bento.</string>
+    <string name="recovery_entry_type_instead">Escribir el código</string>
+    <string name="recovery_entry_submit">Desbloquear</string>
+    <string name="recovery_entry_unlocking">Desbloqueando tu nube…</string>
+    <string name="recovery_error_checksum">Revisa el código: algún carácter no es correcto.</string>
+    <string name="recovery_error_invalid">Ese código no abre esta nube. Revísalo e inténtalo otra vez.</string>
+    <string name="recovery_error_failed">No se pudo desbloquear tu nube. Comprueba tu conexión e inténtalo otra vez.</string>
+
+    <!-- Kit management (Ajustes › Cuenta y nube). -->
+    <string name="recovery_manage_title">Kit de recuperación</string>
+    <string name="recovery_manage_body">Con tu Telegram y este código puedes recuperar tu nube en un dispositivo nuevo.</string>
+    <string name="recovery_manage_status">Estado del kit</string>
+    <string name="recovery_manage_note">Bento no guarda el código: solo lo verás al generarlo.</string>
+    <string name="recovery_manage_rotate">Generar nuevo código</string>
+    <string name="recovery_manage_verify">Verificar código</string>
+    <string name="recovery_manage_load_failed">No se pudo consultar tu kit de recuperación.</string>
+    <string name="recovery_status_saved">Guardado</string>
+    <string name="recovery_status_not_saved">Sin guardar</string>
+    <string name="recovery_status_stale">Ya no sirve</string>
+    <string name="recovery_stale_title">Tu kit de recuperación ya no sirve. Genera uno nuevo.</string>
+    <string name="recovery_stale_body">Las claves de tu nube cambiaron (por ejemplo, al quitar un dispositivo) y el código que guardaste ya no la abre.</string>
+    <string name="recovery_not_saved_body">Aún no confirmaste que guardaste tu kit. Genera uno nuevo y guárdalo para no perder el acceso.</string>
+    <string name="recovery_rotate_title">¿Generar un nuevo código?</string>
+    <string name="recovery_rotate_body_saved">Tu código actual dejará de funcionar y tendrás que guardar el kit nuevo.</string>
+    <string name="recovery_rotate_body_unsaved">Bento creará un código nuevo para tu kit y cualquier código anterior dejará de funcionar.</string>
+    <string name="recovery_rotate_confirm">Generar código</string>
+    <string name="recovery_rotate_failed">No se pudo generar un código nuevo. Inténtalo otra vez.</string>
+    <string name="recovery_verify_title">Verificar código</string>
+    <string name="recovery_verify_body">Asegúrate de que el código que guardaste sigue funcionando. No se cambia nada.</string>
+    <string name="recovery_verify_submit">Verificar</string>
+    <string name="recovery_verify_valid">Este código es válido para tu nube.</string>
+    <string name="recovery_verify_invalid">Este código no abre tu nube. Si lo perdiste, genera uno nuevo.</string>
+    <string name="recovery_verify_failed">No se pudo comprobar el código. Inténtalo otra vez.</string>
+
+    <!-- In-app QR scanner (pairing codes and recovery kits). -->
+    <string name="recovery_scanner_hint">Apunta al código QR.</string>
+    <string name="recovery_scanner_viewfinder">Visor de la cámara</string>
+    <string name="recovery_scanner_rationale">Bento usa la cámara solo para leer el código QR. No guarda imágenes.</string>
+    <string name="recovery_scanner_allow">Permitir cámara</string>
+    <string name="recovery_scanner_denied">Sin acceso a la cámara. Puedes escribir el código o permitir la cámara en Ajustes.</string>
+    <string name="recovery_scanner_open_settings">Abrir Ajustes</string>
+</resources>
