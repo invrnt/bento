@@ -34,6 +34,8 @@ android {
     }
 
     lint {
+        // Versions are pinned by the orchestration plan (docs/dev/android-spike.md), not by lint.
+        disable += setOf("GradleDependency", "NewerVersionAvailable", "AndroidGradlePluginVersion")
         warningsAsErrors = false
         abortOnError = true
     }
@@ -62,8 +64,9 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.activity.compose)
 
-    lintPublish(project(":core:designsystem-lint"))
-    lintChecks(project(":core:designsystem-lint"))
+    // Only the rules jar: the Kotlin stdlib is already on lint's classpath.
+    lintPublish(project(":core:designsystem-lint")) { isTransitive = false }
+    lintChecks(project(":core:designsystem-lint")) { isTransitive = false }
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

@@ -16,7 +16,10 @@
     <string name="ds_favorite">Favorite</string>
     <string name="ds_favorite_add">Add to favorites</string>
     <string name="ds_favorite_remove">Remove from favorites</string>
-    <string name="ds_code_progress">%1$d of %2$d characters</string>
+    <plurals name="ds_code_progress">
+        <item quantity="one">%1$d of %2$d character</item>
+        <item quantity="other">%1$d of %2$d characters</item>
+    </plurals>
     <string name="ds_code_complete">Code complete</string>
     <string name="ds_progress_percent">%1$s complete</string>
     <string name="ds_avatar_label">Account and activity for %1$s. %2$s</string>

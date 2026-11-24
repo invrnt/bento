@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
@@ -32,12 +31,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import dev.bento.designsystem.generated.BentoTokens
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import dev.bento.designsystem.generated.BentoIcons
 import dev.bento.designsystem.theme.BentoElevation
@@ -78,16 +86,19 @@ public fun <T> SegmentedButtons(
     ) {
         val segment = maxWidth / options.size
         val offset by animateDpAsState(segment * index, if (motion.reduced) androidx.compose.animation.core.snap() else motion.state(), label = "segment")
-        Box(
+        val shadow = BentoTheme.shadows.sm.first().color
+        // The indicator is drawn behind the row so it always matches its height (labels may wrap at 200 %).
+        Row(
             Modifier
-                .width(segment)
-                .heightIn(min = 40.dp)
-                .offset(x = offset)
-                .bentoShadow(BentoElevation.Sm, BentoShapes.md)
-                .clip(BentoShapes.md)
-                .background(c.raised),
-        )
-        Row(Modifier.selectableGroup()) {
+                .selectableGroup()
+                .drawBehind {
+                    val radius = CornerRadius(BentoTokens.Radius.md.toPx())
+                    val x = offset.toPx()
+                    val w = segment.toPx()
+                    drawRoundRect(shadow, Offset(x, 1.dp.toPx()), Size(w, size.height), radius)
+                    drawRoundRect(c.raised, Offset(x, 0f), Size(w, size.height), radius)
+                },
+        ) {
             options.forEachIndexed { i, option ->
                 val isSelected = i == index
                 val content by animateColorAsState(if (isSelected) c.ink else c.inkMuted, motion.color(), label = "segment-content")
@@ -118,7 +129,14 @@ public fun <T> SegmentedButtons(
                             BentoIcon(option.icon, contentDescription = null, tint = if (isSelected) c.accentInk else content)
                         }
                         if (!iconOnly) {
-                            Text(option.label, color = content, style = BentoTheme.typography.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            // One line that shrinks (down to 12 sp) rather than breaking a word at large font scales.
+                            BasicText(
+                                option.label,
+                                style = BentoTheme.typography.label.copy(color = content, textAlign = TextAlign.Center),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                autoSize = TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = BentoTheme.typography.label.fontSize),
+                            )
                         }
                     }
                 }

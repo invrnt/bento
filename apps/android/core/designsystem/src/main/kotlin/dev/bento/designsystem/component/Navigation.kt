@@ -50,6 +50,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -61,6 +62,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalDensity
 import dev.bento.designsystem.generated.BentoIcons
 import dev.bento.designsystem.theme.BentoShapes
 import dev.bento.designsystem.theme.BentoTheme
@@ -178,7 +181,13 @@ public fun StatusAvatar(
             if (image != null) {
                 Image(image, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             } else {
-                Text(initials(name), color = c.accentInk, style = BentoTheme.typography.labelStrong)
+                // Initials are decorative (TalkBack reads the name), so they scale with the circle, not the font scale.
+                val fontScale = LocalDensity.current.fontScale
+                Text(
+                    initials(name),
+                    color = c.accentInk,
+                    style = BentoTheme.typography.labelStrong.copy(fontSize = (size.value * 0.38f / fontScale).sp, lineHeight = (size.value * 0.5f / fontScale).sp),
+                )
             }
         }
         val badge: (@Composable () -> Unit)? = when (status) {
@@ -246,7 +255,7 @@ public fun BentoNavigationSuite(
 @Composable
 internal fun BentoNavigationBar(items: List<BentoNavItem>, selectedKey: String, onChoose: (String) -> Unit) {
     val c = BentoTheme.colors
-    Column(Modifier.fillMaxWidth().background(c.tray)) {
+    Column(Modifier.fillMaxWidth().background(c.tray).testTag(BentoTestTags.NavigationBar)) {
         Spacer(Modifier.fillMaxWidth().height(1.dp).background(c.line))
         Row(
             Modifier
@@ -269,6 +278,7 @@ internal fun BentoNavigationRail(items: List<BentoNavItem>, selectedKey: String,
         Modifier
             .fillMaxHeight()
             .width(96.dp)
+            .testTag(BentoTestTags.NavigationRail)
             .windowInsetsPadding(WindowInsets.statusBars)
             .padding(vertical = 16.dp)
             .selectableGroup(),

@@ -17,9 +17,10 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ModalBottomSheetProperties
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
-import androidx.compose.material3.SheetValue
-import androidx.compose.material3.rememberBottomSheetState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,10 +40,27 @@ import dev.bento.designsystem.theme.BentoTheme
 import dev.bento.designsystem.theme.bentoShadow
 import dev.bento.strings.R as StringsR
 
-/** Sheet state that opens half-expanded and can be dragged to full height (product/android.md §7). */
+/**
+ * State of a [BentoSheet]: opens half-expanded and can be dragged to full height (product/android.md §7).
+ * Wraps Material's experimental SheetState so features need no opt-in.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Stable
+public class BentoSheetState internal constructor(internal val material: SheetState) {
+    public val isVisible: Boolean get() = material.isVisible
+
+    /** Animates the sheet away; call `onDismissRequest`'s state change after it returns. */
+    public suspend fun hide(): Unit = material.hide()
+
+    public suspend fun expand(): Unit = material.expand()
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-public fun rememberBentoSheetState(): SheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
+public fun rememberBentoSheetState(): BentoSheetState {
+    val material = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+    return remember(material) { BentoSheetState(material) }
+}
 
 /** Drag handle: 36×4 dp in `line-strong`, inside a 48 dp touch row. */
 @Composable
@@ -85,7 +103,7 @@ internal fun BentoSheetBody(title: String?, content: @Composable ColumnScope.() 
 public fun BentoSheet(
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
-    sheetState: SheetState = rememberBentoSheetState(),
+    sheetState: BentoSheetState = rememberBentoSheetState(),
     title: String? = null,
     secure: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
@@ -94,7 +112,7 @@ public fun BentoSheet(
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         modifier = modifier.semantics { if (title != null) paneTitle = title },
-        sheetState = sheetState,
+        sheetState = sheetState.material,
         sheetMaxWidth = 640.dp,
         shape = BentoShapes.sheet,
         containerColor = c.raised,

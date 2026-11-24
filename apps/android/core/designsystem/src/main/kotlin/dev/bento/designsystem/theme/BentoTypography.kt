@@ -66,6 +66,7 @@ public data class BentoTypography(
     /** Tabular figures for counters, sizes and progress in Geist. */
     val numeric: TextStyle,
 ) {
+    /** The 15 baseline Material roles (the expressive "emphasized" roles are not public in Material 3 1.4). */
     internal val material: Typography by lazy {
         Typography(
             displayLarge = hero,
@@ -83,21 +84,6 @@ public data class BentoTypography(
             labelLarge = labelStrong,
             labelMedium = metadata.copy(fontWeight = FontWeight.Medium),
             labelSmall = caption.copy(fontWeight = FontWeight.Medium),
-            displayLargeEmphasized = hero,
-            displayMediumEmphasized = hero,
-            displaySmallEmphasized = hero,
-            headlineLargeEmphasized = pageTitle,
-            headlineMediumEmphasized = pageTitle,
-            headlineSmallEmphasized = pageTitle,
-            titleLargeEmphasized = monthHeader,
-            titleMediumEmphasized = sectionTitle,
-            titleSmallEmphasized = labelStrong,
-            bodyLargeEmphasized = bodyStrong,
-            bodyMediumEmphasized = labelStrong,
-            bodySmallEmphasized = metadata.copy(fontWeight = FontWeight.Medium),
-            labelLargeEmphasized = labelStrong,
-            labelMediumEmphasized = metadata.copy(fontWeight = FontWeight.SemiBold),
-            labelSmallEmphasized = caption.copy(fontWeight = FontWeight.SemiBold),
         )
     }
 

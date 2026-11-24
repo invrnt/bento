@@ -132,9 +132,6 @@ public object BentoShapes {
         medium = control,
         large = lg,
         extraLarge = xl,
-        largeIncreased = RoundedCornerShape(BentoTokens.Radius.xl),
-        extraLargeIncreased = hero,
-        extraExtraLarge = hero,
     )
 }
 

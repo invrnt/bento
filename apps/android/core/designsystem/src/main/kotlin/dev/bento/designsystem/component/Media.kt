@@ -46,6 +46,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.bento.designsystem.generated.BentoIcons
@@ -61,6 +62,8 @@ public object BentoTestTags {
     public const val ThumbnailImage: String = "bento:thumbnail-image"
     public const val ThumbnailPlaceholder: String = "bento:thumbnail-placeholder"
     public const val FloatingActionBar: String = "bento:floating-action-bar"
+    public const val NavigationBar: String = "bento:navigation-bar"
+    public const val NavigationRail: String = "bento:navigation-rail"
 }
 
 /**
@@ -262,7 +265,7 @@ internal fun FloatingActionBarContent(
     ) {
         BentoIconButton(BentoIcons.X, closeLabel, onClose)
         if (title != null) {
-            Text(title, color = c.ink, style = BentoTheme.typography.labelStrong.copy(fontFeatureSettings = "tnum"), maxLines = 1, modifier = Modifier.padding(start = 4.dp).weight(1f))
+            Text(title, color = c.ink, style = BentoTheme.typography.labelStrong.copy(fontFeatureSettings = "tnum"), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 4.dp).weight(1f))
         } else {
             Box(Modifier.weight(1f))
         }

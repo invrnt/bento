@@ -41,6 +41,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.error
@@ -189,7 +190,7 @@ public fun BentoTextField(
         leadingIcon = leadingIcon,
         placeholder = placeholder,
         showPlaceholder = state.text.isEmpty(),
-        placeholderStyle = textStyle.copy(color = c.inkSubtle),
+        placeholderStyle = textStyle.copy(color = c.inkMuted),
         trailing = revealToggle,
     )
 
@@ -227,22 +228,25 @@ public fun BentoTextField(
 }
 
 /** Normalizes every edit to Crockford characters (accepting pasted codes and links) and caps the length. */
-internal class CrockfordInputTransformation(private val length: Int) : InputTransformation {
+internal class CrockfordInputTransformation(private val maxLength: Int) : InputTransformation {
     override fun TextFieldBuffer.transformInput() {
         val text = asCharSequence().toString()
-        val (code, cursor) = CrockfordCode.normalizeEdit(text, selection.end, length)
+        val (code, cursor) = CrockfordCode.normalizeEdit(text, selection.end, maxLength)
         if (code != text) {
-            replace(0, this.length, code)
+            replace(0, length, code)
             selection = TextRange(cursor)
         }
     }
 }
 
 /** Shows a dash between groups; the state keeps only code characters, so the cursor maps automatically. */
-internal class GroupedCodeOutputTransformation(private val groupSize: Int) : OutputTransformation {
+internal class GroupedCodeOutputTransformation(private val groupSize: Int, private val wraps: Boolean) : OutputTransformation {
     override fun TextFieldBuffer.transformOutput() {
         val groups = (length - 1) / groupSize
-        for (group in groups downTo 1) insert(group * groupSize, "-")
+        // Unicode line breaking forbids a break between "-" and a digit, so wrapping codes get an explicit
+        // zero-width break opportunity after each dash and never split a group.
+        val separator = if (wraps) "-\u200B" else "-"
+        for (group in groups downTo 1) insert(group * groupSize, separator)
     }
 }
 
@@ -271,11 +275,12 @@ public fun CodeField(
     val focused by interaction.collectIsFocusedAsState()
     val style = BentoTheme.typography.monoLarge.copy(color = c.ink)
     val count = state.text.length
-    val progress = stringResource(StringsR.string.ds_code_progress, count, length)
+    val progress = pluralStringResource(StringsR.plurals.ds_code_progress, length, count, length)
     val complete = stringResource(StringsR.string.ds_code_complete)
     val placeholder = remember(length, groupSize) { CrockfordCode.format("X".repeat(length), groupSize) }
     val input = remember(length) { CrockfordInputTransformation(length) }
-    val output = remember(groupSize) { GroupedCodeOutputTransformation(groupSize) }
+    val wraps = length > SINGLE_LINE_CODE
+    val output = remember(groupSize, wraps) { GroupedCodeOutputTransformation(groupSize, wraps) }
     val currentOnComplete by rememberUpdatedState(onComplete)
 
     LaunchedEffect(error) { if (error != null) haptics.perform(BentoHaptic.Reject) }
@@ -306,7 +311,8 @@ public fun CodeField(
                 imeAction = imeAction,
             ),
             onKeyboardAction = onKeyboardAction,
-            lineLimits = TextFieldLineLimits.SingleLine,
+            // Pairing codes fit one line; recovery codes (9 groups) wrap at the dashes instead of scrolling.
+            lineLimits = if (wraps) TextFieldLineLimits.MultiLine() else TextFieldLineLimits.SingleLine,
             interactionSource = interaction,
             cursorBrush = SolidColor(c.accent),
             decorator = fieldDecorator(
@@ -316,9 +322,11 @@ public fun CodeField(
                 leadingIcon = null,
                 placeholder = placeholder,
                 showPlaceholder = count == 0,
-                placeholderStyle = style.copy(color = c.inkSubtle),
+                placeholderStyle = style.copy(color = c.inkMuted),
                 trailing = null,
             ),
         )
     }
 }
+
+private const val SINGLE_LINE_CODE = 16

@@ -59,11 +59,15 @@ public enum class BentoButtonSize(internal val height: Dp, internal val padding:
 
 internal data class ButtonColors(val container: Color, val content: Color, val border: Color?)
 
-internal fun buttonColors(variant: BentoButtonVariant, c: BentoColors, pressed: Boolean): ButtonColors = when (variant) {
-    BentoButtonVariant.Primary -> ButtonColors(if (pressed) c.accentHover else c.accent, c.onAccent, null)
+/**
+ * Pressed fills use the `-hover` tokens only in light mode, where they darken. In dark mode they lighten and white text
+ * would drop below 4.5:1 (accent-hover 4.1:1, danger-hover 3.8:1), so the ripple alone marks the press.
+ */
+internal fun buttonColors(variant: BentoButtonVariant, c: BentoColors, pressed: Boolean, dark: Boolean): ButtonColors = when (variant) {
+    BentoButtonVariant.Primary -> ButtonColors(if (pressed && !dark) c.accentHover else c.accent, c.onAccent, null)
     BentoButtonVariant.Secondary -> ButtonColors(if (pressed) c.subtle else c.raised, c.ink, if (pressed) c.lineStrong else c.line)
     BentoButtonVariant.Ghost -> ButtonColors(Color.Transparent, if (pressed) c.ink else c.inkMuted, null)
-    BentoButtonVariant.Danger -> ButtonColors(if (pressed) c.dangerHover else c.danger, c.onDanger, null)
+    BentoButtonVariant.Danger -> ButtonColors(if (pressed && !dark) c.dangerHover else c.danger, c.onDanger, null)
     BentoButtonVariant.DangerGhost -> ButtonColors(if (pressed) c.dangerSoft else Color.Transparent, c.dangerInk, null)
 }
 
@@ -87,7 +91,7 @@ public fun BentoButton(
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val motion = BentoTheme.motion
-    val target = buttonColors(variant, BentoTheme.colors, pressed)
+    val target = buttonColors(variant, BentoTheme.colors, pressed, BentoTheme.isDark)
     val container by animateColorAsState(target.container, motion.color(), label = "button-container")
     val content by animateColorAsState(target.content, motion.color(), label = "button-content")
     val pressScale by animateFloatAsState(if (pressed && !motion.reduced) 0.98f else 1f, motion.color(), label = "button-press")
@@ -207,7 +211,7 @@ public fun BentoFab(
     val c = BentoTheme.colors
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val container by animateColorAsState(if (pressed) c.accentHover else c.accent, BentoTheme.motion.color(), label = "fab")
+    val container by animateColorAsState(if (pressed && !BentoTheme.isDark) c.accentHover else c.accent, BentoTheme.motion.color(), label = "fab")
     Box(
         modifier
             .bentoShadow(BentoElevation.Lg, BentoShapes.lg)

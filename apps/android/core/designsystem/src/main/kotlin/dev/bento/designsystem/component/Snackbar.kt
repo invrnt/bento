@@ -54,14 +54,14 @@ public class BentoSnackbarData internal constructor(
     public val actionLabel: String?,
     public val durationMillis: Long,
     public val tone: BentoSnackbarTone,
-    private val continuation: CancellableContinuation<BentoSnackbarResult>,
+    private val continuation: CancellableContinuation<BentoSnackbarResult>?,
 ) {
     public fun performAction() {
-        if (continuation.isActive) continuation.resume(BentoSnackbarResult.ActionPerformed)
+        if (continuation?.isActive == true) continuation.resume(BentoSnackbarResult.ActionPerformed)
     }
 
     public fun dismiss() {
-        if (continuation.isActive) continuation.resume(BentoSnackbarResult.Dismissed)
+        if (continuation?.isActive == true) continuation.resume(BentoSnackbarResult.Dismissed)
     }
 }
 
@@ -98,6 +98,13 @@ public class BentoSnackbarHostState {
         public const val DEFAULT_DURATION_MS: Long = 4_000
     }
 }
+
+/** Static data for previews and screenshots. */
+internal fun BentoSnackbarPreviewData(
+    message: String,
+    actionLabel: String?,
+    tone: BentoSnackbarTone = BentoSnackbarTone.Neutral,
+): BentoSnackbarData = BentoSnackbarData(message, actionLabel, BentoSnackbarHostState.DEFAULT_DURATION_MS, tone, continuation = null)
 
 @Composable
 internal fun BentoSnackbar(data: BentoSnackbarData, modifier: Modifier = Modifier) {
