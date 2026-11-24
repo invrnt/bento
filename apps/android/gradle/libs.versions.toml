@@ -47,6 +47,9 @@ kotlinx-serialization = "1.13.0"
 okhttp = "5.5.1"
 coil = "3.6.3"
 mlkit-text-recognition = "16.0.1"
+# Onboarding/pairing QR scanner (agent 38): bundled on-device model, no Play services download.
+camerax = "1.7.0"
+mlkit-barcode-scanning = "17.3.0"
 
 # Tests
 junit4 = "4.13.2"
@@ -120,6 +123,10 @@ okhttp-mockwebserver = { module = "com.squareup.okhttp3:mockwebserver3", version
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
 mlkit-text-recognition = { module = "com.google.mlkit:text-recognition", version.ref = "mlkit-text-recognition" }
+mlkit-barcode-scanning = { module = "com.google.mlkit:barcode-scanning", version.ref = "mlkit-barcode-scanning" }
+camerax-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camerax" }
+camerax-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }
+camerax-compose = { module = "androidx.camera:camera-compose", version.ref = "camerax" }
 
 # Tests
 junit4 = { module = "junit:junit", version.ref = "junit4" }
