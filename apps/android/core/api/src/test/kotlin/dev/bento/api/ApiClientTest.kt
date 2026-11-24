@@ -3,6 +3,8 @@ package dev.bento.api
 import dev.bento.api.generated.BentoEndpoints
 import dev.bento.engine.EngineState
 import dev.bento.engine.WorkerMode
+import dev.bento.testing.ServerProofSigner
+import dev.bento.testing.TEST_SERVER_KEY
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
@@ -57,14 +59,16 @@ class BentoHttpTest {
     private val server = MockWebServer()
     private var ready: EngineState.Ready? = null
     private var stalls = 0
+    private val unverified = mutableListOf<Int>()
     private lateinit var http: BentoHttp
 
     @Before
     fun setUp() {
         server.start()
-        ready = EngineState.Ready(server.port, "secret-token", WorkerMode.FULL)
+        ready = EngineState.Ready(server.port, "secret-token", TEST_SERVER_KEY, WorkerMode.FULL)
         val client = OkHttpClient.Builder()
-            .addInterceptor(LoopbackAuthInterceptor { ready })
+            .addInterceptor(LoopbackAuthInterceptor(onUnverified = { unverified += it }) { ready })
+            .addNetworkInterceptor(ServerProofSigner(TEST_SERVER_KEY))
             .readTimeout(500, TimeUnit.MILLISECONDS)
             .build()
         http = BentoHttp(
@@ -92,6 +96,53 @@ class BentoHttpTest {
         val request = server.takeRequest()
         assertEquals("/api/health", request.url.encodedPath)
         assertEquals("Bearer secret-token", request.headers["Authorization"])
+        assertTrue(request.headers[ServerProof.NONCE_HEADER].orEmpty().length >= 16)
+    }
+
+    @Test
+    fun `SEC-01 a response without a valid server proof is dropped and reported`() {
+        val squatter = MockWebServer().apply { start() }
+        // Another app answering on the engine's port: it cannot sign with the per-start server key.
+        squatter.enqueue(MockResponse.Builder().body("{}").build())
+        squatter.enqueue(MockResponse.Builder().addHeader(ServerProof.PROOF_HEADER, "forged").body("{}").build())
+        val current = EngineState.Ready(squatter.port, "secret-token", TEST_SERVER_KEY, WorkerMode.FULL)
+        val reported = mutableListOf<Int>()
+        val client = OkHttpClient.Builder().addInterceptor(LoopbackAuthInterceptor(onUnverified = { reported += it }) { current })
+            .addNetworkInterceptor(ServerProofSigner("some-other-key-0123456789abcdef0123")).build()
+        repeat(2) {
+            try {
+                client.newCall(Request.Builder().url("http://127.0.0.1:${squatter.port}/api/health").build()).execute().close()
+                fail("expected UnverifiedServerException")
+            } catch (expected: UnverifiedServerException) {
+                assertEquals(squatter.port, expected.port)
+            }
+        }
+        assertEquals(listOf(squatter.port, squatter.port), reported)
+        squatter.close()
+    }
+
+    @Test
+    fun `SEC-01 a request built for an old port gets no token`() {
+        val old = MockWebServer().apply { start() }
+        old.enqueue(MockResponse.Builder().body("ok").build())
+        val client = OkHttpClient.Builder().addInterceptor(LoopbackAuthInterceptor { ready }).build()
+        client.newCall(Request.Builder().url("http://127.0.0.1:${old.port}/api/health").build()).execute().close()
+        val request = old.takeRequest()
+        assertNull(request.headers["Authorization"])
+        assertNull(request.headers[ServerProof.NONCE_HEADER])
+        old.close()
+    }
+
+    @Test
+    fun `SEC-01 server proof matches the backend test vector`() {
+        // Same vector as tests/unit/android/test_security_review_findings.py (Python).
+        assertEquals(
+            "gUIkCMgwLLTTAlQIPwi9Rt5QVQlaB93G7MgR42IWw8g",
+            ServerProof.proof("server-key-0123456789abcdef0123456789", 41000, "nonce-0123456789ab")
+        )
+        assertTrue(ServerProof.verify("k".repeat(32), 1, "n", ServerProof.proof("k".repeat(32), 1, "n")))
+        assertTrue(!ServerProof.verify("k".repeat(32), 2, "n", ServerProof.proof("k".repeat(32), 1, "n")))
+        assertTrue(!ServerProof.verify("k".repeat(32), 1, "n", null))
     }
 
     @Test
@@ -201,7 +252,7 @@ class MediaAndImageKeysTest {
 
     @Test
     fun `bento media uris resolve to the content route on the current port`() {
-        val ready = EngineState.Ready(4321, "t", WorkerMode.FULL)
+        val ready = EngineState.Ready(4321, "t", "k", WorkerMode.FULL)
         assertEquals("http://127.0.0.1:4321/api/assets/a1/content", resolveBentoMediaUri("bento://asset/a1", ready))
         assertNull(resolveBentoMediaUri("https://example.com/v.mp4", ready))
         try {

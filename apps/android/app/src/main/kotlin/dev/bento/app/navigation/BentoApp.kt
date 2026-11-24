@@ -34,6 +34,7 @@ import dev.bento.designsystem.component.ErrorState
 import dev.bento.designsystem.component.LocalBentoSharedTransitionScope
 import dev.bento.designsystem.component.ProgressBar
 import dev.bento.designsystem.theme.BentoTheme
+import dev.bento.engine.DegradedReason
 import dev.bento.engine.EngineState
 import dev.bento.strings.R as StringsR
 
@@ -52,8 +53,14 @@ fun BentoApp(
     navigator: Navigator,
     engineState: EngineState,
     onExit: () -> Unit,
+    onResetDevice: () -> Unit = {},
+    resetFailed: Boolean = false,
     entries: EntryProviderScope<Route>.() -> Unit = { bentoEntries(navigator) }
 ) {
+    if ((engineState as? EngineState.Degraded)?.reason == DegradedReason.KEY_LOST) {
+        KeyLostScreen(onReset = onResetDevice, failed = resetFailed)
+        return
+    }
     val showTabs = TopLevel.of(navigator.current) != null
     val engine = rememberUpdatedState(engineState)
     val exit = rememberUpdatedState(onExit)

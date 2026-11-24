@@ -5,6 +5,7 @@ import dev.bento.engine.bridge.BridgeException
 import dev.bento.engine.bridge.BridgeSet
 import dev.bento.engine.bridge.ContentImports
 import dev.bento.engine.bridge.DeviceConditions
+import dev.bento.engine.bridge.DeviceKeyLostException
 import dev.bento.engine.bridge.KeyWrapping
 import dev.bento.engine.bridge.MediaStoreSource
 import dev.bento.engine.bridge.MediaTools
@@ -16,10 +17,21 @@ import java.util.concurrent.CopyOnWriteArrayList
 class FakeKeyWrapping(private val key: ByteArray = ByteArray(32) { it.toByte() }) : KeyWrapping {
     var calls = 0
         private set
+    var resets = 0
+        private set
+
+    /** Simulates a lost Keystore key: [deviceWrappingKey] throws [DeviceKeyLostException] until [reset]. */
+    var lost = false
 
     override fun deviceWrappingKey(): ByteArray {
         calls += 1
+        if (lost) throw DeviceKeyLostException("fake: key lost")
         return key.copyOf()
+    }
+
+    override fun reset() {
+        resets += 1
+        lost = false
     }
 }
 

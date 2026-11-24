@@ -10,6 +10,7 @@ import dev.bento.engine.BentoEngine
 import dev.bento.engine.BuildConfig
 import dev.bento.engine.ChaquopyEngineRuntime
 import dev.bento.engine.DebugOptions
+import dev.bento.engine.DeviceReset
 import dev.bento.engine.EngineBuildInfo
 import dev.bento.engine.EngineConfigFactory
 import dev.bento.engine.EngineLifecycleListener
@@ -94,6 +95,10 @@ object EngineModule {
         file = File(File(context.noBackupFilesDir, "bento/secure"), "wrapping.bin"),
         keySource = AndroidKeystoreKeySource(context.packageManager)
     )
+
+    @Provides
+    @Singleton
+    fun deviceReset(@ApplicationContext context: Context, keyWrapping: KeyWrapping): DeviceReset = DeviceReset(context, keyWrapping)
 
     @Provides
     @Singleton

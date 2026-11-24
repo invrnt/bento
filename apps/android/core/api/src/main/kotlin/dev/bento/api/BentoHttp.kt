@@ -1,6 +1,7 @@
 package dev.bento.api
 
 import dev.bento.api.generated.ApiTransport
+import dev.bento.engine.ApiTokens
 import dev.bento.engine.BentoEngine
 import dev.bento.engine.EngineState
 import dev.bento.engine.EngineUnavailableException
@@ -55,18 +56,39 @@ val BentoJson: Json = Json {
 }
 
 /**
- * Attaches the bearer token only to the engine's own loopback origin; any other host never sees it.
- * The token is read per request because the port and token change on every engine start.
+ * Attaches the bearer token only to the engine's current loopback origin and checks that the answer came from that
+ * API (architecture/android-runtime.md §2.1). One [EngineState.Ready] snapshot supplies port, token and server key
+ * together, so a request built for an older port never gets the new token. Every request carries a fresh
+ * `X-Bento-Nonce`; a response without the matching `X-Bento-Proof` is closed unread, [onUnverified] restarts the
+ * API with new credentials (the token a squatter saw dies with the old server), and the call fails with
+ * [UnverifiedServerException].
  */
-class LoopbackAuthInterceptor(private val current: () -> EngineState.Ready?) : Interceptor {
+class LoopbackAuthInterceptor(
+    private val onUnverified: (port: Int) -> Unit = {},
+    private val nonces: () -> String = ApiTokens::nonce,
+    private val current: () -> EngineState.Ready?
+) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
         val ready = current()
         val url = request.url
-        val ours = ready != null && url.host == LOOPBACK && url.port == ready.port && url.scheme == "http"
-        val authorized = if (ours) request.newBuilder().header("Authorization", "Bearer ${ready!!.token}").build() else request
-        return chain.proceed(authorized)
+        if (ready == null || !ready.isOrigin(url)) {
+            return chain.proceed(request.newBuilder().removeHeader(ServerProof.NONCE_HEADER).build())
+        }
+        val nonce = nonces()
+        val response = chain.proceed(
+            request.newBuilder()
+                .header("Authorization", "Bearer ${ready.token}")
+                .header(ServerProof.NONCE_HEADER, nonce)
+                .build()
+        )
+        if (ServerProof.verify(ready.serverKey, ready.port, nonce, response.header(ServerProof.PROOF_HEADER))) return response
+        response.close()
+        onUnverified(ready.port)
+        throw UnverifiedServerException(ready.port)
     }
+
+    private fun EngineState.Ready.isOrigin(url: HttpUrl): Boolean = url.scheme == "http" && url.host == LOOPBACK && url.port == port
 
     companion object {
         const val LOOPBACK = "127.0.0.1"
@@ -75,7 +97,7 @@ class LoopbackAuthInterceptor(private val current: () -> EngineState.Ready?) : I
 
 /** OkHttp client for the loopback API (short connect timeout: a frozen or dead engine fails fast). */
 fun loopbackOkHttp(engine: BentoEngine, base: OkHttpClient = OkHttpClient()): OkHttpClient = base.newBuilder()
-    .addInterceptor(LoopbackAuthInterceptor { engine.state.value as? EngineState.Ready })
+    .addInterceptor(LoopbackAuthInterceptor(onUnverified = engine::reportUnverifiedServer) { engine.state.value as? EngineState.Ready })
     .connectTimeout(3, TimeUnit.SECONDS)
     .readTimeout(30, TimeUnit.SECONDS)
     .writeTimeout(5, TimeUnit.MINUTES)

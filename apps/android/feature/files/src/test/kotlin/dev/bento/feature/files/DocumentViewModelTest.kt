@@ -73,7 +73,7 @@ class DocumentViewModelTest {
     fun tearDown() = server.close()
 
     private fun TestScope.vm(api: FakeApiTransport): DocumentViewModel {
-        val ready = EngineState.Ready(server.port, "t", WorkerMode.FULL)
+        val ready = EngineState.Ready(server.port, "t", "k", WorkerMode.FULL)
         val http = BentoHttp(OkHttpClient(), EndpointProvider { ready })
         val endpoints = api.endpoints()
         val cache = UiCache(tmp, "1")

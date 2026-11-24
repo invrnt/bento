@@ -29,6 +29,8 @@ class BentoApplication : Application(), Configuration.Provider {
     /** Injected so server events start invalidating repositories. */
     @Inject lateinit var invalidations: Invalidations
 
+    @Inject lateinit var shareCacheJanitor: ShareCacheJanitor
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder().setWorkerFactory(workerFactory).setMinimumLoggingLevel(android.util.Log.WARN).build()
 
@@ -48,6 +50,7 @@ class BentoApplication : Application(), Configuration.Provider {
                 Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
             scheduler.ensureScheduled()
+            shareCacheJanitor.start()
         }
     }
 

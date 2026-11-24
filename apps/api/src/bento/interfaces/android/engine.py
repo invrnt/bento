@@ -41,6 +41,11 @@ LOGGER = logging.getLogger("bento.android.engine")
 
 WRAPPING_KEY_BYTES = 32
 API_START_TIMEOUT_SECONDS = 30.0
+# Loopback uvicorn limits (SEC-12): any app on the phone can connect, so cap connections and idle sockets.
+API_LIMIT_CONCURRENCY = 64
+API_BACKLOG = 64
+API_TIMEOUT_KEEP_ALIVE_SECONDS = 5
+API_STOP_TIMEOUT_SECONDS = 10.0
 WORKER_RESTART_BACKOFF_SECONDS = (1.0, 5.0, 30.0)
 # Interpreter warm-up (`warm_up`): heaviest imports first, in the order the engine needs them.
 WARM_UP_ORDER = (
@@ -54,7 +59,7 @@ WARM_UP_ORDER = (
     ("bento_worker", "bento.interfaces.worker.runtime"),
 )
 EVENT_KINDS = frozenset({"media_changed", "conditions", "access_changed", "low_memory"})
-REQUIRED_KEYS = ("data_dir", "platform", "api_token", "wrapping_key")
+REQUIRED_KEYS = ("data_dir", "platform", "wrapping_key")
 KNOWN_KEYS = frozenset(
     {
         *REQUIRED_KEYS,
@@ -101,6 +106,8 @@ class _Engine:
     api_server: uvicorn.Server | None = None
     api_thread: threading.Thread | None = None
     api_port: int | None = None
+    api_credentials: str | None = None
+    api_secrets: tuple[str, ...] = ()
     worker_thread: threading.Thread | None = None
     worker_loop: asyncio.AbstractEventLoop | None = None
     worker_stop: asyncio.Event | None = None
@@ -124,6 +131,9 @@ def warm_up() -> str:
 
     Idempotent; a failing import is reported (-1) instead of raised, so warm-up never crashes the app.
     Returns JSON `{stages_ms, python, real_engine}` for the startup trace."""
+    from bento.interfaces.android import redaction
+
+    redaction.install_early()  # before any warm-up warning can reach `logging.lastResort` (logcat)
     with _engine.lock:
         if _engine.warm_up_report is None:
             stages: dict[str, float] = {}
@@ -147,7 +157,8 @@ def configure(config: Mapping[str, Any]) -> dict[str, object]:
     """Build `Settings` from `config` (no environment, no `.env`), hold secrets in memory, install bridges.
 
     Idempotent for an identical configuration (same values and the same bridge instances); a different one
-    raises `EngineConfigError` (stop the engine and restart the process to change it).
+    raises `EngineConfigError` (stop the engine and restart the process to change it). The API token is not part
+    of the configuration: `start_api` receives a fresh one on every start.
     """
     if not isinstance(config, Mapping):
         raise EngineConfigError("config must be a mapping")
@@ -159,16 +170,11 @@ def configure(config: Mapping[str, Any]) -> dict[str, object]:
         raise EngineConfigError(f"Missing config keys: {missing}")
     if config["platform"] != "android":
         raise EngineConfigError("platform must be 'android'")
-    from bento.interfaces.http.request_guard import API_TOKEN_ENV, MIN_TOKEN_LENGTH
-
-    token = str(config["api_token"])
-    if len(token) < MIN_TOKEN_LENGTH:
-        raise EngineConfigError(f"api_token must contain at least {MIN_TOKEN_LENGTH} characters")
     wrapping_key = _wrapping_key(config["wrapping_key"])
     bridges = config.get("bridges") or {}
     if not isinstance(bridges, Mapping):
         raise EngineConfigError("bridges must be a mapping")
-    fingerprint = _fingerprint(config, token, wrapping_key, bridges)
+    fingerprint = _fingerprint(config, wrapping_key, bridges)
 
     with _engine.lock:
         if _engine.fingerprint is not None:
@@ -207,10 +213,9 @@ def configure(config: Mapping[str, Any]) -> dict[str, object]:
             redaction.install(
                 Path(str(no_backup_dir)) / "logs",
                 mirror=settings.environment != "production",
-                secrets=(token, b64url_encode(wrapping_key)),
+                secrets=(b64url_encode(wrapping_key),),
             )
 
-        process_secrets.put(API_TOKEN_ENV, token)
         process_secrets.put(WRAPPING_KEY_ENV, b64url_encode(wrapping_key))
         services.reset_services()
         install_settings(settings)
@@ -281,11 +286,10 @@ def _wrapping_key(value: object) -> bytes:
     return key
 
 
-def _fingerprint(config: Mapping[str, Any], token: str, wrapping_key: bytes, bridges: Mapping[str, Any]) -> str:
-    plain = {key: config[key] for key in sorted(config) if key not in {"api_token", "wrapping_key", "bridges"}}
+def _fingerprint(config: Mapping[str, Any], wrapping_key: bytes, bridges: Mapping[str, Any]) -> str:
+    plain = {key: config[key] for key in sorted(config) if key not in {"wrapping_key", "bridges"}}
     material = json.dumps(plain, sort_keys=True, default=str).encode()
     digest = hashlib.sha256(material)
-    digest.update(hashlib.sha256(token.encode()).digest())
     digest.update(hashlib.sha256(wrapping_key).digest())
     digest.update(json.dumps(sorted((key, id(value)) for key, value in bridges.items())).encode())
     return digest.hexdigest()
@@ -315,28 +319,66 @@ def migrate() -> dict[str, object]:
 # API ----------------------------------------------------------------------------------------------------
 
 
-def start_api() -> int:
-    """Serve the HTTP API on an ephemeral `127.0.0.1` port (bearer token required); returns it once accepting."""
+def start_api(api_token: str, server_key: str) -> int:
+    """Serve the HTTP API on an ephemeral `127.0.0.1` port; returns it once accepting.
+
+    Every start takes fresh credentials (SEC-01, `architecture/android-runtime.md` §2.1): `api_token` is the
+    bearer token this server instance accepts, and `server_key` signs `X-Bento-Proof` so the client can tell this
+    server from another app that binds a port Bento freed. Calling it again with the same credentials while the
+    API runs returns the same port; different credentials replace the running server (a new port)."""
+    from bento.interfaces.android import redaction
+    from bento.interfaces.android.server_proof import MIN_KEY_LENGTH, ServerProofMiddleware
+    from bento.interfaces.http.request_guard import API_TOKEN_ENV, MIN_TOKEN_LENGTH
+
+    token, key = str(api_token or ""), str(server_key or "")
+    if len(token) < MIN_TOKEN_LENGTH:
+        raise EngineConfigError(f"api_token must contain at least {MIN_TOKEN_LENGTH} characters")
+    if len(key) < MIN_KEY_LENGTH or hmac.compare_digest(key, token):
+        raise EngineConfigError(f"server_key must be a separate secret of at least {MIN_KEY_LENGTH} characters")
+    credentials = _credentials_digest(token, key)
     with _engine.lock:
         settings = _require_settings()
-        if _engine.api_thread is not None and _engine.api_thread.is_alive() and _engine.api_port is not None:
-            return _engine.api_port
+        if _api_alive() and _engine.api_credentials is not None:
+            if hmac.compare_digest(_engine.api_credentials, credentials):
+                return int(_engine.api_port)  # type: ignore[arg-type]
+    if _api_alive():
+        _stop_api(API_STOP_TIMEOUT_SECONDS)
+    with _engine.lock:
+        if _api_alive():
+            raise EngineStateError("The previous API did not stop")
         _engine.stopping = False
+        redaction.unregister(*_engine.api_secrets)
+        redaction.register(token, key)
+        _engine.api_secrets = (token, key)
+        _engine.api_credentials = credentials
+        process_secrets.put(API_TOKEN_ENV, token)
 
         import uvicorn
 
         from bento.infrastructure.loopback import bind_loopback_listener
         from bento.interfaces.http.main import create_app
 
-        app = create_app(settings, guard_environ={}, openapi=_engine.openapi)
         listener = bind_loopback_listener("127.0.0.1")
         port = int(listener.getsockname()[1])
+        app = ServerProofMiddleware(
+            create_app(settings, guard_environ={}, openapi=_engine.openapi), key=key, port=port
+        )
         config = uvicorn.Config(
-            app, host="127.0.0.1", port=port, access_log=False, log_level="warning", lifespan="on", http="h11"
+            app,
+            host="127.0.0.1",
+            port=port,
+            access_log=False,
+            log_level="warning",
+            lifespan="on",
+            http="h11",
+            limit_concurrency=API_LIMIT_CONCURRENCY,
+            backlog=API_BACKLOG,
+            timeout_keep_alive=API_TIMEOUT_KEEP_ALIVE_SECONDS,
         )
         server = uvicorn.Server(config)
         thread = threading.Thread(target=_serve_api, args=(server, listener), name="bento-api", daemon=True)
         _engine.api_server, _engine.api_thread, _engine.api_port = server, thread, port
+        listener.listen(API_BACKLOG)
         thread.start()
     deadline = time.monotonic() + API_START_TIMEOUT_SECONDS
     while not server.started:
@@ -347,6 +389,30 @@ def start_api() -> int:
             raise EngineStateError("The API did not start")
         time.sleep(0.005)
     return port
+
+
+def _credentials_digest(token: str, key: str) -> str:
+    return hashlib.sha256(hashlib.sha256(token.encode()).digest() + hashlib.sha256(key.encode()).digest()).hexdigest()
+
+
+def _api_alive() -> bool:
+    return _engine.api_thread is not None and _engine.api_thread.is_alive() and _engine.api_port is not None
+
+
+def _stop_api(timeout: float) -> bool:
+    with _engine.lock:
+        server, api_thread = _engine.api_server, _engine.api_thread
+    if server is not None:
+        server.should_exit = True
+    if api_thread is not None:
+        api_thread.join(timeout)
+    with _engine.lock:
+        stopped = api_thread is None or not api_thread.is_alive()
+        if _engine.api_thread is api_thread:
+            _engine.api_server = _engine.api_thread = None
+            _engine.api_port = None
+            _engine.api_credentials = None
+    return stopped
 
 
 def _serve_api(server: uvicorn.Server, listener: socket.socket) -> None:
@@ -450,16 +516,13 @@ def stop(timeout_ms: int = 10_000) -> dict[str, object]:
     timeout = max(0.1, int(timeout_ms) / 1000)
     with _engine.lock:
         _engine.stopping = True
-        server, api_thread = _engine.api_server, _engine.api_thread
-    if server is not None:
-        server.should_exit = True
-    if api_thread is not None:
-        api_thread.join(timeout)
+    api_stopped = _stop_api(timeout)
     worker_stopped = _stop_worker(timeout=timeout)
     with _engine.lock:
+        # The stopped server's token never authorizes a later one: `start_api` always installs a new token.
         _engine.api_server = _engine.api_thread = None
         _engine.api_port = None
-        api_stopped = api_thread is None or not api_thread.is_alive()
+        _engine.api_credentials = None
     return {"api_stopped": api_stopped, "worker_stopped": worker_stopped}
 
 

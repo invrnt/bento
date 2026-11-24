@@ -108,6 +108,7 @@ fun RecoveryKitScreen(
     LaunchedEffect(confirm.confirmed) { if (confirm.confirmed) onConfirmed() }
 
     SecureWindow()
+    ObscuredTouchGuard()
     RecoveryKitContent(
         ui = RecoveryKitUi(code, occasion, confirm, notice),
         onCopy = { notice = if (SensitiveClipboard.copy(context, RecoveryCodes.format(code))) KitNotice.Copied else KitNotice.CopyFailed },

@@ -72,6 +72,26 @@ class RecoveryUiTest {
     }
 
     @Test
+    fun sec09GuardFiltersObscuredTouchesUntilTheLastGuardLeaves() {
+        var outer by mutableStateOf(true)
+        var inner by mutableStateOf(true)
+        lateinit var view: android.view.View
+        compose.setContent {
+            view = androidx.compose.ui.platform.LocalView.current
+            if (outer) ObscuredTouchGuard()
+            if (inner) ObscuredTouchGuard()
+        }
+        compose.waitForIdle()
+        assertTrue(view.filterTouchesWhenObscured)
+        inner = false
+        compose.waitForIdle()
+        assertTrue("still guarded by the outer screen", view.filterTouchesWhenObscured)
+        outer = false
+        compose.waitForIdle()
+        assertFalse(view.filterTouchesWhenObscured)
+    }
+
+    @Test
     fun kitReadsTheCodeForTalkBackAndConfirmNeedsFourCharacters() {
         val typed = TextFieldState()
         var confirmed: String? = null

@@ -35,7 +35,6 @@ def android(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[st
         "environment": "local",
         "storage_backend": "local",
         "wrapping_key": secrets.token_bytes(32),
-        "api_token": base64.urlsafe_b64encode(secrets.token_bytes(32)).decode().rstrip("="),
         "app_version": "0.1.0-test",
         "device_name_default": "Pixel 7a",
         "bridges": bridges,
@@ -44,15 +43,28 @@ def android(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[st
     engine._reset_for_tests()
 
 
-def _get(port: int, path: str, token: str | None) -> tuple[int, dict[str, object]]:
+def _secret() -> str:
+    return base64.urlsafe_b64encode(secrets.token_bytes(32)).decode().rstrip("=")
+
+
+def _get(port: int, path: str, token: str | None, nonce: str | None = None) -> tuple[int, dict[str, object]]:
+    status, body, _ = _get_with_headers(port, path, token, nonce)
+    return status, body
+
+
+def _get_with_headers(
+    port: int, path: str, token: str | None, nonce: str | None = None
+) -> tuple[int, dict[str, object], dict[str, str]]:
     request = urllib.request.Request(f"http://127.0.0.1:{port}{path}")
     if token is not None:
         request.add_header("Authorization", f"Bearer {token}")
+    if nonce is not None:
+        request.add_header("X-Bento-Nonce", nonce)
     try:
         with urllib.request.urlopen(request, timeout=10) as response:
-            return response.status, json.loads(response.read())
+            return response.status, json.loads(response.read()), {k.lower(): v for k, v in response.headers.items()}
     except urllib.error.HTTPError as exc:
-        return exc.code, json.loads(exc.read())
+        return exc.code, json.loads(exc.read()), {k.lower(): v for k, v in exc.headers.items()}
 
 
 def _upload(port: int, token: str, name: str, content: bytes, mime: str) -> dict[str, object]:
@@ -71,7 +83,7 @@ def _upload(port: int, token: str, name: str, content: bytes, mime: str) -> dict
 def test_engine_configure_migrate_serve_work_and_stop(android: dict[str, object]) -> None:
     config = android["config"]
     assert isinstance(config, dict)
-    token = str(config["api_token"])
+    token, server_key = _secret(), _secret()
 
     summary = engine.configure(config)
     assert summary["platform"] == "android"
@@ -83,7 +95,7 @@ def test_engine_configure_migrate_serve_work_and_stop(android: dict[str, object]
     assert settings.platform == "android" and settings.backup_wifi_only is True and settings.ocr_provider == "mlkit"
     assert settings.device_name == "Pixel 7a"
     # Secrets live in the process holder only, never in the environment.
-    assert process_secrets.get("BENTO_API_TOKEN") == token
+    assert process_secrets.get("BENTO_API_TOKEN") is None  # the token arrives with `start_api`
     assert {k: v for k, v in os.environ.items() if k != "PYTEST_CURRENT_TEST"} == {
         k: v for k, v in android["environ_before"].items() if k != "PYTEST_CURRENT_TEST"  # type: ignore[union-attr]
     }
@@ -95,8 +107,9 @@ def test_engine_configure_migrate_serve_work_and_stop(android: dict[str, object]
     assert again == {"from": first["to"], "to": first["to"], "ran": False, "ms": again["ms"]}
     assert float(again["ms"]) < 50
 
-    port = engine.start_api()
-    assert engine.start_api() == port
+    port = engine.start_api(token, server_key)
+    assert engine.start_api(token, server_key) == port
+    assert process_secrets.get("BENTO_API_TOKEN") == token
     assert _get(port, "/api/health", token)[0] == 200
     status, body = _get(port, "/api/health", None)
     assert status == 401 and body["error"]["code"] == "api_token_required"
@@ -132,7 +145,7 @@ def test_configure_rejects_bad_input(android: dict[str, object]) -> None:
     with pytest.raises(engine.EngineConfigError):
         engine.configure({**config, "platform": "linux"})
     with pytest.raises(engine.EngineConfigError):
-        engine.configure({**config, "api_token": "short"})
+        engine.configure({**config, "api_token": _secret()})  # tokens are per API start, not configuration
     with pytest.raises(engine.EngineConfigError):
         engine.configure({**config, "wrapping_key": b"too-short"})
     with pytest.raises(engine.EngineConfigError):
@@ -148,3 +161,40 @@ def test_configure_rejects_bad_input(android: dict[str, object]) -> None:
 
 class _SignedBytes(list):  # bytes(list_with_negatives) raises ValueError, like a jbyte jarray
     pass
+
+
+def test_start_api_rotates_credentials_and_proves_the_server(android: dict[str, object]) -> None:
+    """SEC-01: every API start has its own token and server key; a dead server's token never works again."""
+    from bento.interfaces.android.server_proof import server_proof
+
+    config = android["config"]
+    assert isinstance(config, dict)
+    engine.configure(config)
+    engine.migrate()
+    first_token, first_key = _secret(), _secret()
+    with pytest.raises(engine.EngineConfigError):
+        engine.start_api("short", first_key)
+    with pytest.raises(engine.EngineConfigError):
+        engine.start_api(first_token, first_token)  # the proof key must be a separate secret
+    first = engine.start_api(first_token, first_key)
+    nonce = _secret()
+    status, _, headers = _get_with_headers(first, "/api/health", first_token, nonce)
+    assert status == 200 and headers["x-bento-proof"] == server_proof(first_key, first, nonce)
+    # Rejections are signed too (the proof says who answered); no nonce, no proof.
+    status, _, headers = _get_with_headers(first, "/api/health", None, nonce)
+    assert status == 401 and headers["x-bento-proof"] == server_proof(first_key, first, nonce)
+    assert "x-bento-proof" not in {key.lower() for key in _get_with_headers(first, "/api/health", first_token)[2]}
+
+    second_token, second_key = _secret(), _secret()
+    second = engine.start_api(second_token, second_key)  # new credentials replace the running server
+    assert second != first
+    assert _get(second, "/api/health", first_token)[0] == 401
+    assert _get(second, "/api/health", second_token)[0] == 200
+    with pytest.raises(OSError):
+        _get(first, "/api/health", first_token)
+
+    engine.stop(10_000)
+    third_token = _secret()
+    third = engine.start_api(third_token, _secret())
+    assert _get(third, "/api/health", second_token)[0] == 401
+    assert _get(third, "/api/health", third_token)[0] == 200

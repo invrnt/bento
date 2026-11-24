@@ -19,7 +19,9 @@ import kotlinx.coroutines.withContext
 class ContentFiles(
     private val http: BentoHttp,
     private val shareDir: File,
-    private val clock: () -> Long = System::currentTimeMillis
+    private val clock: () -> Long = System::currentTimeMillis,
+    /** Called for every file just before [prune] deletes it: revokes its FileProvider grants (SEC-04). */
+    private val onExpired: (File) -> Unit = {}
 ) {
     /** Streams the original into [sink]; [onProgress] gets (bytesDone, bytesTotal or -1). */
     suspend fun stream(assetId: String, sink: OutputStream, onProgress: (Long, Long) -> Unit = { _, _ -> }) {
@@ -75,10 +77,19 @@ class ContentFiles(
         onProgress: (Long, Long) -> Unit = { _, _ -> }
     ): File = plaintextCopy(assetId, "$assetId.pdf", onProgress)
 
-    /** Deletes copies older than [MAX_AGE_MS] (all of them with [everything], at app start). */
+    /**
+     * Deletes copies older than [MAX_AGE_MS] (all of them with [everything], at app start), revoking their URI
+     * grants first. Covers every copy in `cacheDir/share`, including the photo exporter's. Runs at start, at every
+     * new copy, and periodically while the process lives (`ShareCacheJanitor` in `:app`).
+     */
     fun prune(everything: Boolean = false) {
         val now = clock()
-        shareDir.listFiles()?.forEach { dir -> if (everything || now - dir.lastModified() > MAX_AGE_MS) dir.deleteRecursively() }
+        shareDir.listFiles()?.forEach { dir ->
+            if (everything || now - dir.lastModified() > MAX_AGE_MS) {
+                dir.walkBottomUp().filter { it.isFile }.forEach { file -> runCatching { onExpired(file) } }
+                dir.deleteRecursively()
+            }
+        }
     }
 
     fun discard(file: File) {

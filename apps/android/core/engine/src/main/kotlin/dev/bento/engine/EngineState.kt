@@ -8,11 +8,15 @@ sealed interface EngineState {
     /** Interpreter warm-up, configure, migrations, worker and API start. */
     data object Starting : EngineState
 
-    /** API answering on `127.0.0.1:[port]`; every request needs `Authorization: Bearer [token]`. */
-    data class Ready(val port: Int, val token: String, val mode: WorkerMode) : EngineState {
+    /**
+     * API answering on `127.0.0.1:[port]`; every request needs `Authorization: Bearer [token]`, and every response
+     * must carry an `X-Bento-Proof` made with [serverKey] (architecture/android-runtime.md §2.1). Port, token and
+     * server key change together on every API start, so one snapshot of this value is always consistent.
+     */
+    data class Ready(val port: Int, val token: String, val serverKey: String, val mode: WorkerMode) : EngineState {
         val baseUrl: String get() = "http://127.0.0.1:$port"
 
-        override fun toString(): String = "Ready(port=$port, mode=$mode, token=<redacted>)"
+        override fun toString(): String = "Ready(port=$port, mode=$mode, token=<redacted>, serverKey=<redacted>)"
     }
 
     /** Running with a problem, or failing to start; [attention] after 3 crashes in 5 minutes. */
@@ -27,7 +31,13 @@ enum class DegradedReason {
     STALLED,
 
     /** Three start failures within five minutes; surfaced as an attention item. */
-    CRASH_LOOP
+    CRASH_LOOP,
+
+    /**
+     * The device key cannot be unwrapped (Keystore key lost, SEC-11). No retry: the app offers "reset this phone"
+     * ([BentoEngine.resetAfterKeyLoss]), then the person links it again or uses the recovery kit.
+     */
+    KEY_LOST
 }
 
 enum class WorkerMode(val wire: String) {

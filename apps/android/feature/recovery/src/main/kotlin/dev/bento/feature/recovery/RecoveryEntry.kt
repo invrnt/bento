@@ -101,6 +101,7 @@ fun RecoveryEntryScreen(
     }
     LaunchedEffect(state.unlocked) { if (state.unlocked) onUnlocked() }
     SecureWindow()
+    ObscuredTouchGuard()
     val permission = rememberCameraPermission()
     RecoveryEntryContent(
         state = state,

@@ -1,12 +1,15 @@
 package dev.bento.app
 
+import android.content.ComponentName
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -20,6 +23,7 @@ import dev.bento.app.navigation.Navigator
 import dev.bento.app.navigation.StartRouter
 import dev.bento.designsystem.theme.BentoTheme
 import dev.bento.engine.BentoEngine
+import dev.bento.engine.DeviceReset
 import dev.bento.feature.onboarding.AppGateResolver
 import javax.inject.Inject
 import kotlinx.coroutines.launch
@@ -29,6 +33,10 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var engine: BentoEngine
 
     @Inject lateinit var gate: AppGateResolver
+
+    @Inject lateinit var deviceReset: DeviceReset
+
+    private var resetFailed by mutableStateOf(false)
 
     private lateinit var navigator: Navigator
     private lateinit var startRouter: StartRouter
@@ -50,7 +58,13 @@ class MainActivity : ComponentActivity() {
                 val state by engine.state.collectAsStateWithLifecycle()
                 val nav = remember { navigator }
                 BentoTheme {
-                    BentoApp(navigator = nav, engineState = state, onExit = ::finish)
+                    BentoApp(
+                        navigator = nav,
+                        engineState = state,
+                        onExit = ::finish,
+                        onResetDevice = ::resetDevice,
+                        resetFailed = resetFailed
+                    )
                 }
             }
         }
@@ -61,9 +75,25 @@ class MainActivity : ComponentActivity() {
         handleLink(intent)
     }
 
+    /** SEC-11: wipe the unreadable local state, then start over in a fresh process (onboarding: link or recover). */
+    private fun resetDevice() {
+        engine.resetAfterKeyLoss(wipe = deviceReset::wipe) { result ->
+            runOnUiThread {
+                if (result.isFailure) {
+                    resetFailed = true
+                } else {
+                    startActivity(Intent.makeRestartActivityTask(ComponentName(this, MainActivity::class.java)))
+                    Runtime.getRuntime().exit(0)
+                }
+            }
+        }
+    }
+
+    /** Links come from any app or page: a bad one is ignored, never a crash (SEC-05). */
     private fun handleLink(intent: Intent?) {
         if (intent?.action != Intent.ACTION_VIEW) return
         val siteHost = BuildConfig.SITE_URL.removePrefix("https://").substringBefore('/').ifEmpty { null }
-        DeepLinks.parse(intent.dataString, siteHost)?.let { navigator.navigate(it) }
+        val route = runCatching { DeepLinks.parse(intent.dataString, siteHost) }.getOrNull() ?: return
+        navigator.navigate(route)
     }
 }

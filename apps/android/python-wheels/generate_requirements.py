@@ -6,7 +6,7 @@
 Runs `uv export --extra android --no-dev --no-emit-project`, keeps the requirements whose markers hold on Android
 (CPython 3.13, `sys_platform == "android"`), drops the markers, and applies ANDROID_OVERRIDES: packages whose
 uv.lock version has no Android cp313 build, replaced by the newest build in the Chaquopy repository or PyPI.
-pydantic-core, cryptg and pyaes resolve from the wheels build_all.sh puts in python-wheels/dist (`--find-links`).
+pydantic-core, cryptg, pyaes and pillow resolve from the wheels build_all.sh puts in python-wheels/dist (`--find-links`).
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ ANDROID_OVERRIDES: dict[str, tuple[str, str]] = {
     "markupsafe": ("3.0.4", "first release with official android_24 wheels on PyPI"),
 }
 # Built locally (python-wheels/dist), noted in the output for reviewers.
-LOCAL_WHEELS = {"pydantic-core", "cryptg", "pyaes"}
+LOCAL_WHEELS = {"pydantic-core", "cryptg", "pyaes", "pillow"}
 # Evaluated with the target interpreter's values: CPython 3.13 on Android (arm64-v8a or x86_64).
 ANDROID_ENVIRONMENTS = (
     {"sys_platform": "android", "platform_machine": "aarch64", "platform_system": "Android",

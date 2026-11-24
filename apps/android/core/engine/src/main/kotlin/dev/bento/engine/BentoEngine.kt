@@ -1,5 +1,6 @@
 package dev.bento.engine
 
+import dev.bento.engine.bridge.DeviceKeyLostException
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -36,7 +37,7 @@ class BentoEngine(
     private val engineDispatcher: CoroutineDispatcher,
     private val blockingDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val clock: () -> Long = System::currentTimeMillis,
-    tokenFactory: () -> String = ApiTokens::generate,
+    private val tokenFactory: () -> String = ApiTokens::generate,
     private val listeners: Set<EngineLifecycleListener> = emptySet(),
     private val log: EngineLog = EngineLog.None,
     private val idleStopMs: Long = IDLE_STOP_MS,
@@ -47,9 +48,6 @@ class BentoEngine(
     /** Observed by repositories (network calls suspend on [EngineState.Ready]) and background workers. */
     val state: StateFlow<EngineState> = _state.asStateFlow()
 
-    /** Per-process API token: 32 random bytes, base64url, passed to Python in memory only. */
-    private val apiToken: String by lazy(tokenFactory)
-
     private val holders = LinkedHashMap<String, Pair<EngineHolder, Int>>()
     private var configured = false
     private var running = false
@@ -57,6 +55,7 @@ class BentoEngine(
     private var idleStop: Job? = null
     private var retry: Job? = null
     private val failures = ArrayDeque<Long>()
+    private var keyLost = false
     private val warmUpStarted = AtomicBoolean(false)
 
     /** `Application.onCreate`: start the interpreter and warm-up imports in the background; never blocks. */
@@ -105,17 +104,46 @@ class BentoEngine(
     }
 
     /**
-     * A loopback call stalled or failed at the transport level. Checks the API and restarts it on a new
-     * port if it is gone; the UI client treats the stall as [EngineState.Degraded] meanwhile.
+     * A loopback call stalled or failed at the transport level. The state leaves [EngineState.Ready] first, so no
+     * request (and no token) goes to the port while it is checked. A live API keeps its port and credentials; a
+     * dead one restarts on a new port with new credentials (SEC-01: the old token dies with its server).
      */
     fun reportStall() {
         scope.launch(engineDispatcher) {
             val ready = _state.value as? EngineState.Ready ?: return@launch
             _state.value = EngineState.Degraded(DegradedReason.STALLED)
             val status = runCatching { runtime.status() }.getOrNull()
-            val port = if (status?.apiPort == null) runCatching { runtime.startApi() }.getOrNull() else status.apiPort
-            _state.value = if (port != null) ready.copy(port = port) else EngineState.Degraded(DegradedReason.STALLED)
+            _state.value = if (status?.apiPort == ready.port) ready else restartApi(ready)
         }
+    }
+
+    /**
+     * A response from [port] did not carry a valid `X-Bento-Proof`: something other than this API answered (another
+     * app bound a port Bento freed). Stop using the port at once and restart the API with new credentials.
+     */
+    fun reportUnverifiedServer(port: Int) {
+        val ready = _state.value as? EngineState.Ready ?: return
+        if (ready.port != port) return
+        _state.compareAndSet(ready, EngineState.Degraded(DegradedReason.STALLED))
+        scope.launch(engineDispatcher) {
+            if (_state.value != EngineState.Degraded(DegradedReason.STALLED) || !running) return@launch
+            log.warn("loopback server identity not verified; restarting the API")
+            _state.value = restartApi(ready)
+        }
+    }
+
+    private fun restartApi(ready: EngineState.Ready): EngineState {
+        val credentials = newCredentials()
+        val port = runCatching { runtime.startApi(credentials) }.onFailure { log.warn("API restart failed", it) }.getOrNull()
+            ?: return EngineState.Degraded(DegradedReason.STALLED)
+        return EngineState.Ready(port, credentials.token, credentials.serverKey, ready.mode)
+    }
+
+    private fun newCredentials(): ApiCredentials {
+        val credentials = ApiCredentials(tokenFactory(), tokenFactory())
+        Redaction.register(credentials.token)
+        Redaction.register(credentials.serverKey)
+        return credentials
     }
 
     fun activeHolders(): Set<EngineHolder> = synchronized(holders) { holders.values.map { it.first }.toSet() }
@@ -152,7 +180,7 @@ class BentoEngine(
             }
             retry?.cancel()
             if (!running && _state.value is EngineState.Degraded) {
-                _state.value = EngineState.Stopped
+                if (!keyLost) _state.value = EngineState.Stopped // a lost key stays visible until the reset
                 processKeeper.release()
             }
             return
@@ -160,6 +188,7 @@ class BentoEngine(
         idleStop?.cancel()
         idleStop = null
         when {
+            keyLost -> _state.value = EngineState.Degraded(DegradedReason.KEY_LOST, attention = true)
             !running && retry?.isActive != true -> startNow(desired)
             running && runningMode == WorkerMode.DRAIN && desired == WorkerMode.FULL -> switchMode(desired)
         }
@@ -172,10 +201,9 @@ class BentoEngine(
         try {
             runtime.warmUp()
             if (!configured) {
-                Redaction.register(apiToken)
                 val key = wrappingKey()
                 try {
-                    runtime.configure(config(), key, apiToken)
+                    runtime.configure(config(), key)
                 } finally {
                     key.fill(0)
                 }
@@ -184,10 +212,11 @@ class BentoEngine(
             val migration = runtime.migrate()
             log.info("migrations ran=${migration.ran} to=${migration.to} in ${migration.ms} ms")
             runtime.startWorker(mode)
-            val port = runtime.startApi()
+            val credentials = newCredentials()
+            val port = runtime.startApi(credentials)
             running = true
             runningMode = mode
-            _state.value = EngineState.Ready(port, apiToken, mode)
+            _state.value = EngineState.Ready(port, credentials.token, credentials.serverKey, mode)
             log.info("engine ready (${mode.wire}) in ${(System.nanoTime() - startedNs) / NANOS_PER_MS} ms")
             listeners.forEach { listener -> runCatching { listener.onEngineRunning() } }
         } catch (error: Throwable) {
@@ -195,7 +224,12 @@ class BentoEngine(
             runCatching { runtime.stop(STOP_TIMEOUT_MS) }
             running = false
             runningMode = null
-            onStartFailure()
+            if (generateSequence(error) { it.cause }.any { it is DeviceKeyLostException }) {
+                keyLost = true // permanent: retrying would loop forever (SEC-11)
+                _state.value = EngineState.Degraded(DegradedReason.KEY_LOST, attention = true)
+            } else {
+                onStartFailure()
+            }
         }
     }
 
@@ -222,6 +256,25 @@ class BentoEngine(
         }
     }
 
+    /**
+     * After [DegradedReason.KEY_LOST]: [wipe] removes this phone's unreadable local state (wrapped key, catalog,
+     * caches) while nothing is running, then [onDone] runs (the app restarts into onboarding: link again or recover).
+     */
+    fun resetAfterKeyLoss(wipe: () -> Unit, onDone: (Result<Unit>) -> Unit) {
+        scope.launch(engineDispatcher) {
+            if (!keyLost) return@launch onDone(Result.failure(IllegalStateException("the device key is not lost")))
+            runCatching { runtime.stop(STOP_TIMEOUT_MS) }
+            val result = runCatching(wipe)
+            if (result.isSuccess) {
+                keyLost = false
+                failures.clear()
+                _state.value = EngineState.Stopped
+            }
+            onDone(result)
+            if (result.isSuccess) reconcileNow() // current holders start a fresh engine (new key, empty catalog)
+        }
+    }
+
     private fun switchMode(mode: WorkerMode) {
         runCatching { runtime.startWorker(mode) }
             .onSuccess {
@@ -232,11 +285,12 @@ class BentoEngine(
     }
 
     private fun stopNow() {
+        // Leave Ready before the listener closes: no request may reach the port once another app could bind it.
+        _state.value = EngineState.Stopped
         listeners.forEach { listener -> runCatching { listener.onEngineStopping() } }
         runCatching { runtime.stop(STOP_TIMEOUT_MS) }.onFailure { log.warn("engine stop failed", it) }
         running = false
         runningMode = null
-        _state.value = EngineState.Stopped
         processKeeper.release()
     }
 

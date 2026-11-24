@@ -70,4 +70,25 @@ class DeepLinksTest {
         assertNull(DeepLinks.parse("bento://recovery?c=ABCD", null))
         assertNull(DeepLinks.parse(null, null))
     }
+
+    @Test
+    fun `the site's trailing-slash join path is a join link too`() {
+        assertEquals(Route.Join("ABCD-EFGH"), DeepLinks.parse("https://bento.example/join/#v=1&c=ABCD-EFGH", "bento.example"))
+        assertEquals(Route.Join(null), DeepLinks.parse("https://bento.example/join/", "bento.example"))
+        assertNull(DeepLinks.parse("https://bento.example/join/other#v=1&c=ABCD", "bento.example"))
+    }
+
+    @Test
+    fun `SEC-05 malformed escapes and oversize links never throw`() {
+        // Malformed escapes: rejected (null), never an exception out of onCreate/onNewIntent.
+        assertNull(DeepLinks.parse("bento://join?v=1&c=%zz", null))
+        assertNull(DeepLinks.parse("bento://join?v=1&c=%", null))
+        assertNull(DeepLinks.parse("bento://join?v=%E0%A4%A&c=ABCD", null))
+        assertNull(DeepLinks.parse("https://bento.example/join#v=1&c=%zz%", "bento.example"))
+        assertEquals(Route.Join(null), DeepLinks.parse("bento://join?v=1&c=%FF%FE", null)) // valid escape, not UTF-8
+        assertNull(DeepLinks.parse("bento://join?v=1&c=ABCD&pad=" + "A".repeat(DeepLinks.MAX_LINK_LENGTH), null))
+        assertEquals(Route.Join(null), DeepLinks.parse("bento://join?" + "a=1&".repeat(400) + "v=1&c=ABCD", null))
+        assertNull(DeepLinks.parse("bento://join?v=1&c=AB CD", null)) // not a URI
+        assertNull(DeepLinks.parse("\u0000bento://join", null))
+    }
 }

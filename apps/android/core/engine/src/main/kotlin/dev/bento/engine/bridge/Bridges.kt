@@ -6,20 +6,31 @@ package dev.bento.engine.bridge
  * structured results are JSON strings with snake_case keys, failures throw [BridgeException].
  * `source` arguments are an absolute path or `fd:<n>` (a descriptor owned by the caller).
  */
-class BridgeException(val code: String, message: String, cause: Throwable? = null) : RuntimeException(message, cause) {
+open class BridgeException(val code: String, message: String, cause: Throwable? = null) : RuntimeException(message, cause) {
     companion object {
         const val UNSUPPORTED = "unsupported"
         const val NOT_FOUND = "not_found"
         const val PERMISSION_DENIED = "permission_denied"
         const val IO = "io"
         const val CANCELLED = "cancelled"
+        const val KEY_LOST = "key_lost"
     }
 }
 
+/**
+ * `wrapping.bin` exists but can no longer be unwrapped: the AndroidKeystore key is gone or was replaced (OEM keystore
+ * reset, data restored without keys) or the file is corrupt. Permanent: the engine stops retrying and the app offers
+ * "reset this phone" (SEC-11).
+ */
+class DeviceKeyLostException(message: String, cause: Throwable? = null) : BridgeException(KEY_LOST, message, cause)
+
 /** Device wrapping key for `WrappedFileKeyStore`; passed to `configure` in memory (not a Python bridge). */
 interface KeyWrapping {
-    /** The unwrapped 32-byte `BENTO_DEVICE_WRAPPING_KEY`; the caller zeroes it after use. */
+    /** The unwrapped 32-byte `BENTO_DEVICE_WRAPPING_KEY`; the caller zeroes it after use. Throws [DeviceKeyLostException]. */
     fun deviceWrappingKey(): ByteArray
+
+    /** Forget the wrapped key and its Keystore key (reset after [DeviceKeyLostException]); the next call creates new ones. */
+    fun reset() = Unit
 }
 
 /** Bridge key `media_tools`. */

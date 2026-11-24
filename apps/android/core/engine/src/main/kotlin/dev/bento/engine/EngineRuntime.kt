@@ -10,14 +10,17 @@ interface EngineRuntime {
     /** Starts the interpreter and imports the backend in a fixed order. Idempotent. */
     fun warmUp()
 
-    fun configure(config: EngineConfig, wrappingKey: ByteArray, apiToken: String)
+    fun configure(config: EngineConfig, wrappingKey: ByteArray)
 
     fun migrate(): MigrationResult
 
     fun startWorker(mode: WorkerMode)
 
-    /** Starts uvicorn on a loopback ephemeral port and returns it once accepting. */
-    fun startApi(): Int
+    /**
+     * Starts uvicorn on a loopback ephemeral port with these per-start [credentials] and returns the port once
+     * accepting. New credentials replace a running API (new port); the same ones return its port.
+     */
+    fun startApi(credentials: ApiCredentials): Int
 
     fun runWorkerUntil(deadlineEpochMs: Long, kinds: List<String>?): WorkerRunResult
 

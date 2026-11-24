@@ -51,6 +51,25 @@ roborazzi {
     outputDir.set(layout.projectDirectory.dir("src/test/screenshots"))
 }
 
+// SEC-10: a release must ship a real, verifiable App Links host (debug keeps the `bento.example` default). Packaging
+// a release fails unless `bentoSiteHost` names the production site and `bentoSiteUrl` is `https://<that host>`.
+val verifyReleaseSiteHost = tasks.register("verifyReleaseSiteHost") {
+    val host = providers.gradleProperty("bentoSiteHost").orElse("")
+    val url = providers.gradleProperty("bentoSiteUrl").orElse("")
+    doLast {
+        val siteHost = host.get().trim().lowercase()
+        val placeholder = siteHost.isEmpty() || siteHost == "bento.example" || siteHost.endsWith(".example") ||
+            siteHost == "localhost" || !Regex("^[a-z0-9.-]+\\.[a-z]{2,}$").matches(siteHost)
+        if (placeholder) {
+            throw GradleException("Release builds need -PbentoSiteHost=<production site host> (got '$siteHost'), SEC-10")
+        }
+        if (url.get().trim().removeSuffix("/").lowercase() != "https://$siteHost") {
+            throw GradleException("Release builds need -PbentoSiteUrl=https://$siteHost (SEC-10)")
+        }
+    }
+}
+tasks.matching { it.name == "packageRelease" || it.name == "bundleRelease" }.configureEach { dependsOn(verifyReleaseSiteHost) }
+
 dependencies {
     implementation(project(":core:engine"))
     implementation(project(":core:api"))

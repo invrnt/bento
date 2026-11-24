@@ -6,6 +6,7 @@ import json
 import subprocess
 from pathlib import Path
 
+from bento.adapters.media.image_formats import open_formats
 from bento.application.media.service import GeneratedMediaFile
 from bento.domain.assets import Asset, AssetKind
 from bento.domain.errors import UnsupportedMediaTypeError
@@ -51,7 +52,7 @@ class LocalMediaGenerator:
 
         target_dir = self._asset_cache_dir(asset.id)
         generated: list[GeneratedMediaFile] = []
-        with Image.open(source_path) as image:
+        with Image.open(source_path, formats=open_formats()) as image:
             image = ImageOps.exif_transpose(image)
             for label, max_side in (("thumb-sm", 256), ("thumb-md", 512), ("preview", 1600)):
                 copy = image.copy()

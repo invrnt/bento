@@ -23,7 +23,7 @@ class ShellScreenshotTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private fun shell(dark: Boolean, state: EngineState = EngineState.Ready(1, "t", dev.bento.engine.WorkerMode.FULL)) {
+    private fun shell(dark: Boolean, state: EngineState = EngineState.Ready(1, "t", "k", dev.bento.engine.WorkerMode.FULL)) {
         compose.setContent {
             BentoTheme(darkTheme = dark, reducedMotion = true) {
                 BentoApp(Navigator(), state, onExit = {}, entries = { shellPreviewEntries() })

@@ -45,6 +45,7 @@ import dev.bento.designsystem.theme.BentoTheme
 import dev.bento.designsystem.theme.bentoHaptics
 import dev.bento.feature.recovery.Hero
 import dev.bento.feature.recovery.HeroTone
+import dev.bento.feature.recovery.ObscuredTouchGuard
 import dev.bento.feature.recovery.SecureWindow
 import dev.bento.feature.recovery.SensitiveClipboard
 import dev.bento.feature.recovery.SetupScaffold
@@ -141,6 +142,7 @@ fun HostPairingContent(
             onBack = onClose,
             modifier = modifier,
             actions = {
+                ObscuredTouchGuard() // an overlay must not hide the emojis while a tap lands on "Añadir" (SEC-09)
                 BentoButton(
                     stringResource(StringsR.string.pairing_host_approve),
                     onApprove,
