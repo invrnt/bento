@@ -1,5 +1,6 @@
 package dev.bento.testing
 
+import dev.bento.engine.ApiCredentials
 import dev.bento.engine.EngineConfig
 import dev.bento.engine.EngineRuntime
 import dev.bento.engine.EngineStatus
@@ -17,8 +18,9 @@ class FakeEngineRuntime(
     val events = CopyOnWriteArrayList<Pair<String, String>>()
     var configuredWith: EngineConfig? = null
         private set
-    var configuredToken: String? = null
-        private set
+
+    /** Credentials of every `startApi` call, in order (the last one is the live API's). */
+    val apiCredentials = CopyOnWriteArrayList<ApiCredentials>()
     var configuredKeySize: Int = 0
         private set
     var apiPort: Int? = null
@@ -30,10 +32,9 @@ class FakeEngineRuntime(
         calls += "warmUp"
     }
 
-    override fun configure(config: EngineConfig, wrappingKey: ByteArray, apiToken: String) {
+    override fun configure(config: EngineConfig, wrappingKey: ByteArray) {
         calls += "configure"
         configuredWith = config
-        configuredToken = apiToken
         configuredKeySize = wrappingKey.size
     }
 
@@ -51,8 +52,11 @@ class FakeEngineRuntime(
         workerMode = mode
     }
 
-    override fun startApi(): Int {
+    override fun startApi(credentials: ApiCredentials): Int {
         calls += "startApi"
+        val live = apiPort
+        if (live != null && apiCredentials.lastOrNull() === credentials) return live
+        apiCredentials += credentials
         val port = nextPort++
         apiPort = port
         return port
@@ -63,8 +67,12 @@ class FakeEngineRuntime(
         return runResult
     }
 
+    /** Runs inside [stop] (before the fake listener closes), e.g. to observe the engine state at that moment. */
+    var onStop: (() -> Unit)? = null
+
     override fun stop(timeoutMs: Long) {
         calls += "stop"
+        onStop?.invoke()
         apiPort = null
         workerMode = null
     }

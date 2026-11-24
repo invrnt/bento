@@ -37,7 +37,7 @@ class ChaquopyEngineRuntime(
         }
     }
 
-    override fun configure(config: EngineConfig, wrappingKey: ByteArray, apiToken: String) {
+    override fun configure(config: EngineConfig, wrappingKey: ByteArray) {
         val py = Python.getInstance()
         val builtins = py.builtins
         val dict = builtins.callAttr("dict")
@@ -46,7 +46,6 @@ class ChaquopyEngineRuntime(
         }
         EngineConfigWire.values(config).forEach { (key, value) -> put(dict, key, value) }
         put(dict, "wrapping_key", builtins.callAttr("bytes", wrappingKey))
-        put(dict, "api_token", apiToken)
         val settings = builtins.callAttr("dict")
         EngineConfigWire.settings(config).forEach { (key, value) -> put(settings, key, value) }
         put(dict, "settings", settings)
@@ -70,7 +69,9 @@ class ChaquopyEngineRuntime(
         trace("bento.engine.startWorker") { module.callAttr("start_worker", mode.wire) }
     }
 
-    override fun startApi(): Int = trace("bento.engine.startApi") { module.callAttr("start_api").toInt() }
+    override fun startApi(credentials: ApiCredentials): Int = trace("bento.engine.startApi") {
+        module.callAttr("start_api", credentials.token, credentials.serverKey).toInt()
+    }
 
     override fun runWorkerUntil(deadlineEpochMs: Long, kinds: List<String>?): WorkerRunResult {
         val pyKinds = kinds?.let { list -> Python.getInstance().builtins.callAttr("list", list.toTypedArray()) }

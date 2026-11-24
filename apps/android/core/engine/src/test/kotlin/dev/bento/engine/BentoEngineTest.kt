@@ -182,6 +182,43 @@ class BentoEngineTest {
     }
 
     @Test
+    fun `SEC-11 a lost device key stops retrying and survives holder changes until the reset`() = runTest {
+        val h = TestEngineHarness(this)
+        h.keys.lost = true
+        val ui = h.engine.acquire(EngineHolder.Ui)
+        runCurrent()
+        val keyLost = EngineState.Degraded(DegradedReason.KEY_LOST, attention = true)
+        assertEquals(keyLost, h.engine.state.value)
+        advanceTimeBy(10 * 60_000)
+        runCurrent()
+        assertEquals("no start loop", 1, h.keys.calls)
+        ui.close()
+        runCurrent()
+        assertEquals(keyLost, h.engine.state.value)
+        assertFalse(h.keeper.kept)
+        h.engine.acquire(EngineHolder.Ui)
+        runCurrent()
+        assertEquals(keyLost, h.engine.state.value)
+        assertEquals(1, h.keys.calls)
+
+        var outcome: Result<Unit>? = null
+        h.engine.resetAfterKeyLoss(wipe = h.keys::reset) { outcome = it }
+        runCurrent()
+        assertTrue(outcome!!.isSuccess)
+        assertEquals(1, h.keys.resets)
+        assertTrue("the held engine starts fresh", h.engine.state.value is EngineState.Ready)
+    }
+
+    @Test
+    fun `resetAfterKeyLoss refuses when the key is not lost`() = runTest {
+        val h = TestEngineHarness(this)
+        var outcome: Result<Unit>? = null
+        h.engine.resetAfterKeyLoss(wipe = { fail("must not wipe") }) { outcome = it }
+        runCurrent()
+        assertTrue(outcome!!.isFailure)
+    }
+
+    @Test
     fun `stall with the API gone restarts it on a new port`() = runTest {
         val h = TestEngineHarness(this)
         h.engine.acquire(EngineHolder.Ui)

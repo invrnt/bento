@@ -38,7 +38,7 @@ class ShellStateTest {
         val navigator = Navigator()
         compose.setContent {
             BentoTheme(darkTheme = false, reducedMotion = true) {
-                BentoApp(navigator, EngineState.Ready(1, "t", WorkerMode.FULL), onExit = {}, entries = {
+                BentoApp(navigator, EngineState.Ready(1, "t", "k", WorkerMode.FULL), onExit = {}, entries = {
                     entry<Route.Photos>(metadata = EntryInsets.Tabs) {
                         var taps by rememberSaveable { mutableIntStateOf(0) }
                         Text("$taps", Modifier.testTag("count").clickable { taps++ })

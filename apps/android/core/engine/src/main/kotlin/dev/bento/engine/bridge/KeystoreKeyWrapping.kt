@@ -6,6 +6,7 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.security.keystore.StrongBoxUnavailableException
 import java.io.File
+import java.io.FileOutputStream
 import java.security.KeyStore
 import java.security.SecureRandom
 import javax.crypto.Cipher
@@ -15,7 +16,13 @@ import javax.crypto.spec.GCMParameterSpec
 
 /** Supplies the AES-256-GCM key that wraps the device key. */
 fun interface WrappingKeySource {
+    /** The key, created if it does not exist. */
     fun key(): SecretKey
+
+    /** The key if it exists; never creates one (an existing `wrapping.bin` needs the key that made it). */
+    fun existingKey(): SecretKey? = key()
+
+    fun delete() = Unit
 }
 
 /**
@@ -30,14 +37,27 @@ class KeystoreKeyWrapping(
 ) : KeyWrapping {
     @Synchronized
     override fun deviceWrappingKey(): ByteArray {
-        if (file.exists()) return unwrap(file.readBytes())
+        if (file.exists()) {
+            val key = keySource.existingKey() ?: throw DeviceKeyLostException("the Keystore key for wrapping.bin is gone")
+            return unwrap(file.readBytes(), key)
+        }
         val raw = ByteArray(KEY_BYTES).also(random::nextBytes)
         val wrapped = wrap(raw)
         file.parentFile?.mkdirs()
         val tmp = File(file.parentFile, "${file.name}.tmp")
-        tmp.writeBytes(wrapped)
+        FileOutputStream(tmp).use { out ->
+            out.write(wrapped)
+            out.fd.sync() // durable before the rename publishes it
+        }
         if (!tmp.renameTo(file)) throw BridgeException(BridgeException.IO, "cannot persist wrapping key")
         return raw
+    }
+
+    @Synchronized
+    override fun reset() {
+        file.delete()
+        File(file.parentFile, "${file.name}.tmp").delete()
+        keySource.delete()
     }
 
     private fun wrap(raw: ByteArray): ByteArray {
@@ -48,18 +68,18 @@ class KeystoreKeyWrapping(
         return byteArrayOf(VERSION) + iv + cipher.doFinal(raw)
     }
 
-    private fun unwrap(blob: ByteArray): ByteArray {
+    private fun unwrap(blob: ByteArray, key: SecretKey): ByteArray {
         if (blob.size < 1 + IV_BYTES + TAG_BYTES || blob[0] != VERSION) {
-            throw BridgeException(BridgeException.IO, "wrapping.bin has an unknown format")
+            throw DeviceKeyLostException("wrapping.bin has an unknown format")
         }
         val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.DECRYPT_MODE, keySource.key(), GCMParameterSpec(TAG_BYTES * 8, blob, 1, IV_BYTES))
+        cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(TAG_BYTES * 8, blob, 1, IV_BYTES))
         val raw = try {
             cipher.doFinal(blob, 1 + IV_BYTES, blob.size - 1 - IV_BYTES)
         } catch (error: javax.crypto.AEADBadTagException) {
-            throw BridgeException(BridgeException.IO, "wrapping.bin cannot be unwrapped", error)
+            throw DeviceKeyLostException("wrapping.bin cannot be unwrapped with the current Keystore key", error)
         }
-        if (raw.size != KEY_BYTES) throw BridgeException(BridgeException.IO, "wrapping.bin has a bad key size")
+        if (raw.size != KEY_BYTES) throw DeviceKeyLostException("wrapping.bin has a bad key size")
         return raw
     }
 
@@ -75,9 +95,16 @@ class KeystoreKeyWrapping(
 
 /** AndroidKeystore AES-256-GCM key, StrongBox when present, else TEE; not user-authentication bound. */
 class AndroidKeystoreKeySource(private val packageManager: PackageManager) : WrappingKeySource {
+    override fun existingKey(): SecretKey? = store().getKey(KeystoreKeyWrapping.ALIAS, null) as? SecretKey
+
+    override fun delete() {
+        store().deleteEntry(KeystoreKeyWrapping.ALIAS)
+    }
+
+    private fun store(): KeyStore = KeyStore.getInstance(KEYSTORE).apply { load(null) }
+
     override fun key(): SecretKey {
-        val store = KeyStore.getInstance(KEYSTORE).apply { load(null) }
-        (store.getKey(KeystoreKeyWrapping.ALIAS, null) as? SecretKey)?.let { return it }
+        existingKey()?.let { return it }
         val strongBox = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
             packageManager.hasSystemFeature(PackageManager.FEATURE_STRONGBOX_KEYSTORE)
         return try {
