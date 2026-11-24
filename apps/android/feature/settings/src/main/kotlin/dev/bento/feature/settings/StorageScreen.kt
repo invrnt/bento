@@ -212,7 +212,7 @@ private fun StorageBody(state: StorageUiState, actions: StorageActions) {
             body = stringResource(StringsR.string.storage_cleared, Formatter.formatShortFileSize(context, it))
         )
     }
-    SettingsGroup(stringResource(StringsR.string.storage_cache_limit)) {
+    SettingsGroup(title = stringResource(StringsR.string.storage_cache_limit)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SegmentedButtons(
                 options = PhoneSettings.CACHE_CHOICES_GB.map {
@@ -237,7 +237,7 @@ private fun StorageBody(state: StorageUiState, actions: StorageActions) {
             enabled = !state.clearing
         )
     }
-    SettingsGroup(stringResource(StringsR.string.storage_offline_title)) {
+    SettingsGroup(title = stringResource(StringsR.string.storage_offline_title)) {
         if (state.offline.isEmpty()) {
             Text(
                 stringResource(StringsR.string.storage_offline_empty),

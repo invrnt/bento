@@ -1,9 +1,9 @@
 package dev.bento.app.navigation
 
 import android.content.Intent
-import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.net.toUri
 import dev.bento.app.BuildConfig
 import dev.bento.feature.activity.AccountAvatar
 import dev.bento.feature.activity.ActivityNavigation
@@ -30,7 +30,7 @@ internal fun activityNavigation(navigator: Navigator): ActivityNavigation {
             context.startActivity(
                 Intent(
                     Intent.ACTION_VIEW,
-                    Uri.parse(StallDetector.helpUrl(android.os.Build.MANUFACTURER))
+                    StallDetector.helpUrl(android.os.Build.MANUFACTURER).toUri()
                 ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
         }

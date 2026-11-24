@@ -21,6 +21,7 @@ object MediaPermissions {
     private const val TIRAMISU = 33
 
     /** What `Respaldar fotos` requests: images + videos (13+, plus the partial-selection grant on 14+), storage (≤ 12). */
+    @android.annotation.SuppressLint("InlinedApi") // each list is only used on the SDK level it is chosen for
     fun media(sdk: Int = Build.VERSION.SDK_INT): List<String> = when {
         sdk >= UPSIDE_DOWN_CAKE -> listOf(
             Manifest.permission.READ_MEDIA_IMAGES,
@@ -35,6 +36,7 @@ object MediaPermissions {
 
     const val LOCATION = Manifest.permission.ACCESS_MEDIA_LOCATION
 
+    @android.annotation.SuppressLint("InlinedApi") // guarded by [sdk]
     fun access(sdk: Int, granted: (String) -> Boolean): MediaAccess = when {
         sdk >= TIRAMISU && granted(Manifest.permission.READ_MEDIA_IMAGES) -> MediaAccess.Full
         sdk >= UPSIDE_DOWN_CAKE && granted(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) -> MediaAccess.Partial

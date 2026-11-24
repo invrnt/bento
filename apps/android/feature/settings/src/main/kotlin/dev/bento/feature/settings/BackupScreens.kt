@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -142,7 +143,7 @@ internal fun rememberBackupActions(viewModel: BackupViewModel, onFinished: () ->
             context.startActivity(
                 Intent(
                     Intent.ACTION_VIEW,
-                    Uri.parse(StallDetector.helpUrl(android.os.Build.MANUFACTURER))
+                    StallDetector.helpUrl(android.os.Build.MANUFACTURER).toUri()
                 ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
         },
@@ -288,11 +289,11 @@ private fun BackupSettingsBody(state: BackupUiState, actions: BackupActions, now
         }
     }
     if (state.buckets.isNotEmpty()) {
-        SettingsGroup(stringResource(StringsR.string.backup_folders)) {
+        SettingsGroup(title = stringResource(StringsR.string.backup_folders)) {
             state.buckets.forEach { row -> BucketRowView(row, actions, enabled = !state.saving) }
         }
     }
-    SettingsGroup(stringResource(StringsR.string.backup_policy_title)) {
+    SettingsGroup(title = stringResource(StringsR.string.backup_policy_title)) {
         SwitchRow(
             stringResource(StringsR.string.backup_policy_wifi),
             checked = settings?.wifiOnly ?: true,

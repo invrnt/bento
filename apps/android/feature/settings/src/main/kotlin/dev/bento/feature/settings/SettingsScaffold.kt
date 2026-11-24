@@ -72,7 +72,7 @@ fun SettingsPage(
 
 /** A compartment of related rows (`raised`, 14 dp radius) with an optional section title above it. */
 @Composable
-fun SettingsGroup(title: String? = null, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+fun SettingsGroup(modifier: Modifier = Modifier, title: String? = null, content: @Composable ColumnScope.() -> Unit) {
     Column(modifier.fillMaxWidth()) {
         if (title != null) {
             dev.bento.designsystem.component.SectionHeader(title)

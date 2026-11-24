@@ -34,6 +34,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.bento.designsystem.component.BentoButton
@@ -137,7 +138,7 @@ fun SettingsScreen(
         onRelay = viewModel::setRelayUrl,
         onAskReset = viewModel::askReset,
         onReset = viewModel::reset,
-        onOpenUrl = { url -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        onOpenUrl = { url -> context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     )
     SettingsContent(state, actions, navigation, modifier, initialSection, siteUrl)
 }
@@ -366,7 +367,7 @@ internal fun initialsOf(name: String): String =
 fun GeneralPage(state: SettingsUiState, actions: SettingsActions, onBack: (() -> Unit)?) {
     val prefs = state.prefs
     SettingsPage(stringResource(StringsR.string.settings_section_general), onBack) {
-        SettingsGroup(stringResource(StringsR.string.settings_theme)) {
+        SettingsGroup(title = stringResource(StringsR.string.settings_theme)) {
             SegmentedButtons(
                 options = listOf(
                     SegmentOption(ThemeChoice.System, stringResource(StringsR.string.settings_theme_system)),
@@ -378,7 +379,7 @@ fun GeneralPage(state: SettingsUiState, actions: SettingsActions, onBack: (() ->
                 modifier = Modifier.fillMaxWidth().padding(12.dp)
             )
         }
-        SettingsGroup(stringResource(StringsR.string.settings_language)) {
+        SettingsGroup(title = stringResource(StringsR.string.settings_language)) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 SettingsRow(
                     stringResource(StringsR.string.settings_language),
@@ -399,7 +400,7 @@ fun GeneralPage(state: SettingsUiState, actions: SettingsActions, onBack: (() ->
                 )
             }
         }
-        SettingsGroup(stringResource(StringsR.string.settings_lock)) {
+        SettingsGroup(title = stringResource(StringsR.string.settings_lock)) {
             SwitchRow(
                 stringResource(StringsR.string.settings_lock),
                 checked = prefs.lockEnabled,
@@ -448,7 +449,7 @@ fun GeneralPage(state: SettingsUiState, actions: SettingsActions, onBack: (() ->
 @Composable
 fun AccountPage(state: SettingsUiState, actions: SettingsActions, navigation: SettingsNavigation, onBack: (() -> Unit)?) {
     SettingsPage(stringResource(StringsR.string.settings_section_account), onBack) {
-        SettingsGroup(stringResource(StringsR.string.settings_telegram_account)) {
+        SettingsGroup(title = stringResource(StringsR.string.settings_telegram_account)) {
             val account = state.account
             if (state.signedIn && account != null) {
                 ListRow(
@@ -477,7 +478,7 @@ fun AccountPage(state: SettingsUiState, actions: SettingsActions, navigation: Se
                 )
             }
         }
-        SettingsGroup(stringResource(StringsR.string.settings_recovery)) {
+        SettingsGroup(title = stringResource(StringsR.string.settings_recovery)) {
             val summary = when {
                 state.vault == null -> null
                 state.vault.recoveryKitStale -> stringResource(StringsR.string.settings_recovery_stale)
@@ -525,7 +526,7 @@ fun SearchPage(state: SettingsUiState, actions: SettingsActions, onBack: (() -> 
 @Composable
 fun TelegramPage(navigation: SettingsNavigation, onBack: (() -> Unit)?) {
     SettingsPage(stringResource(StringsR.string.settings_section_telegram), onBack) {
-        SettingsGroup(stringResource(StringsR.string.settings_inbox)) {
+        SettingsGroup(title = stringResource(StringsR.string.settings_inbox)) {
             ListRow(
                 headline = stringResource(StringsR.string.settings_inbox_title),
                 supporting = stringResource(StringsR.string.settings_inbox_body),
@@ -546,7 +547,7 @@ fun TelegramPage(navigation: SettingsNavigation, onBack: (() -> Unit)?) {
                 icon = BentoIcons.Download
             )
         }
-        SettingsGroup(stringResource(StringsR.string.settings_send_telegram)) {
+        SettingsGroup(title = stringResource(StringsR.string.settings_send_telegram)) {
             ListRow(
                 headline = stringResource(StringsR.string.common_action_send_telegram),
                 supporting = stringResource(StringsR.string.settings_send_telegram_body),
@@ -643,7 +644,7 @@ fun AboutPage(state: SettingsUiState, actions: SettingsActions, siteUrl: String,
                 leading = { dev.bento.designsystem.component.BrandMark(size = 28.dp) }
             )
         }
-        SettingsGroup(stringResource(StringsR.string.settings_privacy)) {
+        SettingsGroup(title = stringResource(StringsR.string.settings_privacy)) {
             PrivacyLine(BentoIcons.Lock, StringsR.string.settings_privacy_encrypted)
             PrivacyLine(BentoIcons.Send, StringsR.string.settings_privacy_telegram)
             PrivacyLine(BentoIcons.Link, StringsR.string.settings_privacy_relay)

@@ -129,6 +129,8 @@ fun LockScreen(onUnlock: () -> Unit, modifier: Modifier = Modifier) {
  * wraps its base context with the chosen locale.
  */
 object AppLanguage {
+    // Distributed as APKs (no language splits), so no Play Core language download is involved.
+    @android.annotation.SuppressLint("AppBundleLocaleChanges")
     fun wrap(base: Context, tag: String): Context {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU || tag.isBlank()) return base
         val locale = Locale.forLanguageTag(tag)
