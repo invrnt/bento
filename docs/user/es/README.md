@@ -17,6 +17,7 @@ English: [Bento guides](../en/README.md).
 - [Bandeja de Telegram](bandeja-de-telegram.md): manda cosas a Bento desde el móvil.
 - [Compartir e importar](compartir-e-importar.md): enviar copias por Telegram y traer lo que ya tienes allí.
 - [Papelera y espacio en el equipo](papelera-y-espacio.md): recuperar lo borrado y controlar cuánto ocupa Bento.
+- [Bento desde la terminal](cli.md): el comando `bento` para servidores, scripts y agentes de IA.
 
 ## Confianza y ayuda
 

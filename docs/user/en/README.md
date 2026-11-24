@@ -19,6 +19,7 @@ Español: [Guías de Bento](../es/README.md).
 - [Telegram inbox](telegram-inbox.md): send things to Bento from your phone.
 - [Share and import](share-and-import.md): send copies through Telegram and bring in what you already keep there.
 - [Trash and space on this computer](trash-and-storage.md): get deleted items back and control how much space Bento uses.
+- [Bento from the terminal](cli.md): the `bento` command for servers, scripts and AI agents.
 
 ## Trust and help
 

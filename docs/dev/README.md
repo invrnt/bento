@@ -10,6 +10,8 @@ Everything a maintainer needs to build, configure and ship the Telegram-first Be
 | [Public site](site.md) | Building and deploying `apps/site` to Cloudflare Pages and setting `BENTO_PUBLIC_SITE_URL`. |
 | [Multi-device development](multi-device.md) | Running two local Bento instances against the fake Telegram cloud. |
 | [Launch checklist](launch-checklist.md) | Owner actions before the first public release: credentials, relay, signing key, legal review. |
+| [CLI](cli.md) | The `bento` command: profiles, daemon, desktop discovery, packaging and tests. |
+| [CLI](cli.md) | The `bento` command: profiles, daemon, desktop discovery, packaging and tests. |
 
 Related:
 
