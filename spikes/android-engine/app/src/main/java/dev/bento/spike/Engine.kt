@@ -38,6 +38,13 @@ object Engine {
             .build()
     }
 
+    /** CPython's `-X importtime`: the env var is read at interpreter init; its report goes to native fd 2. */
+    private fun captureImportTime() {
+        android.system.Os.setenv("PYTHONPROFILEIMPORTTIME", "1", true)
+        val out = java.io.FileOutputStream(File(appContext.filesDir, "importtime.txt"))
+        android.system.Os.dup2(out.fd, 2)
+    }
+
     fun baselineMode(context: Context): Boolean = File(context.filesDir, "no-python").exists()
 
     fun warmUp(context: Context) {
@@ -51,6 +58,7 @@ object Engine {
         }
         Thread({
             try {
+                if (File(appContext.filesDir, "import-time").exists()) captureImportTime()
                 val t0 = SystemClock.uptimeMillis()
                 if (!Python.isStarted()) Python.start(AndroidPlatform(appContext))
                 val t1 = SystemClock.uptimeMillis()
@@ -76,7 +84,7 @@ object Engine {
         val processStart = Process.getStartUptimeMillis()
         interpreterReady.await()
         warmUpError?.let { throw it }
-        val dataRoot = File(appContext.noBackupFilesDir, "bento")
+        val dataRoot = File(appContext.noBackupFilesDir, options.optString("data_name", "bento"))
         val config = JSONObject()
             .put("data_dir", File(dataRoot, "data").absolutePath)
             .put("fake_cloud_dir", options.optString("fake_cloud_dir", File(appContext.filesDir, "fake-cloud").absolutePath))

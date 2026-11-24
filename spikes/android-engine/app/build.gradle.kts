@@ -5,6 +5,8 @@ plugins {
 
 val backendRoot = rootProject.layout.projectDirectory.dir("../../apps/api")
 val generatedPython = layout.buildDirectory.dir("generated/bento-python")
+// Chaquopy needs ndk.abiFilters, which AGP forbids together with ABI splits: size one ABI at a time with -PbentoAbis=…
+val abis = providers.gradleProperty("bentoAbis").getOrElse("arm64-v8a,x86_64").split(",").map { it.trim() }
 
 android {
     namespace = "dev.bento.spike"
@@ -17,17 +19,7 @@ android {
         versionCode = 1
         versionName = "0.0.1-spike"
         ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64")
-        }
-    }
-
-    // One APK per ABI so each can be sized separately (`apkanalyzer apk download-size`).
-    splits {
-        abi {
-            isEnable = providers.gradleProperty("bentoAbiSplits").map { it.toBoolean() }.getOrElse(false)
-            reset()
-            include("arm64-v8a", "x86_64")
-            isUniversalApk = false
+            abiFilters += abis
         }
     }
 

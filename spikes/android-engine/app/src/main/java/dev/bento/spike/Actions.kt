@@ -19,8 +19,8 @@ import java.io.File
 
 /** Spike actions; each returns a JSON result that is logged as `RESULT <action> <json>` and appended to results.jsonl. */
 object Actions {
-    val names = listOf("ready", "health", "thumbnail", "fts5", "import_profile", "memory", "fake_login_vault",
-        "upload_big", "resume_check", "download_big", "aes_bench", "pair_guest", "snapshot_check")
+    val names = listOf("ready", "health", "thumbnail", "fts5", "memory", "fake_login_vault",
+        "upload_big", "upload_then_kill", "resume_check", "download_big", "aes_bench", "start_host", "host_seed", "pair_guest")
 
     fun run(action: String, args: JSONObject): JSONObject {
         val started = SystemClock.uptimeMillis()
@@ -29,6 +29,7 @@ object Actions {
                 "ready" -> Engine.ensureStarted(args)
                 "health" -> health()
                 "thumbnail" -> thumbnail()
+                "start_host" -> startHost(args)
                 else -> python(action, args)
             }.put("ok", true)
         } catch (t: Throwable) {
@@ -43,10 +44,23 @@ object Actions {
     }
 
     private fun python(action: String, args: JSONObject): JSONObject {
-        if (action != "aes_bench" && action != "import_profile" && action != "fts5") Engine.ensureStarted()
+        if (action != "aes_bench" && action != "fts5") Engine.ensureStarted()
         val payload = JSONObject(args.toString()).put("port", Engine.port).put("token", Engine.apiToken)
         val out = Python.getInstance().getModule("bento_spike.scenarios").callAttr("run", action, payload.toString())
         return JSONObject(out.toString())
+    }
+
+    private fun startHost(args: JSONObject): JSONObject {
+        val file = File(Engine.appContext.filesDir, "host.json")
+        file.delete()
+        Engine.appContext.startService(
+            android.content.Intent(Engine.appContext, HostService::class.java).putExtra("options", args.toString())
+        )
+        val t0 = SystemClock.uptimeMillis()
+        while (!file.exists() && SystemClock.uptimeMillis() - t0 < 180_000) Thread.sleep(200)
+        val state = JSONObject(file.readText())
+        state.remove("token")
+        return state.put("wait_ms", SystemClock.uptimeMillis() - t0)
     }
 
     private fun health(): JSONObject {

@@ -16,19 +16,10 @@ _state: dict[str, Any] = {}
 _warm: dict[str, Any] = {}
 
 
-def _home() -> Path:
-    return Path(os.environ.get("HOME", "/data/local/tmp"))
-
-
 def warm_up() -> str:
-    """Import the backend in a fixed order (interpreter warm-up); profiled when `files/import-profile` exists."""
+    """Import the backend in a fixed order (interpreter warm-up). Profile with `files/import-time` (see Engine.kt)."""
     if _warm:
         return json.dumps(_warm)
-    profile = (_home() / "import-profile").exists()
-    if profile:
-        from bento_spike import importprof
-
-        importprof.enable()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
     stages: dict[str, float] = {}
     for label, module in (
@@ -50,13 +41,9 @@ def warm_up() -> str:
 
             patches.apply()
         stages[label] = round((time.perf_counter() - started) * 1000, 1)
-    if profile:
-        from bento_spike import importprof
-
-        importprof.disable()
     import sys
 
-    _warm.update({"stages_ms": stages, "python": sys.version.split()[0], "profiled": profile})
+    _warm.update({"stages_ms": stages, "python": sys.version.split()[0]})
     return json.dumps(_warm)
 
 
@@ -85,6 +72,13 @@ def start(config_json: str) -> str:
             "BENTO_RELAY_URL": options.get("relay_url", ""),
         }
     )
+    # Owner-only real-Telegram runs: Bento's api_id/api_hash from an app-private file pushed with `run-as`
+    # (never passed through intents or logs). The backend reads these settings from the environment only.
+    credentials = Path(os.environ.get("HOME", "")) / "telegram-app.json"
+    if options.get("storage_backend") == "telegram" and credentials.is_file():
+        values = json.loads(credentials.read_text())
+        os.environ["BENTO_TELEGRAM_API_ID"] = str(values["api_id"])
+        os.environ["BENTO_TELEGRAM_API_HASH"] = str(values["api_hash"])
     if options.get("manual_login"):
         os.environ["BENTO_FAKE_TELEGRAM_MANUAL_LOGIN"] = "1"
     # Secrets: in memory only, never in os.environ.

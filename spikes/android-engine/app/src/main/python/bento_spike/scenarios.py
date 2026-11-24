@@ -140,17 +140,23 @@ def scenario_fts5(payload: dict[str, Any]) -> dict[str, Any]:
             result["app_fts_tables"] = [r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE sql LIKE '%fts5%'")]
     import platform
     import sys
+    import sysconfig
 
-    result.update({"python": sys.version, "machine": platform.machine(), "platform": sys.platform})
+    from cryptography.hazmat.backends.openssl.backend import backend as openssl_backend
+    from pydantic_core import _pydantic_core
+
+    result.update(
+        {
+            "python": sys.version,
+            "kernel_machine": platform.machine(),
+            "platform": sys.platform,
+            "ext_suffix": sysconfig.get_config_var("EXT_SUFFIX"),
+            "pydantic_core_so": Path(_pydantic_core.__file__).name,
+            "pydantic_core_version": _pydantic_core.__version__,
+            "openssl": openssl_backend.openssl_version_text(),
+        }
+    )
     return result
-
-
-def scenario_import_profile(payload: dict[str, Any]) -> dict[str, Any]:
-    from bento_spike import importprof
-    from bento_spike.engine import warm_up
-
-    warm = json.loads(warm_up())
-    return {"warm_up": warm, "profile": importprof.top(int(payload.get("count", 20)))}
 
 
 def scenario_memory(payload: dict[str, Any]) -> dict[str, Any]:
@@ -175,6 +181,8 @@ def scenario_memory(payload: dict[str, Any]) -> dict[str, Any]:
 
 def scenario_fake_login_vault(payload: dict[str, Any]) -> dict[str, Any]:
     api = Api(payload)
+    if payload.get("logout"):
+        api.post("/account/logout")
     result: dict[str, Any] = {"before": api.get("/vault")["state"]}
     method = payload.get("method", "qr")
     started = time.perf_counter()
@@ -194,6 +202,9 @@ def scenario_fake_login_vault(payload: dict[str, Any]) -> dict[str, Any]:
         first = api.post("/account/login/phone", {"phone": payload.get("phone", "+15550000001")})
         result["phone_step"] = first["step"]
         account = api.post("/account/login/code", {"code": payload.get("code", "12345")})
+        result["code_step"] = account["step"]
+        if account["step"] == "password_required":
+            account = api.post("/account/login/password", {"password": payload["password"]})
     result["login_ms"] = round((time.perf_counter() - started) * 1000)
     result["account_step"] = account["step"]
     vault = api.get("/vault")
@@ -207,9 +218,9 @@ def scenario_fake_login_vault(payload: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-def _big_file(size_mb: int) -> Path:
+def _big_file(size_mb: int, fresh: bool = True) -> Path:
     path = Path(os.environ["HOME"]).parent / "cache" / f"spike-{size_mb}mb.bin"
-    if not path.exists() or path.stat().st_size != size_mb * MIB:
+    if fresh or not path.exists() or path.stat().st_size != size_mb * MIB:
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("wb") as handle:
             for _ in range(size_mb):
@@ -229,13 +240,16 @@ def _session_parts(asset_id: str) -> list[dict[str, Any]]:
     with database() as db:
         columns = [row[1] for row in db.execute("PRAGMA table_info(upload_sessions)")]
         rows = db.execute("SELECT * FROM upload_sessions WHERE asset_id = ?", (asset_id,)).fetchall()
-    return [dict(zip(columns, row)) for row in rows]
+    def plain(value: Any) -> Any:
+        return f"<{len(value)} bytes>" if isinstance(value, bytes) else value
+
+    return [{column: plain(value) for column, value in zip(columns, row)} for row in rows]
 
 
 def scenario_upload_big(payload: dict[str, Any]) -> dict[str, Any]:
     api = Api(payload)
     size_mb = int(payload.get("size_mb", 200))
-    source = _big_file(size_mb)
+    source = _big_file(size_mb, bool(payload.get("fresh", True)))
     sha = _sha256(source)
     started = time.perf_counter()
     asset = api.upload_file(source, f"big-{uuid.uuid4().hex[:6]}.bin", "application/octet-stream")
@@ -293,7 +307,15 @@ def scenario_resume_check(payload: dict[str, Any]) -> dict[str, Any]:
         return jobs if jobs and all(job["status"] == "succeeded" for job in jobs) else None
 
     jobs = wait_until(finished, 1800, 0.5)
+    after = _session_parts(asset_id)
+    killed = load("kill") if (results_dir() / "kill.json").exists() else {}
+    final_parts = json.loads(after[0]["completed_parts"]) if after else []
+    before = killed.get("parts_at_kill", [])
     return {
+        "parts_at_kill": before,
+        "final_parts": final_parts,
+        "parts_kept_after_restart": [p for p in before if p in final_parts],
+        "parts_reuploaded": [p for p in before if p not in final_parts],
         "asset_id": asset_id,
         "sessions_at_restart": at_restart,
         "sessions_after": _session_parts(asset_id),
@@ -389,10 +411,144 @@ def scenario_aes_bench(payload: dict[str, Any]) -> dict[str, Any]:
         sample = data[: 2 * MIB]  # pure-Python fallbacks are slow; measure a smaller sample
         ige_size = len(sample)
         ige("without_cryptg")
+        # Telethon's libssl fallback looks for "ssl"; Chaquopy ships OpenSSL as libssl_python.so.
+        import ctypes.util
+
+        import telethon.crypto.libssl as libssl_module
+
+        original = ctypes.util.find_library
+        ctypes.util.find_library = lambda name: "libssl_python.so" if name == "ssl" else original(name)
+        try:
+            importlib.reload(libssl_module)
+            sample = ige_small
+            ige_size = len(sample)
+            ige("libssl_patched")
+        except Exception as exc:  # noqa: BLE001 - report, do not fail the benchmark
+            result["ige_libssl_patched_error"] = repr(exc)
+        finally:
+            ctypes.util.find_library = original
+            importlib.reload(libssl_module)
         sample = ige_small
     finally:
         if saved is not None:
             sys.modules["cryptg"] = saved
         else:
             sys.modules.pop("cryptg", None)
+    return result
+
+
+def scenario_upload_then_kill(payload: dict[str, Any]) -> dict[str, Any]:
+    """Upload a big file, then SIGKILL this process once `kill_after_parts` parts are durable (no cleanup runs)."""
+    import signal
+
+    payload = {**payload, "wait": False}
+    scenario_upload_big(payload)
+    big = load("big")
+    wanted = int(payload.get("kill_after_parts", 2))
+    deadline = time.monotonic() + 600
+    while time.monotonic() < deadline:
+        sessions = _session_parts(big["asset_id"])
+        if sessions:
+            parts = json.loads(sessions[0]["completed_parts"] or "[]")
+            if len(parts) >= wanted and sessions[0]["state"] != "completed":
+                save("kill", {"asset_id": big["asset_id"], "parts_at_kill": parts, "killed_at": time.time()})
+                os.kill(os.getpid(), signal.SIGKILL)
+        time.sleep(0.02)
+    raise TimeoutError("upload finished or never reached the kill point")
+
+
+# Item 4: relay pairing (guest = this process, host = the `:host` process) ------------------------------
+
+
+def _host_api() -> Api:
+    state = json.loads((Path(os.environ["HOME"]) / "host.json").read_text())
+    if "error" in state:
+        raise RuntimeError(f"host failed to start: {state['error']}")
+    return Api({"port": state["port"], "token": state["token"]})
+
+
+def _count(sql: str) -> int:
+    with database() as db:
+        return int(db.execute(sql).fetchone()[0])
+
+
+def scenario_host_seed(payload: dict[str, Any]) -> dict[str, Any]:
+    """Sign the host in, create its vault, and upload `count` small distinct files through its API."""
+    host = _host_api()
+    result: dict[str, Any] = {"host_vault_before": host.get("/vault")["state"]}
+    if result["host_vault_before"] == "signed_out":
+        host.post("/account/login/qr")
+        wait_until(lambda: host.get("/account")["step"] == "authorized", 30)
+    if host.get("/vault")["state"] == "no_vault":
+        created = host.post("/vault")
+        host.post("/vault/recovery-code/confirm", {"last_group": created["recovery_code"].split("-")[-1]})
+    count = int(payload.get("count", 5000))
+    folder = results_dir() / "seed"
+    folder.mkdir(exist_ok=True)
+    started = time.perf_counter()
+    for index in range(count):
+        path = folder / "seed.txt"
+        path.write_bytes(f"bento seed {index} {uuid.uuid4().hex}\n".encode())
+        host.upload_file(path, f"seed-{index:05d}.txt", "text/plain")
+    result["upload_s"] = round(time.perf_counter() - started, 1)
+    t0 = time.perf_counter()
+
+    def drained() -> bool:
+        items = host.get("/jobs?limit=200")["items"]
+        return not any(job["status"] in {"queued", "running"} for job in items)
+
+    wait_until(drained, 3600, 2.0)
+    result["host_jobs_drain_s"] = round(time.perf_counter() - t0, 1)
+    result["host_vault"] = host.get("/vault")["state"]
+    return result
+
+
+def scenario_pair_guest(payload: dict[str, Any]) -> dict[str, Any]:
+    """Host shows a code; this phone (signed out) joins over the relay; the host approves and forwards the login
+    token; the guest signs in, unlocks the vault, and bootstraps the host's library."""
+    host = _host_api()
+    guest = Api(payload)
+    expected = int(payload.get("expect_assets", 5000))
+    result: dict[str, Any] = {"guest_account_before": guest.get("/account")["step"]}
+    started = time.perf_counter()
+    hosted = host.post("/pairing/host")
+    result["host_transport"] = hosted["transport"]
+    result["link_prefix"] = hosted["link"].split("?")[0]
+    joined = guest.post("/pairing/join", {"code": hosted["code"]})
+
+    def state(api: Api, pairing_id: str, wanted: set[str]) -> Any:
+        view = api.get(f"/pairing/{pairing_id}")
+        if view["state"] in {"failed", "cancelled", "expired", "rejected"}:
+            raise RuntimeError(f"pairing ended as {view['state']}: {view.get('error')}")
+        return view if view["state"] in wanted else None
+
+    host_view = wait_until(lambda: state(host, hosted["id"], {"awaiting_approval"}), 60)
+    guest_view = wait_until(lambda: state(guest, joined["id"], {"awaiting_approval"}), 60)
+    result["sas_match"] = host_view["sas"] == guest_view["sas"] and len(host_view["sas"]) == 4
+    result["peer_platform_seen_by_host"] = host_view["peer"]["platform"]
+    host.post(f"/pairing/{hosted['id']}/approve")
+    wait_until(lambda: state(host, hosted["id"], {"completed"}), 120)
+    wait_until(lambda: state(guest, joined["id"], {"completed"}), 120)
+    result["pairing_s"] = round(time.perf_counter() - started, 2)
+    result["guest_account_after"] = guest.get("/account")["step"]
+    vault = wait_until(lambda: (lambda v: v if v["state"] == "ready" else None)(guest.get("/vault")), 120)
+    result["guest_vault"] = vault["state"]
+    result["same_vault"] = vault.get("vault_id") == host.get("/vault").get("vault_id")
+    t0 = time.perf_counter()
+    samples = []
+
+    def bootstrapped() -> bool:
+        have = _count("SELECT count(*) FROM assets")
+        samples.append((round(time.perf_counter() - t0, 1), have))
+        return have >= expected
+
+    try:
+        wait_until(bootstrapped, float(payload.get("bootstrap_timeout", 1800)), 2.0)
+        result["bootstrap_complete"] = True
+    except TimeoutError:
+        result["bootstrap_complete"] = False
+    result["bootstrap_s"] = round(time.perf_counter() - t0, 1)
+    result["guest_assets"] = _count("SELECT count(*) FROM assets")
+    result["bootstrap_samples"] = samples[:: max(1, len(samples) // 20)]
+    result["total_s"] = round(time.perf_counter() - started, 1)
     return result

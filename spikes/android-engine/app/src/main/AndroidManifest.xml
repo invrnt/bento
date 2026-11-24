@@ -5,7 +5,7 @@
         android:name=".SpikeApp"
         android:allowBackup="false"
         android:label="Bento engine spike"
-        android:usesCleartextTraffic="true"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -15,5 +15,9 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service
+            android:name=".HostService"
+            android:exported="false"
+            android:process=":host" />
     </application>
 </manifest>
