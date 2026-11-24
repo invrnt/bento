@@ -32,6 +32,7 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
@@ -87,6 +88,7 @@ import dev.bento.feature.files.di.FilesEntryPoint
 import dev.bento.strings.R as StringsR
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import dev.bento.designsystem.trace.InteractionTrace
 
 data class SearchActions(
     val onBack: () -> Unit = {},
@@ -145,6 +147,7 @@ fun SearchScreen(
         }
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
+    if (state.results.isNotEmpty()) SideEffect { InteractionTrace.end(InteractionTrace.SEARCH_RESULTS) }
     val loader = remember(context) { runCatching { FilesEntryPoint.get(context).imageLoader() }.getOrNull() }
     val actions = SearchActions(
         onBack = onBack,

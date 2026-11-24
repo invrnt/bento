@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import dagger.hilt.android.AndroidEntryPoint
 import dev.bento.designsystem.theme.BentoTheme
+import dev.bento.designsystem.trace.InteractionTrace
 import dev.bento.engine.BentoEngine
 import dev.bento.feature.share.ShareSheetHost
 import javax.inject.Inject
@@ -35,6 +36,11 @@ class ShareActivity : ComponentActivity() {
                 ShareSheetHost(intent = shared, onFinish = ::finishFast)
             }
         }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        InteractionTrace.end(InteractionTrace.SHARE_DISMISS)
     }
 
     override fun onNewIntent(intent: Intent) {

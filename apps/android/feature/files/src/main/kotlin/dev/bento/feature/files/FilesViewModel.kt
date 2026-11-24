@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import dev.bento.designsystem.trace.InteractionTrace
 
 /** Bottom sheets of Archivos (one at a time). */
 sealed interface FilesSheet {
@@ -286,6 +287,7 @@ class FilesViewModel @Inject constructor(
         }
         val asset = item.asset
         if (item.folder != null || asset == null) {
+            InteractionTrace.begin(InteractionTrace.FILES_OPEN)
             navigateTo(item.id)
             return
         }

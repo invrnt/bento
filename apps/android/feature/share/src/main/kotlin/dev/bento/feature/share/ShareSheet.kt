@@ -58,6 +58,7 @@ import dev.bento.feature.files.SheetBody
 import dev.bento.feature.files.Sizes
 import dev.bento.feature.files.di.FilesEntryPoint
 import dev.bento.strings.R as StringsR
+import dev.bento.designsystem.trace.InteractionTrace
 
 data class ShareActions(
     val onSave: () -> Unit = {},
@@ -81,7 +82,10 @@ fun ShareSheetHost(intent: Intent?, onFinish: () -> Unit, viewModel: ShareViewMo
     val browser by viewModel.folderBrowser.state.collectAsStateWithLifecycle()
     val loader = remember(context) { runCatching { FilesEntryPoint.get(context).imageLoader() }.getOrNull() }
     val actions = ShareActions(
-        onSave = { if (viewModel.save()) onFinish() },
+        onSave = {
+            InteractionTrace.begin(InteractionTrace.SHARE_DISMISS)
+            if (viewModel.save()) onFinish() else InteractionTrace.end(InteractionTrace.SHARE_DISMISS)
+        },
         onClose = onFinish,
         onPicker = viewModel::showPicker,
         onAlbum = viewModel::setAlbum

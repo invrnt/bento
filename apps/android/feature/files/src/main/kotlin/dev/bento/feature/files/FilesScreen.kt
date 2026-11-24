@@ -43,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -109,6 +110,7 @@ import dev.bento.strings.R as StringsR
 import java.io.File
 import java.time.LocalDateTime
 import kotlinx.coroutines.delay
+import dev.bento.designsystem.trace.InteractionTrace
 
 /** Everything Archivos can ask for; defaults make previews and tests terse. */
 data class FilesActions(
@@ -157,6 +159,7 @@ fun FilesScreen(
 ) {
     val context = LocalContext.current
     val state by viewModel.state.collectAsStateWithLifecycle()
+    if (!state.loading && state.items.isNotEmpty()) SideEffect { InteractionTrace.end(InteractionTrace.FILES_OPEN) }
     val uploads by viewModel.uploads.state.collectAsStateWithLifecycle()
     val audio by viewModel.audio.state.collectAsStateWithLifecycle()
     val snackbar = remember { BentoSnackbarHostState() }

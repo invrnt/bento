@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import dev.bento.designsystem.trace.InteractionTrace
 
 /** Filter sheets of Buscar (Tipo, Fecha, Carpeta). */
 enum class FilterSheet { Kind, Date, Folder }
@@ -128,6 +129,7 @@ class SearchViewModel @Inject constructor(
 
     fun setQuery(query: String) {
         if (query == _state.value.query) return
+        if (query.isNotBlank() && _state.value.results.isEmpty()) InteractionTrace.beginIfIdle(InteractionTrace.SEARCH_RESULTS)
         _state.update { it.copy(query = query) }
         runSearch()
     }
