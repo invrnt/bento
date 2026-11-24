@@ -8,7 +8,8 @@
 #   profile: ./gradlew :app:assembleNonMinifiedRelease :baselineprofile:assembleNonMinifiedRelease
 #   bench:   ./gradlew :app:assembleBenchmarkRelease :benchmark:assembleBenchmarkRelease
 # Env: DEVICE (adb serial; no emulator is started when set), AVD, SEED (photos, default 10000), COMPILATION
-# (none|profile, default both), KEEP_DATA=1 (keep the seeded library from an earlier run), OUT.
+# (none|profile, default both), OUT. The app is always reinstalled clean: other agents' runs on the shared AVD leave
+# debug options and data behind.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 android="$(cd "$here/.." && pwd)"
@@ -66,10 +67,9 @@ done
 "${adb[@]}" shell input keyevent KEYCODE_WAKEUP
 "${adb[@]}" shell wm dismiss-keyguard >/dev/null 2>&1 || true
 
-# A debug build (other agents) cannot be updated in place by a release-signed variant, and stale data can
-# crash-loop the engine: start clean unless KEEP_DATA=1 and the installed app is already this variant.
-if [[ "${KEEP_DATA:-0}" != "1" ]]; then "${adb[@]}" uninstall dev.bento.app >/dev/null 2>&1 || true; fi
-"${adb[@]}" install -r -t "$app_apk" >/dev/null || { "${adb[@]}" uninstall dev.bento.app >/dev/null 2>&1; "${adb[@]}" install -r -t "$app_apk" >/dev/null; }
+# Stale data (debug options, another variant's catalog) can crash-loop the engine: always start clean.
+"${adb[@]}" uninstall dev.bento.app >/dev/null 2>&1 || true
+"${adb[@]}" install -r -t "$app_apk" >/dev/null
 "${adb[@]}" install -r -t "$test_apk" >/dev/null
 "${adb[@]}" shell pm grant dev.bento.app android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true
 

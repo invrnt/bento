@@ -46,7 +46,10 @@ class StartupBenchmarks(@Suppress("unused") private val name: String, private va
             TraceSectionMetric("activityStart", TraceSectionMetric.Mode.First),
             TraceSectionMetric("bento.app.setContent", TraceSectionMetric.Mode.First),
             TraceSectionMetric("activityResume", TraceSectionMetric.Mode.First),
-            TraceSectionMetric("Choreographer#doFrame", TraceSectionMetric.Mode.First),
+            TraceSectionMetric("traversal", TraceSectionMetric.Mode.First),
+            TraceSectionMetric("TextStringSimpleNode::measure", TraceSectionMetric.Mode.First),
+            // GPU programs compiled for the first frame (Macrobenchmark drops the shader cache on cold starts).
+            TraceSectionMetric("shader_compile", TraceSectionMetric.Mode.Sum),
             TraceSectionMetric("bento.engine.warmUp", TraceSectionMetric.Mode.First),
             TraceSectionMetric("bento.engine.startApi", TraceSectionMetric.Mode.First),
             TraceSectionMetric("bento.engine.ready", TraceSectionMetric.Mode.First)
