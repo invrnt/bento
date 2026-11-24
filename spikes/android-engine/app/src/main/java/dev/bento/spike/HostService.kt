@@ -2,6 +2,7 @@ package dev.bento.spike
 
 import android.app.Service
 import android.content.Intent
+import android.os.Binder
 import android.os.IBinder
 import org.json.JSONObject
 import java.io.File
@@ -12,7 +13,9 @@ import java.io.File
  * app-private `files/host.json` so the guest-side scenario can drive it.
  */
 class HostService : Service() {
-    override fun onBind(intent: Intent?): IBinder? = null
+    // The Activity binds with BIND_IMPORTANT: an unbound started service in its own process is frozen by the
+    // cached-app freezer once the app leaves the foreground (observed on API 35), which hangs its API.
+    override fun onBind(intent: Intent?): IBinder = Binder()
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val options = JSONObject(intent?.getStringExtra("options") ?: "{}")

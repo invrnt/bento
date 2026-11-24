@@ -50,12 +50,18 @@ object Actions {
         return JSONObject(out.toString())
     }
 
+    private val hostConnection = object : android.content.ServiceConnection {
+        override fun onServiceConnected(name: android.content.ComponentName?, service: android.os.IBinder?) {}
+        override fun onServiceDisconnected(name: android.content.ComponentName?) {}
+    }
+
     private fun startHost(args: JSONObject): JSONObject {
         val file = File(Engine.appContext.filesDir, "host.json")
         file.delete()
-        Engine.appContext.startService(
-            android.content.Intent(Engine.appContext, HostService::class.java).putExtra("options", args.toString())
-        )
+        val intent = android.content.Intent(Engine.appContext, HostService::class.java).putExtra("options", args.toString())
+        Engine.appContext.startService(intent)
+        Engine.appContext.bindService(intent, hostConnection,
+            android.content.Context.BIND_AUTO_CREATE or android.content.Context.BIND_IMPORTANT)
         val t0 = SystemClock.uptimeMillis()
         while (!file.exists() && SystemClock.uptimeMillis() - t0 < 180_000) Thread.sleep(200)
         val state = JSONObject(file.readText())
