@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.dp
 import dev.bento.api.generated.AssetResponse
 import dev.bento.designsystem.component.BentoButton
@@ -59,7 +60,8 @@ fun ViewerInfoContent(asset: AssetResponse, info: ViewerInfo?, callbacks: InfoCa
     val c = BentoTheme.colors
     val locale = LocalConfiguration.current.locales[0]
     val context = LocalContext.current
-    Column(modifier.fillMaxWidth().testTag(ViewerTestTags.Info)) {
+    // The sheet is its own window: expose tags as resource ids here too (UiAutomator journeys).
+    Column(modifier.fillMaxWidth().semantics { testTagsAsResourceId = true }.testTag(ViewerTestTags.Info)) {
         Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 asset.filename,

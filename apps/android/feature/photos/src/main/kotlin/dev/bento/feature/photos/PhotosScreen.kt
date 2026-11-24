@@ -193,6 +193,12 @@ fun PhotosContent(
     }
     BackHandler(enabled = selection.active) { selection.clear() }
     TrackJank("Fotos", gridState.current.isScrollInProgress)
+    // A card that arrives while the grid sits at the top is inserted above the first visible item (lazy lists keep
+    // the visible item in place), so it would never be seen: reveal it.
+    LaunchedEffect(card != null) {
+        val grid = gridState.current
+        if (card != null && grid.firstVisibleItemIndex == 1 && grid.firstVisibleItemScrollOffset == 0) grid.scrollToItem(0)
+    }
 
     Box(modifier.fillMaxSize().background(c.surface).semantics { testTagsAsResourceId = true }) {
         Column(Modifier.fillMaxSize()) {
