@@ -309,19 +309,8 @@ fun CreatingContent(
 @Composable
 private fun Compartment(label: String, state: RowState, channelsDone: Int? = null) {
     val c = BentoTheme.colors
-    val status = when (state) {
-        RowState.Pending -> stringResource(StringsR.string.onboarding_creating_step_pending)
-
-        RowState.Running -> if (channelsDone != null && channelsDone > 0) {
-            stringResource(StringsR.string.onboarding_creating_step_count, formatCount(channelsDone), formatCount(CHANNELS))
-        } else {
-            stringResource(StringsR.string.onboarding_creating_step_working)
-        }
-
-        RowState.Done -> stringResource(StringsR.string.onboarding_creating_step_done)
-
-        RowState.Failed -> stringResource(StringsR.string.onboarding_creating_step_failed)
-    }
+    val counted = state == RowState.Running && channelsDone != null && channelsDone > 0
+    val status = rowStatus(state, channelsDone.takeIf { counted })
     val description = stringResource(StringsR.string.common_label_value, label, status)
     Row(
         Modifier.fillMaxWidth().clearAndSetSemantics {
@@ -342,7 +331,7 @@ private fun Compartment(label: String, state: RowState, channelsDone: Int? = nul
         }
         Column(Modifier.weight(1f)) {
             Text(label, color = if (state == RowState.Pending) c.inkMuted else c.ink, style = BentoTheme.typography.body)
-            if (state == RowState.Running && channelsDone != null && channelsDone > 0) {
+            if (counted) {
                 Text(status, color = c.inkMuted, style = BentoTheme.typography.metadata)
             }
         }
@@ -350,6 +339,19 @@ private fun Compartment(label: String, state: RowState, channelsDone: Int? = nul
 }
 
 private const val CHANNELS = 3
+
+@Composable
+private fun rowStatus(state: RowState, channelsDone: Int?): String = when (state) {
+    RowState.Pending -> stringResource(StringsR.string.onboarding_creating_step_pending)
+
+    RowState.Running -> channelsDone?.let {
+        stringResource(StringsR.string.onboarding_creating_step_count, formatCount(it), formatCount(CHANNELS))
+    } ?: stringResource(StringsR.string.onboarding_creating_step_working)
+
+    RowState.Done -> stringResource(StringsR.string.onboarding_creating_step_done)
+
+    RowState.Failed -> stringResource(StringsR.string.onboarding_creating_step_failed)
+}
 
 @Composable
 fun AccountRow(account: TelegramAccountResponse, avatar: ImageBitmap?, modifier: Modifier = Modifier) {

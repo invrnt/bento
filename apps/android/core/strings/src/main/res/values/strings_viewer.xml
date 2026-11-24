@@ -19,7 +19,7 @@
     <string name="viewer_storage_local">En este teléfono · se subirá con Wi-Fi</string>
     <string name="viewer_storage_uploading">Subiendo…</string>
     <string name="viewer_storage_failed">No se pudo subir · ver actividad</string>
-    <string name="viewer_info_offline">Sin conexión</string>
+    <string name="viewer_info_offline">Uso sin conexión</string>
     <string name="viewer_availability_pinned">Disponible sin conexión</string>
     <string name="viewer_availability_on_device">Se abre sin conexión: está en este teléfono</string>
     <string name="viewer_availability_online">El original necesita conexión</string>

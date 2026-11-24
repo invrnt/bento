@@ -185,6 +185,21 @@ fun CollectionGridScreen(
     MediaSheetHost(sheet, actions, onClose = { sheet = null }, onDone = { scope.launch { selection.clear() } })
 }
 
+/** Album messages as snackbars; a deleted album leaves the screen. */
+@Composable
+private fun AlbumEffects(vm: AlbumViewModel, snackbar: BentoSnackbarHostState, navigation: CollectionsNavigation) {
+    val message by vm.message.collectAsStateWithLifecycle()
+    val deleted by vm.deleted.collectAsStateWithLifecycle()
+    val resolved = message?.resolve()
+    LaunchedEffect(resolved) {
+        if (resolved != null) {
+            vm.messageShown()
+            snackbar.show(resolved)
+        }
+    }
+    LaunchedEffect(deleted) { if (deleted) navigation.back() }
+}
+
 @Composable
 fun AlbumRoute(albumId: String, navigation: CollectionsNavigation) {
     val vm = hiltViewModel<AlbumViewModel, AlbumViewModel.Factory>(key = "album:$albumId") { it.create(albumId) }
@@ -195,17 +210,8 @@ fun AlbumRoute(albumId: String, navigation: CollectionsNavigation) {
     val undoLabel = stringResource(StringsR.string.common_action_undo)
     val ready = (state as? Loadable.Ready)?.value
     val dialog by vm.dialog.collectAsStateWithLifecycle()
-    val message by vm.message.collectAsStateWithLifecycle()
-    val deleted by vm.deleted.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
-    val resolved = message?.resolve()
-    LaunchedEffect(resolved) {
-        if (resolved != null) {
-            vm.messageShown()
-            snackbar.show(resolved)
-        }
-    }
-    LaunchedEffect(deleted) { if (deleted) navigation.back() }
+    AlbumEffects(vm, snackbar, navigation)
     val cells = remember(ready) { ListMediaCells(cellsOf(ready?.assets.orEmpty())) }
     val monthCells = remember(ready) { ListMediaCells(cellsOf(ready?.assets.orEmpty(), dayHeaders = false)) }
     CompositionLocalProvider(LocalBentoImageLoader provides vm.imageLoader) {

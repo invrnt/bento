@@ -154,7 +154,7 @@ fun MediaTile(
 private fun androidx.compose.foundation.layout.BoxScope.TileOverlays(asset: AssetResponse) {
     val badge = uploadBadge(asset)
     val video = MediaFormat.isVideo(asset)
-    if (!video && !asset.favorite && !asset.offlinePinned && badge == UploadBadge.None) return
+    if (listOf(video, asset.favorite, asset.offlinePinned, badge != UploadBadge.None).none { it }) return
     val c = BentoTheme.colors
     Row(
         Modifier.align(Alignment.BottomStart).padding(6.dp).clearAndSetSemantics {},

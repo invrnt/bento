@@ -150,14 +150,16 @@ class EventsClient(
             try {
                 withContext(Dispatchers.IO) {
                     val source = response.body.source()
-                    while (isActive) {
-                        val line = source.readUtf8Line() ?: break
-                        val event = parser.line(line) ?: continue
-                        if (event.event == READY) {
-                            ready = true
-                            if (replayAll) send(ServerEvent(CHANGE, ALL_TOPICS_JSON, null))
+                    var line = source.readUtf8Line()
+                    while (isActive && line != null) {
+                        parser.line(line)?.let { event ->
+                            if (event.event == READY) {
+                                ready = true
+                                if (replayAll) send(ServerEvent(CHANGE, ALL_TOPICS_JSON, null))
+                            }
+                            send(event)
                         }
-                        send(event)
+                        line = source.readUtf8Line()
                     }
                 }
             } catch (io: IOException) {

@@ -19,7 +19,7 @@
     <string name="viewer_storage_local">On this phone · will upload on Wi-Fi</string>
     <string name="viewer_storage_uploading">Uploading…</string>
     <string name="viewer_storage_failed">Upload failed · see activity</string>
-    <string name="viewer_info_offline">Offline</string>
+    <string name="viewer_info_offline">Offline use</string>
     <string name="viewer_availability_pinned">Available offline</string>
     <string name="viewer_availability_on_device">Opens offline: it is on this phone</string>
     <string name="viewer_availability_online">The original needs a connection</string>

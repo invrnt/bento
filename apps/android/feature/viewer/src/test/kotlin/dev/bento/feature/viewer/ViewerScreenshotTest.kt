@@ -84,6 +84,11 @@ class ViewerScreenshotTest(private val state: ScreenState) {
     @org.junit.Before
     fun utc() {
         java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"))
+        // Date formatting goes through ICU, whose default zone is cached separately: pin it too so a run of this
+        // class alone matches a full-suite run.
+        // (`setDefault` is hidden from the compile SDK but present at runtime.)
+        android.icu.util.TimeZone::class.java.getMethod("setDefault", android.icu.util.TimeZone::class.java)
+            .invoke(null, android.icu.util.TimeZone.getTimeZone("UTC"))
     }
 
     @Test
@@ -150,6 +155,11 @@ class ViewerLandscapeScreenshotTest {
     @org.junit.Before
     fun utc() {
         java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"))
+        // Date formatting goes through ICU, whose default zone is cached separately: pin it too so a run of this
+        // class alone matches a full-suite run.
+        // (`setDefault` is hidden from the compile SDK but present at runtime.)
+        android.icu.util.TimeZone::class.java.getMethod("setDefault", android.icu.util.TimeZone::class.java)
+            .invoke(null, android.icu.util.TimeZone.getTimeZone("UTC"))
     }
 
     @Test

@@ -63,7 +63,11 @@ data class JoinState(
     val bootstrap: BootstrapProgress = BootstrapProgress(),
     val checkingVault: Boolean = false,
     val recoveryReturn: JoinStep = JoinStep.Choose
-)
+) {
+    /** The pairing waits for a Telegram login and the person chose to sign in with the phone number. */
+    val phoneLoginInPairing: Boolean
+        get() = step == JoinStep.Pairing && pairing?.state == "needs_telegram_login" && guestLogin.phone
+}
 
 sealed interface JoinEffect {
     /** Joined (or already a member): land in Fotos while the library fills. */

@@ -122,6 +122,9 @@ enum class ItemBadge { Offline, OnDevice, LocalOnly, Uploading, Failed }
 /** Pinned for offline: the backend's `offline_pinned`, or a pin this phone just made (the listing has not reloaded). */
 fun isPinned(asset: AssetResponse, pinned: Set<String>): Boolean = asset.offlinePinned || asset.id in pinned
 
+/** [isPinned] for a row; folders are never pinned. */
+fun DriveItemResponse.pinnedIn(pinned: Set<String>): Boolean = asset?.let { isPinned(it, pinned) } ?: false
+
 /** The original opens without a connection: pinned, or `locally_available` (cached, never uploaded, in its source). */
 fun opensOffline(asset: AssetResponse, pinned: Set<String>): Boolean = isPinned(asset, pinned) || asset.locallyAvailable
 
