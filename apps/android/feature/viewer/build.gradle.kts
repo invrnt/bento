@@ -34,6 +34,7 @@ dependencies {
     implementation(libs.androidx.window)
     implementation(libs.androidx.metrics.performance)
     implementation(libs.telephoto.zoomable.image.coil3)
+    implementation(libs.coil.network.okhttp)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.ui.compose)
     implementation(libs.compose.animation)
