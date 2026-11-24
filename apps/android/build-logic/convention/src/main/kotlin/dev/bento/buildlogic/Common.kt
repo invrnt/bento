@@ -19,6 +19,7 @@ internal fun VersionCatalog.lib(alias: String): Any = findLibrary(alias).get().g
 /** Settings shared by every Android module (application, library, test). */
 internal fun Project.configureAndroidCommon(extension: CommonExtension) {
     extension.compileSdk = libs.version("compileSdk").toInt()
+    extension.compileSdkMinor = libs.version("compileSdkMinor").toInt()
     extension.defaultConfig.minSdk = libs.version("minSdk").toInt()
     extension.compileOptions.sourceCompatibility = JavaVersion.VERSION_17
     extension.compileOptions.targetCompatibility = JavaVersion.VERSION_17

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- cacheDir/share: decrypted temporary copies, deleted after 1 h or on next start. -->
+    <cache-path
+        name="share"
+        path="share/" />
+</paths>

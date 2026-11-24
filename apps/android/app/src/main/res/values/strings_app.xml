@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TEMPORARY placeholder strings (agent 36); features and core/strings (agent 37) replace them. -->
+<resources>
+    <string name="app_name" translatable="false">Bento</string>
+    <string name="nav_photos">Fotos</string>
+    <string name="nav_files">Archivos</string>
+    <string name="nav_collections">Colecciones</string>
+    <string name="placeholder_destination">Pantalla pendiente: %1$s</string>
+    <string name="engine_starting">Preparando tu nube…</string>
+    <string name="engine_ready">Listo</string>
+    <string name="engine_problem">Bento tuvo un problema al iniciar. Se reintentará solo.</string>
+</resources>

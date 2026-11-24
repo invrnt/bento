@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TEMPORARY (agent 36): debug-quality window themes until core/designsystem (agent 37) merges. -->
+<resources>
+    <style name="Theme.Bento.Temp" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/bento_temp_background</item>
+    </style>
+
+    <style name="Theme.Bento.Temp.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/bento_temp_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@android:drawable/sym_def_app_icon</item>
+        <item name="postSplashScreenTheme">@style/Theme.Bento.Temp</item>
+    </style>
+
+    <style name="Theme.Bento.Temp.Translucent" parent="Theme.Bento.Temp">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:backgroundDimEnabled">true</item>
+    </style>
+
+    <color name="bento_temp_background">#FFFAF8F5</color>
+</resources>
