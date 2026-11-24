@@ -53,6 +53,16 @@ class FilesRepository(
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, FolderListing>?): Boolean = size > MEMORY_FOLDERS
     }
 
+    private val openFolders = HashMap<String?, String?>()
+
+    /**
+     * The folder Archivos showed last for a start folder, kept for this process: a screen recreated after a full-screen
+     * destination (reader, viewer) reopens where the person was.
+     */
+    fun lastOpen(startFolderId: String?): String? = synchronized(openFolders) { openFolders[startFolderId] ?: startFolderId }
+
+    fun rememberOpen(startFolderId: String?, folderId: String?) = synchronized(openFolders) { openFolders[startFolderId] = folderId }
+
     /** The last listing of [folderId] seen in this process (instant back navigation). */
     fun cached(folderId: String?): FolderListing? = synchronized(memory) { memory[folderId ?: ROOT] }
 

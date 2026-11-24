@@ -16,17 +16,21 @@ import android.os.Build
 import android.provider.MediaStore
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
-import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
+import androidx.test.runner.lifecycle.ActivityLifecycleCallback
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
@@ -67,6 +71,9 @@ class FilesJourneysTest {
     private val resolver = journey.context.contentResolver
     private var shareScenario: ActivityScenario<ShareActivity>? = null
 
+    /** MediaStore keeps files across `pm clear`: names are unique per run so the system never renames them " (1)". */
+    private val run = java.lang.Long.toString(System.currentTimeMillis() % 1_000_000, 36)
+
     @After
     fun close() {
         airplane(false)
@@ -80,8 +87,8 @@ class FilesJourneysTest {
         joinHostCloud()
         val folder = runBlocking { journey.phone.createFolder(FolderCreateRequest(name = "Compartidos")) }
         val uris =
-            (1..3).map { insertImage("Playa $it.jpg", Color.rgb(40 * it, 120, 200)) } +
-                insertDownload("BentoShare", "Contrato.pdf", "application/pdf", pdf("Contrato"))
+            (1..3).map { insertImage("Playa $it $run.jpg", Color.rgb(40 * it, 120, 200)) } +
+                insertDownload("BentoShare", "Contrato $run.pdf", "application/pdf", pdf("Contrato"))
         journey.scenario?.close()
         val intent = Intent(Intent.ACTION_SEND_MULTIPLE)
             .setClass(journey.context, ShareActivity::class.java)
@@ -98,47 +105,48 @@ class FilesJourneysTest {
         journey.waitText("Compartidos")
         journey.capture("j06-2-destination")
         val save = compose.onNode(hasText("Guardar en Bento") and hasClickAction())
+        // The sheet is gone when finish() pauses the activity (no exit animation, product/android.md §4.9).
+        val stages = java.util.concurrent.ConcurrentHashMap<Stage, Long>()
+        val monitor =
+            ActivityLifecycleCallback { activity, stage -> if (activity is ShareActivity) stages.putIfAbsent(stage, System.nanoTime()) }
+        ActivityLifecycleMonitorRegistry.getInstance().addLifecycleCallback(monitor)
         val started = System.nanoTime()
         save.performClick()
-        var gone = 0L
-        while (System.nanoTime() - started < 5_000_000_000L) {
-            val state = shareScenario!!.state
-            if (state == Lifecycle.State.DESTROYED || state == Lifecycle.State.CREATED) {
-                gone = (System.nanoTime() - started) / 1_000_000
-                break
-            }
-            Thread.sleep(2)
-        }
-        android.util.Log.i("BentoJourney", "j06 share sheet gone after $gone ms")
-        assertTrue("sheet gone after $gone ms", gone in 1..SHEET_BUDGET_MS)
+        waitFor("share activity paused", 5_000) { stages[Stage.PAUSED] }
+        val paused = (stages.getValue(Stage.PAUSED) - started) / 1_000_000
+        val destroyed = waitFor("share activity destroyed", 10_000) { stages[Stage.DESTROYED] }.let { (it - started) / 1_000_000 }
+        ActivityLifecycleMonitorRegistry.getInstance().removeLifecycleCallback(monitor)
+        android.util.Log.i("BentoJourney", "j06 share sheet: paused after $paused ms, destroyed after $destroyed ms")
+        journey.capture("j06-3-back-to-sender")
         val names = waitFor("4 shared items in Compartidos", 120_000) {
             runBlocking { journey.phone.driveItems(folderId = folder.id).items }.map { it.name }.toSet().takeIf { it.size == 4 }
         }
-        assertEquals(setOf("Playa 1.jpg", "Playa 2.jpg", "Playa 3.jpg", "Contrato.pdf"), names)
+        assertEquals(setOf("Playa 1 $run.jpg", "Playa 2 $run.jpg", "Playa 3 $run.jpg", "Contrato $run.pdf"), names)
+        assertTrue("sheet gone after $paused ms", paused <= SHEET_BUDGET_MS)
     }
 
     /** 8. Files: create a folder, upload a folder tree via SAF, move, rename, pin offline; airplane mode. */
     @Test
     fun j08_files() {
-        insertDownload("BentoTree", "Guia.pdf", "application/pdf", pdf("Guía de viaje"))
-        insertDownload("BentoTree", "notas.txt", "text/plain", "Llevar pasaporte\nReservar hotel".toByteArray())
-        insertDownload("BentoTree/Fotos", "mapa.txt", "text/plain", "Mapa".toByteArray())
+        insertDownload("BentoTree$run", "Guia.pdf", "application/pdf", pdf("Guía de viaje"))
+        insertDownload("BentoTree$run", "notas.txt", "text/plain", "Llevar pasaporte\nReservar hotel".toByteArray())
+        insertDownload("BentoTree$run/Fotos", "mapa.txt", "text/plain", "Mapa".toByteArray())
         joinHostCloud()
         journey.tap("Archivos")
         journey.waitText("Nuevo")
         // New folder.
-        journey.tap("Nuevo")
+        tapClickable("Nuevo")
         journey.tap("Nueva carpeta", 10_000)
         compose.onNode(hasContentDescription("Nombre de la carpeta", substring = true)).performTextReplacement("Viajes")
         journey.tap("Crear")
         journey.waitText("Viajes")
         journey.capture("j08-1-folder")
         // Folder tree through the system picker.
-        journey.tap("Nuevo")
+        tapClickable("Nuevo")
         journey.tap("Subir una carpeta", 10_000)
-        pickTreeInDocumentsUi("BentoTree")
-        journey.waitText("BentoTree", 120_000)
-        journey.tap("BentoTree")
+        pickTreeInDocumentsUi("BentoTree$run")
+        journey.waitText("BentoTree$run", 120_000)
+        journey.tap("BentoTree$run")
         journey.waitText("notas.txt", 120_000)
         journey.waitText("Fotos")
         journey.capture("j08-2-tree")
@@ -146,17 +154,18 @@ class FilesJourneysTest {
         compose.onNode(hasText("notas.txt")).performTouchInput { longClick() }
         compose.onNode(hasContentDescription("Mover")).performClick()
         journey.waitText("Mover a…")
-        compose.onNode(hasContentDescription("Subir un nivel") and hasClickAction(), useUnmergedTree = true).performClick()
+        // The move sheet is the last window; Archivos' own breadcrumb also offers "Subir un nivel".
+        compose.onAllNodes(hasContentDescription("Subir un nivel")).onLast().performClick()
         journey.tap("Viajes")
         journey.tap("Mover aquí")
         journey.waitText("Se movió a «Viajes»")
         // Rename and pin the PDF.
-        compose.onNode(hasContentDescription("Opciones de «Guia.pdf»")).performClick()
+        openMenu("Guia.pdf")
         journey.tap("Renombrar")
         compose.onNode(hasContentDescription("Nuevo nombre", substring = true)).performTextReplacement("Guía de viaje.pdf")
         journey.tap("Guardar")
         journey.waitText("Guía de viaje.pdf")
-        compose.onNode(hasContentDescription("Opciones de «Guía de viaje.pdf»")).performClick()
+        openMenu("Guía de viaje.pdf")
         journey.tap("Disponible sin conexión")
         journey.waitText("estará disponible sin conexión", substring = true)
         journey.capture("j08-3-pinned")
@@ -165,8 +174,10 @@ class FilesJourneysTest {
         journey.tap("Guía de viaje.pdf")
         journey.waitText("Página 1 de 1", 60_000)
         journey.capture("j08-4-offline-pinned-opens")
-        device.pressBack()
-        compose.onNode(hasContentDescription("Subir un nivel") and hasClickAction()).performClick()
+        compose.onNode(hasContentDescription("Atrás") and hasClickAction()).performClick()
+        val up = hasContentDescription("Subir un nivel")
+        runCatching { journey.waitFor(up, 30_000) }.onFailure { journey.capture("j08-fail-after-reader") }.getOrThrow()
+        compose.onNode(up).performClick()
         journey.tap("Viajes")
         journey.tap("notas.txt", 30_000)
         journey.waitText("No disponible sin conexión")
@@ -177,21 +188,24 @@ class FilesJourneysTest {
     @Test
     fun j09_searchDesktopOcr() {
         joinHostCloud()
-        uploadToDesktop("recibo-luz.png", png())
+        uploadToDesktop("recibo-noviembre.png", png())
+        // Uploads through the HTTP API do not queue OCR by themselves (backend gap, see the handoff): the desktop's
+        // own maintenance action queues it, as `Reindexar` would.
+        HostDevice.desktop.call("POST", "/admin/reindex")
         waitFor("the desktop's OCR synced to the phone", 180_000) {
-            runBlocking { journey.phone.search(q = "luz").items }.firstOrNull { it.title == "recibo-luz.png" }
+            runBlocking { journey.phone.search(q = "luz").items }.firstOrNull { it.title == "recibo-noviembre.png" }
         }
         journey.tap("Archivos")
         journey.tap(SEARCH_PILL)
-        compose.onNode(hasContentDescription(SEARCH_PILL, substring = true) and hasClickAction().not()).performTextReplacement("luz")
+        compose.onNode(hasContentDescription(SEARCH_PILL, substring = true) and hasSetTextAction()).performTextReplacement("luz")
         journey.waitText("Texto en la imagen: «luz»", 30_000)
-        journey.waitText("recibo-luz.png")
+        journey.waitText("recibo-noviembre.png")
         journey.capture("j09-1-ocr-result")
         journey.tap("Fecha")
         journey.tap("Este mes", 10_000)
-        journey.waitText("recibo-luz.png", 30_000)
+        journey.waitText("recibo-noviembre.png", 30_000)
         journey.capture("j09-2-filtered")
-        compose.onNode(hasContentDescription(SEARCH_PILL, substring = true) and hasClickAction().not()).performTextReplacement("zzqxwv")
+        compose.onNode(hasContentDescription(SEARCH_PILL, substring = true) and hasSetTextAction()).performTextReplacement("zzqxwv")
         journey.waitText("No encontramos «zzqxwv»", 30_000)
         journey.capture("j09-3-no-results")
         compose.onAllNodes(hasText("Quitar filtros") and hasClickAction())[0].performClick()
@@ -247,11 +261,26 @@ class FilesJourneysTest {
     }
 
     /** Drives DocumentsUI (system folder picker) to grant [folder] under Downloads. */
-    private fun pickTreeInDocumentsUi(folder: String) {
+    private fun pickTreeInDocumentsUi(folder: String) = try {
+        pickTree(folder)
+    } catch (error: Throwable) {
+        val dir = java.io.File(journey.context.getExternalFilesDir(null), "journeys").apply { mkdirs() }
+        device.dumpWindowHierarchy(java.io.File(dir, "documentsui.xml"))
+        device.takeScreenshot(java.io.File(dir, "documentsui.png"))
+        throw error
+    }
+
+    private fun pickTree(folder: String) {
         val timeout = 20_000L
         device.wait(Until.hasObject(By.pkg(Pattern.compile(".*documentsui.*"))), timeout)
-        device.findObject(By.desc(Pattern.compile("Show roots|Mostrar raíces", Pattern.CASE_INSENSITIVE)))?.click()
-        device.wait(Until.findObject(By.text(Pattern.compile("Downloads|Descargas"))), timeout)?.click()
+        // DocumentsUI opens at the storage root (folder grid) or, on some versions, a recent location.
+        val download = device.wait(Until.findObject(By.text(Pattern.compile("Download|Descargas"))), timeout / 2)
+        if (download != null) {
+            download.click()
+        } else {
+            device.findObject(By.desc(Pattern.compile("Show roots|Mostrar raíces", Pattern.CASE_INSENSITIVE)))?.click()
+            device.wait(Until.findObject(By.text(Pattern.compile("Downloads|Descargas"))), timeout)?.click()
+        }
         device.wait(Until.findObject(By.text(folder)), timeout)!!.click()
         device.wait(
             Until.findObject(By.text(Pattern.compile("Use this folder|Usar esta carpeta", Pattern.CASE_INSENSITIVE))),
@@ -330,6 +359,23 @@ class FilesJourneysTest {
         check(connection.responseCode < 400) { "desktop upload → ${connection.responseCode}" }
     }
 
+    /** Opens an item menu, retrying while a previous sheet is still animating away. */
+    private fun openMenu(name: String) {
+        val options = hasContentDescription("Opciones de «$name»")
+        repeat(MENU_ATTEMPTS) {
+            journey.waitFor(options, 30_000)
+            compose.waitForIdle()
+            compose.onNode(options).performClick()
+            if (runCatching { journey.waitText("Detalles", 5_000) }.isSuccess) return
+        }
+        journey.waitText("Detalles", 5_000)
+    }
+
+    private fun tapClickable(text: String, timeoutMs: Long = 60_000) {
+        journey.waitText(text, timeoutMs)
+        compose.onAllNodes(hasText(text) and hasClickAction())[0].performClick()
+    }
+
     private fun <T : Any> waitFor(what: String, timeoutMs: Long, probe: () -> T?): T {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
@@ -341,6 +387,7 @@ class FilesJourneysTest {
 
     private companion object {
         const val SHEET_BUDGET_MS = 200L
+        const val MENU_ATTEMPTS = 3
         const val SEARCH_PILL = "Buscar en Bento"
     }
 }

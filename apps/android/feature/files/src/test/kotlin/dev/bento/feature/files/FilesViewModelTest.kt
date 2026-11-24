@@ -78,11 +78,13 @@ class FilesViewModelTest {
         )
     }
 
-    private fun TestScope.vm(): FilesViewModel {
+    private fun TestScope.vm(shared: FilesRepository? = null): FilesViewModel {
         val endpoints = api.endpoints()
         val invalidations = Invalidations()
         val cache = UiCache(tmp, "1")
-        val repo = FilesRepository(endpoints, null, DriveRepository(endpoints, invalidations, cache, backgroundScope), invalidations, cache)
+        val repo =
+            shared
+                ?: FilesRepository(endpoints, null, DriveRepository(endpoints, invalidations, cache, backgroundScope), invalidations, cache)
         val uploads = UploadCoordinator(
             endpoints,
             object : ContentHandles {
@@ -131,6 +133,24 @@ class FilesViewModelTest {
         settle()
         assertEquals(FolderSort(SortField.Size, true), vm.state.value.sort)
         assertFalse(vm.up())
+    }
+
+    @Test
+    fun aRecreatedScreenReopensTheLastFolder() = runTest(main.dispatcher) {
+        val endpoints = api.endpoints()
+        val cache = UiCache(tmp, "1")
+        val repo =
+            FilesRepository(endpoints, null, DriveRepository(endpoints, Invalidations(), cache, backgroundScope), Invalidations(), cache)
+        val first = vm(repo)
+        first.start(null)
+        settle()
+        first.navigateTo("f_work")
+        settle()
+        val second = vm(repo)
+        second.start(null)
+        settle()
+        assertEquals("f_work", second.state.value.folderId)
+        assertTrue(second.up())
     }
 
     @Test

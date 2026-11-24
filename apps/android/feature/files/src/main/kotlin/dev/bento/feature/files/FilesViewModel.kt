@@ -151,12 +151,13 @@ class FilesViewModel @Inject constructor(
         if (started) return
         started = true
         _state.update { it.copy(startFolderId = folderId) }
-        navigateTo(folderId)
+        navigateTo(repository.lastOpen(folderId))
     }
 
     /** Drill-in/out inside Archivos (the navigation bar stays; back goes up one level). */
     fun navigateTo(folderId: String?) {
         loadJob?.cancel()
+        repository.rememberOpen(_state.value.startFolderId, folderId)
         val cached = repository.cached(folderId) ?: if (folderId == null) repository.cachedRoot() else null
         _state.update {
             it.copy(

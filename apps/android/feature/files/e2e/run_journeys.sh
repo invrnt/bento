@@ -47,12 +47,15 @@ for port in 8790 8791; do "$adb" reverse "tcp:$port" "tcp:$port" >/dev/null; don
 status=0
 for j in "${journeys[@]}"; do
   "$adb" shell pm clear dev.bento.app >/dev/null
+  "$adb" logcat -c || true
   "$adb" shell cmd locale set-app-locales dev.bento.app --locales "${APP_LOCALE:-es-ES}" >/dev/null 2>&1 || true
   options='{"fake_telegram_url":"http://127.0.0.1:8790","manual_login":"true"}'
   "$adb" shell "run-as dev.bento.app sh -c 'mkdir -p files && echo '\''$options'\'' > files/dev-options.json'"
   echo "== $j"
   if ! "$adb" shell am instrument -w -r -e class "dev.bento.app.FilesJourneysTest#$j" dev.bento.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$OUT/$j.txt" | grep -E "OK \(|FAILURES|Tests run|AssertionError|Exception" ; then status=1; fi
   grep -q "OK (1 test)" "$OUT/$j.txt" || status=1
-  "$adb" pull /sdcard/Android/data/dev.bento.app/files/journeys "$OUT/screens-${APP_LOCALE:-es-ES}" >/dev/null 2>&1 || true
+  mkdir -p "$OUT/screens-${APP_LOCALE:-es-ES}"
+  "$adb" logcat -d -s BentoJourney:I > "$OUT/$j.logcat" 2>/dev/null || true
+  "$adb" pull /sdcard/Android/data/dev.bento.app/files/journeys/. "$OUT/screens-${APP_LOCALE:-es-ES}" >/dev/null 2>&1 || true
 done
 exit $status
