@@ -74,11 +74,12 @@ class PhotosJourneysTest {
         BentoDevice.forceStop()
         BentoDevice.launch()
         val grid = waitRes("photos:grid", 60_000)
-        device.wait(Until.hasObject(By.res(tile)), 20_000)
+        val photoTile = Pattern.compile("photos:tile:(?!$videoId).*")
+        device.wait(Until.hasObject(By.res(photoTile)), 30_000) ?: failWithScreen("no photo tiles")
         device.waitForIdle()
 
         // Open from the grid (shared element) on a photo, not the video at the top.
-        val first = grid.findObjects(By.res(tile)).first { !it.resourceName.endsWith(videoId) }
+        val first = grid.findObject(By.res(photoTile)) ?: failWithScreen("no photo tile")
         val openedId = first.resourceName.removePrefix("photos:tile:")
         val tapAt = System.nanoTime()
         first.click()
@@ -143,7 +144,7 @@ class PhotosJourneysTest {
         val endpoint = BentoDevice.ready()
         waitRes("photos:grid", 60_000)
         val dir = File(InstrumentationRegistry.getInstrumentation().context.cacheDir, "j2").apply { mkdirs() }
-        val bytes = LibrarySeeder.jpeg(900_000 + (System.currentTimeMillis() % 100_000).toInt(), dir)
+        val bytes = LibrarySeeder.jpeg(900_000 + (System.currentTimeMillis() % 100_000).toInt(), dir, java.time.LocalDateTime.now())
         val id = BentoDevice.upload(endpoint, "Desde el computador.jpg", "image/jpeg", bytes)["id"]!!.jsonPrimitive.content
         // The file is in the vault now (another device would have uploaded and synced it): the clock starts here.
         val started = System.currentTimeMillis()
@@ -168,7 +169,7 @@ class PhotosJourneysTest {
         val stamp = System.currentTimeMillis() % 1_000_000
         val names = (0 until 3).map { "IMG_J1_${stamp}_$it.jpg" }
         names.forEachIndexed { i, name ->
-            val local = File(dir, name).apply { writeBytes(LibrarySeeder.jpeg(800_000 + stamp.toInt() + i, dir)) }
+            val local = File(dir, name).apply { writeBytes(LibrarySeeder.jpeg(800_000 + stamp.toInt() + i, dir, java.time.LocalDateTime.now())) }
             BentoDevice.shell("mkdir -p /sdcard/DCIM/Camera")
             BentoDevice.shell("cp ${local.absolutePath} /sdcard/DCIM/Camera/$name")
         }
@@ -213,5 +214,23 @@ class PhotosJourneysTest {
         BentoDevice.shell("pm grant ${BentoDevice.PACKAGE} android.permission.READ_MEDIA_IMAGES")
         if (card == null) runCatching { failWithScreen("no partial access card") }
         assertNotNull("partial access card (backend partial_access=${status["partial_access"]})", card)
+    }
+
+    /** The same screens in English (per-app language), then back to Spanish. */
+    @Test
+    fun englishLocale() {
+        BentoDevice.forceStop()
+        BentoDevice.shell("cmd locale set-app-locales ${BentoDevice.PACKAGE} --locales en-US")
+        try {
+            BentoDevice.ready()
+            waitRes("photos:grid", 60_000)
+            assertNotNull(device.wait(Until.findObject(By.text("Photos")), 5_000))
+            assertNotNull(device.wait(Until.findObject(By.text("Collections")), 5_000))
+            device.findObject(By.text("Collections")).click()
+            assertNotNull(device.wait(Until.findObject(By.text("Favorites")), 5_000))
+            assertNotNull(device.findObject(By.text("Trash")))
+        } finally {
+            BentoDevice.shell("cmd locale set-app-locales ${BentoDevice.PACKAGE} --locales es-ES")
+        }
     }
 }

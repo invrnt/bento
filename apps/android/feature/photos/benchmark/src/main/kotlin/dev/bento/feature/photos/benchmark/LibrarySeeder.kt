@@ -49,7 +49,7 @@ object LibrarySeeder {
     }
 
     /** A 96 × 96 JPEG unique to [i] (different bytes → different sha256) with its EXIF capture time. */
-    fun jpeg(i: Int, dir: File): ByteArray {
+    fun jpeg(i: Int, dir: File, takenAt: LocalDateTime = start.minusHours(3L * i)): ByteArray {
         val bitmap = Bitmap.createBitmap(96, 96, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val hue = (i * 37) % 360
@@ -60,7 +60,7 @@ object LibrarySeeder {
         file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 80, it) }
         bitmap.recycle()
         ExifInterface(file).apply {
-            val taken = start.minusHours(3L * i).format(exifDate)
+            val taken = takenAt.format(exifDate)
             setAttribute(ExifInterface.TAG_DATETIME_ORIGINAL, taken)
             // The backend reads only IFD0 today (DateTimeOriginal is in the Exif sub-IFD): IFD0 DateTime is its fallback.
             setAttribute(ExifInterface.TAG_DATETIME, taken)

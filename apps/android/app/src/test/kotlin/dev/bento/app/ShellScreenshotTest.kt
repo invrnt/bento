@@ -6,6 +6,7 @@ import com.github.takahirom.roborazzi.captureRoboImage
 import dev.bento.app.navigation.BentoApp
 import dev.bento.app.navigation.Navigator
 import dev.bento.app.navigation.TopLevel
+import dev.bento.app.navigation.shellPreviewEntries
 import dev.bento.designsystem.theme.BentoTheme
 import dev.bento.engine.EngineState
 import org.junit.Rule

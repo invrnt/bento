@@ -115,6 +115,11 @@ class PhotosViewModel @Inject constructor(
     init {
         viewModelScope.launch { _cached.value = withContext(Dispatchers.IO) { timeline.cachedFirstScreen() }.orEmpty() }
         refreshStatus()
+        // Media access is reported by the platform bridge right after the engine starts: look once more.
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(STATUS_SETTLE_MS)
+            refreshStatus()
+        }
         // Sign-in, kit and backup changes arrive as invalidations (server events): the card follows them.
         // Debounced: every server event invalidates all topics, and a busy backup sends many.
         @OptIn(kotlinx.coroutines.FlowPreview::class)
@@ -123,6 +128,10 @@ class PhotosViewModel @Inject constructor(
             .debounce(1_500)
             .onEach { refreshStatus() }
             .launchIn(viewModelScope)
+    }
+
+    private companion object {
+        const val STATUS_SETTLE_MS = 4_000L
     }
 
     fun refreshStatus() {
