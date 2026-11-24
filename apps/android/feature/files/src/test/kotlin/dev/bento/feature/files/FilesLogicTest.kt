@@ -79,10 +79,10 @@ class FilesLogicTest {
     @Test
     fun sizesUseLocaleDigits() {
         val resources = ApplicationProvider.getApplicationContext<android.content.Context>().resources
-        assertEquals("1,5 MB", Sizes.format(resources, 1_572_864, Locale("es")))
-        assertEquals("812 B", Sizes.format(resources, 812, Locale("es")))
-        assertEquals("774 MB", Sizes.format(resources, 812_000_000, Locale("es")))
-        assertEquals("0 B", Sizes.format(resources, -4, Locale("es")))
+        assertEquals("1,5\u00A0MB", Sizes.format(resources, 1_572_864, Locale("es")))
+        assertEquals("812\u00A0B", Sizes.format(resources, 812, Locale("es")))
+        assertEquals("774\u00A0MB", Sizes.format(resources, 812_000_000, Locale("es")))
+        assertEquals("0\u00A0B", Sizes.format(resources, -4, Locale("es")))
     }
 
     @Test

@@ -15,8 +15,8 @@
     <string name="collections_videos_summary">All your videos</string>
     <string name="collections_documents_summary">PDFs, documents and spreadsheets</string>
     <string name="collections_phone_summary">Backed-up folders on this phone</string>
-    <string name="collections_telegram_summary">Photos and files brought from your chats</string>
-    <string name="collections_trash_summary">Empties itself after 30 days</string>
+    <string name="collections_telegram_summary">Photos and files imported from your chats</string>
+    <string name="collections_trash_summary">Emptied automatically after 30 days</string>
     <string name="collections_albums_empty_title">No albums yet</string>
     <string name="collections_albums_empty_body">Group photos from any date into an album. Photos don’t move.</string>
     <string name="collections_album_add_photos">Add photos</string>

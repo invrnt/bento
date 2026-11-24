@@ -56,7 +56,7 @@ class FilesUiTest {
         content(state())
         compose.onNodeWithText("Trabajo").assertIsDisplayed()
         compose.onNodeWithText("Declaración de renta 2025.pdf").assertExists()
-        compose.onNodeWithText("2,3 MB", substring = true).assertExists()
+        compose.onNodeWithText("2,3\u00A0MB", substring = true).assertExists()
         compose.onNodeWithText("Ordenado por nombre").assertExists()
         val notes = compose.onNode(hasText("Notas de la reunión.md"), useUnmergedTree = false).fetchSemanticsNode()
         assertEquals("Solo en este teléfono", notes.config.getOrNull(SemanticsProperties.StateDescription))
@@ -178,7 +178,7 @@ class FilesUiTest {
             )
         )
         compose.setContent { BentoTheme { UploadCard(uploads, onPause = { paused++ }, onResume = {}, onDismiss = {}) } }
-        compose.onNodeWithText("Subiendo 2 archivos · 11,4 MB de 38,1 MB").assertExists()
+        compose.onNodeWithText("Subiendo 2 archivos · 11,4\u00A0MB de 38,1\u00A0MB").assertExists()
         compose.onNodeWithText("Pausar").performClick()
         compose.onNodeWithContentDescription("Ver archivos").performClick()
         compose.onNodeWithText("Copiando…").assertExists()

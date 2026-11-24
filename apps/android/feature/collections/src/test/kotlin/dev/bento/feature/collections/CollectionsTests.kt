@@ -199,10 +199,10 @@ class CollectionsUiTest {
                 }, {}, nowMs = NOW)
             }
         }
-        compose.onNodeWithText("Se eliminará en 12 días · 2,4 MB").assertExists()
-        compose.onNodeWithText("Se eliminará hoy · 0 B").assertExists()
+        compose.onNodeWithText("Se eliminará en 12 días · 2,4\u00A0MB").assertExists()
+        compose.onNodeWithText("Se eliminará hoy · 0\u00A0B").assertExists()
         compose.onNodeWithText("Vaciar papelera").performClick()
-        compose.onNodeWithText("Se eliminarán para siempre 3 elementos (2,6 MB). No se puede deshacer.").assertIsDisplayed()
+        compose.onNodeWithText("Se eliminarán para siempre 3 elementos (2,6\u00A0MB). No se puede deshacer.").assertIsDisplayed()
         compose.onAllNodesWithText("Vaciar papelera").assertCountEquals(2)
         compose.onNodeWithText("Cancelar").performClick()
         assertEquals(0, emptied.size)

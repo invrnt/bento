@@ -141,9 +141,9 @@
         <item quantity="other">Se añadieron %1$s archivos</item>
     </plurals>
     <plurals name="files_upload_failed">
-        <item quantity="one">%1$s no se pudo añadir</item>
-        <item quantity="many">%1$s de archivos no se pudieron añadir</item>
-        <item quantity="other">%1$s no se pudieron añadir</item>
+        <item quantity="one">No se pudo añadir %1$s archivo</item>
+        <item quantity="many">No se pudieron añadir %1$s de archivos</item>
+        <item quantity="other">No se pudieron añadir %1$s archivos</item>
     </plurals>
     <string name="files_upload_summary">%1$s · %2$s</string>
     <string name="files_upload_pause">Pausar</string>

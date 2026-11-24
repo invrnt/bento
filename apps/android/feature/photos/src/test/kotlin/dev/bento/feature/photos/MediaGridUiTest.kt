@@ -131,7 +131,7 @@ class MediaGridUiTest {
         ).assert(descriptionContains("Video, 0:42")).assert(descriptionContains("14 de marzo de 2024"))
         compose.onNodeWithTag(MediaTestTags.tile("p3")).assert(descriptionContains("pendiente de respaldo"))
         compose.onNodeWithTag(MediaTestTags.tile("p5")).assert(descriptionContains("no se pudo respaldar"))
-        compose.onNodeWithTag(MediaTestTags.tile("p6")).assert(descriptionContains("Foto")).assert(descriptionContains("favorita"))
+        compose.onNodeWithTag(MediaTestTags.tile("p6")).assert(descriptionContains("Foto")).assert(descriptionContains("en favoritos"))
     }
 
     @Test

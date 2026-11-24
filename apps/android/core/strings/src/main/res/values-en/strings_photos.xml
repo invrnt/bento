@@ -5,7 +5,7 @@
     <string name="photos_tile_photo">Photo</string>
     <string name="photos_tile_video">Video, %1$s</string>
     <string name="photos_tile_video_plain">Video</string>
-    <string name="photos_tile_favorite">favorite</string>
+    <string name="photos_tile_favorite">in favorites</string>
     <string name="photos_tile_pending">waiting to back up</string>
     <string name="photos_tile_uploading">uploading</string>
     <string name="photos_tile_failed">backup failed</string>
@@ -37,13 +37,13 @@
     <string name="photos_card_kit_body">It’s the only way to recover your cloud without another device.</string>
     <string name="photos_card_kit_action">Save kit</string>
     <string name="photos_card_signin_body">Your library is still here. Reconnect to sync.</string>
-    <string name="photos_trashed_one">Moved to trash</string>
+    <string name="photos_trashed_one">Moved to the trash</string>
     <string name="photos_favorites_added">Added to favorites</string>
     <string name="photos_favorites_removed">Removed from favorites</string>
     <string name="photos_added_to_album">Added to “%1$s”</string>
     <string name="photos_moved_to_folder">Moved to “%1$s”</string>
     <string name="photos_saved_to_phone">Saved to Pictures › Bento</string>
-    <string name="photos_sent_telegram">Sent to %1$s</string>
+    <string name="photos_sent_telegram">Sent to “%1$s”</string>
     <string name="photos_preparing_copy">Preparing a copy…</string>
     <string name="photos_action_failed">That didn’t work. Try again.</string>
     <string name="photos_album_sheet_title">Add to album</string>
@@ -56,8 +56,8 @@
     <string name="photos_move_here">Move here</string>
     <string name="photos_move_root">Files</string>
     <string name="photos_move_empty">This folder has no subfolders.</string>
-    <string name="photos_move_open_folder">Open %1$s</string>
-    <string name="photos_telegram_sheet_title">Send with Telegram</string>
+    <string name="photos_move_open_folder">Open “%1$s”</string>
+    <string name="photos_telegram_sheet_title">Send via Telegram</string>
     <string name="photos_telegram_search">Search chats</string>
     <string name="photos_telegram_empty">No chats match that name.</string>
     <string name="photos_disclosure_title">Before you continue</string>
@@ -65,8 +65,8 @@
     <string name="photos_header_today">Today</string>
     <string name="photos_header_yesterday">Yesterday</string>
     <plurals name="photos_trashed_many">
-        <item quantity="one">%1$s item moved to trash</item>
-        <item quantity="other">%1$s items moved to trash</item>
+        <item quantity="one">Moved %1$s item to the trash</item>
+        <item quantity="other">Moved %1$s items to the trash</item>
     </plurals>
     <plurals name="photos_card_partial_title">
         <item quantity="one">Bento can only see %1$s photo</item>

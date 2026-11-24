@@ -82,12 +82,12 @@
     <string name="collections_select_all">Seleccionar todo</string>
     <plurals name="collections_trash_days_left">
         <item quantity="one">Se eliminará en %1$s día</item>
-        <item quantity="many">Se eliminará en %1$s días</item>
+        <item quantity="many">Se eliminará en %1$s de días</item>
         <item quantity="other">Se eliminará en %1$s días</item>
     </plurals>
     <plurals name="collections_trash_empty_confirm_body">
         <item quantity="one">Se eliminará para siempre %1$s elemento (%2$s). No se puede deshacer.</item>
-        <item quantity="many">Se eliminarán para siempre %1$s elementos (%2$s). No se puede deshacer.</item>
+        <item quantity="many">Se eliminarán para siempre %1$s de elementos (%2$s). No se puede deshacer.</item>
         <item quantity="other">Se eliminarán para siempre %1$s elementos (%2$s). No se puede deshacer.</item>
     </plurals>
     <plurals name="collections_telegram_import_count">
@@ -102,7 +102,7 @@
     </plurals>
     <plurals name="collections_count_items">
         <item quantity="one">%1$s elemento</item>
-        <item quantity="many">%1$s elementos</item>
+        <item quantity="many">%1$s de elementos</item>
         <item quantity="other">%1$s elementos</item>
     </plurals>
 </resources>

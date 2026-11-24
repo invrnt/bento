@@ -50,12 +50,12 @@
     <string name="onboarding_password_submit">Sign in</string>
     <string name="onboarding_password_forgot">I forgot my password</string>
     <string name="onboarding_qr_title">Sign in from another phone</string>
-    <string name="onboarding_qr_body">Scan this code with Telegram on the phone where your account already is.</string>
+    <string name="onboarding_qr_body">Scan this code with Telegram on the phone where you’re already signed in.</string>
     <string name="onboarding_qr_label">QR code to link your Telegram account</string>
     <string name="onboarding_qr_loading">Preparing the QR code…</string>
     <string name="onboarding_qr_step1">Open Telegram on the other phone.</string>
     <string name="onboarding_qr_step2">Go to Settings › Devices › Link Desktop Device.</string>
-    <string name="onboarding_qr_step3">Scan this code. It refreshes by itself.</string>
+    <string name="onboarding_qr_step3">Scan this code. It refreshes automatically.</string>
     <string name="onboarding_qr_waiting">Waiting for you to scan the code…</string>
     <string name="onboarding_error_code_invalid">That code isn’t right. Check it and try again.</string>
     <string name="onboarding_error_expired">The sign-in expired. Start again.</string>
@@ -66,7 +66,7 @@
     <string name="onboarding_error_telegram_app_missing">Telegram couldn’t be opened. Sign in with your number.</string>
     <string name="onboarding_error_generic">Couldn’t sign in to Telegram. Try again.</string>
     <string name="onboarding_error_flood_title">Telegram asked to wait</string>
-    <string name="onboarding_error_flood_body">Telegram asked to wait %1$s. We’ll try again by ourselves.</string>
+    <string name="onboarding_error_flood_body">Telegram asked to wait %1$s. We’ll try again automatically.</string>
     <string name="onboarding_error_flood_ready">Trying again…</string>
 
     <string name="onboarding_creating_title">Creating your cloud</string>
@@ -81,7 +81,7 @@
     <string name="onboarding_creating_failed">Your cloud couldn’t be created. Your account is untouched.</string>
     <string name="onboarding_creating_failed_hint">Check your internet connection and try again.</string>
 
-    <string name="onboarding_notifications_title">Should we tell you about the backup?</string>
+    <string name="onboarding_notifications_title">Get notified about your backup?</string>
     <string name="onboarding_notifications_body">We’ll only tell you about backup progress and when something needs your attention.</string>
     <string name="onboarding_notifications_allow">Allow notifications</string>
     <string name="onboarding_notifications_denied_note">If you’d rather not get them, progress stays visible inside Bento.</string>
@@ -90,7 +90,7 @@
     <string name="onboarding_done_body">Everything you keep here is also in your Telegram, encrypted.</string>
     <string name="onboarding_done_tip_share_title">Share to Bento from any app</string>
     <string name="onboarding_done_tip_share_body">Pick Bento in the Share menu to keep photos, PDFs or any file.</string>
-    <string name="onboarding_done_tip_inbox_title">Forward things to \"Bento · Inbox\" in Telegram</string>
+    <string name="onboarding_done_tip_inbox_title">Forward things to “Bento · Inbox” in Telegram</string>
     <string name="onboarding_done_tip_inbox_body">Whatever you forward to that chat shows up in Bento, encrypted.</string>
     <string name="onboarding_done_tip_search_title">Search the text inside your photos</string>
     <string name="onboarding_done_tip_search_body">Bento reads the text in your photos and documents on the phone so you can find it when you search.</string>

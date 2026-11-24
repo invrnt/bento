@@ -120,7 +120,7 @@
     <string name="files_saved_to_phone">Saved “%1$s” to the phone</string>
     <string name="files_save_failed">Couldn’t save to the phone.</string>
 
-    <string name="files_telegram_title">Send with Telegram</string>
+    <string name="files_telegram_title">Send via Telegram</string>
     <string name="files_telegram_search">Search chats</string>
     <string name="files_telegram_empty">No chats found.</string>
     <string name="files_telegram_failed">Couldn’t send. Try again.</string>
@@ -136,8 +136,8 @@
         <item quantity="other">Added %1$s files</item>
     </plurals>
     <plurals name="files_upload_failed">
-        <item quantity="one">%1$s couldn’t be added</item>
-        <item quantity="other">%1$s couldn’t be added</item>
+        <item quantity="one">%1$s file couldn’t be added</item>
+        <item quantity="other">%1$s files couldn’t be added</item>
     </plurals>
     <string name="files_upload_summary">%1$s · %2$s</string>
     <string name="files_upload_pause">Pause</string>

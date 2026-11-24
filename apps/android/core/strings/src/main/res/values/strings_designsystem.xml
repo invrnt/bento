@@ -41,5 +41,5 @@
     <string name="ds_kind_video">Video</string>
     <string name="ds_kind_audio">Audio</string>
     <string name="ds_kind_archive">Comprimido</string>
-    <string name="ds_kind_text">Archivo</string>
+    <string name="ds_kind_text">Archivo de texto</string>
 </resources>

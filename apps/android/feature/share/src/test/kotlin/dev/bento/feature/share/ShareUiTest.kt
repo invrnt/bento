@@ -31,7 +31,7 @@ class ShareUiTest {
     fun summaryDestinationAlbumAndSave() {
         val log = mutableListOf<String>()
         body(ShareFixtures.media, ShareActions(onSave = { log += "save" }, onPicker = { log += "picker:$it" }))
-        compose.onNodeWithText("3 archivos · 17,2 MB").assertExists()
+        compose.onNodeWithText("3 archivos · 17,2\u00A0MB").assertExists()
         compose.onNodeWithText("Recibos").performClick()
         compose.onNodeWithText("Añadir a álbum").performClick()
         compose.onNode(hasText("Guardar en Bento") and hasClickAction()).performClick()
