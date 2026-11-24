@@ -3,6 +3,7 @@ package dev.bento.data
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
+import androidx.paging.cachedIn
 import androidx.paging.filter
 import androidx.paging.insertSeparators
 import androidx.paging.map
@@ -65,28 +66,136 @@ class TimelineRepository(
     /** First screen from the UI cache (cold start), or null. */
     fun cachedFirstScreen(): List<AssetResponse>? = uiCache.read(CACHE_KEY, AssetResponse.serializer())
 
-    fun timeline(pageSize: Int = PageSizes.GRID): Flow<PagingData<TimelineEntry>> {
-        val factory = invalidations.pagingFactory(scope, Topic.TIMELINE) {
-            CursorPagingSource { cursor, limit ->
-                val page = api.photosTimeline(cursor = cursor, limit = limit.toLong())
-                val items = page.groups.flatMap { group -> group.assets.map { TimelineEntry.Photo(group.date, it) } }
-                if (cursor == null) uiCache.write(CACHE_KEY, items.map { it.asset }, AssetResponse.serializer())
-                CursorPage(items, page.nextCursor)
-            }
-        }
+    /**
+     * The timeline with day separators and optimistic edits. [cacheScope] owns the page cache (a view model scope);
+     * the overlay is combined after `cachedIn` so each optimistic change re-presents cached pages instead of
+     * re-collecting a spent PagingData.
+     */
+    fun timeline(pageSize: Int = PageSizes.GRID, cacheScope: CoroutineScope = scope): Flow<PagingData<TimelineEntry>> {
+        val factory = invalidations.pagingFactory(scope, Topic.TIMELINE) { CursorPagingSource(::fetchPhotos) }
         val pages = Pager(
             PagingConfig(pageSize = pageSize, initialLoadSize = pageSize, enablePlaceholders = false),
             pagingSourceFactory = factory
         ).flow
-        return combine(pages, overlay.changes) { data, changes ->
-            data.filter { !overlay.isHidden((it as TimelineEntry.Photo).asset.id, changes) }
-                .map { photo -> photo.copy(asset = overlay.apply(photo.asset.id, photo.asset, changes)) as TimelineEntry }
-                .insertSeparators { before, after ->
-                    val next = after as? TimelineEntry.Photo ?: return@insertSeparators null
-                    if ((before as? TimelineEntry.Photo)?.date == next.date) null else TimelineEntry.Day(next.date)
-                }
+        return decorate(pages, cacheScope, daySeparators = true)
+    }
+
+    private val jumps = java.util.concurrent.atomic.AtomicReference<Int?>(null)
+    private val _layout = MutableStateFlow(TimelineLayout.EMPTY)
+
+    /** Photo positions per month of the current positional timeline (fast scroller, sticky month header). */
+    val layout: StateFlow<TimelineLayout> = _layout.asStateFlow()
+
+    @Volatile private var positionalFactory: androidx.paging.InvalidatingPagingSourceFactory<Int, TimelineEntry.Photo>? = null
+
+    /**
+     * The whole timeline with placeholders (positions from the month index, [layout]): the grid knows its full
+     * height and the fast scroller jumps by index. Day separators are interleaved like [timeline].
+     */
+    fun positionalTimeline(pageSize: Int = PageSizes.GRID): Flow<PagingData<TimelineEntry>> {
+        val factory = invalidations.pagingFactory(scope, Topic.TIMELINE) {
+            TimelinePositionalSource(::fetchPhotos, ::monthIndex, { _layout.value = it }, jumps)
+        }
+        positionalFactory = factory
+        val pages = Pager(
+            PagingConfig(
+                pageSize = pageSize,
+                initialLoadSize = pageSize * 2,
+                prefetchDistance = pageSize,
+                enablePlaceholders = true,
+                maxSize = pageSize * 12,
+                jumpThreshold = pageSize * 4
+            ),
+            pagingSourceFactory = factory
+        ).flow
+        return decorate(pages, scope, daySeparators = true)
+    }
+
+    /**
+     * One positional timeline shared by Fotos and the viewer (application scope): the viewer pages through the very
+     * pages the grid already loaded, so opening it never refetches.
+     */
+    val sharedPositional: Flow<PagingData<TimelineEntry>> by lazy { positionalTimeline().cachedIn(scope) }
+
+    /** Reload the positional timeline so that its first page starts exactly at photo [position]. */
+    fun jumpTo(position: Int) {
+        jumps.set(position)
+        positionalFactory?.invalidate()
+    }
+
+    /** Favoritos / Videos: the timeline filtered on the device (the backend has no filter yet). */
+    fun filteredTimeline(
+        predicate: (AssetResponse) -> Boolean,
+        cacheScope: CoroutineScope,
+        pageSize: Int = PageSizes.GRID
+    ): Flow<PagingData<TimelineEntry>> {
+        val factory = invalidations.pagingFactory(scope, Topic.TIMELINE) {
+            FilteredTimelineSource(::fetchPhotos, { predicate(it.asset) })
+        }
+        val pages = Pager(PagingConfig(pageSize = pageSize, enablePlaceholders = false), pagingSourceFactory = factory).flow
+        return decorate(pages, cacheScope, daySeparators = true, keep = predicate)
+    }
+
+    private suspend fun fetchPhotos(cursor: String?, limit: Int): CursorPage<TimelineEntry.Photo> {
+        val page = api.photosTimeline(cursor = cursor, limit = limit.toLong())
+        val items = page.groups.flatMap { group -> group.assets.map { TimelineEntry.Photo(group.date, it) } }
+        if (cursor == null) uiCache.write(CACHE_KEY, items.take(UiCache.MAX_ITEMS).map { it.asset }, AssetResponse.serializer())
+        return CursorPage(items, page.nextCursor)
+    }
+
+    /** Optimistic overlay (favorite, trash) + day separators over raw photo pages. */
+    private fun decorate(
+        pages: Flow<PagingData<TimelineEntry.Photo>>,
+        cacheScope: CoroutineScope,
+        daySeparators: Boolean,
+        keep: (AssetResponse) -> Boolean = { true }
+    ): Flow<PagingData<TimelineEntry>> = combine(pages.cachedIn(cacheScope), overlay.changes) { data, changes ->
+        val visible = data.filter { !overlay.isHidden(it.asset.id, changes) }
+            .map { photo -> photo.copy(asset = overlay.apply(photo.asset.id, photo.asset, changes)) }
+            .filter { keep(it.asset) }
+            .map { it as TimelineEntry }
+        if (!daySeparators) {
+            visible
+        } else {
+            visible.insertSeparators { before, after ->
+                val next = after as? TimelineEntry.Photo ?: return@insertSeparators null
+                if ((before as? TimelineEntry.Photo)?.date == next.date) null else TimelineEntry.Day(next.date)
+            }
         }
     }
+
+    /** Optimistic favorite for several photos (selection bar) with one undo. */
+    suspend fun setFavorite(assets: List<AssetResponse>, favorite: Boolean): Undoable = optimistic(
+        applyLocal = { assets.forEach { overlay.replace(it.id, it.copy(favorite = favorite)) } },
+        rollbackLocal = { assets.forEach { overlay.clear(it.id) } },
+        remote = { assets.forEach { api.setPhotoFavorite(it.id, FavoriteRequest(favorite)) } },
+        inverse = { assets.forEach { api.setPhotoFavorite(it.id, FavoriteRequest(it.favorite)) } },
+        onSettled = { invalidations.invalidate(Topic.TIMELINE, Topic.ALBUMS, Topic.SEARCH) }
+    )
+
+    /** Move several photos to the trash with one undo. */
+    suspend fun trash(assetIds: List<String>): Undoable = optimistic(
+        applyLocal = { assetIds.forEach(overlay::hide) },
+        rollbackLocal = { assetIds.forEach(overlay::clear) },
+        remote = { assetIds.forEach { api.deleteAsset(it) } },
+        inverse = { api.restoreTrash(TrashIdsRequest(ids = assetIds)) },
+        onSettled = { invalidations.invalidate(Topic.TIMELINE, Topic.DRIVE, Topic.TRASH, Topic.SEARCH, Topic.ALBUMS) }
+    )
+
+    /** Rename a photo (viewer info sheet / Renombrar) with undo. */
+    suspend fun rename(asset: AssetResponse, name: String): Undoable = optimistic(
+        applyLocal = { overlay.replace(asset.id, asset.copy(filename = name)) },
+        rollbackLocal = { overlay.clear(asset.id) },
+        remote = { api.renameDriveAsset(asset.id, AssetPatchRequest(name = name)) },
+        inverse = { api.renameDriveAsset(asset.id, AssetPatchRequest(name = asset.filename)) },
+        onSettled = { invalidations.invalidate(Topic.TIMELINE, Topic.DRIVE, Topic.SEARCH) }
+    )
+
+    /** The latest optimistic view of [asset] (viewer pages render from paging snapshots). */
+    fun current(asset: AssetResponse): AssetResponse = overlay.apply(asset.id, asset)
+
+    /** Live optimistic changes (the viewer re-reads its current item when these change). */
+    val overlayChanges: StateFlow<Map<String, OverlayStore.Change<AssetResponse>>> get() = overlay.changes
 
     /** Month index for the fast scroller: one grouped query on the backend (`GET /photos/timeline/index`). */
     suspend fun monthIndex(): List<MonthIndexEntry> = api.photosTimelineIndex().months.map { month ->
@@ -112,6 +221,10 @@ class TimelineRepository(
     )
 
     suspend fun asset(assetId: String): AssetResponse = api.photoDetail(assetId)
+
+    /** `Disponible sin conexión`: pin (downloads the original, excluded from eviction) or unpin. Returns pinned. */
+    suspend fun setOffline(assetId: String, pinned: Boolean): Boolean =
+        (if (pinned) api.pinAssetOffline(assetId) else api.unpinAssetOffline(assetId)).pinned
 
     companion object {
         const val CACHE_KEY = "fotos"
@@ -141,6 +254,24 @@ class DriveRepository(
         return combine(pages, overlay.changes) { data, changes ->
             data.filter { !overlay.isHidden(it.id, changes) }.map { overlay.apply(it.id, it, changes) }
         }
+    }
+
+    /** Drive path of an asset or folder ("/Fotos/2024"), or null when unknown. */
+    suspend fun pathOf(id: String): String? {
+        val root = api.drivePaths(dev.bento.api.generated.DrivePathsRequest(ids = listOf(id))) as? JsonObject ?: return null
+        return ((root["paths"] as? JsonObject)?.get(id) as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull
+    }
+
+    /** Subfolders of [folderId] (root when null), for folder pickers; reads up to [maxPages] pages. */
+    suspend fun folders(folderId: String?, maxPages: Int = 10): List<DriveItemResponse> {
+        val out = ArrayList<DriveItemResponse>()
+        var cursor: String? = null
+        repeat(maxPages) {
+            val page = api.driveItems(folderId = folderId, cursor = cursor, limit = 200)
+            out += page.items.filter { it.folder != null }
+            cursor = page.nextCursor ?: return out
+        }
+        return out
     }
 
     suspend fun createFolder(name: String, parentId: String?): FolderResponse =
@@ -239,6 +370,22 @@ class AlbumsRepository(private val api: BentoEndpoints, private val invalidation
 
     suspend fun album(albumId: String): AlbumResponse = api.albumDetail(albumId)
 
+    /** Albums that contain [assetId] (viewer info sheet; the backend has no reverse lookup, albums are few). */
+    suspend fun albumsContaining(assetId: String, maxPages: Int = 10): List<AlbumResponse> {
+        val out = ArrayList<AlbumResponse>()
+        var cursor: String? = null
+        repeat(maxPages) {
+            val page = page(cursor)
+            out += page.items.filter { assetId in it.assetIds }
+            cursor = page.nextCursor ?: return out
+        }
+        return out
+    }
+
+    /** One page of albums (sheets that list every album without Paging). */
+    suspend fun page(cursor: String?, limit: Int = 100): CursorPage<AlbumResponse> =
+        api.listAlbums(cursor = cursor, limit = limit.toLong()).let { CursorPage(it.items, it.nextCursor) }
+
     suspend fun create(title: String): AlbumResponse = api.createAlbum(AlbumCreateRequest(title)).also {
         invalidations.invalidate(Topic.ALBUMS)
     }
@@ -250,6 +397,28 @@ class AlbumsRepository(private val api: BentoEndpoints, private val invalidation
         inverse = { api.removeAlbumItem(albumId, assetId) },
         onSettled = { invalidations.invalidate(Topic.ALBUMS) }
     )
+
+    /** Adds several photos (selection bar, album picker) with one undo; already-present photos stay. */
+    suspend fun addAll(albumId: String, assetIds: List<String>): Undoable {
+        val before = api.albumDetail(albumId).assetIds.toSet()
+        val added = assetIds.filterNot { it in before }
+        return optimistic(
+            applyLocal = {},
+            rollbackLocal = {},
+            remote = { added.forEach { api.addAlbumItem(albumId, AlbumItemRequest(it)) } },
+            inverse = { added.forEach { api.removeAlbumItem(albumId, it) } },
+            onSettled = { invalidations.invalidate(Topic.ALBUMS) }
+        )
+    }
+
+    /** Nuevo álbum: create it, then add the picked photos. */
+    suspend fun createWith(title: String, assetIds: List<String>): AlbumResponse {
+        val album = api.createAlbum(AlbumCreateRequest(title))
+        var latest = album
+        assetIds.forEach { latest = api.addAlbumItem(album.id, AlbumItemRequest(it)) }
+        invalidations.invalidate(Topic.ALBUMS)
+        return latest
+    }
 
     suspend fun remove(albumId: String, assetId: String): Undoable = optimistic(
         applyLocal = {},
@@ -270,6 +439,21 @@ class TrashRepository(private val api: BentoEndpoints, private val invalidations
             CursorPagingSource { cursor, limit -> untypedPage(api.listTrash(cursor = cursor, limit = limit.toLong())) }
         }
         return Pager(PagingConfig(pageSize = pageSize, enablePlaceholders = false), pagingSourceFactory = factory).flow
+    }
+
+    /** Count and bytes of everything in the trash (Vaciar papelera confirmation), reading at most [maxPages] pages. */
+    suspend fun summary(maxPages: Int = 40): Pair<Int, Long> {
+        var cursor: String? = null
+        var count = 0
+        var bytes = 0L
+        repeat(maxPages) {
+            val page = untypedPage(api.listTrash(cursor = cursor, limit = 200))
+            count += page.items.size
+            bytes +=
+                page.items.sumOf { (it["size_bytes"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull?.toLongOrNull() ?: 0L }
+            cursor = page.nextCursor ?: return count to bytes
+        }
+        return count to bytes
     }
 
     suspend fun restore(ids: List<String>) {

@@ -19,12 +19,15 @@ import coil3.toUri
  * fetched again while unchanged ones are served from cache across engine restarts (the port changes).
  */
 data class BentoImage(val assetId: String, val kind: Kind, val etag: String? = null) {
-    enum class Kind { THUMBNAIL, PREVIEW }
+    enum class Kind { THUMBNAIL, PREVIEW, ORIGINAL }
 
     companion object {
         fun thumbnail(assetId: String, etag: String? = null) = BentoImage(assetId, Kind.THUMBNAIL, etag)
 
         fun preview(assetId: String) = BentoImage(assetId, Kind.PREVIEW)
+
+        /** Full-resolution bytes (`/content`): the viewer's last progressive step; Telephoto subsamples it from disk cache. */
+        fun original(assetId: String, etag: String? = null) = BentoImage(assetId, Kind.ORIGINAL, etag)
     }
 }
 
@@ -57,7 +60,11 @@ class BentoImageFetcher(
 ) : Fetcher {
     override suspend fun fetch() = run {
         val size = if (image.kind == BentoImage.Kind.THUMBNAIL) sizeHint(options) else null
-        val path = if (image.kind == BentoImage.Kind.THUMBNAIL) AssetPaths.thumbnail(image.assetId) else AssetPaths.preview(image.assetId)
+        val path = when (image.kind) {
+            BentoImage.Kind.THUMBNAIL -> AssetPaths.thumbnail(image.assetId)
+            BentoImage.Kind.PREVIEW -> AssetPaths.preview(image.assetId)
+            BentoImage.Kind.ORIGINAL -> AssetPaths.content(image.assetId)
+        }
         val url = http.url(path, listOfNotNull(size?.let { "size" to it.px.toString() })).toString()
         val keyed = options.copy(diskCacheKey = cacheKey(image, size))
         val delegate = network.create(url.toUri(), keyed, loader) ?: error("network fetcher unavailable")

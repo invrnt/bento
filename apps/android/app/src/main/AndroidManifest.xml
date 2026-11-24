@@ -53,8 +53,10 @@
 
         <activity
             android:name=".MainActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:exported="true"
             android:launchMode="singleTask"
+            android:supportsPictureInPicture="true"
             android:theme="@style/Theme.Bento.Splash"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>

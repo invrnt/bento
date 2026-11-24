@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Visor (feature/viewer, agent 39): photo and video viewer, info sheet, actions. -->
+<resources>
+    <string name="viewer_label">Visor de fotos</string>
+    <string name="viewer_position">%1$s de %2$s</string>
+    <string name="viewer_info">Detalles</string>
+    <string name="viewer_info_name">Nombre</string>
+    <string name="viewer_info_edit_name">Editar el nombre</string>
+    <string name="viewer_info_size">Tamaño</string>
+    <string name="viewer_info_dimensions">%1$s × %2$s · %3$s MP</string>
+    <string name="viewer_info_duration">Duración %1$s</string>
+    <string name="viewer_info_camera">Cámara</string>
+    <string name="viewer_info_exposure">Exposición</string>
+    <string name="viewer_info_location">Ubicación</string>
+    <string name="viewer_info_open_maps">Abrir en Mapas</string>
+    <string name="viewer_info_folder">Carpeta</string>
+    <string name="viewer_info_folder_open">Abrir la carpeta</string>
+    <string name="viewer_info_albums">Álbumes</string>
+    <string name="viewer_info_storage">Dónde está</string>
+    <string name="viewer_storage_remote">En tu nube · cifrado</string>
+    <string name="viewer_storage_local">En este teléfono · se subirá con Wi-Fi</string>
+    <string name="viewer_storage_uploading">Subiendo…</string>
+    <string name="viewer_storage_failed">No se pudo subir · ver actividad</string>
+    <string name="viewer_info_taken">Fecha</string>
+    <string name="viewer_action_use_as">Usar como…</string>
+    <string name="viewer_action_details">Detalles</string>
+    <string name="viewer_action_offline">Disponible sin conexión</string>
+    <string name="viewer_action_offline_off">Quitar de sin conexión</string>
+    <string name="viewer_action_speed">Velocidad de reproducción</string>
+    <string name="viewer_speed_normal">Normal</string>
+    <string name="viewer_offline_title">Necesitas conexión para ver el original</string>
+    <string name="viewer_offline_hint">Marca «Disponible sin conexión» para verla la próxima vez.</string>
+    <string name="viewer_offline_saved">Estará disponible sin conexión</string>
+    <string name="viewer_error_open">No se pudo abrir este elemento.</string>
+    <string name="viewer_rename_title">Renombrar</string>
+    <string name="viewer_play">Reproducir</string>
+    <string name="viewer_pause">Pausar</string>
+    <string name="viewer_mute">Silenciar</string>
+    <string name="viewer_unmute">Activar el sonido</string>
+    <string name="viewer_pip">Imagen en imagen</string>
+    <string name="viewer_seek">Posición de reproducción</string>
+    <string name="viewer_seek_back">Retroceder 10 segundos</string>
+    <string name="viewer_seek_forward">Avanzar 10 segundos</string>
+    <string name="viewer_chooser_open_with">Abrir con</string>
+    <string name="viewer_chooser_use_as">Usar como</string>
+    <string name="viewer_chooser_share">Compartir</string>
+    <string name="viewer_controls_show">Mostrar controles</string>
+    <string name="viewer_close">Cerrar el visor</string>
+    <string name="viewer_open_activity">Ver actividad</string>
+    <string name="viewer_loading_original">Cargando el original…</string>
+</resources>

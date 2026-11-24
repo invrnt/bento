@@ -6,6 +6,7 @@ import com.github.takahirom.roborazzi.captureRoboImage
 import dev.bento.app.navigation.BentoApp
 import dev.bento.app.navigation.Navigator
 import dev.bento.app.navigation.TopLevel
+import dev.bento.app.navigation.shellPreviewEntries
 import dev.bento.designsystem.theme.BentoTheme
 import dev.bento.engine.EngineState
 import org.junit.Rule
@@ -24,7 +25,9 @@ class ShellScreenshotTest {
 
     private fun shell(dark: Boolean, state: EngineState = EngineState.Ready(1, "t", dev.bento.engine.WorkerMode.FULL)) {
         compose.setContent {
-            BentoTheme(darkTheme = dark, reducedMotion = true) { BentoApp(Navigator(), state, onExit = {}) }
+            BentoTheme(darkTheme = dark, reducedMotion = true) {
+                BentoApp(Navigator(), state, onExit = {}, entries = { shellPreviewEntries() })
+            }
         }
     }
 
@@ -44,12 +47,13 @@ class ShellScreenshotTest {
 
     @Test
     @Config(qualifiers = "w1000dp-h800dp-xhdpi")
-    fun expandedLightTab() {
+    fun expandedLightFiles() {
         compose.setContent {
-            // A tab whose screen needs no Hilt graph (Archivos is a real Hilt screen since agent 40).
-            val nav = Navigator().apply { selectTab(TopLevel.COLLECTIONS) }
-            BentoTheme(darkTheme = false, reducedMotion = true) { BentoApp(nav, EngineState.Stopped, onExit = {}) }
+            val nav = Navigator().apply { selectTab(TopLevel.FILES) }
+            BentoTheme(darkTheme = false, reducedMotion = true) {
+                BentoApp(nav, EngineState.Stopped, onExit = {}, entries = { shellPreviewEntries() })
+            }
         }
-        compose.onRoot().captureRoboImage("src/test/screenshots/shell_expanded_light_tab.png")
+        compose.onRoot().captureRoboImage("src/test/screenshots/shell_expanded_light_files.png")
     }
 }
