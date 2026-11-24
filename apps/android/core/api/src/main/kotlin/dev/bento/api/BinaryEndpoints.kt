@@ -1,13 +1,13 @@
 package dev.bento.api
 
 import dev.bento.api.generated.AssetResponse
+import java.io.InputStream
 import okhttp3.MediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import okio.BufferedSink
 import okio.source
-import java.io.InputStream
 
 /** Bytes to upload, streamed (never buffered whole in memory). */
 class UploadSource(
@@ -15,14 +15,14 @@ class UploadSource(
     val mimeType: String,
     /** -1 when unknown (chunked transfer). */
     val length: Long,
-    val open: () -> InputStream,
+    val open: () -> InputStream
 )
 
 /** Thumbnail sizes the backend stores (api/android-endpoints.md §5). */
 enum class ThumbnailSize(val px: Int) {
     SMALL(256),
     MEDIUM(512),
-    LARGE(1024),
+    LARGE(1024)
     ;
 
     companion object {
@@ -70,7 +70,7 @@ object AssetPaths {
 private class StreamingBody(
     private val type: MediaType?,
     private val length: Long,
-    private val open: () -> InputStream,
+    private val open: () -> InputStream
 ) : RequestBody() {
     override fun contentType(): MediaType? = type
 

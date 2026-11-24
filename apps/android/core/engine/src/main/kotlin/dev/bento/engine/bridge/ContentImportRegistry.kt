@@ -3,15 +3,15 @@ package dev.bento.engine.bridge
 import android.content.ContentResolver
 import android.net.Uri
 import android.provider.OpenableColumns
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import java.util.concurrent.atomic.AtomicLong
 
 @Serializable
 data class ContentDescription(
     @SerialName("display_name") val displayName: String,
     @SerialName("mime_type") val mimeType: String,
-    @SerialName("size_bytes") val sizeBytes: Long? = null,
+    @SerialName("size_bytes") val sizeBytes: Long? = null
 )
 
 /** Opens a content URI as a detached descriptor (Android: ContentResolver); faked on the JVM. */
@@ -31,7 +31,7 @@ interface DescriptorOpener {
 class ContentImportRegistry(
     private val opener: DescriptorOpener,
     private val clock: () -> Long = System::currentTimeMillis,
-    private val ttlMs: Long = TTL_MS,
+    private val ttlMs: Long = TTL_MS
 ) : ContentImports {
     private data class Entry(val fd: Int, val description: ContentDescription, val registeredAt: Long)
 
@@ -100,14 +100,17 @@ class ContentResolverDescriptorOpener(private val resolver: ContentResolver) : D
         var size: Long? = null
         resolver.query(parsed, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { cursor ->
             if (cursor.moveToFirst()) {
-                cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME).takeIf { it >= 0 && !cursor.isNull(it) }?.let { name = cursor.getString(it) }
+                cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME).takeIf { it >= 0 && !cursor.isNull(it) }?.let {
+                    name =
+                        cursor.getString(it)
+                }
                 cursor.getColumnIndex(OpenableColumns.SIZE).takeIf { it >= 0 && !cursor.isNull(it) }?.let { size = cursor.getLong(it) }
             }
         }
         ContentDescription(
             displayName = name ?: parsed.lastPathSegment ?: "archivo",
             mimeType = resolver.getType(parsed) ?: "application/octet-stream",
-            sizeBytes = size,
+            sizeBytes = size
         )
     }
 

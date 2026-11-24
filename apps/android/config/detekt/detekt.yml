@@ -1,8 +1,8 @@
 # Builds upon detekt's default configuration; only Bento deviations are listed.
 complexity:
   LongParameterList:
-    functionThreshold: 8
-    constructorThreshold: 10
+    allowedFunctionParameters: 8
+    allowedConstructorParameters: 12
     ignoreDefaultParameters: true
   TooManyFunctions:
     active: false
@@ -14,6 +14,10 @@ naming:
   MatchingDeclarationName:
     active: false
 style:
+  ThrowsCount:
+    max: 5
+  DestructuringDeclarationWithTooManyEntries:
+    maxDestructuringEntries: 6
   MagicNumber:
     active: false
   MaxLineLength:

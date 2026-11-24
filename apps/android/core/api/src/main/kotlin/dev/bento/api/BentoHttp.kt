@@ -4,6 +4,11 @@ import dev.bento.api.generated.ApiTransport
 import dev.bento.engine.BentoEngine
 import dev.bento.engine.EngineState
 import dev.bento.engine.EngineUnavailableException
+import java.io.IOException
+import java.io.InterruptedIOException
+import java.util.concurrent.TimeUnit
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -21,11 +26,6 @@ import okhttp3.Request
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
-import java.io.IOException
-import java.io.InterruptedIOException
-import java.util.concurrent.TimeUnit
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 /** Where the local API is: the engine's current port + token. Suspends until [EngineState.Ready]. */
 fun interface EndpointProvider {
@@ -89,7 +89,7 @@ fun loopbackOkHttp(engine: BentoEngine, base: OkHttpClient = OkHttpClient()): Ok
 class BentoHttp(
     private val client: OkHttpClient,
     private val endpoints: EndpointProvider,
-    private val json: Json = BentoJson,
+    private val json: Json = BentoJson
 ) : ApiTransport {
     override suspend fun <B, R> call(
         method: String,
@@ -97,7 +97,7 @@ class BentoHttp(
         query: List<Pair<String, String?>>,
         body: B?,
         bodySerializer: KSerializer<B>?,
-        responseSerializer: KSerializer<R>,
+        responseSerializer: KSerializer<R>
     ): R {
         val requestBody: RequestBody? = when {
             body != null && bodySerializer != null -> json.encodeToString(bodySerializer, body).toRequestBody(JSON)
@@ -126,7 +126,7 @@ class BentoHttp(
         path: String,
         query: List<Pair<String, String?>> = emptyList(),
         body: RequestBody? = null,
-        read: (Response) -> T,
+        read: (Response) -> T
     ): T {
         val ready = endpoints.ready()
         val request = Request.Builder().url(buildUrl(ready, path, query)).method(method, body).build()
@@ -172,7 +172,7 @@ internal suspend fun Call.await(): Response = suspendCancellableCoroutine { cont
             override fun onFailure(call: Call, e: IOException) {
                 if (!continuation.isCancelled) continuation.resumeWithException(e)
             }
-        },
+        }
     )
     continuation.invokeOnCancellation { runCatching { cancel() } }
 }

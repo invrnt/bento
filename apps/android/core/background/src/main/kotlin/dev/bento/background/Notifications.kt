@@ -33,18 +33,30 @@ object BentoNotifications {
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannels(
             listOf(
-                NotificationChannel(CHANNEL_TRANSFERS, context.getString(R.string.bento_channel_transfers), NotificationManager.IMPORTANCE_LOW).apply {
+                NotificationChannel(
+                    CHANNEL_TRANSFERS,
+                    context.getString(R.string.bento_channel_transfers),
+                    NotificationManager.IMPORTANCE_LOW
+                ).apply {
                     description = context.getString(R.string.bento_channel_transfers_description)
                     setShowBadge(false)
                     setSound(null, null)
                 },
-                NotificationChannel(CHANNEL_ATTENTION, context.getString(R.string.bento_channel_attention), NotificationManager.IMPORTANCE_DEFAULT).apply {
+                NotificationChannel(
+                    CHANNEL_ATTENTION,
+                    context.getString(R.string.bento_channel_attention),
+                    NotificationManager.IMPORTANCE_DEFAULT
+                ).apply {
                     description = context.getString(R.string.bento_channel_attention_description)
                 },
-                NotificationChannel(CHANNEL_DEVICES, context.getString(R.string.bento_channel_devices), NotificationManager.IMPORTANCE_HIGH).apply {
+                NotificationChannel(
+                    CHANNEL_DEVICES,
+                    context.getString(R.string.bento_channel_devices),
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
                     description = context.getString(R.string.bento_channel_devices_description)
-                },
-            ),
+                }
+            )
         )
     }
 
@@ -62,7 +74,7 @@ object BentoNotifications {
                 EngineEvent.TransferKind.DOWNLOAD -> R.string.bento_transfer_title_download
                 EngineEvent.TransferKind.IMPORT -> R.string.bento_transfer_title_import
                 EngineEvent.TransferKind.UNKNOWN -> R.string.bento_transfer_title_generic
-            },
+            }
         )
         val text = when {
             progress == null || progress.total <= 0 -> context.getString(R.string.bento_transfer_preparing)
@@ -83,7 +95,11 @@ object BentoNotifications {
         if (progress == null || progress.bytesTotal <= 0) {
             builder.setProgress(0, 0, true)
         } else {
-            builder.setProgress(PROGRESS_MAX, (progress.bytesDone * PROGRESS_MAX / progress.bytesTotal).toInt().coerceIn(0, PROGRESS_MAX), false)
+            builder.setProgress(
+                PROGRESS_MAX,
+                (progress.bytesDone * PROGRESS_MAX / progress.bytesTotal).toInt().coerceIn(0, PROGRESS_MAX),
+                false
+            )
         }
         return builder.build()
     }
@@ -137,24 +153,29 @@ class NotificationDriver(private val context: Context, private val policy: Notif
         val manager = NotificationManagerCompat.from(context)
         when (decision) {
             NotificationDecision.Ignore -> Unit
+
             is NotificationDecision.Progress -> if (TransferState.active) {
                 manager.notify(BentoNotifications.ID_TRANSFER, BentoNotifications.transfer(context, decision.event))
             }
+
             is NotificationDecision.Finished -> {
                 lastProgress = null
                 if (decision.summaryCount > 0) {
                     manager.notify(BentoNotifications.ID_TRANSFER_SUMMARY, BentoNotifications.backupSummary(context, decision.summaryCount))
                 }
             }
+
             is NotificationDecision.Attention ->
                 manager.notify(BentoNotifications.attentionId(decision.code), BentoNotifications.attention(context))
+
             is NotificationDecision.DeviceRequest -> manager.notify(
                 BentoNotifications.deviceId(decision.requestId),
-                BentoNotifications.device(context, context.getString(R.string.bento_device_request_title)),
+                BentoNotifications.device(context, context.getString(R.string.bento_device_request_title))
             )
+
             is NotificationDecision.DeviceAdded -> manager.notify(
                 BentoNotifications.deviceId(decision.deviceId),
-                BentoNotifications.device(context, context.getString(R.string.bento_device_added_title, decision.name)),
+                BentoNotifications.device(context, context.getString(R.string.bento_device_added_title, decision.name))
             )
         }
     }

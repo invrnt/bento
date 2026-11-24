@@ -11,7 +11,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 /** Fake interpreter for engine lifecycle tests: records every call; can fail the next N starts. */
 class FakeEngineRuntime(
     var nextPort: Int = 41_000,
-    var failStarts: Int = 0,
+    var failStarts: Int = 0
 ) : EngineRuntime {
     val calls = CopyOnWriteArrayList<String>()
     val events = CopyOnWriteArrayList<Pair<String, String>>()

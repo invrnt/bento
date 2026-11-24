@@ -19,6 +19,6 @@ object AppModule {
         telegramApiId = BuildConfig.TELEGRAM_API_ID,
         telegramApiHash = BuildConfig.TELEGRAM_API_HASH,
         relayUrl = BuildConfig.RELAY_URL,
-        siteUrl = BuildConfig.SITE_URL,
+        siteUrl = BuildConfig.SITE_URL
     )
 }

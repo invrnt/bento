@@ -45,7 +45,7 @@ fun Placeholder(name: String) {
         Text(
             text = stringResource(R.string.placeholder_destination, name),
             style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.semantics { heading() },
+            modifier = Modifier.semantics { heading() }
         )
     }
 }

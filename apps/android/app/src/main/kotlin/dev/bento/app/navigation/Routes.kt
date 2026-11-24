@@ -42,10 +42,13 @@ sealed interface Route : NavKey {
 enum class TopLevel(val route: Route, val labelRes: Int, val glyph: String) {
     PHOTOS(Route.Photos, dev.bento.app.R.string.nav_photos, "▣"),
     FILES(Route.Files(), dev.bento.app.R.string.nav_files, "▢"),
-    COLLECTIONS(Route.Collections, dev.bento.app.R.string.nav_collections, "◫"),
+    COLLECTIONS(Route.Collections, dev.bento.app.R.string.nav_collections, "◫")
     ;
 
     companion object {
-        fun of(route: Route): TopLevel? = entries.firstOrNull { it.route::class == route::class && (route !is Route.Files || route.folderId == null) }
+        fun of(route: Route): TopLevel? = entries.firstOrNull {
+            it.route::class == route::class &&
+                (route !is Route.Files || route.folderId == null)
+        }
     }
 }

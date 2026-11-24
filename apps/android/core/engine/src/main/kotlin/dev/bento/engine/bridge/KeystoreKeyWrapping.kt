@@ -26,7 +26,7 @@ fun interface WrappingKeySource {
 class KeystoreKeyWrapping(
     private val file: File,
     private val keySource: WrappingKeySource,
-    private val random: SecureRandom = SecureRandom(),
+    private val random: SecureRandom = SecureRandom()
 ) : KeyWrapping {
     @Synchronized
     override fun deviceWrappingKey(): ByteArray {
@@ -90,7 +90,7 @@ class AndroidKeystoreKeySource(private val packageManager: PackageManager) : Wra
     private fun generate(strongBox: Boolean): SecretKey {
         val spec = KeyGenParameterSpec.Builder(
             KeystoreKeyWrapping.ALIAS,
-            KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
+            KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
         )
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)

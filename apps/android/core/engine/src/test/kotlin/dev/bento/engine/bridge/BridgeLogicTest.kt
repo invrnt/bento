@@ -69,11 +69,11 @@ class ConditionsMappingTest {
         status: Int = 3,
         level: Int = 50,
         restrict: Int = 1,
-        thermal: Int = 0,
+        thermal: Int = 0
     ) = RawConditions(
         hasInternet = true, validated = validated, notMetered = notMetered, temporarilyNotMetered = false,
         restrictBackgroundStatus = restrict, batteryStatus = status, plugged = plugged, batteryLevel = level,
-        batteryScale = 100, powerSave = false, thermalStatus = thermal, storageFreeBytes = 5_000,
+        batteryScale = 100, powerSave = false, thermalStatus = thermal, storageFreeBytes = 5_000
     )
 
     @Test
@@ -100,7 +100,7 @@ class ConditionsMappingTest {
         val keys = Json.parseToJsonElement(json).jsonObject.keys
         assertEquals(
             setOf("online", "metered", "unmetered", "charging", "battery_pct", "power_save", "data_saver", "storage_free_bytes", "thermal"),
-            keys,
+            keys
         )
     }
 }
@@ -109,7 +109,7 @@ class MediaStoreMappingTest {
     private fun row(id: Long, type: Int = 1, bucket: String? = "b1", name: String? = "Camera") = MediaRow(
         id = id, mediaType = type, bucketId = bucket, bucketName = name, displayName = "IMG_$id.jpg", mimeType = "image/jpeg",
         size = 10, dateTaken = 0, dateModified = 1_700_000_000, generation = id * 10, width = 0, height = 3000, duration = null,
-        relativePath = "DCIM/Camera/",
+        relativePath = "DCIM/Camera/"
     )
 
     @Test
@@ -122,16 +122,16 @@ class MediaStoreMappingTest {
         assertEquals(
             setOf(
                 "media_id", "uri", "bucket_id", "display_name", "mime_type", "size_bytes", "date_taken_ms", "date_modified_s",
-                "generation", "width", "height", "duration_ms", "relative_path",
+                "generation", "width", "height", "duration_ms", "relative_path"
             ),
-            keys,
+            keys
         )
     }
 
     @Test
     fun `buckets group counts and videos and sort by name`() {
         val buckets = MediaStoreMapping.buckets(
-            sequenceOf(row(1), row(2, type = 3), row(3, bucket = "b2", name = "Alpha"), row(4, bucket = null)),
+            sequenceOf(row(1), row(2, type = 3), row(3, bucket = "b2", name = "Alpha"), row(4, bucket = null))
         )
         assertEquals(listOf("Alpha", "Camera"), buckets.map { it.name })
         assertEquals(2, buckets[1].count)
@@ -152,8 +152,8 @@ class OcrMappingTest {
             listOf(
                 OcrMapping.RawLine("Hola", 10, 20, 50, 40, 0.9f, "es"),
                 OcrMapping.RawLine("mundo", 10, 45, 60, 65, null, "es"),
-                OcrMapping.RawLine("x", 0, 0, 1, 1, 2f, "und"),
-            ),
+                OcrMapping.RawLine("x", 0, 0, 1, 1, 2f, "und")
+            )
         )
         assertEquals("es", result.language)
         assertEquals(listOf(10, 20, 40, 20), result.lines[0].box)
@@ -167,13 +167,13 @@ class EngineEventTest {
     fun `notifier payloads parse into typed events`() {
         val progress = EngineEvent.parse(
             "transfer_progress",
-            """{"kind":"backup","done":3,"total":10,"bytes_done":30,"bytes_total":100,"paused":false}""",
+            """{"kind":"backup","done":3,"total":10,"bytes_done":30,"bytes_total":100,"paused":false}"""
         )
         assertEquals(EngineEvent.TransferProgress(EngineEvent.TransferKind.BACKUP, 3, 10, 30, 100, false), progress)
         assertEquals(EngineEvent.Attention("kit_pending", 1), EngineEvent.parse("attention", """{"code":"kit_pending","count":1}"""))
         assertEquals(
             EngineEvent.PairingRequest("r1", "Portátil", "desktop"),
-            EngineEvent.parse("pairing_request", """{"request_id":"r1","device_name":"Portátil","platform":"desktop"}"""),
+            EngineEvent.parse("pairing_request", """{"request_id":"r1","device_name":"Portátil","platform":"desktop"}""")
         )
         assertEquals(EngineEvent.Unknown("attention"), EngineEvent.parse("attention", "not json"))
         assertEquals(EngineEvent.Unknown("new_device"), EngineEvent.parse("new_device", "{}"))

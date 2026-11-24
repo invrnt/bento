@@ -34,7 +34,7 @@ fun BentoApp(navigator: Navigator, engineState: EngineState, onExit: () -> Unit)
             NavDisplay(
                 backStack = navigator.backStack,
                 onBack = { if (!navigator.back()) onExit() },
-                entryProvider = entryProvider { bentoEntries(navigator) },
+                entryProvider = entryProvider { bentoEntries(navigator) }
             )
         }
     }
@@ -49,10 +49,10 @@ fun BentoApp(navigator: Navigator, engineState: EngineState, onExit: () -> Unit)
                     selected = navigator.currentTopLevel == tab,
                     onClick = { navigator.selectTab(tab) },
                     icon = { Text(tab.glyph) },
-                    label = { Text(stringResource(tab.labelRes)) },
+                    label = { Text(stringResource(tab.labelRes)) }
                 )
             }
-        },
+        }
     ) { content() }
 }
 
@@ -61,14 +61,16 @@ fun BentoApp(navigator: Navigator, engineState: EngineState, onExit: () -> Unit)
 private fun EngineBanner(state: EngineState) {
     when (state) {
         is EngineState.Ready, EngineState.Stopped -> Unit
+
         EngineState.Starting -> Column(Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }) {
             LinearProgressIndicator(Modifier.fillMaxWidth())
             Text(stringResource(R.string.engine_starting), Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
         }
+
         is EngineState.Degraded -> Text(
             stringResource(R.string.engine_problem),
             Modifier.fillMaxWidth().padding(16.dp).semantics { liveRegion = LiveRegionMode.Polite },
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyMedium
         )
     }
 }

@@ -74,11 +74,11 @@ class NotificationPolicyTest {
     fun `backup completion shows a summary of successful items only`() {
         assertEquals(
             NotificationDecision.Finished(EngineEvent.TransferKind.BACKUP, 17),
-            policy.decide(EngineEvent.TransferFinished(EngineEvent.TransferKind.BACKUP, 18, 1)),
+            policy.decide(EngineEvent.TransferFinished(EngineEvent.TransferKind.BACKUP, 18, 1))
         )
         assertEquals(
             NotificationDecision.Finished(EngineEvent.TransferKind.UPLOAD, 0),
-            policy.decide(EngineEvent.TransferFinished(EngineEvent.TransferKind.UPLOAD, 3, 0)),
+            policy.decide(EngineEvent.TransferFinished(EngineEvent.TransferKind.UPLOAD, 3, 0))
         )
     }
 
@@ -94,7 +94,10 @@ class NotificationPolicyTest {
 
     @Test
     fun `device events and unknown events`() {
-        assertEquals(NotificationDecision.DeviceRequest("r1", "Portátil"), policy.decide(EngineEvent.PairingRequest("r1", "Portátil", "desktop")))
+        assertEquals(
+            NotificationDecision.DeviceRequest("r1", "Portátil"),
+            policy.decide(EngineEvent.PairingRequest("r1", "Portátil", "desktop"))
+        )
         assertEquals(NotificationDecision.DeviceAdded("d1", "Tablet"), policy.decide(EngineEvent.NewDevice("d1", "Tablet")))
         assertEquals(NotificationDecision.Ignore, policy.decide(EngineEvent.Unknown("x")))
     }
@@ -131,7 +134,7 @@ class BackgroundSchedulerTest {
         context = ApplicationProvider.getApplicationContext()
         WorkManagerTestInitHelper.initializeTestWorkManager(
             context,
-            Configuration.Builder().setExecutor(SynchronousExecutor()).build(),
+            Configuration.Builder().setExecutor(SynchronousExecutor()).build()
         )
         workManager = WorkManager.getInstance(context)
     }

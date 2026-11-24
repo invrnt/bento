@@ -17,13 +17,13 @@ import androidx.core.content.ContextCompat
 import dagger.hilt.android.AndroidEntryPoint
 import dev.bento.engine.BentoEngine
 import dev.bento.engine.EngineHolder
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 /** Whether a user-initiated transfer is running (the ongoing notification exists only then). */
 object TransferState {
@@ -101,7 +101,7 @@ class TransferJobService : JobService() {
                 params,
                 BentoNotifications.ID_TRANSFER,
                 BentoNotifications.transfer(this, notifications.lastProgress),
-                JOB_END_NOTIFICATION_POLICY_REMOVE,
+                JOB_END_NOTIFICATION_POLICY_REMOVE
             )
         }
         running = scope.launch {
@@ -114,7 +114,7 @@ class TransferJobService : JobService() {
     override fun onStopJob(params: JobParameters): Boolean {
         running?.cancel()
         // Rescheduled unless the user paused it (cancel() does not call onStopJob with a reschedule request).
-        return params.stopReason != JobParameters.STOP_REASON_CANCELLED_BY_APP
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.S || params.stopReason != JobParameters.STOP_REASON_CANCELLED_BY_APP
     }
 
     override fun onDestroy() {
@@ -137,7 +137,12 @@ class TransferForegroundService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC else 0
-        ServiceCompat.startForeground(this, BentoNotifications.ID_TRANSFER, BentoNotifications.transfer(this, notifications.lastProgress), type)
+        ServiceCompat.startForeground(
+            this,
+            BentoNotifications.ID_TRANSFER,
+            BentoNotifications.transfer(this, notifications.lastProgress),
+            type
+        )
         if (running?.isActive != true) {
             running = scope.launch {
                 runCatching { runTransfer(engine) }
@@ -172,7 +177,7 @@ class TransferActionReceiver : BroadcastReceiver() {
             context,
             0,
             Intent(context, TransferActionReceiver::class.java).setAction(ACTION_PAUSE),
-            android.app.PendingIntent.FLAG_IMMUTABLE,
+            android.app.PendingIntent.FLAG_IMMUTABLE
         )
     }
 }

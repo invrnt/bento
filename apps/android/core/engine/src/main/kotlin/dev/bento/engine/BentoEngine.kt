@@ -1,5 +1,6 @@
 package dev.bento.engine
 
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -13,7 +14,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Application-scoped owner of the embedded backend (architecture/android-runtime.md §3).
@@ -40,7 +40,7 @@ class BentoEngine(
     private val listeners: Set<EngineLifecycleListener> = emptySet(),
     private val log: EngineLog = EngineLog.None,
     private val idleStopMs: Long = IDLE_STOP_MS,
-    private val backoffMs: List<Long> = BACKOFF_MS,
+    private val backoffMs: List<Long> = BACKOFF_MS
 ) {
     private val _state = MutableStateFlow<EngineState>(EngineState.Stopped)
 
@@ -204,7 +204,7 @@ class BentoEngine(
         val crashLoop = failures.size >= CRASH_LOOP_COUNT
         _state.value = EngineState.Degraded(
             if (crashLoop) DegradedReason.CRASH_LOOP else DegradedReason.START_FAILED,
-            attention = crashLoop,
+            attention = crashLoop
         )
         val wait = backoffMs[(failures.size - 1).coerceIn(0, backoffMs.lastIndex)]
         retry = scope.launch(engineDispatcher) {

@@ -1,9 +1,9 @@
 package dev.bento.engine.bridge
 
 import android.os.ParcelFileDescriptor
-import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileNotFoundException
+import kotlinx.serialization.json.Json
 
 internal val BridgeJson = Json {
     encodeDefaults = true
@@ -21,9 +21,11 @@ sealed interface BridgeSource {
         fun parse(source: String): BridgeSource = when {
             source.startsWith("fd:") -> Descriptor(
                 source.removePrefix("fd:").toIntOrNull()
-                    ?: throw BridgeException(BridgeException.UNSUPPORTED, "bad descriptor source"),
+                    ?: throw BridgeException(BridgeException.UNSUPPORTED, "bad descriptor source")
             )
+
             source.startsWith("/") -> Path(File(source))
+
             else -> throw BridgeException(BridgeException.UNSUPPORTED, "source must be an absolute path or fd:<n>")
         }
     }

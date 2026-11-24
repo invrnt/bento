@@ -42,12 +42,14 @@ class NotificationPolicy(private val clock: () -> Long = System::currentTimeMill
                     NotificationDecision.Progress(event)
                 }
             }
+
             is EngineEvent.TransferFinished -> {
                 lastProgressAt = Long.MIN_VALUE
                 lastPaused = null
                 val summary = if (event.kind == EngineEvent.TransferKind.BACKUP) event.count - event.failed else 0
                 NotificationDecision.Finished(event.kind, summary.coerceAtLeast(0))
             }
+
             is EngineEvent.Attention -> {
                 val last = attentionShownAt[event.code]
                 if (last != null && now - last < ATTENTION_INTERVAL_MS) {
@@ -57,8 +59,11 @@ class NotificationPolicy(private val clock: () -> Long = System::currentTimeMill
                     NotificationDecision.Attention(event.code)
                 }
             }
+
             is EngineEvent.PairingRequest -> NotificationDecision.DeviceRequest(event.requestId, event.deviceName)
+
             is EngineEvent.NewDevice -> NotificationDecision.DeviceAdded(event.deviceId, event.name)
+
             is EngineEvent.Unknown -> NotificationDecision.Ignore
         }
     }

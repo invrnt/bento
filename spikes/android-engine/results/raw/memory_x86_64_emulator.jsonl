@@ -1,6 +1,0 @@
-{"phase":"baseline_no_python","pss_kb":38828,"native_heap_kb":Heap:}
-{"phase":"engine_idle","pss_kb":185372,"native_heap_kb":Heap:,"code_kb":38712}
-{"phase":"engine_idle","pss_kb":191587,"native_heap_kb":Heap:,"code_kb":38712}
-{"phase":"engine_idle","pss_kb":191619,"native_heap_kb":Heap:,"code_kb":38712}
-{"phase":"engine_busy_upload_200mb_max","pss_kb":199787}
-{"phase":"engine_idle_after_upload","pss_kb":194352}

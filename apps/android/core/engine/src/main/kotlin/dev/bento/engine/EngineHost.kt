@@ -3,12 +3,12 @@ package dev.bento.engine
 import android.content.Context
 import dev.bento.engine.bridge.AndroidDeviceConditions
 import dev.bento.engine.bridge.AndroidMediaStoreSource
+import java.io.File
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
-import java.io.File
 
 /** Values the app module supplies (version, Telegram app credentials, relay/site URLs). */
 data class EngineBuildInfo(
@@ -17,7 +17,7 @@ data class EngineBuildInfo(
     val telegramApiId: String?,
     val telegramApiHash: String?,
     val relayUrl: String?,
-    val siteUrl: String?,
+    val siteUrl: String?
 )
 
 /** Builds [EngineConfig] from the storage layout of architecture/android-runtime.md §10. */
@@ -36,7 +36,7 @@ class EngineConfigFactory(private val context: Context, private val build: Engin
             siteUrl = build.siteUrl?.takeIf { it.isNotBlank() },
             appVersion = build.appVersion,
             deviceNameDefault = android.os.Build.MODEL ?: "Android",
-            debugOptions = debug,
+            debugOptions = debug
         )
     }
 }
@@ -76,7 +76,7 @@ object DebugOptions {
 class PlatformObservers(
     private val mediaStore: AndroidMediaStoreSource,
     private val conditions: AndroidDeviceConditions,
-    private val engine: () -> BentoEngine,
+    private val engine: () -> BentoEngine
 ) : EngineLifecycleListener {
     override fun onEngineRunning() {
         mediaStore.observe { uri ->

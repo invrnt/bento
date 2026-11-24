@@ -6,8 +6,8 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
-import kotlinx.serialization.Serializable
 import java.util.concurrent.TimeUnit
+import kotlinx.serialization.Serializable
 
 @Serializable
 data class OcrLine(val text: String, val box: List<Int>, val confidence: Double?)
@@ -17,7 +17,15 @@ data class OcrResult(val text: String, val language: String?, val lines: List<Oc
 
 /** Maps ML Kit's recognition result to the RapidOCR-compatible shape (JVM tested through [OcrMapping]). */
 object OcrMapping {
-    data class RawLine(val text: String, val left: Int, val top: Int, val right: Int, val bottom: Int, val confidence: Float?, val language: String?)
+    data class RawLine(
+        val text: String,
+        val left: Int,
+        val top: Int,
+        val right: Int,
+        val bottom: Int,
+        val confidence: Float?,
+        val language: String?
+    )
 
     fun map(fullText: String, lines: List<RawLine>): OcrResult {
         val language = lines.mapNotNull { it.language?.takeIf { lang -> lang.isNotBlank() && lang != "und" } }
@@ -29,9 +37,9 @@ object OcrMapping {
                 OcrLine(
                     text = line.text,
                     box = listOf(line.left, line.top, (line.right - line.left).coerceAtLeast(0), (line.bottom - line.top).coerceAtLeast(0)),
-                    confidence = line.confidence?.toDouble()?.takeIf { it in 0.0..1.0 },
+                    confidence = line.confidence?.toDouble()?.takeIf { it in 0.0..1.0 }
                 )
-            },
+            }
         )
     }
 }
@@ -49,7 +57,7 @@ class MlKitOcr : Ocr {
                 android.content.res.AssetFileDescriptor(
                     android.os.ParcelFileDescriptor.dup(pfd.fileDescriptor),
                     0,
-                    android.content.res.AssetFileDescriptor.UNKNOWN_LENGTH,
+                    android.content.res.AssetFileDescriptor.UNKNOWN_LENGTH
                 )
             }
             ImageDecoder.decodeBitmap(imageSource) { decoder, info, _ ->
@@ -70,7 +78,7 @@ class MlKitOcr : Ocr {
                         right = box?.right ?: 0,
                         bottom = box?.bottom ?: 0,
                         confidence = line.confidence,
-                        language = line.recognizedLanguage,
+                        language = line.recognizedLanguage
                     )
                 }
             }

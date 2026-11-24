@@ -27,6 +27,7 @@ import dev.bento.engine.BentoEngine
 import dev.bento.engine.EngineHolder
 import dev.bento.engine.EngineState
 import dev.bento.engine.di.PlatformEntryPoint
+import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -40,7 +41,6 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.io.ByteArrayOutputStream
 
 /** Real embedded engine on the emulator (fake storage backend, debug build). */
 @RunWith(AndroidJUnit4::class)
@@ -80,7 +80,7 @@ class EngineSmokeTest {
         anonymous.close()
         InstrumentationRegistry.getInstrumentation().sendStatus(
             0,
-            android.os.Bundle().apply { putString("engine_ready_ms", ((System.nanoTime() - started) / 1_000_000).toString()) },
+            android.os.Bundle().apply { putString("engine_ready_ms", ((System.nanoTime() - started) / 1_000_000).toString()) }
         )
     }
 
@@ -91,7 +91,7 @@ class EngineSmokeTest {
         val jpeg = testJpeg(4000, 3000)
         val asset = BinaryEndpoints(http).uploadAsset(
             UploadSource("smoke-${System.nanoTime()}.jpg", "image/jpeg", jpeg.size.toLong()) { jpeg.inputStream() },
-            mode = "photos",
+            mode = "photos"
         )
         val bytes = withTimeout(60_000) {
             var result: ByteArray? = null
@@ -118,11 +118,15 @@ class EngineSmokeTest {
             // Pending work keeps the transfer running long enough to observe the notification.
             val size = 256L * 1024 * 1024
             val asset = BinaryEndpoints(http).uploadAsset(
-                UploadSource("big-${System.nanoTime()}.bin", "application/octet-stream", size) { GeneratedStream(size) },
+                UploadSource("big-${System.nanoTime()}.bin", "application/octet-stream", size) { GeneratedStream(size) }
             )
             // The storage pipeline enqueues remote_upload asynchronously after ingest.
             withTimeout(60_000) {
-                while (BentoEndpoints(http).listJobs(limit = 200).items.none { it.assetId == asset.id && it.status in setOf("queued", "running") }) {
+                while (BentoEndpoints(http).listJobs(limit = 200).items.none {
+                        it.assetId == asset.id &&
+                            it.status in setOf("queued", "running")
+                    }
+                ) {
                     delay(50)
                 }
             }

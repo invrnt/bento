@@ -7,12 +7,12 @@ import android.graphics.pdf.PdfRenderer
 import android.media.MediaMetadataRetriever
 import android.os.ParcelFileDescriptor
 import androidx.exifinterface.media.ExifInterface
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.max
 import kotlin.math.roundToInt
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
 @Serializable
 data class ImageSize(val width: Int, val height: Int)
@@ -35,7 +35,7 @@ data class ExifSummary(
     @SerialName("exposure_time") val exposureTime: Double? = null,
     val iso: Int? = null,
     @SerialName("focal_length") val focalLength: Double? = null,
-    val gps: GpsPoint? = null,
+    val gps: GpsPoint? = null
 )
 
 @Serializable
@@ -45,7 +45,7 @@ data class MediaMetadata(
     @SerialName("duration_ms") val durationMs: Long?,
     @SerialName("taken_at") val takenAt: String?,
     val orientation: Int?,
-    val exif: ExifSummary,
+    val exif: ExifSummary
 )
 
 /** Pure geometry and EXIF helpers (JVM tested). */
@@ -91,7 +91,15 @@ class AndroidMediaTools : MediaTools {
 
     override fun thumbnail(source: String, output: String, maxSide: Int, quality: Int, format: String): String = bridgeCall {
         calls.incrementAndGet()
-        val compress = if (MediaMath.outputFormat(format) == "webp") Bitmap.CompressFormat.WEBP_LOSSY else Bitmap.CompressFormat.JPEG
+        val compress = when {
+            MediaMath.outputFormat(format) != "webp" -> Bitmap.CompressFormat.JPEG
+
+            android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R -> Bitmap.CompressFormat.WEBP_LOSSY
+
+            else ->
+                @Suppress("DEPRECATION")
+                Bitmap.CompressFormat.WEBP
+        }
         val bitmap = decodeImage(BridgeSource.parse(source), maxSide)
         try {
             writeBitmap(bitmap, compress, quality, File(output))
@@ -115,7 +123,7 @@ class AndroidMediaTools : MediaTools {
                     atMs.coerceAtLeast(0) * 1000,
                     MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
                     target.width,
-                    target.height,
+                    target.height
                 ) ?: throw BridgeException(BridgeException.UNSUPPORTED, "no decodable video frame")
                 try {
                     writeBitmap(frame, Bitmap.CompressFormat.JPEG, quality, File(output))
@@ -141,7 +149,10 @@ class AndroidMediaTools : MediaTools {
                         bitmap.eraseColor(android.graphics.Color.WHITE)
                         pdfPage.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                         writeBitmap(bitmap, Bitmap.CompressFormat.JPEG, PDF_QUALITY, File(output))
-                        BridgeJson.encodeToString(PdfPageResult.serializer(), PdfPageResult(bitmap.width, bitmap.height, renderer.pageCount))
+                        BridgeJson.encodeToString(
+                            PdfPageResult.serializer(),
+                            PdfPageResult(bitmap.width, bitmap.height, renderer.pageCount)
+                        )
                     } finally {
                         bitmap.recycle()
                     }
@@ -175,10 +186,10 @@ class AndroidMediaTools : MediaTools {
             durationMs = null,
             takenAt = MediaMath.exifDateToIso(
                 exif?.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL),
-                exif?.getAttribute(ExifInterface.TAG_OFFSET_TIME_ORIGINAL),
+                exif?.getAttribute(ExifInterface.TAG_OFFSET_TIME_ORIGINAL)
             ),
             orientation = orientation,
-            exif = exif?.let(::exifSummary) ?: ExifSummary(),
+            exif = exif?.let(::exifSummary) ?: ExifSummary()
         )
     }
 
@@ -192,7 +203,7 @@ class AndroidMediaTools : MediaTools {
             exposureTime = exif.getAttributeDouble(ExifInterface.TAG_EXPOSURE_TIME, Double.NaN).takeUnless { it.isNaN() },
             iso = exif.getAttributeInt(ExifInterface.TAG_PHOTOGRAPHIC_SENSITIVITY, 0).takeIf { it > 0 },
             focalLength = exif.getAttributeDouble(ExifInterface.TAG_FOCAL_LENGTH, Double.NaN).takeUnless { it.isNaN() },
-            gps = latLong?.let { GpsPoint(it[0], it[1]) },
+            gps = latLong?.let { GpsPoint(it[0], it[1]) }
         )
     }
 
@@ -210,7 +221,7 @@ class AndroidMediaTools : MediaTools {
                 durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull(),
                 takenAt = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DATE)?.let(::videoDateToIso),
                 orientation = null,
-                exif = ExifSummary(),
+                exif = ExifSummary()
             )
         } finally {
             retriever.release()
@@ -244,6 +255,7 @@ class AndroidMediaTools : MediaTools {
 
     private fun imageSource(source: BridgeSource): ImageDecoder.Source = when (source) {
         is BridgeSource.Path -> ImageDecoder.createSource(source.file)
+
         is BridgeSource.Descriptor -> ImageDecoder.createSource {
             AssetFileDescriptor(ParcelFileDescriptor.fromFd(source.fd), 0, AssetFileDescriptor.UNKNOWN_LENGTH)
         }

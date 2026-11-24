@@ -3,6 +3,7 @@ package dev.bento.api
 import dev.bento.api.generated.BentoEndpoints
 import dev.bento.engine.EngineState
 import dev.bento.engine.WorkerMode
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -15,14 +16,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
-import java.util.concurrent.TimeUnit
 
 class ApiErrorsTest {
     @Test
     fun `backend error bodies map to typed errors`() {
         val error = ApiErrors.from(
             404,
-            """{"error":{"code":"asset_not_found","message":"Asset not found","details":{"id":"a1"},"request_id":"r-1"}}""",
+            """{"error":{"code":"asset_not_found","message":"Asset not found","details":{"id":"a1"},"request_id":"r-1"}}"""
         )
         assertEquals(ApiErrorKind.NOT_FOUND, error.kind)
         assertEquals("asset_not_found", error.code)
@@ -35,7 +35,7 @@ class ApiErrorsTest {
         val expected = mapOf(
             400 to ApiErrorKind.BAD_REQUEST, 401 to ApiErrorKind.UNAUTHORIZED, 409 to ApiErrorKind.CONFLICT,
             413 to ApiErrorKind.PAYLOAD_TOO_LARGE, 415 to ApiErrorKind.UNSUPPORTED_MEDIA, 422 to ApiErrorKind.VALIDATION,
-            429 to ApiErrorKind.RATE_LIMITED, 500 to ApiErrorKind.SERVER, 503 to ApiErrorKind.UNAVAILABLE,
+            429 to ApiErrorKind.RATE_LIMITED, 500 to ApiErrorKind.SERVER, 503 to ApiErrorKind.UNAVAILABLE
         )
         expected.forEach { (status, kind) -> assertEquals("status $status", kind, ApiErrors.kindFor(status)) }
     }
@@ -75,7 +75,7 @@ class BentoHttpTest {
                 override fun reportStall() {
                     stalls += 1
                 }
-            },
+            }
         )
     }
 
@@ -84,7 +84,9 @@ class BentoHttpTest {
 
     @Test
     fun `generated endpoints call the loopback port with the bearer token`() = runTest {
-        server.enqueue(MockResponse.Builder().body("""{"status":"ok","storage_backend":"fake","telegram_configured":false,"extra":1}""").build())
+        server.enqueue(
+            MockResponse.Builder().body("""{"status":"ok","storage_backend":"fake","telegram_configured":false,"extra":1}""").build()
+        )
         val health = BentoEndpoints(http).health()
         assertEquals("ok", health.status)
         val request = server.takeRequest()
@@ -170,7 +172,7 @@ class SseParserTest {
         val events = lines.mapNotNull(parser::line)
         assertEquals(
             listOf(ServerEvent("job", "{\"a\":1}\n{\"b\":2}", "7"), ServerEvent("message", "plain", "7")), // last event id persists
-            events,
+            events
         )
     }
 

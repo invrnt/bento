@@ -43,5 +43,5 @@ data class EngineConfig(
     val appVersion: String,
     val deviceNameDefault: String,
     /** Debug builds only: fake cloud directory, part size, manual login (see `DebugOptions`). */
-    val debugOptions: Map<String, String> = emptyMap(),
+    val debugOptions: Map<String, String> = emptyMap()
 )

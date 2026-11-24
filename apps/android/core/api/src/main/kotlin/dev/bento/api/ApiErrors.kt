@@ -18,7 +18,7 @@ enum class ApiErrorKind {
     VALIDATION,
     RATE_LIMITED,
     SERVER,
-    UNAVAILABLE,
+    UNAVAILABLE
 }
 
 /** Every failure a repository can see from the local API. */
@@ -31,7 +31,7 @@ sealed class ApiException(message: String, cause: Throwable? = null) : Exception
         val detailMessage: String,
         val details: JsonObject?,
         val requestId: String?,
-        val retryAfterSeconds: Long?,
+        val retryAfterSeconds: Long?
     ) : ApiException("HTTP $status $code")
 
     /** The engine is not running (no holder, starting too long, or crash loop). */
@@ -86,7 +86,7 @@ object ApiErrors {
             details = error?.get("details") as? JsonObject,
             requestId = error?.string("request_id"),
             retryAfterSeconds = retryAfter?.trim()?.toLongOrNull()
-                ?: (error?.get("details") as? JsonObject)?.string("retry_after")?.toLongOrNull(),
+                ?: (error?.get("details") as? JsonObject)?.string("retry_after")?.toLongOrNull()
         )
     }
 

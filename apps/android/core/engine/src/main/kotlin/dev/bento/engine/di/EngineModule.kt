@@ -29,16 +29,16 @@ import dev.bento.engine.bridge.KeyWrapping
 import dev.bento.engine.bridge.KeystoreKeyWrapping
 import dev.bento.engine.bridge.MlKitOcr
 import dev.bento.engine.bridge.NotifierHub
+import java.io.File
+import java.util.concurrent.Executors
+import javax.inject.Qualifier
+import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import java.io.File
-import java.util.concurrent.Executors
-import javax.inject.Qualifier
-import javax.inject.Singleton
 
 /** Application-wide coroutine scope (never cancelled). */
 @Qualifier
@@ -85,14 +85,14 @@ object EngineModule {
         mediaStore: AndroidMediaStoreSource,
         conditions: AndroidDeviceConditions,
         notifier: NotifierHub,
-        contentImports: ContentImportRegistry,
+        contentImports: ContentImportRegistry
     ): BridgeSet = BridgeSet(mediaTools, MlKitOcr(), mediaStore, conditions, notifier, contentImports)
 
     @Provides
     @Singleton
     fun keyWrapping(@ApplicationContext context: Context): KeyWrapping = KeystoreKeyWrapping(
         file = File(File(context.noBackupFilesDir, "bento/secure"), "wrapping.bin"),
-        keySource = AndroidKeystoreKeySource(context.packageManager),
+        keySource = AndroidKeystoreKeySource(context.packageManager)
     )
 
     @Provides
@@ -111,7 +111,7 @@ object EngineModule {
         conditions: AndroidDeviceConditions,
         contentImports: ContentImportRegistry,
         log: EngineLog,
-        @ApplicationScope scope: CoroutineScope,
+        @ApplicationScope scope: CoroutineScope
     ): BentoEngine {
         lateinit var engine: BentoEngine
         val observers = PlatformObservers(mediaStore, conditions) { engine }
@@ -129,7 +129,7 @@ object EngineModule {
             scope = scope,
             engineDispatcher = dispatcher,
             listeners = setOf(observers, imports),
-            log = log,
+            log = log
         )
         if (buildInfo.debugTools) {
             engine.state.onEach { state ->

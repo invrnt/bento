@@ -27,7 +27,7 @@ enum class DegradedReason {
     STALLED,
 
     /** Three start failures within five minutes; surfaced as an attention item. */
-    CRASH_LOOP,
+    CRASH_LOOP
 }
 
 enum class WorkerMode(val wire: String) {
@@ -35,7 +35,7 @@ enum class WorkerMode(val wire: String) {
     FULL("full"),
 
     /** No update handlers; background runs drive it with `run_worker_until`. */
-    DRAIN("drain"),
+    DRAIN("drain")
 }
 
 /** Reference-counted reasons to keep the engine running (architecture/android-runtime.md §3). */
@@ -70,7 +70,7 @@ data class WorkerRunResult(
     val ran: Int,
     val remaining: Int,
     val nextEligibleAtEpochMs: Long?,
-    val stoppedReason: StopReason,
+    val stoppedReason: StopReason
 ) {
     enum class StopReason { IDLE, DEADLINE, CONDITIONS, ERROR }
 }

@@ -15,9 +15,9 @@ import dev.bento.api.bentoImageLoader
 import dev.bento.api.generated.BentoEndpoints
 import dev.bento.api.loopbackOkHttp
 import dev.bento.engine.BentoEngine
-import okhttp3.OkHttpClient
 import javax.inject.Qualifier
 import javax.inject.Singleton
+import okhttp3.OkHttpClient
 
 /** The OkHttp client bound to the loopback API (bearer token attached for the engine origin only). */
 @Qualifier

@@ -4,8 +4,8 @@ import dev.bento.api.ApiErrors
 import dev.bento.api.BentoJson
 import dev.bento.api.generated.ApiTransport
 import dev.bento.api.generated.BentoEndpoints
-import kotlinx.serialization.KSerializer
 import java.util.concurrent.CopyOnWriteArrayList
+import kotlinx.serialization.KSerializer
 
 /** A recorded call to [FakeApiTransport]. */
 data class FakeCall(val method: String, val path: String, val query: Map<String, String>, val body: String?)
@@ -38,13 +38,13 @@ class FakeApiTransport : ApiTransport {
         query: List<Pair<String, String?>>,
         body: B?,
         bodySerializer: KSerializer<B>?,
-        responseSerializer: KSerializer<R>,
+        responseSerializer: KSerializer<R>
     ): R {
         val call = FakeCall(
             method = method,
             path = path,
             query = query.mapNotNull { (k, v) -> v?.let { k to it } }.toMap(),
-            body = if (body != null && bodySerializer != null) BentoJson.encodeToString(bodySerializer, body) else null,
+            body = if (body != null && bodySerializer != null) BentoJson.encodeToString(bodySerializer, body) else null
         )
         calls += call
         val handler = routes["$method $path"] ?: throw ApiErrors.from(404, """{"error":{"code":"not_found","message":"$path"}}""")

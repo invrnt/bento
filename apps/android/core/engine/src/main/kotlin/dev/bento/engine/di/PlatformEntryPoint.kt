@@ -23,6 +23,8 @@ interface PlatformEntryPoint {
     fun contentImports(): ContentImportRegistry
 
     companion object {
-        fun get(context: Context): PlatformEntryPoint = EntryPointAccessors.fromApplication(context.applicationContext, PlatformEntryPoint::class.java)
+        fun get(
+            context: Context
+        ): PlatformEntryPoint = EntryPointAccessors.fromApplication(context.applicationContext, PlatformEntryPoint::class.java)
     }
 }

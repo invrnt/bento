@@ -2,8 +2,8 @@ package dev.bento.testing
 
 import dev.bento.engine.BentoEngine
 import dev.bento.engine.EngineConfig
-import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 
 val testEngineConfig = EngineConfig(
     dataDir = "/data/files/bento",
@@ -16,7 +16,7 @@ val testEngineConfig = EngineConfig(
     relayUrl = null,
     siteUrl = null,
     appVersion = "0.0.0-test",
-    deviceNameDefault = "Pixel",
+    deviceNameDefault = "Pixel"
 )
 
 /** A [BentoEngine] on virtual time with a [FakeEngineRuntime]; everything runs on the test scheduler. */
@@ -33,6 +33,6 @@ class TestEngineHarness(scope: TestScope, val runtime: FakeEngineRuntime = FakeE
         engineDispatcher = dispatcher,
         blockingDispatcher = dispatcher,
         clock = { scope.testScheduler.currentTime },
-        tokenFactory = { "test-token-0123456789" },
+        tokenFactory = { "test-token-0123456789" }
     )
 }

@@ -22,7 +22,7 @@ import kotlinx.serialization.json.longOrNull
 class ChaquopyEngineRuntime(
     private val context: Context,
     private val bridges: BridgeSet,
-    private val moduleName: String = ENGINE_MODULE,
+    private val moduleName: String = ENGINE_MODULE
 ) : EngineRuntime {
     private val json = Json { ignoreUnknownKeys = true }
     private val module: PyObject by lazy { Python.getInstance().getModule(moduleName) }
@@ -76,7 +76,7 @@ class ChaquopyEngineRuntime(
             from = result["from"]?.jsonPrimitive?.contentOrNullSafe(),
             to = result["to"]?.jsonPrimitive?.contentOrNullSafe(),
             ran = result["ran"]?.jsonPrimitive?.booleanOrNull ?: false,
-            ms = result["ms"]?.jsonPrimitive?.longOrNull ?: 0,
+            ms = result["ms"]?.jsonPrimitive?.longOrNull ?: 0
         )
     }
 
@@ -95,7 +95,7 @@ class ChaquopyEngineRuntime(
             nextEligibleAtEpochMs = result["next_eligible_at"]?.jsonPrimitive?.longOrNull,
             stoppedReason = runCatching {
                 WorkerRunResult.StopReason.valueOf(result["stopped_reason"]?.jsonPrimitive?.content.orEmpty().uppercase())
-            }.getOrDefault(WorkerRunResult.StopReason.ERROR),
+            }.getOrDefault(WorkerRunResult.StopReason.ERROR)
         )
     }
 
@@ -114,7 +114,7 @@ class ChaquopyEngineRuntime(
             apiPort = result["api_port"]?.jsonPrimitive?.intOrNull,
             worker = result["worker"]?.jsonPrimitive?.contentOrNullSafe() ?: "stopped",
             telegram = result["telegram"]?.jsonPrimitive?.contentOrNullSafe() ?: "disconnected",
-            lastError = result["last_error"]?.jsonPrimitive?.contentOrNullSafe(),
+            lastError = result["last_error"]?.jsonPrimitive?.contentOrNullSafe()
         )
     }
 
@@ -124,7 +124,14 @@ class ChaquopyEngineRuntime(
         return json.parseToJsonElement(text).jsonObject
     }
 
-    private fun kotlinx.serialization.json.JsonPrimitive.contentOrNullSafe(): String? = if (isString) content else content.takeIf { it != "null" }
+    private fun kotlinx.serialization.json.JsonPrimitive.contentOrNullSafe(): String? = if (isString) {
+        content
+    } else {
+        content.takeIf {
+            it !=
+                "null"
+        }
+    }
 
     companion object {
         /** TEMPORARY: switch to "bento.interfaces.android.engine" once agent 35 merges (and move `warm_up` there). */

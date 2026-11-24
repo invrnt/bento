@@ -11,9 +11,9 @@ import dev.bento.background.BentoNotifications
 import dev.bento.background.NotificationDriver
 import dev.bento.data.Invalidations
 import dev.bento.engine.BentoEngine
+import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 @HiltAndroidApp
 class BentoApplication : Application(), Configuration.Provider {

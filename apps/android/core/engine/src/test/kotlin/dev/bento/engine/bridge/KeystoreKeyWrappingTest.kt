@@ -1,5 +1,6 @@
 package dev.bento.engine.bridge
 
+import javax.crypto.KeyGenerator
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -7,7 +8,6 @@ import org.junit.Assert.fail
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
-import javax.crypto.KeyGenerator
 
 /** Round trip with a software AES key (AndroidKeystore itself is covered by the instrumented test). */
 class KeystoreKeyWrappingTest {

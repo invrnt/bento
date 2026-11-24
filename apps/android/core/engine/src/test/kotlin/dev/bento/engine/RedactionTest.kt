@@ -10,7 +10,7 @@ class RedactionTest {
     fun `bearer tokens, registered secrets and key-like strings are removed`() {
         Redaction.register("s3cret-token-value")
         val text = Redaction.redact(
-            "GET /api/health Authorization: Bearer abc.def-123 token=s3cret-token-value key=" + "A".repeat(43),
+            "GET /api/health Authorization: Bearer abc.def-123 token=s3cret-token-value key=" + "A".repeat(43)
         )
         assertFalse(text.contains("abc.def-123"))
         assertFalse(text.contains("s3cret-token-value"))

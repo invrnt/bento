@@ -33,7 +33,10 @@ interface MediaTools {
     /** → `{width,height,page_count}`. */
     fun pdfPage(source: String, output: String, page: Int, maxSide: Int): String
 
-    /** → `{width,height,duration_ms,taken_at,orientation,exif:{make,model,lens,f_number,exposure_time,iso,focal_length,gps:{lat,lon}?}}`. */
+    /**
+     * → `{width,height,duration_ms,taken_at,orientation,
+     *    exif:{make,model,lens,f_number,exposure_time,iso,focal_length,gps:{lat,lon}?}}`.
+     */
     fun metadata(source: String, mime: String): String
 }
 
@@ -94,7 +97,7 @@ data class BridgeSet(
     val mediaStore: MediaStoreSource,
     val conditions: DeviceConditions,
     val notifier: Notifier,
-    val contentImports: ContentImports,
+    val contentImports: ContentImports
 ) {
     fun asMap(): Map<String, Any> = linkedMapOf(
         "media_tools" to mediaTools,
@@ -102,6 +105,6 @@ data class BridgeSet(
         "media_store" to mediaStore,
         "conditions" to conditions,
         "notifier" to notifier,
-        "content_imports" to contentImports,
+        "content_imports" to contentImports
     )
 }

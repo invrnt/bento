@@ -56,7 +56,7 @@ class FakeOcr(var text: String = "Factura 123") : Ocr {
 
 class FakeMediaStoreSource(
     var accessJson: String = """{"full":true,"partial":false,"location":false}""",
-    var bucketsJson: String = "[]",
+    var bucketsJson: String = "[]"
 ) : MediaStoreSource {
     override fun access(): String = accessJson
 
@@ -96,8 +96,11 @@ class FakeContentImports : ContentImports {
     }
 
     override fun describe(handle: Long): String =
-        if (handle in handles) """{"display_name":"file.bin","mime_type":"application/octet-stream","size_bytes":1}"""
-        else throw BridgeException(BridgeException.NOT_FOUND, "unknown handle")
+        if (handle in handles) {
+            """{"display_name":"file.bin","mime_type":"application/octet-stream","size_bytes":1}"""
+        } else {
+            throw BridgeException(BridgeException.NOT_FOUND, "unknown handle")
+        }
 
     override fun adopt(handle: Long): Int = handles.remove(handle) ?: throw BridgeException(BridgeException.NOT_FOUND, "unknown handle")
 }
@@ -124,5 +127,5 @@ fun fakeBridgeSet(): BridgeSet = BridgeSet(
     mediaStore = FakeMediaStoreSource(),
     conditions = FakeDeviceConditions(),
     notifier = FakeNotifier(),
-    contentImports = FakeContentImports(),
+    contentImports = FakeContentImports()
 )

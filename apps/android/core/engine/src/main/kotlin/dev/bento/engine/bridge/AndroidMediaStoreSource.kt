@@ -27,7 +27,7 @@ data class MediaBucket(
     val name: String,
     @SerialName("relative_path") val relativePath: String?,
     val count: Int,
-    @SerialName("video_count") val videoCount: Int,
+    @SerialName("video_count") val videoCount: Int
 )
 
 @Serializable
@@ -44,7 +44,7 @@ data class MediaItem(
     val width: Int?,
     val height: Int?,
     @SerialName("duration_ms") val durationMs: Long?,
-    @SerialName("relative_path") val relativePath: String?,
+    @SerialName("relative_path") val relativePath: String?
 )
 
 @Serializable
@@ -68,7 +68,7 @@ data class MediaRow(
     val width: Int?,
     val height: Int?,
     val duration: Long?,
-    val relativePath: String?,
+    val relativePath: String?
 )
 
 object MediaStoreMapping {
@@ -94,7 +94,7 @@ object MediaStoreMapping {
         width = row.width?.takeIf { it > 0 },
         height = row.height?.takeIf { it > 0 },
         durationMs = row.duration?.takeIf { it > 0 },
-        relativePath = row.relativePath,
+        relativePath = row.relativePath
     )
 
     /** Groups rows into buckets (sorted by name, then id) with total and video counts. */
@@ -149,7 +149,7 @@ class AndroidMediaStoreSource(private val context: Context) : MediaStoreSource {
             selection = "$BASE_SELECTION AND ${MediaStore.MediaColumns.BUCKET_ID} = ? AND ${MediaStore.MediaColumns._ID} > ?",
             args = arrayOf(bucketId, afterMediaId.toString()),
             sort = "${MediaStore.MediaColumns._ID} ASC",
-            limit = size + 1,
+            limit = size + 1
         )
         val page = rows.take(size)
         val next = if (rows.size > size) page.last().id else null
@@ -162,10 +162,13 @@ class AndroidMediaStoreSource(private val context: Context) : MediaStoreSource {
             selection = "$BASE_SELECTION AND $column > ?",
             args = arrayOf(sinceGeneration.toString()),
             sort = "$column ASC, ${MediaStore.MediaColumns._ID} ASC",
-            limit = limit.coerceIn(1, MAX_PAGE),
+            limit = limit.coerceIn(1, MAX_PAGE)
         )
         val max = rows.maxOfOrNull { it.generation ?: 0L } ?: sinceGeneration
-        BridgeJson.encodeToString(MediaChangesPage.serializer(), MediaChangesPage(rows.map(MediaStoreMapping::item), maxOf(max, sinceGeneration)))
+        BridgeJson.encodeToString(
+            MediaChangesPage.serializer(),
+            MediaChangesPage(rows.map(MediaStoreMapping::item), maxOf(max, sinceGeneration))
+        )
     }
 
     override fun exists(mediaIds: String): String = bridgeCall {
@@ -178,7 +181,7 @@ class AndroidMediaStoreSource(private val context: Context) : MediaStoreSource {
                 selection = "$BASE_SELECTION AND ${MediaStore.MediaColumns._ID} IN ($placeholders)",
                 args = chunk.map(Long::toString).toTypedArray(),
                 sort = "${MediaStore.MediaColumns._ID} ASC",
-                limit = null,
+                limit = null
             ).mapTo(present) { it.id }
         }
         BridgeJson.encodeToString(ListSerializer(Long.serializer()), present)
@@ -218,7 +221,13 @@ class AndroidMediaStoreSource(private val context: Context) : MediaStoreSource {
         ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 
     private fun generationColumn(): String =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) MediaStore.MediaColumns.GENERATION_MODIFIED else MediaStore.MediaColumns.DATE_MODIFIED
+        if (Build.VERSION.SDK_INT >=
+            Build.VERSION_CODES.R
+        ) {
+            MediaStore.MediaColumns.GENERATION_MODIFIED
+        } else {
+            MediaStore.MediaColumns.DATE_MODIFIED
+        }
 
     private fun query(selection: String, args: Array<String>, sort: String, limit: Int?): List<MediaRow> {
         val projection = PROJECTION + generationColumn()
@@ -256,7 +265,7 @@ class AndroidMediaStoreSource(private val context: Context) : MediaStoreSource {
                 width = int(MediaStore.MediaColumns.WIDTH),
                 height = int(MediaStore.MediaColumns.HEIGHT),
                 duration = long(MediaStore.MediaColumns.DURATION),
-                relativePath = string(MediaStore.MediaColumns.RELATIVE_PATH),
+                relativePath = string(MediaStore.MediaColumns.RELATIVE_PATH)
             )
         }
         return rows
@@ -280,7 +289,7 @@ class AndroidMediaStoreSource(private val context: Context) : MediaStoreSource {
             MediaStore.MediaColumns.WIDTH,
             MediaStore.MediaColumns.HEIGHT,
             MediaStore.MediaColumns.DURATION,
-            MediaStore.MediaColumns.RELATIVE_PATH,
+            MediaStore.MediaColumns.RELATIVE_PATH
         )
     }
 }

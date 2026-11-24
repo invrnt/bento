@@ -21,7 +21,7 @@ sealed interface EngineEvent {
         val total: Int,
         val bytesDone: Long,
         val bytesTotal: Long,
-        val paused: Boolean,
+        val paused: Boolean
     ) : EngineEvent
 
     data class TransferFinished(val kind: TransferKind, val count: Int, val failed: Int) : EngineEvent
@@ -46,12 +46,21 @@ sealed interface EngineEvent {
                         total = payload.int("total"),
                         bytesDone = payload.long("bytes_done"),
                         bytesTotal = payload.long("bytes_total"),
-                        paused = payload["paused"]?.jsonPrimitive?.booleanOrNull ?: false,
+                        paused = payload["paused"]?.jsonPrimitive?.booleanOrNull ?: false
                     )
+
                     "transfer_finished" -> TransferFinished(payload.kind(), payload.int("count"), payload.int("failed"))
+
                     "attention" -> Attention(payload.string("code"), payload.int("count"))
-                    "pairing_request" -> PairingRequest(payload.string("request_id"), payload.string("device_name"), payload.string("platform"))
+
+                    "pairing_request" -> PairingRequest(
+                        payload.string("request_id"),
+                        payload.string("device_name"),
+                        payload.string("platform")
+                    )
+
                     "new_device" -> NewDevice(payload.string("device_id"), payload.string("name"))
+
                     else -> Unknown(event)
                 }
             }.getOrDefault(Unknown(event))

@@ -9,9 +9,9 @@ import coil3.key.Keyer
 import coil3.memory.MemoryCache
 import coil3.network.NetworkFetcher
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
-import coil3.toUri
 import coil3.request.Options
 import coil3.size.pxOrElse
+import coil3.toUri
 
 /**
  * Coil model for Bento images. Use it directly in `AsyncImage(model = BentoImage.thumbnail(id))`.
@@ -53,7 +53,7 @@ class BentoImageFetcher(
     private val options: Options,
     private val loader: ImageLoader,
     private val http: BentoHttp,
-    private val network: NetworkFetcher.Factory,
+    private val network: NetworkFetcher.Factory
 ) : Fetcher {
     override suspend fun fetch() = run {
         val size = if (image.kind == BentoImage.Kind.THUMBNAIL) sizeHint(options) else null
@@ -82,4 +82,3 @@ fun bentoImageLoader(context: Context, http: BentoHttp, client: okhttp3.OkHttpCl
         }
         .build()
 }
-

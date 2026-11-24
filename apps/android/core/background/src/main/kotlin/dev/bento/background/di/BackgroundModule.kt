@@ -11,10 +11,10 @@ import dev.bento.background.BackgroundScheduler
 import dev.bento.background.NotificationDriver
 import dev.bento.engine.bridge.NotifierHub
 import dev.bento.engine.di.ApplicationScope
+import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -26,6 +26,10 @@ object BackgroundModule {
     /** Collects backend Notifier events for the app's lifetime. */
     @Provides
     @Singleton
-    fun notificationDriver(@ApplicationContext context: Context, hub: NotifierHub, @ApplicationScope scope: CoroutineScope): NotificationDriver =
+    fun notificationDriver(
+        @ApplicationContext context: Context,
+        hub: NotifierHub,
+        @ApplicationScope scope: CoroutineScope
+    ): NotificationDriver =
         NotificationDriver(context).also { driver -> hub.events.onEach(driver::handle).launchIn(scope) }
 }

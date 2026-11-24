@@ -24,7 +24,7 @@ data class DeviceConditionsSnapshot(
     @SerialName("power_save") val powerSave: Boolean,
     @SerialName("data_saver") val dataSaver: Boolean,
     @SerialName("storage_free_bytes") val storageFreeBytes: Long,
-    val thermal: String,
+    val thermal: String
 )
 
 /** Raw platform readings; [ConditionsMapping.map] is the pure, JVM-tested part. */
@@ -40,7 +40,7 @@ data class RawConditions(
     val batteryScale: Int,
     val powerSave: Boolean,
     val thermalStatus: Int,
-    val storageFreeBytes: Long,
+    val storageFreeBytes: Long
 )
 
 object ConditionsMapping {
@@ -63,7 +63,7 @@ object ConditionsMapping {
             powerSave = raw.powerSave,
             dataSaver = raw.restrictBackgroundStatus == RESTRICT_BACKGROUND_STATUS_ENABLED,
             storageFreeBytes = raw.storageFreeBytes.coerceAtLeast(0),
-            thermal = thermal(raw.thermalStatus),
+            thermal = thermal(raw.thermalStatus)
         )
     }
 
@@ -107,7 +107,7 @@ class AndroidDeviceConditions(private val context: Context) : DeviceConditions {
             batteryScale = battery?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1,
             powerSave = power.isPowerSaveMode,
             thermalStatus = power.currentThermalStatus,
-            storageFreeBytes = runCatching { StatFs(context.filesDir.absolutePath).availableBytes }.getOrDefault(0L),
+            storageFreeBytes = runCatching { StatFs(context.filesDir.absolutePath).availableBytes }.getOrDefault(0L)
         )
     }
 
@@ -131,7 +131,12 @@ class AndroidDeviceConditions(private val context: Context) : DeviceConditions {
             addAction(Intent.ACTION_BATTERY_OKAY)
             addAction(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED)
         }
-        androidx.core.content.ContextCompat.registerReceiver(context, receiver, filter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
+        androidx.core.content.ContextCompat.registerReceiver(
+            context,
+            receiver,
+            filter,
+            androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED
+        )
         powerReceiver = receiver
         val thermal = PowerManager.OnThermalStatusChangedListener { onChange(snapshot()) }
         power.addThermalStatusListener(context.mainExecutor, thermal)

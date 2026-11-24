@@ -20,8 +20,11 @@ object RunPlanner {
 
     fun next(result: WorkerRunResult, nowEpochMs: Long): NextRun = when (result.stoppedReason) {
         WorkerRunResult.StopReason.ERROR -> NextRun.Retry
+
         WorkerRunResult.StopReason.DEADLINE -> if (result.remaining > 0) NextRun.Again(0) else NextRun.Done
+
         WorkerRunResult.StopReason.CONDITIONS -> NextRun.Done
+
         WorkerRunResult.StopReason.IDLE -> {
             val next = result.nextEligibleAtEpochMs
             if (result.remaining > 0 && next != null) {

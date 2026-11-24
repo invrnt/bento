@@ -1,12 +1,12 @@
 package dev.bento.api
 
+import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.channels.trySendBlocking
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
-import kotlin.coroutines.coroutineContext
 
 /** One server-sent event. */
 data class ServerEvent(val event: String, val data: String, val id: String?)
@@ -28,11 +28,13 @@ class SseParser {
         if (value.startsWith(" ")) value = value.substring(1)
         when (field) {
             "event" -> event = value
+
             "data" -> {
                 if (hasData) data.append('\n')
                 data.append(value)
                 hasData = true
             }
+
             "id" -> if (!value.contains('\u0000')) id = value
         }
         return null
@@ -57,7 +59,7 @@ class SseParser {
 class EventsClient(
     private val http: BentoHttp,
     private val pollMs: Long = 5_000,
-    private val streamPath: String? = null,
+    private val streamPath: String? = null
 ) {
     fun events(): Flow<ServerEvent> = streamPath?.let(::stream) ?: poll()
 

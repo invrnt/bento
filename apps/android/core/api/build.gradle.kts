@@ -20,8 +20,8 @@ bentoOpenApi {
             "assetPreview",
             "assetContent",
             "downloadAsset",
-            "avatar",
-        ),
+            "avatar"
+        )
     )
 }
 

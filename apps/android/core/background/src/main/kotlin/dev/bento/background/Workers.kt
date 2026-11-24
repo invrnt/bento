@@ -24,7 +24,12 @@ import dev.bento.engine.EngineHolder
 import java.util.concurrent.TimeUnit
 
 /** One background run: hold `work:<name>`, drain until the budget, decide what comes next. */
-internal suspend fun BentoEngine.heldRun(name: String, budgetMs: Long, kinds: List<String>?, now: () -> Long = System::currentTimeMillis): NextRun =
+internal suspend fun BentoEngine.heldRun(
+    name: String,
+    budgetMs: Long,
+    kinds: List<String>?,
+    now: () -> Long = System::currentTimeMillis
+): NextRun =
     try {
         val result = withHolder(EngineHolder.Work(name)) { runWorkerUntil(now() + budgetMs, kinds) }
         RunPlanner.next(result, now())
@@ -39,7 +44,7 @@ class BackupWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
     private val engine: BentoEngine,
-    private val scheduler: BackgroundScheduler,
+    private val scheduler: BackgroundScheduler
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val next = engine.heldRun("backup", BUDGET_MS, kinds = null)
@@ -56,7 +61,7 @@ class SyncWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
     private val engine: BentoEngine,
-    private val scheduler: BackgroundScheduler,
+    private val scheduler: BackgroundScheduler
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val next = engine.heldRun("sync", BUDGET_MS, kinds = null)
@@ -72,7 +77,7 @@ class OcrWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
     private val engine: BentoEngine,
-    private val scheduler: BackgroundScheduler,
+    private val scheduler: BackgroundScheduler
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val next = engine.heldRun("ocr", BUDGET_MS, kinds = listOf("ocr_index"))
@@ -139,10 +144,12 @@ class BackgroundScheduler(private val workManager: () -> WorkManager) {
     fun apply(next: NextRun, @Suppress("UNUSED_PARAMETER") name: String, enqueue: (Long) -> Unit): androidx.work.ListenableWorker.Result =
         when (next) {
             NextRun.Done -> androidx.work.ListenableWorker.Result.success()
+
             is NextRun.Again -> {
                 enqueue(next.delayMs)
                 androidx.work.ListenableWorker.Result.success()
             }
+
             NextRun.Retry -> androidx.work.ListenableWorker.Result.retry()
         }
 
@@ -150,7 +157,13 @@ class BackgroundScheduler(private val workManager: () -> WorkManager) {
         val builder = OneTimeWorkRequestBuilder<W>()
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
-        if (expedited) builder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST) else builder.setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
+        if (expedited) {
+            builder.setExpedited(
+                OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST
+            )
+        } else {
+            builder.setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
+        }
         workManager().enqueueUniqueWork(name, ExistingWorkPolicy.APPEND_OR_REPLACE, builder.build())
     }
 
