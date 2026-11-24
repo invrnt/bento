@@ -54,6 +54,7 @@ import dev.bento.feature.pairing.DeviceLabels
 import dev.bento.feature.pairing.deviceDisplayName
 import dev.bento.feature.pairing.platformLabel
 import dev.bento.feature.recovery.KitOccasion
+import dev.bento.feature.recovery.ObscuredTouchGuard
 import dev.bento.feature.recovery.RecoveryKitScreen
 import dev.bento.feature.recovery.SetupScaffold
 import dev.bento.feature.recovery.TrustDates
@@ -387,6 +388,7 @@ fun RemovalSheet(removal: RemovalState, actions: DevicesActions) {
 @Suppress("LongMethod")
 @Composable
 fun RemovalSheetBody(removal: RemovalState, actions: DevicesActions) {
+    ObscuredTouchGuard() // SEC-09: the sheet's own window drops touches through overlays
     val c = BentoTheme.colors
     Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(

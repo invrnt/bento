@@ -46,6 +46,7 @@ import dev.bento.feature.recovery.Hero
 import dev.bento.feature.recovery.HeroTone
 import dev.bento.feature.recovery.QrScannerPanel
 import dev.bento.feature.recovery.RecoveryEntryScreen
+import dev.bento.feature.recovery.SecureWindow
 import dev.bento.feature.recovery.SensitiveClipboard
 import dev.bento.feature.recovery.SetupScaffold
 import dev.bento.feature.recovery.rememberCameraPermission
@@ -254,6 +255,7 @@ private fun EntryStep(
     modifier: Modifier,
     code: TextFieldState = remember(state.prefill) { TextFieldState(state.prefill.orEmpty()) }
 ) {
+    SecureWindow() // the typed or prefilled pairing code (SEC-08)
     LaunchedEffect(code) { snapshotFlow { code.text.toString() }.collect { actions.onEdited() } }
     val fieldError = when (state.joinProblem) {
         PairingProblem.WrongCode, PairingProblem.NotFound -> stringResource(pairingProblemText(state.joinProblem))

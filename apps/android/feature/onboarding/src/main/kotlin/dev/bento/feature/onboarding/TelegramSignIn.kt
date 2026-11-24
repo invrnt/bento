@@ -336,6 +336,7 @@ private fun CodeStep(
     modifier: Modifier,
     code: TextFieldState = rememberTextFieldState()
 ) {
+    SecureWindow() // the Telegram login code (SEC-08)
     LaunchedEffect(code) {
         snapshotFlow { code.text.toString() }.collect {
             actions.onEdited()
