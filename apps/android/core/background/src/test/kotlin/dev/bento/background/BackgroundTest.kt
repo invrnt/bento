@@ -1,6 +1,7 @@
 package dev.bento.background
 
 import android.content.Context
+import androidx.core.app.NotificationCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.Configuration
 import androidx.work.WorkInfo
@@ -20,6 +21,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 class RunPlannerTest {
     private fun result(reason: StopReason, remaining: Int, next: Long? = null) = WorkerRunResult(1, remaining, next, reason)
@@ -169,5 +171,20 @@ class BackgroundSchedulerTest {
         scheduler.enqueueBackupRun(60_000)
         scheduler.enqueueBackupRun(60_000)
         assertTrue(infos(BackgroundScheduler.BACKUP_RUN).isNotEmpty())
+    }
+}
+
+@RunWith(RobolectricTestRunner::class)
+@Config(qualifiers = "es")
+class NotificationCopyTest {
+    private val context: Context = ApplicationProvider.getApplicationContext()
+
+    @Test
+    fun `backup progress and summary group counts for the locale`() {
+        val progress = EngineEvent.TransferProgress(EngineEvent.TransferKind.BACKUP, 12_400, 18_000, 1, 2, false)
+        val text = BentoNotifications.transfer(context, progress).extras.getCharSequence(NotificationCompat.EXTRA_TEXT).toString()
+        assertEquals("12.400 de 18.000 archivos", text)
+        val summary = BentoNotifications.backupSummary(context, 18_000).extras.getCharSequence(NotificationCompat.EXTRA_TITLE).toString()
+        assertEquals("Listo: 18.000 fotos respaldadas", summary)
     }
 }

@@ -120,7 +120,6 @@
     <string name="pairing_host_relay_fallback">On the other device, sign in to Telegram and choose “Ask my other devices for access”. The request will appear in Devices for you to approve.</string>
     <string name="pairing_host_failed_title">The device couldn’t be added</string>
     <string name="pairing_host_start_failed">A code couldn’t be prepared. Try again.</string>
-    <string name="pairing_host_action_failed">The action couldn’t be completed. Try again.</string>
     <string name="pairing_host_new_code">Create another code</string>
     <string name="pairing_host_done">Done</string>
 

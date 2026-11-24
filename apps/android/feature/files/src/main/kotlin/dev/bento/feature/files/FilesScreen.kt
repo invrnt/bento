@@ -67,7 +67,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
@@ -101,6 +100,8 @@ import dev.bento.designsystem.component.KindIcon
 import dev.bento.designsystem.component.ListRow
 import dev.bento.designsystem.component.LoadingState
 import dev.bento.designsystem.component.ProgressBar
+import dev.bento.designsystem.format.formatCount
+import dev.bento.designsystem.format.pluralCountResource
 import dev.bento.designsystem.generated.BentoIcons
 import dev.bento.designsystem.theme.BentoShapes
 import dev.bento.designsystem.theme.BentoTheme
@@ -537,7 +538,8 @@ private fun FilesOverlays(
             val selected = state.selectedItems
             FloatingActionBar(
                 visible = true,
-                title = pluralStringResource(StringsR.plurals.common_count_selected, selected.size, selected.size),
+                title = pluralCountResource(StringsR.plurals.common_count_selected, selected.size),
+                compactTitle = formatCount(selected.size),
                 actions = listOf(
                     FloatingAction(BentoIcons.Share2, stringResource(StringsR.string.common_action_share), { actions.onShare(selected) }),
                     FloatingAction(BentoIcons.FolderInput, stringResource(StringsR.string.common_action_move), {

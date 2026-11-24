@@ -2,7 +2,6 @@
 <!-- Colecciones (feature/collections, agent 39): albums, favorites, videos, documents, phone, Telegram, trash. -->
 <resources>
     <string name="collections_albums">Álbumes</string>
-    <string name="collections_albums_all">Ver todos</string>
     <string name="collections_new_album">Nuevo álbum</string>
     <string name="collections_favorites">Favoritos</string>
     <string name="collections_videos">Videos</string>
@@ -47,7 +46,6 @@
     <string name="collections_phone_state_paused">En pausa</string>
     <string name="collections_phone_state_error">Necesita atención</string>
     <string name="collections_phone_state_off">Desactivada</string>
-    <string name="collections_phone_row">%1$s · %2$s</string>
     <string name="collections_phone_error">No pudimos leer las carpetas del teléfono.</string>
     <string name="collections_telegram_import">Importar de Telegram</string>
     <string name="collections_telegram_empty_title">Trae fotos y archivos de tus chats</string>
@@ -64,7 +62,6 @@
     <string name="collections_telegram_kind_photo">Fotos</string>
     <string name="collections_telegram_kind_video">Videos</string>
     <string name="collections_telegram_kind_document">Archivos</string>
-    <string name="collections_telegram_started">Importando en segundo plano. Lo verás en Fotos y Archivos.</string>
     <string name="collections_telegram_media_row">%1$s · %2$s</string>
     <string name="collections_trash_restore">Restaurar</string>
     <string name="collections_trash_empty_action">Vaciar papelera</string>
@@ -78,7 +75,6 @@
     <string name="collections_trash_restored">Se restauró en su lugar</string>
     <string name="collections_trash_purged">Se eliminó para siempre</string>
     <string name="collections_trash_emptied">La papelera quedó vacía</string>
-    <string name="collections_trash_row">%1$s · %2$s</string>
     <string name="collections_select_all">Seleccionar todo</string>
     <plurals name="collections_trash_days_left">
         <item quantity="one">Se eliminará en %1$s día</item>

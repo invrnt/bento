@@ -10,7 +10,6 @@
     <string name="photos_tile_uploading">subiendo</string>
     <string name="photos_tile_failed">no se pudo respaldar</string>
     <string name="photos_tile_selected">en la selección</string>
-    <string name="photos_tile_loading">Foto, cargando</string>
     <string name="photos_action_open">Abrir</string>
     <string name="photos_action_unselect">Quitar selección</string>
     <string name="photos_action_favorite_add">Añadir a favoritos</string>
@@ -20,7 +19,6 @@
     <string name="photos_action_unselect_day">Quitar la selección del %1$s</string>
     <string name="photos_density_more">Ver más fotos por fila</string>
     <string name="photos_density_less">Ver fotos más grandes</string>
-    <string name="photos_density_month">Vista por meses</string>
     <string name="photos_fast_scroller">Desplazamiento rápido por fecha</string>
     <string name="photos_grid_label">Fotos y videos por fecha</string>
     <string name="photos_empty_title">Tus fotos aparecerán aquí</string>
@@ -45,7 +43,6 @@
     <string name="photos_saved_to_phone">Guardado en Imágenes › Bento</string>
     <string name="photos_sent_telegram">Enviado a «%1$s»</string>
     <string name="photos_preparing_copy">Preparando una copia…</string>
-    <string name="photos_action_failed">No se pudo completar. Inténtalo otra vez.</string>
     <string name="photos_album_sheet_title">Añadir a álbum</string>
     <string name="photos_album_new">Nuevo álbum</string>
     <string name="photos_album_name_label">Nombre del álbum</string>

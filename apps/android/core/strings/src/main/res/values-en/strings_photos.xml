@@ -10,7 +10,6 @@
     <string name="photos_tile_uploading">uploading</string>
     <string name="photos_tile_failed">backup failed</string>
     <string name="photos_tile_selected">selected</string>
-    <string name="photos_tile_loading">Photo, loading</string>
     <string name="photos_action_open">Open</string>
     <string name="photos_action_unselect">Deselect</string>
     <string name="photos_action_favorite_add">Add to favorites</string>
@@ -20,7 +19,6 @@
     <string name="photos_action_unselect_day">Deselect photos from %1$s</string>
     <string name="photos_density_more">Show more photos per row</string>
     <string name="photos_density_less">Show larger photos</string>
-    <string name="photos_density_month">Month view</string>
     <string name="photos_fast_scroller">Fast scroll by date</string>
     <string name="photos_grid_label">Photos and videos by date</string>
     <string name="photos_empty_title">Your photos will show up here</string>
@@ -45,7 +43,6 @@
     <string name="photos_saved_to_phone">Saved to Pictures › Bento</string>
     <string name="photos_sent_telegram">Sent to “%1$s”</string>
     <string name="photos_preparing_copy">Preparing a copy…</string>
-    <string name="photos_action_failed">That didn’t work. Try again.</string>
     <string name="photos_album_sheet_title">Add to album</string>
     <string name="photos_album_new">New album</string>
     <string name="photos_album_name_label">Album name</string>

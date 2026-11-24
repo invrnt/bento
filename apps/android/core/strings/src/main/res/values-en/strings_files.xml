@@ -23,11 +23,9 @@
     <string name="files_badge_local_only">Only on this phone</string>
     <string name="files_badge_uploading">Uploading to your cloud</string>
     <string name="files_badge_failed">Couldn’t upload; will retry</string>
-    <string name="files_badge_processing">Preparing preview</string>
 
     <string name="files_layout_grid">View as grid</string>
     <string name="files_layout_list">View as list</string>
-    <string name="files_sort">Sort</string>
     <string name="files_sort_title">Sort this folder</string>
     <string name="files_sort_name">Name</string>
     <string name="files_sort_modified">Date modified</string>
@@ -64,7 +62,6 @@
     <string name="files_menu_offline_remove">Remove from offline</string>
     <string name="files_menu_unfavorite">Remove from favorites</string>
     <string name="files_menu_details">Details</string>
-    <string name="files_menu_more">More actions</string>
     <string name="files_trashed">Moved “%1$s” to the trash</string>
     <plurals name="files_trashed_many">
         <item quantity="one">Moved %1$s item to the trash</item>
@@ -79,7 +76,6 @@
     <string name="files_pinned">“%1$s” will be available offline</string>
     <string name="files_unpinned">“%1$s” is no longer kept offline</string>
     <string name="files_favorited">Added “%1$s” to favorites</string>
-    <string name="files_action_failed">That couldn’t be done. Try again.</string>
 
     <string name="files_rename_title">Rename</string>
     <string name="files_rename_label">New name</string>
@@ -89,7 +85,6 @@
     <string name="files_move_here">Move here</string>
     <string name="files_move_search">Search folders</string>
     <string name="files_move_recent">Recent</string>
-    <string name="files_move_all">Folders</string>
     <string name="files_move_no_folders">No folders here.</string>
     <string name="files_move_into_self">A folder can’t be moved into itself.</string>
     <string name="files_move_failed">Couldn’t move. Try again.</string>
@@ -152,22 +147,16 @@
     <string name="files_upload_row_duplicate">Already in your cloud</string>
     <string name="files_upload_row_failed">Couldn’t be read. Share it again.</string>
 
-    <string name="files_pdf_loading">Opening the PDF…</string>
     <string name="files_pdf_failed">This PDF couldn’t be opened.</string>
     <string name="files_pdf_page_counter">Page %1$s of %2$s</string>
     <string name="files_pdf_pages">Pages</string>
     <string name="files_pdf_go_to_page">Go to page %1$s</string>
     <string name="files_pdf_search">Search in the document</string>
     <string name="files_pdf_search_close">Close search</string>
-    <plurals name="files_pdf_matches">
-        <item quantity="one">%1$s match</item>
-        <item quantity="other">%1$s matches</item>
-    </plurals>
     <string name="files_pdf_match_position">%1$s of %2$s</string>
     <string name="files_pdf_no_matches">No matches</string>
     <string name="files_pdf_next">Next match</string>
     <string name="files_pdf_previous">Previous match</string>
-    <string name="files_pdf_no_text">This PDF has no searchable text.</string>
 
     <string name="files_text_loading">Opening…</string>
     <string name="files_text_monospace">Monospace</string>
@@ -182,6 +171,5 @@
     <string name="files_tree_title">Folders</string>
     <string name="files_tree_expand">Show subfolders of “%1$s”</string>
     <string name="files_tree_collapse">Hide subfolders of “%1$s”</string>
-    <string name="files_detail_placeholder">Choose a file to see its details.</string>
     <string name="files_drop_here">Drop to upload here</string>
 </resources>

@@ -1,11 +1,8 @@
 package dev.bento.feature.files
 
-import android.content.res.Resources
-import android.icu.text.NumberFormat
 import dev.bento.api.generated.AssetResponse
 import dev.bento.api.generated.DriveItemResponse
 import dev.bento.designsystem.component.FileKind
-import dev.bento.strings.R as StringsR
 import java.text.DateFormat
 import java.time.Instant
 import java.time.OffsetDateTime
@@ -89,32 +86,6 @@ object FileKinds {
 
     /** Sort key for "Tipo": folders, then by kind and extension. */
     fun typeKey(item: DriveItemResponse): String = if (item.folder != null) "" else "${fileKind(item).ordinal}:${extension(item.name)}"
-}
-
-/** Sizes with android.icu digits and the shared unit strings ("1,5 MB"). */
-object Sizes {
-    private const val STEP = 1024.0
-
-    fun format(resources: Resources, bytes: Long, locale: Locale = Locale.getDefault()): String {
-        val units = listOf(
-            StringsR.string.common_unit_bytes,
-            StringsR.string.common_unit_kilobytes,
-            StringsR.string.common_unit_megabytes,
-            StringsR.string.common_unit_gigabytes,
-            StringsR.string.common_unit_terabytes
-        )
-        var value = bytes.coerceAtLeast(0).toDouble()
-        var unit = 0
-        while (value >= STEP && unit < units.lastIndex) {
-            value /= STEP
-            unit++
-        }
-        val number = NumberFormat.getInstance(locale).apply {
-            maximumFractionDigits = if (unit == 0 || value >= 100) 0 else 1
-            minimumFractionDigits = 0
-        }.format(value)
-        return resources.getString(units[unit], number)
-    }
 }
 
 /** API timestamps as calm, localized dates. */

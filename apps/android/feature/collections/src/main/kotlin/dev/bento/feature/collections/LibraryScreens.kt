@@ -61,6 +61,8 @@ import dev.bento.designsystem.component.ListRow
 import dev.bento.designsystem.component.LoadingState
 import dev.bento.designsystem.component.SelectionCheck
 import dev.bento.designsystem.component.Thumbnail
+import dev.bento.designsystem.format.BentoFormat
+import dev.bento.designsystem.format.pluralCountResource
 import dev.bento.designsystem.generated.BentoIcons
 import dev.bento.designsystem.theme.BentoShapes
 import dev.bento.designsystem.theme.BentoTheme
@@ -152,13 +154,7 @@ fun DocumentsContent(
 private fun DocumentRow(doc: DocumentEntry, context: android.content.Context, locale: java.util.Locale, onClick: () -> Unit) {
     ListRow(
         headline = doc.name,
-        supporting = listOfNotNull(
-            MediaFormat.bytes(context, doc.sizeBytes, locale),
-            doc.createdAt?.let {
-                MediaFormat.longDate(it, locale)
-            }
-        )
-            .joinToString(" · "),
+        supporting = metadataPair(BentoFormat.bytes(context.resources, doc.sizeBytes, locale), doc.createdAt?.let { MediaFormat.longDate(it, locale) }),
         leading = { KindIcon(fileKindOf(doc.mimeType, doc.name)) },
         onClick = onClick,
         onClickLabel = stringResource(StringsR.string.common_action_open_with)
@@ -216,7 +212,7 @@ fun PhoneFoldersContent(state: Loadable<List<PhoneFolder>>, onBack: () -> Unit, 
                             folder.filesPending > 0 -> pluralStringResource(
                                 StringsR.plurals.collections_phone_pending,
                                 folder.filesPending,
-                                MediaFormat.number(folder.filesPending, locale)
+                                BentoFormat.count(folder.filesPending, locale)
                             )
 
                             else -> stringResource(StringsR.string.collections_phone_state_done)
@@ -224,11 +220,11 @@ fun PhoneFoldersContent(state: Loadable<List<PhoneFolder>>, onBack: () -> Unit, 
                         ListRow(
                             headline = folder.label,
                             supporting = stringResource(
-                                StringsR.string.collections_phone_row,
+                                StringsR.string.common_metadata_pair,
                                 pluralStringResource(
                                     StringsR.plurals.collections_count_items,
                                     folder.filesTotal,
-                                    MediaFormat.number(folder.filesTotal, locale)
+                                    BentoFormat.count(folder.filesTotal, locale)
                                 ),
                                 status
                             ),
@@ -399,7 +395,7 @@ fun TelegramMediaContent(
             }
         }
         BentoButton(
-            text = pluralStringResource(StringsR.plurals.collections_telegram_import_count, selected.size, selected.size),
+            text = pluralCountResource(StringsR.plurals.collections_telegram_import_count, selected.size),
             onClick = onImport,
             enabled = selected.isNotEmpty(),
             variant = BentoButtonVariant.Primary,
@@ -428,7 +424,7 @@ private fun TelegramMediaRow(
         supporting = stringResource(
             StringsR.string.collections_telegram_media_row,
             MediaFormat.longDate(media.date, locale),
-            media.sizeBytes?.let { MediaFormat.bytes(context, it, locale) }.orEmpty()
+            media.sizeBytes?.let { BentoFormat.bytes(context.resources, it, locale) }.orEmpty()
         ).trimEnd(' ', '·'),
         leading = { KindIcon(kind) },
         trailing = { SelectionCheck(selected) },
@@ -539,11 +535,11 @@ fun TrashContent(
                     val left = when (days) {
                         null -> null
                         0 -> stringResource(StringsR.string.collections_trash_today)
-                        else -> pluralStringResource(StringsR.plurals.collections_trash_days_left, days, days)
+                        else -> pluralCountResource(StringsR.plurals.collections_trash_days_left, days)
                     }
                     ListRow(
                         headline = item.name,
-                        supporting = listOfNotNull(left, MediaFormat.bytes(context, item.sizeBytes, locale)).joinToString(" · "),
+                        supporting = metadataPair(left, BentoFormat.bytes(context.resources, item.sizeBytes, locale)),
                         leading = { TrashThumb(item) },
                         trailing = {
                             BentoIconButton(BentoIcons.RotateCcw, stringResource(StringsR.string.collections_trash_restore), {
@@ -596,8 +592,8 @@ fun TrashContent(
             consequence = pluralStringResource(
                 StringsR.plurals.collections_trash_empty_confirm_body,
                 count,
-                MediaFormat.number(count, locale),
-                MediaFormat.bytes(context, bytes, locale)
+                BentoFormat.count(count, locale),
+                BentoFormat.bytes(context.resources, bytes, locale)
             ),
             confirmLabel = stringResource(StringsR.string.collections_trash_empty_action),
             onConfirm = {
@@ -645,4 +641,11 @@ fun SubPage(
         }
         if (snackbar != null) BentoSnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).fillMaxWidth())
     }
+}
+
+/** "a · b" through `common_metadata_pair` (the separator is copy, not code); a missing part leaves the other alone. */
+@Composable
+private fun metadataPair(first: String?, second: String?): String = when {
+    first != null && second != null -> stringResource(StringsR.string.common_metadata_pair, first, second)
+    else -> first ?: second.orEmpty()
 }
