@@ -34,7 +34,8 @@ sealed interface Route : NavKey {
 
     @Serializable data object Activity : Route
 
-    @Serializable data object Settings : Route
+    /** Ajustes; [section] opens one section (`SettingsSection` name, e.g. `Backup` from the Quick Settings tile). */
+    @Serializable data class Settings(val section: String? = null) : Route
 
     @Serializable data object Devices : Route
 

@@ -79,6 +79,14 @@
                 <data android:host="${bentoSiteHost}" />
                 <data android:path="/join" />
             </intent-filter>
+            <!-- Quick Settings tile long-press → Ajustes › Respaldo (agent 41). -->
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+            </intent-filter>
+            <!-- Launcher shortcuts (core/background res/xml/bento_shortcuts.xml; debug adds the kitchen sink). -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/bento_shortcuts" />
         </activity>
 
         <!-- Share-to-Bento sheet (feature/share, agent 40): any MIME type, single or multiple, "Abrir con Bento", Direct Share. -->

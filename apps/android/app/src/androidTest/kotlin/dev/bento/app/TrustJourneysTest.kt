@@ -74,7 +74,8 @@ class TrustJourneysTest {
         journey.signInWithPhone()
         journey.waitText("Creando tu nube", 30_000)
         journey.capture("j01-3-creating")
-        journey.tap("Continuar", 90_000) // Route.BackupSetup placeholder until feature/settings lands
+        // Respalda este teléfono (agent 41): left off here; BackupJourneysTest turns it on with full media access.
+        journey.tap("Ahora no", 90_000)
         val spoken = journey.description("Código de recuperación: ")
         assertTrue("FLAG_SECURE on the kit", journey.secure())
         journey.capture("j01-4-kit-flag-secure")
@@ -232,7 +233,7 @@ class TrustJourneysTest {
         journey.launch()
         journey.tap("Empezar", 90_000)
         journey.signInWithPhone()
-        journey.tap("Continuar", 90_000)
+        journey.tap("Ahora no", 90_000) // Respalda este teléfono: backup stays off
         journey.tap("Más tarde", 30_000)
         journey.tap("Ir a mis fotos", 30_000)
         journey.inLibrary()
