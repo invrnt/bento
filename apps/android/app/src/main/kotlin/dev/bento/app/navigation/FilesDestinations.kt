@@ -12,8 +12,9 @@ internal fun FilesDestination(navigator: Navigator, key: Route.Files) {
         onOpenViewer = { navigator.navigate(Route.Viewer(it)) },
         onOpenDocument = { navigator.navigate(Route.Document(it)) },
         onSearch = { folderId, folderName -> navigator.navigate(Route.Search(folderId = folderId, folderName = folderName)) },
-        // Cuenta y actividad (agent 41) replaces Route.Activity's placeholder.
-        onAccount = { navigator.navigate(Route.Activity) }
+        onAccount = { navigator.navigate(Route.Activity) },
+        // The real status avatar opening Cuenta y actividad (agent 41).
+        avatar = { AccountAvatarFor(navigator) }
     )
 }
 

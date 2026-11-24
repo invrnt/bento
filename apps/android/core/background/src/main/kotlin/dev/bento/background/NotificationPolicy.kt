@@ -11,7 +11,7 @@ sealed interface NotificationDecision {
     /** Remove the ongoing notification; [summaryCount] > 0 shows "Listo: N fotos respaldadas". */
     data class Finished(val kind: EngineEvent.TransferKind, val summaryCount: Int) : NotificationDecision
 
-    data class Attention(val code: String) : NotificationDecision
+    data class Attention(val code: String, val count: Int = 1) : NotificationDecision
 
     data class DeviceRequest(val requestId: String, val deviceName: String) : NotificationDecision
 
@@ -56,7 +56,7 @@ class NotificationPolicy(private val clock: () -> Long = System::currentTimeMill
                     NotificationDecision.Ignore
                 } else {
                     attentionShownAt[event.code] = now
-                    NotificationDecision.Attention(event.code)
+                    NotificationDecision.Attention(event.code, event.count.coerceAtLeast(1))
                 }
             }
 

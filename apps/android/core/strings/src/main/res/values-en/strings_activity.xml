@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Cuenta y actividad, Quick Settings tile, launcher shortcuts and notification copy (agent 41; product/android.md §7-§8). -->
+<resources>
+    <!-- Quick Settings tile -->
+    <string name="activity_tile_label">Bento backup</string>
+    <string name="activity_tile_on">Backup on</string>
+    <string name="activity_tile_paused">Backup paused</string>
+    <string name="activity_tile_off">Backup off</string>
+    <!-- Launcher shortcuts (long-press the icon) -->
+    <string name="activity_shortcut_search">Search</string>
+    <string name="activity_shortcut_search_long">Search in Bento</string>
+    <string name="activity_shortcut_upload_photos">Upload photos</string>
+    <string name="activity_shortcut_upload_photos_long">Upload photos or videos</string>
+    <string name="activity_shortcut_scan">Scan</string>
+    <string name="activity_shortcut_scan_long">Scan document</string>
+    <string name="activity_shortcut_add_device">Add device</string>
+    <string name="activity_shortcut_add_device_long">Add a device</string>
+    <!-- Notifications: content and actions per Notifier event -->
+    <plurals name="activity_notif_progress">
+        <item quantity="one">%1$s of %2$s file</item>
+        <item quantity="other">%1$s of %2$s files</item>
+    </plurals>
+    <string name="activity_notif_bytes">%1$s of %2$s</string>
+    <string name="activity_notif_summary_text">Your photos are encrypted in your cloud.</string>
+    <string name="activity_notif_signin_title">Bento was disconnected from Telegram</string>
+    <string name="activity_notif_signin_text">Reconnect to keep backing up. Your library is still here.</string>
+    <string name="activity_notif_kit_title">Save your recovery kit</string>
+    <string name="activity_notif_kit_text">Without the kit you can’t recover your cloud if you lose your devices.</string>
+    <string name="activity_notif_removed_title">This phone was removed from your cloud</string>
+    <string name="activity_notif_removed_text">Your library is now read-only. You can join again.</string>
+    <string name="activity_notif_storage_title">Your phone is out of space</string>
+    <string name="activity_notif_storage_text">Bento stopped saving copies. Free up space to continue.</string>
+    <plurals name="activity_notif_failed_title">
+        <item quantity="one">%d file couldn’t be uploaded</item>
+        <item quantity="other">%d files couldn’t be uploaded</item>
+    </plurals>
+    <string name="activity_notif_failed_text">Review it in Bento to try again.</string>
+    <string name="activity_notif_new_device_title">A device was added to your cloud</string>
+    <string name="activity_notif_request_text">“%1$s” wants to join your cloud. Tap to review it.</string>
+    <string name="activity_action_save_kit">Save kit</string>
+    <!-- Cuenta y actividad sheet and Actividad screen -->
+    <string name="activity_sheet_title">Account and activity</string>
+    <string name="activity_title">Activity</string>
+    <string name="activity_account_fallback">Your account</string>
+    <string name="activity_trash">Trash</string>
+    <string name="activity_status_up_to_date">All up to date ✓</string>
+    <string name="activity_status_starting">Opening your cloud…</string>
+    <string name="activity_status_syncing">Syncing…</string>
+    <string name="activity_status_offline">Offline — it will resume by itself</string>
+    <plurals name="activity_status_flood_wait">
+        <item quantity="one">Telegram asked to wait %d min</item>
+        <item quantity="other">Telegram asked to wait %d min</item>
+    </plurals>
+    <plurals name="activity_status_uploading">
+        <item quantity="one">Uploading %d file</item>
+        <item quantity="other">Uploading %d files</item>
+    </plurals>
+    <plurals name="activity_status_downloading">
+        <item quantity="one">Downloading %d file</item>
+        <item quantity="other">Downloading %d files</item>
+    </plurals>
+    <string name="activity_status_with_eta">%1$s · %2$s</string>
+    <plurals name="activity_status_attention">
+        <item quantity="one">%d thing needs your attention</item>
+        <item quantity="other">%d things need your attention</item>
+    </plurals>
+    <plurals name="activity_transfer_uploads">
+        <item quantity="one">Uploading %d file</item>
+        <item quantity="other">Uploading %d files</item>
+    </plurals>
+    <plurals name="activity_transfer_downloads">
+        <item quantity="one">Downloading %d file</item>
+        <item quantity="other">Downloading %d files</item>
+    </plurals>
+    <string name="activity_backup_row">Phone backup</string>
+    <string name="activity_expand">Show details</string>
+    <string name="activity_collapse">Hide details</string>
+    <string name="activity_attention_title">Needs your attention</string>
+    <string name="activity_attention_upload_failed">A file couldn’t be uploaded</string>
+    <string name="activity_attention_upload_failed_body">We tried several times. You can try again now.</string>
+    <plurals name="activity_attention_backup_failed">
+        <item quantity="one">%1$d photo from “%2$s” couldn’t be backed up</item>
+        <item quantity="other">%1$d photos from “%2$s” couldn’t be backed up</item>
+    </plurals>
+    <string name="activity_attention_sync_error">Couldn’t sync</string>
+    <string name="activity_attention_sync_error_body">Your changes are saved on this phone and will be sent when you try again.</string>
+    <string name="activity_attention_kit_stale">The kit you saved no longer works: generate a new one.</string>
+    <string name="activity_attention_new_device_body">If you don’t recognize it, remove it from your cloud.</string>
+    <string name="activity_attention_inbox_failed">Something from the Inbox couldn’t be imported</string>
+    <string name="activity_attention_inbox_failed_body">It’s still in Telegram; you can forward it again.</string>
+    <plurals name="activity_attention_clock_ahead">
+        <item quantity="one">The phone’s clock is %d min ahead</item>
+        <item quantity="other">The phone’s clock is %d min ahead</item>
+    </plurals>
+    <plurals name="activity_attention_clock_behind">
+        <item quantity="one">The phone’s clock is %d min behind</item>
+        <item quantity="other">The phone’s clock is %d min behind</item>
+    </plurals>
+    <string name="activity_attention_clock_body">Turn on automatic date and time in the phone’s settings.</string>
+    <string name="activity_import_failed_title">“%1$s” didn’t make it into Bento</string>
+    <string name="activity_import_unreadable">The other app no longer lets Bento read it. Share it again.</string>
+    <string name="activity_import_interrupted">It was interrupted when Bento closed. Share it again.</string>
+    <string name="activity_import_failed">It couldn’t be saved. Try again.</string>
+    <string name="activity_action_dismiss">Dismiss</string>
+    <string name="activity_empty_title">Nothing pending</string>
+    <string name="activity_empty_body">Everything is in your cloud and up to date.</string>
+</resources>

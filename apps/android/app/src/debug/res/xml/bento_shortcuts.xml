@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only: the launcher shortcuts of core/background (same entries, checked by ShortcutsTest) plus the
+     design-system kitchen sink. Release builds use core/background's file and have no kitchen sink. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_search"
+        android:shortcutId="search"
+        android:shortcutLongLabel="@string/activity_shortcut_search_long"
+        android:shortcutShortLabel="@string/activity_shortcut_search">
+        <intent
+            android:action="dev.bento.action.SEARCH"
+            android:targetClass="dev.bento.app.MainActivity"
+            android:targetPackage="dev.bento.app" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_upload_photos"
+        android:shortcutId="upload_photos"
+        android:shortcutLongLabel="@string/activity_shortcut_upload_photos_long"
+        android:shortcutShortLabel="@string/activity_shortcut_upload_photos">
+        <intent
+            android:action="dev.bento.action.UPLOAD_PHOTOS"
+            android:targetClass="dev.bento.background.ShortcutActivity"
+            android:targetPackage="dev.bento.app" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_scan"
+        android:shortcutId="scan_document"
+        android:shortcutLongLabel="@string/activity_shortcut_scan_long"
+        android:shortcutShortLabel="@string/activity_shortcut_scan">
+        <intent
+            android:action="dev.bento.action.SCAN_DOCUMENT"
+            android:targetClass="dev.bento.background.ShortcutActivity"
+            android:targetPackage="dev.bento.app" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_add_device"
+        android:shortcutId="add_device"
+        android:shortcutLongLabel="@string/activity_shortcut_add_device_long"
+        android:shortcutShortLabel="@string/activity_shortcut_add_device">
+        <intent
+            android:action="dev.bento.action.ADD_DEVICE"
+            android:targetClass="dev.bento.app.MainActivity"
+            android:targetPackage="dev.bento.app" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutId="kitchen_sink"
+        android:shortcutShortLabel="@string/debug_kitchen_sink">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="dev.bento.designsystem.kitchensink.KitchenSinkActivity"
+            android:targetPackage="dev.bento.app" />
+    </shortcut>
+</shortcuts>

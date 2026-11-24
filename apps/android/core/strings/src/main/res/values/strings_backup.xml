@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Phone backup: setup step, Ajustes › Respaldo, permissions, free up space, stall card (agent 41; product/android.md §4.1, §5, §6, §11). -->
+<resources>
+    <!-- Onboarding step: Respalda este teléfono -->
+    <string name="backup_setup_title">Respalda este teléfono</string>
+    <string name="backup_setup_body">Tus fotos y videos se cifran y se guardan en tu nube. Puedes elegir qué carpetas.</string>
+    <string name="backup_setup_start">Respaldar fotos</string>
+    <string name="backup_setup_not_now">Ahora no</string>
+    <string name="backup_rationale_title">Acceso a tus fotos</string>
+    <string name="backup_rationale_body">Bento necesita ver tus fotos y videos para cifrarlos y guardarlos en tu nube. Puedes elegir solo algunas.</string>
+    <!-- Status header (Ajustes › Respaldo, Quick Settings subtitle) -->
+    <string name="backup_header_off">El respaldo está apagado</string>
+    <string name="backup_header_no_access">Bento no puede ver tus fotos</string>
+    <string name="backup_header_done">Todo respaldado ✓</string>
+    <string name="backup_header_done_ago">Todo respaldado ✓ · %1$s</string>
+    <string name="backup_just_now">hace un instante</string>
+    <string name="backup_header_paused">Respaldo en pausa</string>
+    <string name="backup_header_paused_battery">Pausado · batería baja</string>
+    <plurals name="backup_header_running">
+        <item quantity="one">Respaldando · queda %d</item>
+        <item quantity="many">Respaldando · quedan %d</item>
+        <item quantity="other">Respaldando · quedan %d</item>
+    </plurals>
+    <plurals name="backup_header_waiting">
+        <item quantity="one">Queda %1$d · %2$s</item>
+        <item quantity="many">Quedan %1$d · %2$s</item>
+        <item quantity="other">Quedan %1$d · %2$s</item>
+    </plurals>
+    <string name="backup_wait_wifi">esperando Wi-Fi</string>
+    <string name="backup_wait_charging">esperando a que cargue</string>
+    <string name="backup_wait_battery">batería baja</string>
+    <string name="backup_wait_thermal">el teléfono está caliente</string>
+    <string name="backup_wait_offline">sin conexión</string>
+    <!-- Ajustes › Respaldo del teléfono -->
+    <string name="backup_switch">Respaldo del teléfono</string>
+    <string name="backup_switch_summary">Cifra y guarda las fotos de este teléfono en tu nube.</string>
+    <string name="backup_run_now">Respaldar ahora</string>
+    <string name="backup_run_now_summary">Una vez, aunque no haya Wi-Fi.</string>
+    <string name="backup_folders">Carpetas del teléfono</string>
+    <plurals name="backup_bucket_count">
+        <item quantity="one">%d elemento</item>
+        <item quantity="many">%d de elementos</item>
+        <item quantity="other">%d elementos</item>
+    </plurals>
+    <plurals name="backup_bucket_pending">
+        <item quantity="one">%1$s · queda %2$d</item>
+        <item quantity="many">%1$s · quedan %2$d</item>
+        <item quantity="other">%1$s · quedan %2$d</item>
+    </plurals>
+    <string name="backup_policy_title">Cuándo respaldar</string>
+    <string name="backup_policy_wifi">Solo con Wi-Fi</string>
+    <string name="backup_policy_wifi_summary">No usa tus datos móviles.</string>
+    <string name="backup_policy_videos_wifi">Videos solo con Wi-Fi</string>
+    <string name="backup_policy_charging">Solo mientras carga</string>
+    <string name="backup_policy_battery_note">El respaldo se pausa solo con batería baja o con el ahorro de batería o de datos.</string>
+    <!-- Permissions: denied, partial, revoked, location -->
+    <string name="backup_denied_title">El respaldo sigue apagado</string>
+    <string name="backup_denied_body">Sin acceso a tus fotos no se respalda nada. Puedes subir fotos desde Archivos con el selector de fotos.</string>
+    <string name="backup_allow_access">Permitir acceso</string>
+    <string name="backup_open_settings">Abrir ajustes del teléfono</string>
+    <plurals name="backup_partial_title">
+        <item quantity="one">Bento solo ve %d foto</item>
+        <item quantity="many">Bento solo ve %d de fotos</item>
+        <item quantity="other">Bento solo ve %d fotos</item>
+    </plurals>
+    <string name="backup_partial_body">Solo se respaldan las que elegiste.</string>
+    <string name="backup_partial_allow_all">Permitir todas</string>
+    <string name="backup_partial_choose_more">Elegir más</string>
+    <string name="backup_revoked_title">Bento ya no puede ver tus fotos</string>
+    <string name="backup_revoked_body">El acceso se quitó en los ajustes del teléfono. Lo ya respaldado sigue en tu nube.</string>
+    <string name="backup_location_title">Fotos sin ubicación</string>
+    <string name="backup_location_body">Tus fotos se guardarán sin ubicación.</string>
+    <string name="backup_location_ok">Entendido</string>
+    <!-- Liberar espacio -->
+    <string name="backup_free_up">Liberar espacio</string>
+    <string name="backup_free_up_summary">Borra del teléfono las fotos que ya están en tu nube.</string>
+    <plurals name="backup_free_up_preview">
+        <item quantity="one">%1$d foto ya está en tu nube · %2$s</item>
+        <item quantity="many">%1$d de fotos ya están en tu nube · %2$s</item>
+        <item quantity="other">%1$d fotos ya están en tu nube · %2$s</item>
+    </plurals>
+    <string name="backup_free_up_explain">Solo se borran las que están subidas y verificadas. Bento conserva las miniaturas: tu línea de tiempo no cambia.</string>
+    <string name="backup_free_up_confirm">Liberar %1$s en este teléfono</string>
+    <string name="backup_free_up_nothing">No hay nada que liberar todavía: lo que queda en el teléfono aún no está en tu nube.</string>
+    <plurals name="backup_free_up_done">
+        <item quantity="one">Listo: se liberaron %2$s (%1$d foto)</item>
+        <item quantity="many">Listo: se liberaron %2$s (%1$d de fotos)</item>
+        <item quantity="other">Listo: se liberaron %2$s (%1$d fotos)</item>
+    </plurals>
+    <string name="backup_free_up_cancelled">No se borró nada del teléfono.</string>
+    <!-- OEM background restrictions (stall card) -->
+    <string name="backup_stall_title">El respaldo lleva un día detenido</string>
+    <string name="backup_stall_body">Tu teléfono puede estar deteniendo Bento en segundo plano. Hay pasos para tu marca.</string>
+    <string name="backup_stall_help">Ver cómo arreglarlo</string>
+</resources>

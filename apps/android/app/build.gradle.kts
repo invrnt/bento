@@ -132,6 +132,8 @@ dependencies {
     implementation(project(":feature:photos"))
     implementation(project(":feature:viewer"))
     implementation(project(":feature:collections"))
+    implementation(project(":feature:settings"))
+    implementation(project(":feature:activity"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

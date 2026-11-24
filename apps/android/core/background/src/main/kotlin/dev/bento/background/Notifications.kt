@@ -69,41 +69,30 @@ object BentoNotifications {
 
     /** Ongoing progress notification; [progress] null shows "Preparando…" (indeterminate). */
     fun transfer(context: Context, progress: EngineEvent.TransferProgress?): Notification {
-        val kind = progress?.kind ?: EngineEvent.TransferKind.UNKNOWN
-        val title = context.getString(
-            when (kind) {
-                EngineEvent.TransferKind.BACKUP -> StringsR.string.bento_transfer_title_backup
-                EngineEvent.TransferKind.UPLOAD -> StringsR.string.bento_transfer_title_upload
-                EngineEvent.TransferKind.DOWNLOAD -> StringsR.string.bento_transfer_title_download
-                EngineEvent.TransferKind.IMPORT -> StringsR.string.bento_transfer_title_import
-                EngineEvent.TransferKind.UNKNOWN -> StringsR.string.bento_transfer_title_generic
-            }
-        )
-        val text = when {
-            progress == null || progress.total <= 0 -> context.getString(StringsR.string.bento_transfer_preparing)
-
-            progress.paused -> context.getString(StringsR.string.bento_transfer_paused)
-
-            else -> context.resources.getQuantityString(
-                StringsR.plurals.bento_transfer_progress,
-                progress.total,
-                BentoFormat.count(context.resources, progress.done),
-                BentoFormat.count(context.resources, progress.total)
-            )
-        }
+        val content = NotificationContent.transfer(context, progress)
+        val paused = progress?.paused == true
         val builder = NotificationCompat.Builder(context, CHANNEL_TRANSFERS)
             .setSmallIcon(DesignR.drawable.ic_stat_bento)
-            .setContentTitle(title)
-            .setContentText(text)
+            .setContentTitle(content.title)
+            .setContentText(content.text)
+            .setSubText(content.subText)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setSilent(true)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .setContentIntent(openApp(context))
-            .addAction(0, context.getString(StringsR.string.bento_transfer_pause), TransferActionReceiver.pauseIntent(context))
+            .setContentIntent(openApp(context, OpenTarget.Activity))
+            .addAction(
+                0,
+                context.getString(if (paused) StringsR.string.common_action_resume else StringsR.string.bento_transfer_pause),
+                if (paused) TransferActionReceiver.resumeIntent(context) else TransferActionReceiver.pauseIntent(context)
+            )
         if (progress == null || progress.bytesTotal <= 0) {
-            builder.setProgress(0, 0, true)
+            if (progress != null && progress.total > 0) {
+                builder.setProgress(progress.total, progress.done.coerceIn(0, progress.total), false)
+            } else {
+                builder.setProgress(0, 0, true)
+            }
         } else {
             builder.setProgress(
                 PROGRESS_MAX,
@@ -114,36 +103,64 @@ object BentoNotifications {
         return builder.build()
     }
 
+    /** "Listo: 18.000 fotos respaldadas", only after an initial (user-initiated) backup. */
     fun backupSummary(context: Context, count: Int): Notification = NotificationCompat.Builder(context, CHANNEL_TRANSFERS)
         .setSmallIcon(DesignR.drawable.ic_stat_bento)
         .setContentTitle(BentoFormat.plural(context.resources, StringsR.plurals.bento_transfer_finished_backup, count))
+        .setContentText(context.getString(StringsR.string.activity_notif_summary_text))
         .setAutoCancel(true)
-        .setContentIntent(openApp(context))
+        .setContentIntent(openApp(context, OpenTarget.Backup))
         .build()
 
-    fun attention(context: Context): Notification = NotificationCompat.Builder(context, CHANNEL_ATTENTION)
-        .setSmallIcon(DesignR.drawable.ic_stat_bento)
-        .setContentTitle(context.getString(StringsR.string.bento_attention_title))
-        .setContentText(context.getString(StringsR.string.bento_attention_text))
-        .setAutoCancel(true)
-        .setContentIntent(openApp(context))
-        .build()
+    /** One "Necesita tu atención" notification per code (coalesced by [NotificationPolicy]), with one action. */
+    fun attention(context: Context, code: String, count: Int): Notification {
+        val content = NotificationContent.attention(context, code, count)
+        return NotificationCompat.Builder(context, CHANNEL_ATTENTION)
+            .setSmallIcon(DesignR.drawable.ic_stat_bento)
+            .setContentTitle(content.title)
+            .setContentText(content.text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(content.text))
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setContentIntent(openApp(context, content.target))
+            .addAction(0, content.action, openApp(context, content.target))
+            .build()
+    }
 
-    fun device(context: Context, title: String): Notification = NotificationCompat.Builder(context, CHANNEL_DEVICES)
-        .setSmallIcon(DesignR.drawable.ic_stat_bento)
-        .setContentTitle(title)
-        .setContentText(context.getString(StringsR.string.bento_device_review_text))
-        .setPriority(NotificationCompat.PRIORITY_HIGH)
-        .setAutoCancel(true)
-        .setContentIntent(openApp(context))
-        .build()
+    /** "Un dispositivo nuevo quiere unirse" (Sync-channel fallback pairing): opens its review screen. */
+    fun pairingRequest(context: Context, requestId: String, deviceName: String): Notification =
+        device(context, NotificationContent.pairingRequest(context, deviceName), OpenTarget.PairingRequest(requestId))
+
+    /** "Se añadió «Portátil de Ana»" (new device review). */
+    fun deviceAdded(context: Context, deviceId: String, name: String): Notification =
+        device(context, NotificationContent.deviceAdded(context, name), OpenTarget.DeviceReview(deviceId))
+
+    private fun device(context: Context, content: NotificationText, target: OpenTarget): Notification =
+        NotificationCompat.Builder(context, CHANNEL_DEVICES)
+            .setSmallIcon(DesignR.drawable.ic_stat_bento)
+            .setContentTitle(content.title)
+            .setContentText(content.text)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_RECOMMENDATION)
+            .setAutoCancel(true)
+            .setContentIntent(openApp(context, target))
+            .addAction(0, content.action, openApp(context, target))
+            .build()
 
     fun attentionId(code: String): Int = ID_ATTENTION_BASE + (code.hashCode() and 0x3FF)
 
     fun deviceId(key: String): Int = ID_DEVICES_BASE + (key.hashCode() and 0x3FF)
 
-    private fun openApp(context: Context): PendingIntent? = launchIntent(context)?.let {
-        PendingIntent.getActivity(context, 0, it, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+    /** The app's launch intent with [target]; one PendingIntent per target so extras never collide. */
+    fun openApp(context: Context, target: OpenTarget): PendingIntent? = launchIntent(context)?.let { intent ->
+        val encoded = OpenTargets.encode(target)
+        PendingIntent.getActivity(
+            context,
+            encoded.hashCode(),
+            intent.putExtra(OpenTargets.EXTRA, encoded),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
     }
 
     private const val PROGRESS_MAX = 1000
@@ -159,33 +176,36 @@ class NotificationDriver(private val context: Context, private val policy: Notif
     fun handle(event: EngineEvent) {
         val decision = policy.decide(event)
         if (decision is NotificationDecision.Progress) lastProgress = decision.event
+        if (decision is NotificationDecision.Finished) lastProgress = null
         if (!BentoNotifications.canPost(context)) return
         val manager = NotificationManagerCompat.from(context)
         when (decision) {
             NotificationDecision.Ignore -> Unit
 
+            // The ongoing notification belongs to the running transfer (UIDT / FGS); never one per file.
             is NotificationDecision.Progress -> if (TransferState.active) {
                 manager.notify(BentoNotifications.ID_TRANSFER, BentoNotifications.transfer(context, decision.event))
             }
 
-            is NotificationDecision.Finished -> {
-                lastProgress = null
-                if (decision.summaryCount > 0) {
-                    manager.notify(BentoNotifications.ID_TRANSFER_SUMMARY, BentoNotifications.backupSummary(context, decision.summaryCount))
-                }
+            // A completion summary only after an initial backup, i.e. one run as a user-initiated transfer.
+            is NotificationDecision.Finished -> if (decision.summaryCount > 0 && TransferState.active) {
+                manager.notify(BentoNotifications.ID_TRANSFER_SUMMARY, BentoNotifications.backupSummary(context, decision.summaryCount))
             }
 
             is NotificationDecision.Attention ->
-                manager.notify(BentoNotifications.attentionId(decision.code), BentoNotifications.attention(context))
+                manager.notify(
+                    BentoNotifications.attentionId(decision.code),
+                    BentoNotifications.attention(context, decision.code, decision.count)
+                )
 
             is NotificationDecision.DeviceRequest -> manager.notify(
                 BentoNotifications.deviceId(decision.requestId),
-                BentoNotifications.device(context, context.getString(StringsR.string.bento_device_request_title))
+                BentoNotifications.pairingRequest(context, decision.requestId, decision.deviceName)
             )
 
             is NotificationDecision.DeviceAdded -> manager.notify(
                 BentoNotifications.deviceId(decision.deviceId),
-                BentoNotifications.device(context, context.getString(StringsR.string.bento_device_added_title, decision.name))
+                BentoNotifications.deviceAdded(context, decision.deviceId, decision.name)
             )
         }
     }

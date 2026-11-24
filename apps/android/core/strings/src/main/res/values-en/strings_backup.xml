@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Phone backup: setup step, Ajustes › Respaldo, permissions, free up space, stall card (agent 41; product/android.md §4.1, §5, §6, §11). -->
+<resources>
+    <!-- Onboarding step: Respalda este teléfono -->
+    <string name="backup_setup_title">Back up this phone</string>
+    <string name="backup_setup_body">Your photos and videos are encrypted and saved in your cloud. You can choose which folders.</string>
+    <string name="backup_setup_start">Back up photos</string>
+    <string name="backup_setup_not_now">Not now</string>
+    <string name="backup_rationale_title">Access to your photos</string>
+    <string name="backup_rationale_body">Bento needs to see your photos and videos to encrypt them and save them in your cloud. You can pick just some.</string>
+    <!-- Status header (Ajustes › Respaldo, Quick Settings subtitle) -->
+    <string name="backup_header_off">Backup is off</string>
+    <string name="backup_header_no_access">Bento can’t see your photos</string>
+    <string name="backup_header_done">All backed up ✓</string>
+    <string name="backup_header_done_ago">All backed up ✓ · %1$s</string>
+    <string name="backup_just_now">just now</string>
+    <string name="backup_header_paused">Backup paused</string>
+    <string name="backup_header_paused_battery">Paused · low battery</string>
+    <plurals name="backup_header_running">
+        <item quantity="one">Backing up · %d left</item>
+        <item quantity="other">Backing up · %d left</item>
+    </plurals>
+    <plurals name="backup_header_waiting">
+        <item quantity="one">%1$d left · %2$s</item>
+        <item quantity="other">%1$d left · %2$s</item>
+    </plurals>
+    <string name="backup_wait_wifi">waiting for Wi-Fi</string>
+    <string name="backup_wait_charging">waiting to charge</string>
+    <string name="backup_wait_battery">low battery</string>
+    <string name="backup_wait_thermal">the phone is hot</string>
+    <string name="backup_wait_offline">offline</string>
+    <!-- Ajustes › Respaldo del teléfono -->
+    <string name="backup_switch">Phone backup</string>
+    <string name="backup_switch_summary">Encrypts and saves this phone’s photos in your cloud.</string>
+    <string name="backup_run_now">Back up now</string>
+    <string name="backup_run_now_summary">Once, even without Wi-Fi.</string>
+    <string name="backup_folders">Phone folders</string>
+    <plurals name="backup_bucket_count">
+        <item quantity="one">%d item</item>
+        <item quantity="other">%d items</item>
+    </plurals>
+    <plurals name="backup_bucket_pending">
+        <item quantity="one">%1$s · %2$d left</item>
+        <item quantity="other">%1$s · %2$d left</item>
+    </plurals>
+    <string name="backup_policy_title">When to back up</string>
+    <string name="backup_policy_wifi">Wi-Fi only</string>
+    <string name="backup_policy_wifi_summary">Doesn’t use your mobile data.</string>
+    <string name="backup_policy_videos_wifi">Videos on Wi-Fi only</string>
+    <string name="backup_policy_charging">Only while charging</string>
+    <string name="backup_policy_battery_note">Backup pauses by itself on low battery, battery saver or data saver.</string>
+    <!-- Permissions: denied, partial, revoked, location -->
+    <string name="backup_denied_title">Backup stays off</string>
+    <string name="backup_denied_body">Without access to your photos nothing is backed up. You can still upload photos from Files with the photo picker.</string>
+    <string name="backup_allow_access">Allow access</string>
+    <string name="backup_open_settings">Open phone settings</string>
+    <plurals name="backup_partial_title">
+        <item quantity="one">Bento can only see %d photo</item>
+        <item quantity="other">Bento can only see %d photos</item>
+    </plurals>
+    <string name="backup_partial_body">Only the ones you chose are backed up.</string>
+    <string name="backup_partial_allow_all">Allow all</string>
+    <string name="backup_partial_choose_more">Choose more</string>
+    <string name="backup_revoked_title">Bento can no longer see your photos</string>
+    <string name="backup_revoked_body">Access was removed in the phone’s settings. What’s already backed up stays in your cloud.</string>
+    <string name="backup_location_title">Photos without location</string>
+    <string name="backup_location_body">Your photos will be saved without location.</string>
+    <string name="backup_location_ok">Got it</string>
+    <!-- Liberar espacio -->
+    <string name="backup_free_up">Free up space</string>
+    <string name="backup_free_up_summary">Removes photos that are already in your cloud from this phone.</string>
+    <plurals name="backup_free_up_preview">
+        <item quantity="one">%1$d photo is already in your cloud · %2$s</item>
+        <item quantity="other">%1$d photos are already in your cloud · %2$s</item>
+    </plurals>
+    <string name="backup_free_up_explain">Only uploaded and verified photos are removed. Bento keeps the thumbnails: your timeline doesn’t change.</string>
+    <string name="backup_free_up_confirm">Free up %1$s on this phone</string>
+    <string name="backup_free_up_nothing">Nothing to free up yet: what’s left on the phone isn’t in your cloud yet.</string>
+    <plurals name="backup_free_up_done">
+        <item quantity="one">Done: %2$s freed (%1$d photo)</item>
+        <item quantity="other">Done: %2$s freed (%1$d photos)</item>
+    </plurals>
+    <string name="backup_free_up_cancelled">Nothing was removed from the phone.</string>
+    <!-- OEM background restrictions (stall card) -->
+    <string name="backup_stall_title">Backup has been stuck for a day</string>
+    <string name="backup_stall_body">Your phone may be stopping Bento in the background. There are steps for your brand.</string>
+    <string name="backup_stall_help">See how to fix it</string>
+</resources>

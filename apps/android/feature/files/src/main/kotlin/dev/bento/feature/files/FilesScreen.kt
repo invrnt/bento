@@ -154,6 +154,8 @@ fun FilesScreen(
     onSearch: (folderId: String?, folderName: String?) -> Unit,
     onAccount: () -> Unit,
     modifier: Modifier = Modifier,
+    // The shell passes the status avatar (agent 41's `AccountAvatar`); the plain icon is only a fallback.
+    avatar: (@Composable () -> Unit)? = null,
     viewModel: FilesViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -185,7 +187,7 @@ fun FilesScreen(
             snackbar = snackbar,
             modifier = modifier,
             onLoadTree = viewModel::loadTree,
-            avatar = { BentoIconButton(BentoIcons.User, stringResource(StringsR.string.files_account), onAccount) }
+            avatar = avatar ?: { BentoIconButton(BentoIcons.User, stringResource(StringsR.string.files_account), onAccount) }
         )
         FilesSheetHost(state, viewModel, scanAvailable, launchers)
     }

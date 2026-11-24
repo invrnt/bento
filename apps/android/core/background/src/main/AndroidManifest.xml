@@ -24,5 +24,27 @@
         <receiver
             android:name="dev.bento.background.TransferActionReceiver"
             android:exported="false" />
+        <!-- Quick Settings tile "Respaldo de Bento" (agent 41): tap pauses/resumes, long-press opens Ajustes › Respaldo. -->
+        <service
+            android:name="dev.bento.background.BackupTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_stat_bento"
+            android:label="@string/activity_tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="true" />
+        </service>
+        <!-- Launcher shortcuts `Subir fotos` / `Escanear documento`: picker or scanner, then the share-to-Bento sheet. -->
+        <activity
+            android:name="dev.bento.background.ShortcutActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Bento.Translucent" />
     </application>
 </manifest>

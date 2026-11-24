@@ -164,19 +164,40 @@ class TransferForegroundService : Service() {
     }
 }
 
-/** Notification actions (`Pausar`). */
+/** Notification actions: `Pausar` stops the transfer and pauses the backup; `Reanudar` resumes it in background. */
 class TransferActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == ACTION_PAUSE) TransferScheduler.stop(context)
+        val paused = when (intent.action) {
+            ACTION_PAUSE -> true
+            ACTION_RESUME -> false
+            else -> return
+        }
+        if (paused) TransferScheduler.stop(context)
+        val pending = goAsync()
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            try {
+                val entry = BackgroundEntryPoint.get(context)
+                runCatching { entry.backupControl().setPaused(paused) }
+                // A background receiver may not start a user-initiated job: resuming continues as a WorkManager run.
+                if (!paused) entry.scheduler().enqueueBackupRun(0)
+            } finally {
+                pending.finish()
+            }
+        }
     }
 
     companion object {
         const val ACTION_PAUSE = "dev.bento.background.action.PAUSE_TRANSFER"
+        const val ACTION_RESUME = "dev.bento.background.action.RESUME_TRANSFER"
 
-        fun pauseIntent(context: Context): android.app.PendingIntent = android.app.PendingIntent.getBroadcast(
+        fun pauseIntent(context: Context): android.app.PendingIntent = broadcast(context, ACTION_PAUSE, 0)
+
+        fun resumeIntent(context: Context): android.app.PendingIntent = broadcast(context, ACTION_RESUME, 1)
+
+        private fun broadcast(context: Context, action: String, code: Int) = android.app.PendingIntent.getBroadcast(
             context,
-            0,
-            Intent(context, TransferActionReceiver::class.java).setAction(ACTION_PAUSE),
+            code,
+            Intent(context, TransferActionReceiver::class.java).setAction(action),
             android.app.PendingIntent.FLAG_IMMUTABLE
         )
     }

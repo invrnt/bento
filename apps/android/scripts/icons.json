@@ -480,6 +480,76 @@
       "name": "ImageUp",
       "lucide": "image-up",
       "use": "Usar como… / Cambiar portada"
+    },
+    {
+      "name": "Wifi",
+      "lucide": "wifi",
+      "use": "Solo con Wi-Fi (respaldo)"
+    },
+    {
+      "name": "WifiOff",
+      "lucide": "wifi-off",
+      "use": "Esperando Wi-Fi"
+    },
+    {
+      "name": "BatteryLow",
+      "lucide": "battery-low",
+      "use": "Pausado por batería baja"
+    },
+    {
+      "name": "Plug",
+      "lucide": "plug",
+      "use": "Solo mientras carga"
+    },
+    {
+      "name": "Fingerprint",
+      "lucide": "fingerprint",
+      "use": "Bloqueo de la app"
+    },
+    {
+      "name": "SunMoon",
+      "lucide": "sun-moon",
+      "use": "Tema"
+    },
+    {
+      "name": "Languages",
+      "lucide": "languages",
+      "use": "Idioma"
+    },
+    {
+      "name": "HardDrive",
+      "lucide": "hard-drive",
+      "use": "Espacio en este teléfono"
+    },
+    {
+      "name": "Wrench",
+      "lucide": "wrench",
+      "use": "Avanzado"
+    },
+    {
+      "name": "Scale",
+      "lucide": "scale",
+      "use": "Licencias de código abierto"
+    },
+    {
+      "name": "LogOut",
+      "lucide": "log-out",
+      "use": "Cerrar sesión en este teléfono"
+    },
+    {
+      "name": "Server",
+      "lucide": "server",
+      "use": "Servidor de emparejamiento"
+    },
+    {
+      "name": "Eraser",
+      "lucide": "eraser",
+      "use": "Vaciar caché, restablecer"
+    },
+    {
+      "name": "Film",
+      "lucide": "film",
+      "use": "Incluir videos"
     }
   ]
 }
