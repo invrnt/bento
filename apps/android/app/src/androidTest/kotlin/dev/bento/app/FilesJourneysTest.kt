@@ -217,14 +217,16 @@ class FilesJourneysTest {
     fun j90_englishFiles() {
         joinHostCloud(english = true)
         journey.tap("Files")
-        journey.waitText("Your cloud is ready", 30_000)
-        journey.capture("en-1-files-empty")
-        journey.tap("New")
+        // The host cloud may already hold files from other journeys: assert copy that is always there.
+        journey.waitText("Sorted by name", 30_000)
+        journey.capture("en-1-files")
+        tapClickable("New")
         journey.waitText("Upload photos or videos", 10_000)
         journey.capture("en-2-new-sheet")
         device.pressBack()
         journey.tap("Search Bento")
         journey.waitText("Spreadsheets", 10_000)
+        journey.waitText("Last year")
         journey.capture("en-3-search")
     }
 
