@@ -21,9 +21,35 @@ sealed interface Route : NavKey {
     // Full-screen destinations.
     @Serializable data class Search(val query: String = "") : Route
 
-    @Serializable data class Viewer(val assetId: String) : Route
+    /**
+     * Visor. [position] is the item's position in its source (the timeline when [session] is null); [session] is a
+     * grid's `ViewerSessions` token (favorites, videos, album). From elsewhere, just the asset.
+     */
+    @Serializable data class Viewer(val assetId: String, val position: Int = -1, val session: String? = null) : Route
 
     @Serializable data class Album(val albumId: String) : Route
+
+    /** Library picker: a new album (null) or `Añadir fotos` to [albumId]. */
+    @Serializable data class AlbumPicker(val albumId: String? = null, val albumTitle: String? = null) : Route
+
+    @Serializable data object Favorites : Route
+
+    @Serializable data object Videos : Route
+
+    @Serializable data object Documents : Route
+
+    /** Del teléfono: backed-up phone folders. */
+    @Serializable data object PhoneFolders : Route
+
+    /** Importado de Telegram, then its chat picker and one chat's media. */
+    @Serializable data object TelegramImports : Route
+
+    @Serializable data object TelegramChats : Route
+
+    @Serializable data class TelegramChat(val chatId: Long, val title: String) : Route
+
+    /** Cuenta y actividad (avatar); PLACEHOLDER until agent 41 lands the sheet. */
+    @Serializable data object Account : Route
 
     @Serializable data object Trash : Route
 

@@ -57,6 +57,9 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:background"))
     implementation(project(":core:designsystem"))
+    implementation(project(":feature:photos"))
+    implementation(project(":feature:viewer"))
+    implementation(project(":feature:collections"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

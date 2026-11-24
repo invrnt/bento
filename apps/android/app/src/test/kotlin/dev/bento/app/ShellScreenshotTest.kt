@@ -24,7 +24,9 @@ class ShellScreenshotTest {
 
     private fun shell(dark: Boolean, state: EngineState = EngineState.Ready(1, "t", dev.bento.engine.WorkerMode.FULL)) {
         compose.setContent {
-            BentoTheme(darkTheme = dark, reducedMotion = true) { BentoApp(Navigator(), state, onExit = {}) }
+            BentoTheme(darkTheme = dark, reducedMotion = true) {
+                BentoApp(Navigator(), state, onExit = {}, entries = { shellPreviewEntries() })
+            }
         }
     }
 
@@ -47,7 +49,9 @@ class ShellScreenshotTest {
     fun expandedLightFiles() {
         compose.setContent {
             val nav = Navigator().apply { selectTab(TopLevel.FILES) }
-            BentoTheme(darkTheme = false, reducedMotion = true) { BentoApp(nav, EngineState.Stopped, onExit = {}) }
+            BentoTheme(darkTheme = false, reducedMotion = true) {
+                BentoApp(nav, EngineState.Stopped, onExit = {}, entries = { shellPreviewEntries() })
+            }
         }
         compose.onRoot().captureRoboImage("src/test/screenshots/shell_expanded_light_files.png")
     }
