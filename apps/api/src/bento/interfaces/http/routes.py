@@ -39,6 +39,7 @@ from bento.interfaces.http.routes_content import pipeline as storage_pipeline
 from bento.interfaces.http.routes_content import router as content_router
 from bento.interfaces.http.routes_dev import router as dev_router
 from bento.interfaces.http.routes_devices import router as devices_router
+from bento.interfaces.http.routes_drive_paths import router as drive_paths_router
 from bento.interfaces.http.routes_pairing import router as pairing_router
 from bento.interfaces.http.routes_trash import router as trash_router
 from bento.interfaces.http.routes_search import router as search_router
@@ -61,6 +62,7 @@ router.include_router(backup_router)
 router.include_router(trash_router)
 router.include_router(activity_router)
 router.include_router(sync_router)
+router.include_router(drive_paths_router)
 
 
 class HealthResponse(BaseModel):
@@ -880,9 +882,9 @@ def _domain_error_response(request: Request, error: DomainError) -> JSONResponse
 
 
 def _status_code(error: DomainError) -> int:
-    if error.code in {"asset_not_found", "folder_not_found", "album_not_found", "job_not_found"}:
+    if error.code in {"asset_not_found", "folder_not_found", "album_not_found", "job_not_found", "path_not_found"}:
         return 404
-    if error.code in {"duplicate_asset", "invalid_folder_move", "job_not_retryable"}:
+    if error.code in {"duplicate_asset", "invalid_folder_move", "job_not_retryable", "path_ambiguous"}:
         return 409
     if error.code == "upload_too_large":
         return 413

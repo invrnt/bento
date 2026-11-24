@@ -22,6 +22,7 @@ All routes are under `/api`.
 - `GET /api/assets/{asset_id}/thumbnail`: best available thumbnail.
 - `GET /api/assets/{asset_id}/preview`: preview image/video/document render when available.
 - `DELETE /api/assets/{asset_id}`: logical delete.
+- `POST /api/assets/lookup`: `{sha256: [hex64]}` (<= 500) -> existing non-deleted assets and their Drive paths (CLI dedupe; see `cli-endpoints.md`).
 
 ## Drive
 
@@ -30,6 +31,12 @@ All routes are under `/api`.
 - `PATCH /api/drive/folders/{folder_id}`: rename/update folder.
 - `PATCH /api/drive/items/{asset_id}`: rename/update asset.
 - `POST /api/drive/items/{asset_id}/move`: move asset.
+- `GET /api/drive/resolve?path=`: resolve a Drive path or `id:` ref to root/folder/asset with breadcrumbs (`404 path_not_found`, `409 path_ambiguous`).
+- `POST /api/drive/folders/ensure`: `{path}` mkdir -p; reuses the oldest same-name sibling, never duplicates.
+- `GET /api/drive/tree?path=&depth=&include_assets=&max_nodes=`: bounded subtree (folders first, name-sorted).
+- `POST /api/drive/paths`: `{ids}` (<= 500) -> canonical paths plus `missing`.
+
+Path semantics, limits, and the headless `BENTO_API_TOKEN` / desktop `BENTO_DESKTOP_CLI_TOKEN` authentication are specified in `cli-endpoints.md`.
 
 ## Photos
 

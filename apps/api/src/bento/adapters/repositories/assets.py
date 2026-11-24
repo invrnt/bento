@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+from collections.abc import Sequence
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from bento.adapters.repositories.batching import chunks, parent_conditions
 from bento.adapters.repositories.ids import new_id
 from bento.adapters.repositories.mappers import asset_from_model, asset_to_model
 from bento.domain.assets import Asset, AssetMode
@@ -36,6 +38,47 @@ class SQLiteAssetRepository:
                 .limit(1)
             )
             return asset_from_model(model) if model is not None else None
+
+    async def get_many(self, asset_ids: Sequence[str]) -> dict[str, Asset]:
+        found: dict[str, Asset] = {}
+        with session_scope(self._session_factory) as session:
+            for chunk in chunks(asset_ids):
+                models = session.scalars(
+                    select(AssetModel).where(AssetModel.id.in_(chunk), AssetModel.deleted_at.is_(None))
+                )
+                found.update((model.id, asset_from_model(model)) for model in models)
+        return found
+
+    async def get_many_by_sha256(self, sha256s: Sequence[str]) -> dict[str, Asset]:
+        found: dict[str, Asset] = {}
+        with session_scope(self._session_factory) as session:
+            for chunk in chunks(sha256s):
+                models = session.scalars(
+                    select(AssetModel)
+                    .where(AssetModel.sha256.in_(chunk), AssetModel.deleted_at.is_(None))
+                    .order_by(AssetModel.created_at.desc(), AssetModel.id.desc())
+                )
+                for model in models:
+                    if model.sha256 not in found:
+                        found[model.sha256] = asset_from_model(model)
+        return found
+
+    async def list_in_folders(self, folder_ids: Sequence[str | None], *, limit: int | None = None) -> tuple[Asset, ...]:
+        found: list[Asset] = []
+        with session_scope(self._session_factory) as session:
+            for condition in parent_conditions(AssetModel.folder_id, folder_ids):
+                remaining = None if limit is None else limit - len(found)
+                if remaining is not None and remaining <= 0:
+                    break
+                statement = (
+                    select(AssetModel)
+                    .where(condition, AssetModel.deleted_at.is_(None))
+                    .order_by(AssetModel.folder_id, AssetModel.filename, AssetModel.id)
+                )
+                if remaining is not None:
+                    statement = statement.limit(remaining)
+                found.extend(asset_from_model(model) for model in session.scalars(statement))
+        return tuple(found)
 
     async def add(self, asset: Asset) -> None:
         with session_scope(self._session_factory) as session:

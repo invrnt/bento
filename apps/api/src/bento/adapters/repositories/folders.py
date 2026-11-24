@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from bento.adapters.repositories.batching import chunks, parent_conditions
 from bento.adapters.repositories.ids import new_id
 from bento.adapters.repositories.mappers import asset_from_model, folder_from_model, folder_to_model
 from bento.domain.drive import DriveItem, DriveItemType, Folder
@@ -49,6 +52,53 @@ class SQLiteFolderRepository:
                 descendants.update(new_children)
                 frontier = new_children
             return descendants
+
+    async def get_many(self, folder_ids: Sequence[str]) -> dict[str, Folder]:
+        found: dict[str, Folder] = {}
+        with session_scope(self._session_factory) as session:
+            for chunk in chunks(folder_ids):
+                models = session.scalars(
+                    select(FolderModel).where(FolderModel.id.in_(chunk), FolderModel.deleted_at.is_(None))
+                )
+                found.update((model.id, folder_from_model(model)) for model in models)
+        return found
+
+    async def list_children(self, parent_ids: Sequence[str | None]) -> tuple[Folder, ...]:
+        children: list[Folder] = []
+        with session_scope(self._session_factory) as session:
+            for condition in parent_conditions(FolderModel.parent_id, parent_ids):
+                models = session.scalars(
+                    select(FolderModel)
+                    .where(condition, FolderModel.deleted_at.is_(None))
+                    .order_by(FolderModel.parent_id, FolderModel.id)
+                )
+                children.extend(folder_from_model(model) for model in models)
+        return tuple(children)
+
+    async def ids_with_children(self, folder_ids: Sequence[str], *, include_assets: bool) -> set[str]:
+        found: set[str] = set()
+        with session_scope(self._session_factory) as session:
+            for chunk in chunks(folder_ids):
+                found.update(
+                    parent_id
+                    for parent_id in session.scalars(
+                        select(FolderModel.parent_id)
+                        .where(FolderModel.parent_id.in_(chunk), FolderModel.deleted_at.is_(None))
+                        .distinct()
+                    )
+                    if parent_id is not None
+                )
+                if include_assets:
+                    found.update(
+                        folder_id
+                        for folder_id in session.scalars(
+                            select(AssetModel.folder_id)
+                            .where(AssetModel.folder_id.in_(chunk), AssetModel.deleted_at.is_(None))
+                            .distinct()
+                        )
+                        if folder_id is not None
+                    )
+        return found
 
     async def list_items(
         self,
