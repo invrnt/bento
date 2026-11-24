@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Text
@@ -255,10 +256,17 @@ private fun NeedsTelegramLogin(state: JoinState, pairing: PairingResponse, actio
         }
     ) {
         if (login.passwordRequired) {
+            login.passwordHint?.takeIf { it.isNotBlank() }?.let { hint ->
+                Text(
+                    stringResource(StringsR.string.onboarding_password_hint, hint),
+                    color = BentoTheme.colors.inkMuted,
+                    style = BentoTheme.typography.body,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+            }
             BentoTextField(
                 state = password,
                 label = stringResource(StringsR.string.onboarding_password_label),
-                hint = login.passwordHint?.let { stringResource(StringsR.string.onboarding_password_hint, it) },
                 error = if (login.passwordInvalid) stringResource(StringsR.string.onboarding_error_password_invalid) else null,
                 secure = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),

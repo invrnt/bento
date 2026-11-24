@@ -442,17 +442,18 @@ private fun PasswordStep(
             )
         }
     ) {
+        if (hint != null) {
+            Text(
+                stringResource(StringsR.string.onboarding_password_hint, hint),
+                color = BentoTheme.colors.inkMuted,
+                style = BentoTheme.typography.body,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+        }
         BentoTextField(
             state = password,
             label = stringResource(StringsR.string.onboarding_password_label),
-            hint = hint?.let { stringResource(StringsR.string.onboarding_password_hint, it) },
-            error = if (state.problem ==
-                SignInProblem.PasswordInvalid
-            ) {
-                stringResource(StringsR.string.onboarding_error_password_invalid)
-            } else {
-                null
-            },
+            error = if (state.problem == SignInProblem.PasswordInvalid) stringResource(StringsR.string.onboarding_error_password_invalid) else null,
             secure = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             onKeyboardAction = { actions.onSubmitPassword(password.text.toString()) }

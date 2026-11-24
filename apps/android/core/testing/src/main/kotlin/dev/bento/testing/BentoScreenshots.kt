@@ -21,7 +21,7 @@ import dev.bento.designsystem.theme.BentoTheme
 
 /**
  * Screenshot variants every feature screen state is rendered in (design-system/android.md §9): light, dark,
- * 200 % font, compact (320 dp) and expanded (840 dp). Run under `@Config(qualifiers = "es-w840dp-h1800dp-xhdpi")`
+ * 200 % font, compact (320 dp) and expanded (840 dp). Run under `@Config(qualifiers = QUALIFIERS)`
  * so the largest variant fits; each variant is a fixed-size frame.
  */
 object BentoScreenshots {
@@ -35,7 +35,7 @@ object BentoScreenshots {
         Variant("expanded", dark = true, fontScale = 1f, width = 840, height = 720)
     )
 
-    const val QUALIFIERS: String = "es-w840dp-h1800dp-xhdpi"
+    const val QUALIFIERS: String = "es-w840dp-h1800dp-hdpi"
     private const val TAG = "bento-screenshot"
 
     /**
