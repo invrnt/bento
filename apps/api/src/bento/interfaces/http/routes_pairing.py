@@ -96,12 +96,15 @@ def device_session_factory(settings: Settings) -> sessionmaker[Session]:
 
 
 def local_device_info(settings: Settings) -> LocalDeviceInfo:
-    platform, label = _platform()
+    platform, label = _platform(settings)
     hostname = socket.gethostname().split(".", 1)[0].strip() or "Bento"
-    return LocalDeviceInfo(name=f"{hostname} · {label}"[:64], platform=platform, app_version=settings.app_version)
+    name = settings.device_name.strip() or f"{hostname} · {label}"
+    return LocalDeviceInfo(name=name[:64], platform=platform, app_version=settings.app_version)
 
 
-def _platform() -> tuple[DevicePlatform, str]:
+def _platform(settings: Settings) -> tuple[DevicePlatform, str]:
+    if settings.platform == "android" or sys.platform == "android":
+        return DevicePlatform.ANDROID, "Android"
     if sys.platform.startswith("linux"):
         return DevicePlatform.LINUX, "Linux"
     if sys.platform == "darwin":

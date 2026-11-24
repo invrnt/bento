@@ -21,7 +21,7 @@ from bento.domain.settings import (
     SettingValueType,
     SettingsValidationResult,
 )
-from bento.domain.settings_registry import SETTINGS_BY_ALIAS, SETTINGS_BY_KEY, SETTINGS_REGISTRY
+from bento.domain.settings_registry import SETTINGS_BY_ALIAS, SETTINGS_BY_KEY, SETTINGS_REGISTRY, platform_default
 from bento.ports.settings import SettingsRepositoryPort
 
 
@@ -41,8 +41,10 @@ def resolve_effective_settings(
     policy_values: Mapping[str, Any] | None = None,
 ) -> EffectiveSettingsSnapshot:
     policy = policy_values or {}
+    platform = str(policy.get("platform") or _environment_value(("BENTO_PLATFORM",), environ) or "auto")
     values: dict[str, EffectiveSetting] = {}
     for definition in SETTINGS_REGISTRY:
+        default = platform_default(definition.key, platform)
         environment_value = _environment_value(definition.env_aliases, environ)
         saved = persisted.values.get(definition.key)
         secret_reference = persisted.secret_references.get(definition.key)
@@ -54,7 +56,7 @@ def resolve_effective_settings(
         elif saved is not None and not definition.secret:
             raw, source, locked = _deserialize(saved), SettingSource.SAVED, False
         else:
-            raw, source, locked = definition.default, SettingSource.DEFAULT, not definition.editable
+            raw, source, locked = default, SettingSource.DEFAULT, not definition.editable
 
         if definition.secret:
             environment_configured = environment_value is not None and environment_value.strip() != ""
@@ -77,7 +79,7 @@ def resolve_effective_settings(
         try:
             parsed = _coerce(definition.value_type, raw)
         except (TypeError, ValueError):
-            parsed = definition.default
+            parsed = default
             source = SettingSource.DEFAULT
             locked = not definition.editable
         values[definition.key] = EffectiveSetting(
