@@ -163,7 +163,7 @@ class FilesViewModel @Inject constructor(
             it.copy(
                 folderId = folderId,
                 sort = preferences.sort(folderId),
-                items = cached?.let { listing -> preferences.sort(folderId).apply(listing.items) }.orEmpty(),
+                items = cached?.let { listing -> ordered(listing, preferences.sort(folderId)) }.orEmpty(),
                 breadcrumbs = cached?.breadcrumbs.orEmpty(),
                 loading = cached == null,
                 loadFailed = false,
@@ -210,14 +210,14 @@ class FilesViewModel @Inject constructor(
         if (!quiet && _state.value.items.isEmpty()) _state.update { it.copy(loading = true, loadFailed = false) }
         loadJob = viewModelScope.launch {
             try {
-                val listing = repository.listing(folderId)
+                val listing = repository.listing(folderId, _state.value.sort)
                 _state.update { state ->
                     state.copy(
                         loading = false,
                         loadFailed = false,
                         fromCache = false,
                         offline = false,
-                        items = state.sort.apply(listing.items),
+                        items = ordered(listing, state.sort),
                         breadcrumbs = listing.breadcrumbs,
                         truncated = listing.truncated,
                         selection = state.selection.intersect(listing.items.map { it.id }.toSet())
@@ -234,10 +234,17 @@ class FilesViewModel @Inject constructor(
 
     fun toggleLayout() = preferences.setLayout(if (_state.value.layout == FilesLayout.List) FilesLayout.Grid else FilesLayout.List)
 
+    /** Re-sorts what is on screen right away, then lists the folder again in the backend's order for [sort]. */
     fun setSort(sort: FolderSort) {
+        if (sort == _state.value.sort) return
         preferences.setSort(_state.value.folderId, sort)
         _state.update { it.copy(sort = sort, items = sort.apply(it.items)) }
+        load(quiet = true)
     }
+
+    /** The backend's order when it listed with [sort]; a listing in another order is sorted here until it reloads. */
+    private fun ordered(listing: FolderListing, sort: FolderSort): List<DriveItemResponse> =
+        if (listing.sort == sort) listing.items else sort.apply(listing.items)
 
     // Sheets ------------------------------------------------------------------------------------------------------
 
@@ -290,7 +297,7 @@ class FilesViewModel @Inject constructor(
             return
         }
         val kind = FileKinds.openKind(asset)
-        if (kind in NEEDS_ORIGINAL && !connectivity.online() && asset.id !in _state.value.pinned) {
+        if (kind in NEEDS_ORIGINAL && !connectivity.online() && !opensOffline(asset, _state.value.pinned)) {
             showSheet(FilesSheet.OfflineUnavailable(item))
             return
         }
@@ -374,7 +381,7 @@ class FilesViewModel @Inject constructor(
     }
 
     private fun openFailed(item: DriveItemResponse?) {
-        if (item != null && !connectivity.online() && item.asset?.id !in _state.value.pinned) {
+        if (item != null && !connectivity.online() && item.asset?.let { opensOffline(it, _state.value.pinned) } != true) {
             showSheet(FilesSheet.OfflineUnavailable(item))
         } else {
             message(UiText.of(StringsR.string.files_open_failed), danger = true)
@@ -519,12 +526,14 @@ class FilesViewModel @Inject constructor(
         val asset = item.asset ?: return
         dismissSheet()
         preferences.setPinned(asset.id, pinned)
+        replaceLocal(item.copy(asset = asset.copy(offlinePinned = pinned)))
         viewModelScope.launch {
             try {
                 repository.setPinned(asset.id, pinned)
                 message(UiText.of(if (pinned) StringsR.string.files_pinned else StringsR.string.files_unpinned, asset.filename))
             } catch (error: ApiException) {
                 preferences.setPinned(asset.id, !pinned)
+                replaceLocal(item)
                 message(UiText.of(StringsR.string.common_error_generic), danger = true)
             }
         }

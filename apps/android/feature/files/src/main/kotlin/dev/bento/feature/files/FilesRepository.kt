@@ -33,12 +33,14 @@ data class FolderListing(
     val items: List<DriveItemResponse>,
     val breadcrumbs: List<DriveBreadcrumbResponse>,
     /** True when the folder has more than [FilesRepository.MAX_LISTING] items and only the first ones are shown. */
-    val truncated: Boolean = false
+    val truncated: Boolean = false,
+    /** The order the backend listed [items] in. */
+    val sort: FolderSort = FolderSort()
 )
 
 /**
- * Archivos operations that [DriveRepository] does not cover. `GET /api/drive/items` has no sort parameter, so a folder
- * is listed completely (keyset pages, up to [MAX_LISTING]) and sorted on the phone with the sort remembered for it.
+ * Archivos operations that [DriveRepository] does not cover. A folder is listed completely (keyset pages, up to
+ * [MAX_LISTING]) in the order the backend sorts it (`sort`/`order`, folders first, kept across the cursor's pages).
  * Mutations with `Deshacer` (rename, move, trash, new folder) stay in [DriveRepository].
  */
 class FilesRepository(
@@ -67,20 +69,20 @@ class FilesRepository(
     fun cached(folderId: String?): FolderListing? = synchronized(memory) { memory[folderId ?: ROOT] }
 
     /** The root's first screen from the instant-start cache (cold start, before the engine answers). */
-    fun cachedRoot(): FolderListing? = drive.cachedRoot()?.let { FolderListing(null, it, emptyList()) }
+    fun cachedRoot(): FolderListing? = drive.cachedRoot()?.let { FolderListing(null, it, emptyList(), sort = ROOT_CACHE_SORT) }
 
-    suspend fun listing(folderId: String?): FolderListing {
+    suspend fun listing(folderId: String?, sort: FolderSort = FolderSort()): FolderListing {
         val items = ArrayList<DriveItemResponse>()
         var cursor: String? = null
         var breadcrumbs: List<DriveBreadcrumbResponse> = emptyList()
         do {
-            val page = api.driveItems(folderId = folderId, cursor = cursor, limit = PAGE)
+            val page = api.driveItems(folderId = folderId, cursor = cursor, limit = PAGE, sort = sort.wireSort, order = sort.wireOrder)
             if (cursor == null) breadcrumbs = page.breadcrumbs.orEmpty()
             items += page.items
             cursor = page.nextCursor?.takeIf { it != cursor }
         } while (cursor != null && items.size < MAX_LISTING)
-        if (folderId == null) uiCache.write(DriveRepository.CACHE_KEY, items, DriveItemResponse.serializer())
-        return FolderListing(folderId, items, breadcrumbs, truncated = cursor != null).also {
+        if (folderId == null && sort == ROOT_CACHE_SORT) uiCache.write(DriveRepository.CACHE_KEY, items, DriveItemResponse.serializer())
+        return FolderListing(folderId, items, breadcrumbs, truncated = cursor != null, sort = sort).also {
             synchronized(memory) {
                 memory[folderId ?: ROOT] =
                     it
@@ -124,6 +126,8 @@ class FilesRepository(
 
     suspend fun setPinned(assetId: String, pinned: Boolean): Boolean {
         val result = if (pinned) api.pinAssetOffline(assetId) else api.unpinAssetOffline(assetId)
+        // Listings carry `offline_pinned`: reload them so the badge follows the pin.
+        invalidations.invalidate(Topic.DRIVE, Topic.TIMELINE)
         return result.pinned
     }
 
@@ -153,6 +157,9 @@ class FilesRepository(
 
     companion object {
         const val ROOT = "/"
+
+        /** The instant-start cache holds the root in the default order (callers re-sort it for another sort). */
+        private val ROOT_CACHE_SORT = FolderSort()
         private const val MEMORY_FOLDERS = 24
         private val JSON = "application/json".toMediaType()
         const val MAX_LISTING = 5_000

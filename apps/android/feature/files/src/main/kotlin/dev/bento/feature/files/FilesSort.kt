@@ -1,6 +1,8 @@
 package dev.bento.feature.files
 
 import dev.bento.api.generated.DriveItemResponse
+import dev.bento.api.generated.DriveSort
+import dev.bento.api.generated.SortOrder
 import java.text.Collator
 import java.util.Locale
 import kotlinx.serialization.Serializable
@@ -22,7 +24,24 @@ data class FolderSort(val field: SortField = SortField.Name, val descending: Boo
         }
         val ordered = if (descending) primary.reversed() else primary
         val (folders, files) = items.partition { it.folder != null }
-        val folderOrder = if (field == SortField.Size || field == SortField.Type) byName else ordered
+        // As the backend (`GET /drive/items?sort=`): folders by item count for size, by name for type.
+        val folderOrder = when (field) {
+            SortField.Size -> compareBy<DriveItemResponse> { it.itemCount ?: 0L }.let { if (descending) it.reversed() else it }.then(byName)
+            SortField.Type -> byName
+            else -> ordered
+        }
         return folders.sortedWith(folderOrder.thenBy { it.id }) + files.sortedWith(ordered.then(byName).thenBy { it.id })
     }
+
+    /** `sort` of `GET /api/drive/items`. */
+    val wireSort: DriveSort
+        get() = when (this.field) {
+            SortField.Name -> DriveSort.NAME
+            SortField.Modified -> DriveSort.MODIFIED
+            SortField.Size -> DriveSort.SIZE
+            SortField.Type -> DriveSort.KIND
+        }
+
+    /** `order` of `GET /api/drive/items`. */
+    val wireOrder: SortOrder get() = if (descending) SortOrder.DESC else SortOrder.ASC
 }

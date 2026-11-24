@@ -107,6 +107,25 @@ class OnboardingScreenshotTest {
 
     @Test fun creating() = shot("creating") { CreatingContent(ana, null, CreatingState(), {}) }
 
+    @Test fun creatingProgress() = shot("creating-progress") {
+        CreatingContent(
+            ana,
+            null,
+            CreatingState(
+                steps = mapOf(
+                    "files" to "done",
+                    "sync" to "done",
+                    "inbox" to "running",
+                    "header" to "pending",
+                    "device" to "pending"
+                )
+            ),
+            {}
+        )
+    }
+
+    @Test fun reconnectChecking() = shot("reconnect-checking") { CheckingContent() }
+
     @Test fun creatingSlow() = shot("creating-slow") { CreatingContent(ana, null, CreatingState(slow = true), {}) }
 
     @Test fun creatingDone() = shot("creating-done") { CreatingContent(ana, null, CreatingState(done = true), {}) }

@@ -29,6 +29,11 @@
     <string name="search_filter_folder_value">In “%1$s”</string>
     <string name="search_filter_any">Any</string>
     <string name="search_filter_remove">Remove the “%1$s” filter</string>
+    <string name="search_filter_origin">Origin</string>
+    <string name="search_filter_origin_title">Where it came from</string>
+    <string name="search_origin_this_phone">This phone</string>
+    <string name="search_origin_other_devices">Other devices</string>
+    <string name="search_origin_telegram">Telegram</string>
     <string name="search_filters_title">Filters</string>
     <string name="search_folder_pick">Search here</string>
     <string name="search_filter_kind_title">File type</string>
@@ -50,6 +55,7 @@
     <string name="search_reason_folder_plain">Folder name</string>
     <string name="search_reason_document_type">Document type</string>
     <string name="search_reason_date">Date</string>
+    <string name="search_reason_capture_date">Date taken</string>
     <string name="search_reason_album">Album</string>
     <string name="search_reason_details">File details</string>
     <string name="search_reason_recent">You used it recently</string>

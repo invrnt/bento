@@ -42,6 +42,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
@@ -104,6 +105,7 @@ data class SearchActions(
     val onYear: (Int) -> Unit = {},
     val onDate: (DateFilter?) -> Unit = {},
     val onFolder: (Destination?) -> Unit = {},
+    val onOrigin: (OriginFilter?) -> Unit = {},
     val onSheet: (FilterSheet?) -> Unit = {},
     val onOpen: (SearchItemResponse) -> Unit = {},
     val onOpenAlbum: (String) -> Unit = {},
@@ -162,6 +164,7 @@ fun SearchScreen(
         onYear = viewModel::year,
         onDate = viewModel::setDate,
         onFolder = viewModel::setFolder,
+        onOrigin = viewModel::setOrigin,
         onSheet = viewModel::showSheet,
         onOpen = viewModel::open,
         onOpenAlbum = onOpenAlbum,
@@ -178,6 +181,8 @@ fun SearchScreen(
                     FilterSheet.Kind -> KindSheetBody(state.filters.kind, viewModel::setKind)
 
                     FilterSheet.Date -> DateSheetBody(state, actions)
+
+                    FilterSheet.Origin -> OriginSheetBody(state.filters.origin, viewModel::setOrigin)
 
                     FilterSheet.Folder -> {
                         val browser by viewModel.folderBrowser.state.collectAsStateWithLifecycle()
@@ -263,6 +268,21 @@ private fun kindLabel(kind: SearchKind): String = stringResource(
 )
 
 @Composable
+internal fun originLabel(origin: OriginFilter): String = stringResource(
+    when (origin) {
+        OriginFilter.ThisPhone -> StringsR.string.search_origin_this_phone
+        OriginFilter.OtherDevices -> StringsR.string.search_origin_other_devices
+        OriginFilter.Telegram -> StringsR.string.search_origin_telegram
+    }
+)
+
+private fun originIcon(origin: OriginFilter) = when (origin) {
+    OriginFilter.ThisPhone -> BentoIcons.Smartphone
+    OriginFilter.OtherDevices -> BentoIcons.Laptop
+    OriginFilter.Telegram -> BentoIcons.Send
+}
+
+@Composable
 private fun dateLabel(date: DateFilter): String = when (date) {
     is DateFilter.ThisMonth -> stringResource(StringsR.string.search_date_this_month)
 
@@ -277,7 +297,7 @@ private fun dateLabel(date: DateFilter): String = when (date) {
 }
 
 /**
- * Filter chips (Tipo, Fecha, Carpeta), each opening its sheet (a dropdown for TalkBack); active ones show their value
+ * Filter chips (Tipo, Fecha, Carpeta, Origen), each opening its sheet (a dropdown for TalkBack); active ones show their value
  * and read "Tipo: Fotos", with a custom action to remove just that filter.
  */
 @Composable
@@ -307,6 +327,13 @@ private fun FilterRow(state: SearchState, actions: SearchActions) {
             icon = BentoIcons.FolderClosed,
             onOpen = { actions.onSheet(FilterSheet.Folder) },
             onRemove = { actions.onFolder(null) }
+        )
+        SearchFilterChip(
+            name = stringResource(StringsR.string.search_filter_origin),
+            value = filters.origin?.let { originLabel(it) },
+            icon = BentoIcons.MonitorSmartphone,
+            onOpen = { actions.onSheet(FilterSheet.Origin) },
+            onRemove = { actions.onOrigin(null) }
         )
         if (filters.active) {
             BentoChip(stringResource(StringsR.string.search_empty_remove_filters), actions.onClearFilters, trailingIcon = BentoIcons.X)
@@ -359,6 +386,16 @@ private fun FilterPane(state: SearchState, actions: SearchActions, modifier: Mod
                 onSelectedChange = { actions.onSheet(FilterSheet.Folder) },
                 leadingIcon = BentoIcons.FolderClosed
             )
+        }
+        item { SectionHeader(stringResource(StringsR.string.search_filter_origin)) }
+        item {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OriginFilter.entries.forEach { origin ->
+                    BentoFilterChip(originLabel(origin), selected = filters.origin == origin, onSelectedChange = {
+                        actions.onOrigin(if (it) origin else null)
+                    })
+                }
+            }
         }
         if (filters.active) {
             item {
@@ -628,8 +665,9 @@ private fun ResultRow(item: SearchItemResponse, query: String, actions: SearchAc
         "album" -> FileKind.Image
         else -> FileKinds.fileKind(null, item.title)
     }
-    val reasons = MatchReasons.parse(item.reason)
+    val reasons = MatchReasons.of(item)
     val reasonText = reasons.map { reasonLabel(it, item, query) }.distinct().joinToString(" · ")
+    val snippet = snippetOf(item)
     val supporting = listOfNotNull(
         when (item.type) {
             "folder" -> stringResource(StringsR.string.search_result_folder)
@@ -661,7 +699,26 @@ private fun ResultRow(item: SearchItemResponse, query: String, actions: SearchAc
                 overflow = TextOverflow.Ellipsis
             )
         }
+        if (snippet != null) {
+            Text(
+                snippetText(snippet, c.ink),
+                color = c.inkMuted,
+                style = BentoTheme.typography.metadata,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth().padding(start = 70.dp, end = 16.dp, bottom = 8.dp).testTag(SNIPPET_TAG)
+            )
+        }
     }
+}
+
+/** Test tag of a result's snippet line. */
+const val SNIPPET_TAG = "search-snippet"
+
+/** The backend's excerpt with its matched ranges in bold ink (the ranges come from the server, not the query). */
+fun snippetText(snippet: Snippet, color: androidx.compose.ui.graphics.Color): AnnotatedString = buildAnnotatedString {
+    append(snippet.text)
+    snippet.ranges.forEach { range -> addStyle(SpanStyle(fontWeight = FontWeight.SemiBold, color = color), range.first, range.last + 1) }
 }
 
 // Exhaustive reason → copy table.
@@ -693,6 +750,8 @@ private fun reasonLabel(reason: MatchReason, item: SearchItemResponse, query: St
 
         MatchReason.Date -> stringResource(StringsR.string.search_reason_date)
 
+        MatchReason.CaptureDate -> stringResource(StringsR.string.search_reason_capture_date)
+
         MatchReason.Album -> stringResource(StringsR.string.search_reason_album)
 
         MatchReason.Details -> stringResource(StringsR.string.search_reason_details)
@@ -710,6 +769,26 @@ fun highlighted(text: String, query: String, color: androidx.compose.ui.graphics
     return buildAnnotatedString {
         append(text)
         ranges.forEach { range -> addStyle(SpanStyle(fontWeight = FontWeight.SemiBold, color = color), range.first, range.last + 1) }
+    }
+}
+
+@Composable
+fun OriginSheetBody(selected: OriginFilter?, onPick: (OriginFilter?) -> Unit) {
+    dev.bento.feature.files.SheetBody(stringResource(StringsR.string.search_filter_origin_title)) {
+        ListRow(
+            headline = stringResource(StringsR.string.search_filter_any),
+            leading = { BentoIcon(if (selected == null) BentoIcons.Check else BentoIcons.MonitorSmartphone, null) },
+            onClick = { onPick(null) },
+            selected = selected == null
+        )
+        OriginFilter.entries.forEach { origin ->
+            ListRow(
+                headline = originLabel(origin),
+                leading = { BentoIcon(if (selected == origin) BentoIcons.Check else originIcon(origin), null) },
+                onClick = { onPick(origin) },
+                selected = selected == origin
+            )
+        }
     }
 }
 

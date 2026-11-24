@@ -6,6 +6,7 @@
     <string name="photos_tile_video">Video, %1$s</string>
     <string name="photos_tile_video_plain">Video</string>
     <string name="photos_tile_favorite">in favorites</string>
+    <string name="photos_tile_offline">available offline</string>
     <string name="photos_tile_pending">waiting to back up</string>
     <string name="photos_tile_uploading">uploading</string>
     <string name="photos_tile_failed">backup failed</string>

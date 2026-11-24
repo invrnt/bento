@@ -81,7 +81,9 @@ class SelectionHandlers(
     val move: () -> Unit,
     val saveToPhone: () -> Unit,
     val sendTelegram: () -> Unit,
-    val removeFromAlbum: (() -> Unit)? = null
+    val removeFromAlbum: (() -> Unit)? = null,
+    /** Album detail with exactly one photo selected: make it the album's cover (on this phone only). */
+    val setCover: (() -> Unit)? = null
 )
 
 @Composable
@@ -99,6 +101,9 @@ fun selectionActions(selected: Collection<AssetResponse>, handlers: SelectionHan
     )
     val overflow = buildList {
         handlers.removeFromAlbum?.let { add(FloatingAction(BentoIcons.X, stringResource(StringsR.string.collections_album_remove), it)) }
+        handlers.setCover?.takeIf { selected.size == 1 }?.let {
+            add(FloatingAction(BentoIcons.ImageUp, stringResource(StringsR.string.collections_album_set_cover), it))
+        }
         add(FloatingAction(BentoIcons.FolderInput, stringResource(StringsR.string.photos_action_move_to_folder), handlers.move))
         add(FloatingAction(BentoIcons.Download, stringResource(StringsR.string.common_action_save_to_phone), handlers.saveToPhone))
         add(FloatingAction(BentoIcons.Send, stringResource(StringsR.string.common_action_send_telegram), handlers.sendTelegram))

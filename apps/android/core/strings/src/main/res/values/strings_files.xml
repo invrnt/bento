@@ -14,6 +14,11 @@
     <string name="files_offline_banner">Sin conexión. Ves lo que este teléfono ya tiene; los cambios se enviarán cuando vuelva.</string>
     <string name="files_truncated">Se muestran los primeros %1$s elementos. Usa la búsqueda para encontrar el resto.</string>
     <string name="files_folder">Carpeta</string>
+    <plurals name="files_folder_items">
+        <item quantity="one">%1$s elemento</item>
+        <item quantity="many">%1$s de elementos</item>
+        <item quantity="other">%1$s elementos</item>
+    </plurals>
     <string name="files_item_supporting">%1$s · %2$s</string>
     <string name="files_item_options">Opciones de «%1$s»</string>
     <string name="files_open_folder">Abrir carpeta</string>
@@ -21,6 +26,7 @@
     <string name="files_search_here">Buscar en esta carpeta</string>
 
     <string name="files_badge_offline">Disponible sin conexión</string>
+    <string name="files_badge_on_device">En este teléfono</string>
     <string name="files_badge_local_only">Solo en este teléfono</string>
     <string name="files_badge_uploading">Subiendo a tu nube</string>
     <string name="files_badge_failed">No se pudo subir; se reintentará</string>

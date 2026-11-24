@@ -85,6 +85,19 @@ fun JoinScreen(
     }
     LaunchedEffect(state.step) { if (state.step == JoinStep.Bootstrap) haptics.perform(BentoHaptic.Confirm) }
 
+    val phoneLogin = state.step == JoinStep.Pairing && state.pairing?.state == "needs_telegram_login" && state.guestLogin.phone
+    if (phoneLogin) {
+        // Phone sign-in inside the pairing: the session keeps waiting and continues once Telegram authorizes.
+        TelegramSignInScreen(
+            onAuthorized = { viewModel.phoneLoginClosed() },
+            onBack = viewModel::phoneLoginClosed,
+            copy = SignInCopy(StringsR.string.pairing_signin_title, StringsR.string.pairing_signin_body),
+            modifier = modifier,
+            startWithPhone = true,
+            viewModel = hiltViewModel(key = PAIRING_PHONE_LOGIN)
+        )
+        return
+    }
     when (state.step) {
         JoinStep.SignIn -> TelegramSignInScreen(
             onAuthorized = { viewModel.signedIn() },
@@ -134,7 +147,7 @@ fun JoinScreen(
                     onCancel = { viewModel.leavePairing(JoinStep.Entry) },
                     onRetry = viewModel::retry,
                     onContinueWithTelegram = viewModel::continueWithTelegram,
-                    onUsePhoneInstead = { viewModel.leavePairing(JoinStep.SignIn) },
+                    onUsePhoneInstead = viewModel::usePhoneDuringPairing,
                     onSubmitPassword = viewModel::submitPassword,
                     onBootstrapContinue = viewModel::bootstrapContinue,
                     onExit = onExit
@@ -156,6 +169,9 @@ fun JoinScreen(
         }
     }
 }
+
+/** ViewModel key of the phone sign-in shown inside a pairing (separate from the [JoinStep.SignIn] one). */
+private const val PAIRING_PHONE_LOGIN = "pairing-phone-login"
 
 data class JoinActions(
     val onJoin: (String) -> Unit = {},

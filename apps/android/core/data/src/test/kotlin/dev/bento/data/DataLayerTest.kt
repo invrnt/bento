@@ -6,6 +6,7 @@ import dev.bento.api.ApiException
 import dev.bento.api.generated.AssetResponse
 import dev.bento.testing.FakeApiTransport
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.JsonPrimitive
@@ -216,5 +217,35 @@ class SessionRepositoryTest {
         session.vault()
         assertEquals("v2", session.vaultId.value)
         assertNull(cache.read("fotos", serializer))
+    }
+}
+
+class AlbumsRepositoryTest {
+    private val transport = FakeApiTransport()
+
+    private fun album(title: String, cover: String? = null) =
+        """{"id":"al1","title":"$title","asset_ids":["a","b"],"cover_asset_id":${cover?.let { "\"$it\"" } ?: "null"},""" +
+            """"created_at":"2026-01-01T00:00:00+00:00","updated_at":"2026-01-01T00:00:00+00:00"}"""
+
+    @Test
+    fun `rename, cover and delete call the album routes and invalidate albums`() = runTest {
+        val invalidations = Invalidations()
+        val seen = mutableListOf<Set<Topic>>()
+        val collector = backgroundScope.launch { invalidations.topics.collect { seen += it } }
+        testScheduler.runCurrent()
+        transport.on("PATCH /api/photos/albums/al1") { call ->
+            if (call.body!!.contains("cover_asset_id")) album("Viaje", cover = "b") else album("Cartagena 2026")
+        }
+        transport.on("DELETE /api/photos/albums/al1") { album("Viaje") }
+        val repo = AlbumsRepository(transport.endpoints(), invalidations, backgroundScope)
+        assertEquals("Cartagena 2026", repo.rename("al1", "Cartagena 2026").title)
+        assertEquals("""{"title":"Cartagena 2026"}""", transport.calls.last().body)
+        assertEquals("b", repo.setCover("al1", "b").coverAssetId)
+        assertEquals("""{"cover_asset_id":"b"}""", transport.calls.last().body)
+        repo.delete("al1")
+        assertEquals(1, transport.count("DELETE /api/photos/albums/al1"))
+        testScheduler.runCurrent()
+        assertTrue(seen.all { Topic.ALBUMS in it } && seen.size == 3)
+        collector.cancel()
     }
 }

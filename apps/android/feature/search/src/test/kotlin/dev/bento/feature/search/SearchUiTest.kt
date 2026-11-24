@@ -8,8 +8,10 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import dev.bento.designsystem.theme.BentoTheme
 import dev.bento.feature.files.Destination
 import org.junit.Assert.assertEquals
@@ -61,7 +63,7 @@ class SearchUiTest {
         content(SearchState(query = "factura", results = SearchFixtures.results), SearchActions(onOpen = { opened += it.id }))
         compose.onNodeWithText("Fotos y videos").assertExists()
         compose.onNodeWithText("Carpetas y álbumes").assertExists()
-        compose.onNodeWithText("Texto en la imagen: «factura»").assertExists()
+        compose.onNodeWithText("Texto en la imagen: «factura» · Fecha de la foto").assertExists()
         compose.onNodeWithText("Texto en la página 2: «factura» · Tipo de documento").assertExists()
         compose.onNodeWithText("Nombre · Nombre de la carpeta").assertExists()
         compose.onNodeWithText("Facturas").performClick()
@@ -79,7 +81,7 @@ class SearchUiTest {
         )
         compose.onNodeWithText("No encontramos «factura»").assertExists()
         compose.onNodeWithText("Buscar en todas las carpetas").performClick()
-        compose.onAllNodes(hasText("Quitar filtros"))[0].performClick()
+        compose.onAllNodes(hasText("Quitar filtros"))[0].performScrollTo().performClick()
         assertEquals(listOf("everywhere", "clear"), log)
     }
 
@@ -105,6 +107,42 @@ class SearchUiTest {
         val remove = chip.fetchSemanticsNode().config[SemanticsActions.CustomActions].single { it.label == "Quitar el filtro «Tipo»" }
         compose.runOnIdle { remove.action() }
         assertEquals(listOf<SearchKind?>(null), kinds)
+    }
+
+    @Test
+    fun originChipFollowsTheChipPatternAndItsSheetPicks() {
+        val origins = mutableListOf<OriginFilter?>()
+        val sheets = mutableListOf<FilterSheet?>()
+        content(
+            SearchState(query = "x", filters = SearchFilters(origin = OriginFilter.ThisPhone), results = SearchFixtures.results),
+            SearchActions(onOrigin = { origins += it }, onSheet = { sheets += it })
+        )
+        val chip = compose.onNodeWithContentDescription("Origen: Este teléfono")
+        chip.assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.DropdownList))
+        chip.performScrollTo().performClick()
+        assertEquals(listOf<FilterSheet?>(FilterSheet.Origin), sheets)
+        val remove = chip.fetchSemanticsNode().config[SemanticsActions.CustomActions].single { it.label == "Quitar el filtro «Origen»" }
+        compose.runOnIdle { remove.action() }
+        assertEquals(listOf<OriginFilter?>(null), origins)
+    }
+
+    @Test
+    fun originSheetPicks() {
+        val picked = mutableListOf<OriginFilter?>()
+        compose.setContent { BentoTheme { OriginSheetBody(null) { picked += it } } }
+        compose.onNodeWithText("Otros dispositivos").performClick()
+        compose.onNodeWithText("Cualquiera").performClick()
+        assertEquals(listOf(OriginFilter.OtherDevices, null), picked)
+    }
+
+    @Test
+    fun reasonCodesAndTheSnippetAreShown() {
+        content(SearchState(query = "luz", results = SearchFixtures.results))
+        compose.onNodeWithText("Texto en la imagen: «luz» · Fecha de la foto").assertExists()
+        compose.onNodeWithText("…Total factura: 99 € por la luz…").assertExists()
+        val snippet = compose.onNodeWithTag(SNIPPET_TAG).fetchSemanticsNode().config[SemanticsProperties.Text].single()
+        val bold = snippet.spanStyles.single()
+        assertEquals("factura", snippet.text.substring(bold.start, bold.end))
     }
 
     @Test

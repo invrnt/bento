@@ -265,4 +265,83 @@ class OnboardingViewModelsTest {
         advanceUntilIdle()
         assertEquals(OnboardingEffect.Finished, vm.effect.first())
     }
+
+    @Test
+    fun reconnectWaitsWhileBootstrappingAndFindsTheRemoval() = runTest(main.dispatcher) {
+        var reads = 0
+        api.on("GET /api/vault") {
+            reads++
+            if (reads <=
+                2
+            ) {
+                TrustFixtures.vault(state = "bootstrapping")
+            } else {
+                TrustFixtures.vault(state = "locked", reason = "device_removed")
+            }
+        }
+        val vm = onboarding()
+        vm.begin(reconnect = true)
+        vm.reconnected()
+        assertEquals(OnboardingStep.Checking, vm.state.value.step)
+        advanceUntilIdle()
+        assertEquals(OnboardingEffect.RemovedWhileAway, vm.effect.first())
+        assertEquals(3, reads)
+    }
+
+    @Test
+    fun aRemovalFoundBeforeCreatingNeverCreatesAVault() = runTest(main.dispatcher) {
+        api.on("GET /api/vault") { TrustFixtures.vault(state = "signed_out", reason = "device_removed") }
+        val vm = onboarding()
+        vm.authorized(ana)
+        advanceUntilIdle()
+        assertEquals(OnboardingEffect.RemovedWhileAway, vm.effect.first())
+        assertEquals(0, api.count("POST /api/vault"))
+    }
+
+    @Test
+    fun gateUpdatesFollowBootstrappingUntilItSettles() = runTest(main.dispatcher) {
+        var reads = 0
+        api.on("GET /api/vault") {
+            reads++
+            if (reads <=
+                2
+            ) {
+                TrustFixtures.vault(state = "bootstrapping")
+            } else {
+                TrustFixtures.vault(state = "locked", reason = "device_removed")
+            }
+        }
+        val gates = mutableListOf<Gate>()
+        AppGateResolver(VaultRepository(api.endpoints()), store).updates(pollMs = 100, maxMs = 1_000).collect { gates += it }
+        assertEquals(listOf(Gate.App, Gate.Removed), gates)
+        assertEquals(3, reads)
+    }
+
+    @Test
+    fun theCodeLengthTelegramReportsDrivesSubmission() = runTest(main.dispatcher) {
+        val sixDigits = TrustFixtures.account("code_required").replaceFirst("{", """{"code_length":6,"code_delivery":"sms",""")
+        api.on("GET /api/account") { sixDigits }
+        api.on("POST /api/account/login/code") { TrustFixtures.account("authorized") }
+        val vm = signIn()
+        vm.start(null, null)
+        advanceUntilIdle()
+        assertEquals(SignInView.Code, vm.state.value.view)
+        assertEquals(6, vm.state.value.codeLength)
+        assertEquals(6, vm.state.value.expectedCodeLength)
+        vm.submitCode("12345")
+        advanceUntilIdle()
+        assertEquals(0, api.count("POST /api/account/login/code"))
+        vm.submitCode("123456")
+        advanceUntilIdle()
+        assertEquals(1, api.count("POST /api/account/login/code"))
+    }
+
+    @Test
+    fun phoneFirstOpensOnTheNumber() = runTest(main.dispatcher) {
+        api.on("GET /api/account") { TrustFixtures.account("signed_out") }
+        val vm = signIn()
+        vm.start(null, null, phoneFirst = true)
+        advanceUntilIdle()
+        assertEquals(SignInView.Phone, vm.state.value.view)
+    }
 }

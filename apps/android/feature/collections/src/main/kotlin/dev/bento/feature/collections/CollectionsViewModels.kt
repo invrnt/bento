@@ -108,6 +108,20 @@ class AlbumViewModel @AssistedInject constructor(
     private val _state = MutableStateFlow<Loadable<AlbumUi>>(Loadable.Loading)
     private val removed = MutableStateFlow<Set<String>>(emptySet())
 
+    /** Which album sheet or dialog is open (rename, delete confirmation). */
+    private val _dialog = MutableStateFlow<AlbumDialog?>(null)
+    val dialog: StateFlow<AlbumDialog?> = _dialog.asStateFlow()
+
+    private val _message = MutableStateFlow<UiText?>(null)
+    val message: StateFlow<UiText?> = _message.asStateFlow()
+
+    /** True once the album is deleted: the screen leaves. */
+    private val _deleted = MutableStateFlow(false)
+    val deleted: StateFlow<Boolean> = _deleted.asStateFlow()
+
+    private val _busy = MutableStateFlow(false)
+    val busy: StateFlow<Boolean> = _busy.asStateFlow()
+
     /** The album with optimistic edits (favorite, trash, removal) applied. */
     val state: StateFlow<Loadable<AlbumUi>> = combine(_state, timeline.overlayChanges, removed) { s, changes, gone ->
         if (s !is Loadable.Ready) return@combine s
@@ -125,6 +139,7 @@ class AlbumViewModel @AssistedInject constructor(
     }
 
     fun load() {
+        if (_deleted.value) return
         viewModelScope.launch {
             _state.value = try {
                 val album = albums.album(albumId)
@@ -154,7 +169,74 @@ class AlbumViewModel @AssistedInject constructor(
     }
 
     fun cells(assets: List<AssetResponse>): List<GridCell> = cellsOf(assets)
+
+    fun showDialog(dialog: AlbumDialog?) {
+        _dialog.value = dialog
+    }
+
+    fun messageShown() {
+        _message.value = null
+    }
+
+    /** Renames everywhere; an empty name is refused before any call. */
+    fun rename(title: String) {
+        val name = title.trim()
+        if (name.isEmpty() || _busy.value) return
+        val current = (_state.value as? Loadable.Ready)?.value ?: return
+        if (name == current.album.title) {
+            _dialog.value = null
+            return
+        }
+        _busy.value = true
+        viewModelScope.launch {
+            try {
+                val updated = albums.rename(albumId, name)
+                _state.value = Loadable.Ready(current.copy(album = updated))
+                _dialog.value = null
+                _message.value = UiText(StringsR.string.collections_album_renamed)
+            } catch (error: ApiException) {
+                _message.value = UiText(StringsR.string.common_error_generic)
+            } finally {
+                _busy.value = false
+            }
+        }
+    }
+
+    /** The cover is kept on this phone only (the album syncs, its cover does not). */
+    fun setCover(assetId: String) {
+        val current = (_state.value as? Loadable.Ready)?.value ?: return
+        viewModelScope.launch {
+            try {
+                val updated = albums.setCover(albumId, assetId)
+                _state.value = Loadable.Ready(current.copy(album = updated))
+                _message.value = UiText(StringsR.string.collections_album_cover_set)
+            } catch (error: ApiException) {
+                _message.value = UiText(StringsR.string.common_error_generic)
+            }
+        }
+    }
+
+    /** Deletes the album (confirmed in [AlbumDialog.Delete]); the photos stay in Fotos. */
+    fun delete() {
+        if (_busy.value) return
+        _busy.value = true
+        viewModelScope.launch {
+            try {
+                albums.delete(albumId)
+                _dialog.value = null
+                _deleted.value = true
+            } catch (error: ApiException) {
+                _dialog.value = null
+                _message.value = UiText(StringsR.string.common_error_generic)
+            } finally {
+                _busy.value = false
+            }
+        }
+    }
 }
+
+/** Album actions that need a sheet or a confirmation. */
+enum class AlbumDialog { Rename, Delete }
 
 /** "Elige fotos": the whole timeline as a picker (Nuevo álbum, Añadir fotos). */
 @HiltViewModel

@@ -2,9 +2,13 @@ package dev.bento.feature.collections
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -12,10 +16,13 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextClearance
+import androidx.compose.ui.test.performTextInput
 import dev.bento.api.generated.TelegramMediaResponse
 import dev.bento.data.DocumentEntry
 import dev.bento.data.DocumentsRepository
@@ -243,6 +250,43 @@ class CollectionsUiTest {
     }
 
     @Test
+    fun `album menu offers rename and delete, and delete explains the photos stay`() {
+        val log = mutableListOf<String>()
+        var confirm by mutableStateOf(false)
+        compose.setContent {
+            BentoTheme(reducedMotion = true) {
+                AlbumGrid(onRename = { log += "rename" }, onDelete = { confirm = true })
+                if (confirm) AlbumDeleteDialog("Viaje a Cartagena", onConfirm = { log += "delete" }, onDismiss = { confirm = false })
+            }
+        }
+        compose.onNodeWithContentDescription("Opciones del álbum").assertHasClickAction().performClick()
+        compose.onNodeWithText("Cambiar nombre").performClick()
+        compose.onNodeWithContentDescription("Opciones del álbum").performClick()
+        compose.onNodeWithText("Eliminar álbum").performClick()
+        compose.onNodeWithText("¿Eliminar «Viaje a Cartagena»?").assertIsDisplayed()
+        compose.onNodeWithText("El álbum desaparece en todos tus dispositivos. Las fotos siguen en Fotos.").assertIsDisplayed()
+        compose.onNodeWithText("Eliminar álbum").performClick()
+        assertEquals(listOf("rename", "delete"), log)
+    }
+
+    @Test
+    fun `rename refuses an empty name`() {
+        val saved = mutableListOf<String>()
+        compose.setContent {
+            BentoTheme(reducedMotion = true) {
+                androidx.compose.foundation.layout.Column { AlbumRenameBody("Viaje", false) { saved += it } }
+            }
+        }
+        val field = compose.onNode(androidx.compose.ui.test.hasSetTextAction())
+        field.performTextClearance()
+        compose.onNodeWithText("Guardar").performClick()
+        compose.onNodeWithText("Escribe un nombre para el álbum.", useUnmergedTree = true).assertExists()
+        field.performTextInput("Cartagena")
+        compose.onNodeWithText("Guardar").performClick()
+        assertEquals(listOf("Cartagena"), saved)
+    }
+
+    @Test
     fun `telegram import is disabled without a selection`() {
         compose.setContent {
             BentoTheme(reducedMotion = true) {
@@ -254,7 +298,7 @@ class CollectionsUiTest {
 }
 
 @Composable
-private fun AlbumGrid(empty: Boolean = false) {
+private fun AlbumGrid(empty: Boolean = false, onRename: () -> Unit = {}, onDelete: () -> Unit = {}) {
     val context = LocalContext.current
     val harness = remember { MediaTestHarness(context, CoroutineScope(SupervisorJob() + Dispatchers.Main)) }
     val assets = if (empty) emptyList() else MediaSamples.library.take(12)
@@ -283,7 +327,9 @@ private fun AlbumGrid(empty: Boolean = false) {
                 {}
             )
         },
-        onRemoveFromAlbum = {}
+        onRemoveFromAlbum = {},
+        onSetCover = {},
+        topActions = { AlbumMenu(onRename = onRename, onDelete = onDelete) }
     )
 }
 

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.bento.api.generated.TelegramAccountResponse
+import dev.bento.api.generated.VaultStatusResponse
 import dev.bento.designsystem.component.QrMatrix
 import dev.bento.feature.recovery.Outcome
 import dev.bento.feature.recovery.VaultRepository
@@ -23,9 +24,48 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /** First-run steps of product/android.md §4.1 (the backup step itself belongs to feature/settings). */
-enum class OnboardingStep { Welcome, Reconnect, SignIn, Creating, Notifications, Kit, Done }
+enum class OnboardingStep { Welcome, Reconnect, SignIn, Checking, Creating, Notifications, Kit, Done }
 
-data class CreatingState(val failed: Boolean = false, val slow: Boolean = false, val done: Boolean = false)
+/** One row of "Creando tu nube". */
+enum class CreationRow { Channels, Keys, Device }
+
+enum class RowState { Pending, Running, Done, Failed }
+
+/**
+ * Progress of `POST /vault` from `GET /vault` `creation.steps` (api/android-endpoints.md §11): the three channels
+ * (`files`, `sync`, `inbox`), the signed header with the keys (`header`), and this phone (`device`). Empty until the
+ * backend reports steps; rows then follow [done] only.
+ */
+data class CreatingState(
+    val failed: Boolean = false,
+    val slow: Boolean = false,
+    val done: Boolean = false,
+    val steps: Map<String, String> = emptyMap()
+) {
+    fun row(row: CreationRow): RowState {
+        if (done) return RowState.Done
+        if (steps.isEmpty()) return if (failed) RowState.Failed else RowState.Running
+        val states = CREATION_STEPS.getValue(row).map { steps[it] ?: "pending" }
+        return when {
+            "failed" in states -> RowState.Failed
+            states.all { it == "done" } -> RowState.Done
+            states.any { it == "running" || it == "done" } -> RowState.Running
+            failed -> RowState.Failed
+            else -> RowState.Pending
+        }
+    }
+
+    /** Channels created so far, of three. */
+    val channelsDone: Int get() = CREATION_STEPS.getValue(CreationRow.Channels).count { steps[it] == "done" }
+
+    companion object {
+        val CREATION_STEPS: Map<CreationRow, List<String>> = mapOf(
+            CreationRow.Channels to listOf("files", "sync", "inbox"),
+            CreationRow.Keys to listOf("header"),
+            CreationRow.Device to listOf("device")
+        )
+    }
+}
 
 /** The fresh recovery code stays here, in memory only, until the kit step is done. */
 data class PendingKit(val code: String, val qr: QrMatrix?, val createdAt: String?)
@@ -100,7 +140,12 @@ class OnboardingViewModel @Inject constructor(
                 delay(SLOW_AFTER_MS)
                 _state.update { it.copy(creating = it.creating.copy(slow = true)) }
             }
-            val current = (attempt { vault.status() } as? Outcome.Ok)?.value
+            val current = settledStatus()
+            if (current?.reason == "device_removed") {
+                slow.cancel()
+                effects.send(OnboardingEffect.RemovedWhileAway)
+                return@launch
+            }
             when (current?.state) {
                 "locked" -> {
                     slow.cancel()
@@ -115,12 +160,22 @@ class OnboardingViewModel @Inject constructor(
                     return@launch
                 }
             }
-            when (val created = attempt { vault.create() }) {
+            // `POST /vault` blocks until it is over; `GET /vault` reports its steps meanwhile.
+            val progress = launch {
+                while (true) {
+                    delay(PROGRESS_POLL_MS)
+                    val steps = (attempt { vault.status() } as? Outcome.Ok)?.value?.creation?.steps ?: continue
+                    _state.update { it.copy(creating = it.creating.copy(steps = steps.associate { s -> s.step to s.state })) }
+                }
+            }
+            val created = attempt { vault.create() }
+            progress.cancel()
+            when (created) {
                 is Outcome.Ok -> {
                     val value = created.value
                     _state.update {
                         it.copy(
-                            creating = CreatingState(done = true),
+                            creating = it.creating.copy(done = true, slow = false),
                             kit = PendingKit(value.recoveryCode, value.recoveryQr.toMatrix(), value.vault.createdAt)
                         )
                     }
@@ -131,7 +186,7 @@ class OnboardingViewModel @Inject constructor(
                 is Outcome.Err -> if (created.problem.code == "vault_already_exists") {
                     effects.send(OnboardingEffect.ExistingVault)
                 } else {
-                    _state.update { it.copy(creating = CreatingState(failed = true)) }
+                    _state.update { it.copy(creating = it.creating.copy(failed = true, slow = false)) }
                 }
             }
             slow.cancel()
@@ -155,10 +210,14 @@ class OnboardingViewModel @Inject constructor(
         effects.trySend(OnboardingEffect.Finished)
     }
 
-    /** Reconnect: signed in again; the cloud decides where to go. */
+    /**
+     * Reconnect: signed in again; the cloud decides where to go. After a lost session `/vault` says `bootstrapping`
+     * until one sync pull ran, so a removal posted meanwhile is found before the library opens (§11 Removed devices).
+     */
     fun reconnected() {
+        go(OnboardingStep.Checking)
         viewModelScope.launch {
-            val status = (attempt { vault.status() } as? Outcome.Ok)?.value
+            val status = settledStatus()
             when {
                 status?.reason == "device_removed" -> effects.send(OnboardingEffect.RemovedWhileAway)
                 status?.state == "locked" -> effects.send(OnboardingEffect.ExistingVault)
@@ -170,8 +229,22 @@ class OnboardingViewModel @Inject constructor(
 
     private fun go(step: OnboardingStep) = _state.update { it.copy(step = step) }
 
+    /** `/vault`, waiting (up to [SETTLE_MS]) while it is `bootstrapping`; null when it cannot be read. */
+    private suspend fun settledStatus(): VaultStatusResponse? {
+        var waited = 0L
+        while (true) {
+            val status = (attempt { vault.status() } as? Outcome.Ok)?.value ?: return null
+            if (status.state != "bootstrapping" || waited >= SETTLE_MS) return status
+            delay(SETTLE_POLL_MS)
+            waited += SETTLE_POLL_MS
+        }
+    }
+
     private companion object {
         const val SLOW_AFTER_MS = 10_000L
+        const val PROGRESS_POLL_MS = 400L
+        const val SETTLE_POLL_MS = 1_000L
+        const val SETTLE_MS = 30_000L
         const val DONE_PAUSE_MS = 600L
     }
 }

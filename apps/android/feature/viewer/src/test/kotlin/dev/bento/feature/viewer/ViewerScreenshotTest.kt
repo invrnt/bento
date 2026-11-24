@@ -108,6 +108,19 @@ class ViewerScreenshotTest(private val state: ScreenState) {
                     }
                 }
             },
+            ScreenState("viewer-info-offline") {
+                BentoTheme(darkTheme = false, reducedMotion = true) {
+                    Column(
+                        Modifier.fillMaxSize().background(BentoTheme.colors.raised).verticalScroll(rememberScrollState()).padding(16.dp)
+                    ) {
+                        ViewerInfoContent(
+                            MediaSamples.library[3].copy(offlinePinned = true, locallyAvailable = true),
+                            sampleInfo,
+                            InfoCallbacks({}, {}, { _, _ -> }, {})
+                        )
+                    }
+                }
+            },
             ScreenState("viewer-video-controls") { VideoControlsSample() }
         ).map { arrayOf<Any>(it) }
     }

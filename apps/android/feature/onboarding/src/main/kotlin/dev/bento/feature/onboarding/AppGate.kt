@@ -8,6 +8,9 @@ import dev.bento.feature.recovery.VaultRepository
 import dev.bento.feature.recovery.attempt
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 
 /** What the app shows at start (product/android.md §4.1, §11; web `useAppGate`). */
 sealed interface Gate {
@@ -76,11 +79,32 @@ class AppGateResolver @Inject constructor(private val vault: VaultRepository, pr
     fun cached(): Gate = if (store.cachedApp) Gate.App else Gate.FirstRun
 
     /** Null when the vault status could not be read (keep what is on screen). */
-    suspend fun resolve(): Gate? {
+    suspend fun resolve(): Gate? = resolveStatus()?.first
+
+    /**
+     * The gate, then its corrections while `/vault` is `bootstrapping` (checked every [pollMs], up to [maxMs]): after a
+     * lost session the backend pulls once before it says `ready`, and a removal found by that pull turns the gate into
+     * [Gate.Removed] (api/android-endpoints.md §11 Removed devices).
+     */
+    fun updates(pollMs: Long = SETTLE_POLL_MS, maxMs: Long = SETTLE_MS): Flow<Gate> = flow {
+        var (gate, bootstrapping) = resolveStatus() ?: return@flow
+        emit(gate)
+        var waited = 0L
+        while (bootstrapping && waited < maxMs) {
+            delay(pollMs)
+            waited += pollMs
+            val next = resolveStatus() ?: continue
+            if (next.first != gate) emit(next.first)
+            gate = next.first
+            bootstrapping = next.second
+        }
+    }
+
+    private suspend fun resolveStatus(): Pair<Gate, Boolean>? {
         val status = (attempt { vault.status() } as? Outcome.Ok)?.value ?: return null
         val gate = decideGate(status, store.localMode)
         store.cachedApp = gate == Gate.App || gate == Gate.Reconnect || gate == Gate.Removed
-        return gate
+        return gate to (status.state == "bootstrapping")
     }
 
     fun chooseLocalMode() {
@@ -92,5 +116,10 @@ class AppGateResolver @Inject constructor(private val vault: VaultRepository, pr
     fun finishedSetup() {
         store.localMode = false
         store.cachedApp = true
+    }
+
+    private companion object {
+        const val SETTLE_POLL_MS = 2_000L
+        const val SETTLE_MS = 60_000L
     }
 }

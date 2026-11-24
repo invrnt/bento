@@ -118,7 +118,15 @@ class OnboardingUiTest {
                 SignInState(
                     view = SignInView.Password,
                     loading = false,
-                    status = dev.bento.api.generated.AccountStatusResponse(null, null, "demo", null, null, null, "password_required"),
+                    status = dev.bento.api.generated.AccountStatusResponse(
+                        account = null,
+                        error = null,
+                        passwordHint = "demo",
+                        qr = null,
+                        qrExpiresAt = null,
+                        qrUrl = null,
+                        step = "password_required"
+                    ),
                     problem = SignInProblem.PasswordInvalid
                 ),
                 telegramAppInstalled = false,

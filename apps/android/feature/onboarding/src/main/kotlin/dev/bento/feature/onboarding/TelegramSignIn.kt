@@ -84,6 +84,7 @@ fun TelegramSignInScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     copy: SignInCopy = SignInCopy(),
+    startWithPhone: Boolean = false,
     viewModel: TelegramSignInViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -94,7 +95,7 @@ fun TelegramSignInScreen(
 
     LaunchedEffect(Unit) {
         val telephony = context.getSystemService(TelephonyManager::class.java)
-        viewModel.start(telephony?.simCountryIso, telephony?.networkCountryIso)
+        viewModel.start(telephony?.simCountryIso, telephony?.networkCountryIso, startWithPhone)
     }
     LaunchedEffect(viewModel) {
         viewModel.effect.collect { effect ->
@@ -106,7 +107,8 @@ fun TelegramSignInScreen(
     LaunchedEffect(state.authorized) { state.authorized?.let(authorized) }
     LifecycleResumeEffect(state.view) {
         viewModel.onResume()
-        clipboardCode = if (state.view == SignInView.Code) SensitiveClipboard.readText(context)?.let(::telegramCodeIn) else null
+        clipboardCode =
+            if (state.view == SignInView.Code) SensitiveClipboard.readText(context)?.let { telegramCodeIn(it, state.codeLength) } else null
         onPauseOrDispose {}
     }
     BackHandler { if (!viewModel.back()) onBack() }
@@ -343,14 +345,14 @@ private fun CodeStep(
     LaunchedEffect(code) {
         snapshotFlow { code.text.toString() }.collect {
             actions.onEdited()
-            if (it.length == TelegramSignInViewModel.CODE_LENGTH) actions.onSubmitCode(it)
+            if (it.length == state.expectedCodeLength) actions.onSubmitCode(it)
         }
     }
     LaunchedEffect(state.problem) { if (state.problem == SignInProblem.CodeInvalid) code.setTextAndPlaceCursorAtEnd("") }
     val phone = "+${state.country.dialCode} ${PhoneNumbers.formatNational(state.national)}"
     SetupScaffold(
         title = stringResource(StringsR.string.onboarding_code_title),
-        body = stringResource(StringsR.string.onboarding_code_body, phone),
+        body = stringResource(codeBody(state.status?.codeDelivery), phone),
         hero = Hero.Icon(BentoIcons.Send),
         onBack = actions.onBack,
         modifier = modifier,
@@ -391,7 +393,7 @@ private fun CodeStep(
             enabled = !state.busy,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
             onKeyboardAction = { actions.onSubmitCode(code.text.toString()) },
-            inputTransformation = DigitsOnly.then(InputTransformation.maxLength(CODE_FIELD_MAX))
+            inputTransformation = DigitsOnly.then(InputTransformation.maxLength(state.codeLength ?: CODE_FIELD_MAX))
         )
         if (clipboardCode != null && code.text.isEmpty()) {
             Spacer(Modifier.height(12.dp))
@@ -399,7 +401,7 @@ private fun CodeStep(
                 label = stringResource(StringsR.string.onboarding_code_paste, clipboardCode),
                 onClick = {
                     code.setTextAndPlaceCursorAtEnd(clipboardCode)
-                    if (clipboardCode.length != TelegramSignInViewModel.CODE_LENGTH) actions.onSubmitCode(clipboardCode)
+                    if (clipboardCode.length != state.expectedCodeLength) actions.onSubmitCode(clipboardCode)
                 },
                 leadingIcon = BentoIcons.ClipboardPaste
             )
@@ -570,6 +572,14 @@ internal fun problemText(problem: SignInProblem): Int = when (problem) {
     SignInProblem.FloodWait, SignInProblem.Generic -> StringsR.string.onboarding_error_generic
 }
 
+/** Where Telegram sent the code (`code_delivery`): the app, an SMS, a call or an email. */
+internal fun codeBody(delivery: String?): Int = when (delivery) {
+    "sms", "fragment_sms", "firebase_sms" -> StringsR.string.onboarding_code_body_sms
+    "call", "flash_call", "missed_call" -> StringsR.string.onboarding_code_body_call
+    "email" -> StringsR.string.onboarding_code_body_email
+    else -> StringsR.string.onboarding_code_body
+}
+
 /** "3 min" / "45 s" for flood waits (plural-aware). */
 @Composable
 internal fun formatWait(seconds: Long): String = if (seconds >= 60) {
@@ -582,7 +592,10 @@ internal fun formatWait(seconds: Long): String = if (seconds >= 60) {
 internal fun formatSeconds(seconds: Long): String = "%d:%02d".format(seconds / 60, seconds % 60)
 
 /** A 5-6 digit Telegram code in clipboard text ("Código de inicio de sesión: 12345"), or null. */
-fun telegramCodeIn(text: String): String? = Regex("(?<!\\d)(\\d{5,6})(?!\\d)").findAll(text).map { it.value }.singleOrNull()
+fun telegramCodeIn(text: String, length: Int? = null): String? {
+    val digits = length?.let { "{$it}" } ?: "{5,6}"
+    return Regex("(?<!\\d)(\\d$digits)(?!\\d)").findAll(text).map { it.value }.singleOrNull()
+}
 
 private val DigitsOnly = InputTransformation {
     val digits = asCharSequence().filter(Char::isDigit).toString()

@@ -156,6 +156,24 @@ class SearchViewModelTest {
     }
 
     @Test
+    fun originFilterIsSentToTheBackendAndCanBeRemoved() = runTest(main.dispatcher) {
+        val vm = vm()
+        vm.start("factura", null)
+        settle()
+        assertEquals(null, api.calls.last { it.path == "/api/search" }.query["origin"])
+        vm.setOrigin(OriginFilter.Telegram)
+        settle()
+        assertEquals("telegram", api.calls.last { it.path == "/api/search" }.query["origin"])
+        assertTrue(vm.state.value.filters.active)
+        vm.setOrigin(OriginFilter.OtherDevices)
+        settle()
+        assertEquals("peer", api.calls.last { it.path == "/api/search" }.query["origin"])
+        vm.setOrigin(null)
+        settle()
+        assertEquals(null, api.calls.last { it.path == "/api/search" }.query["origin"])
+    }
+
+    @Test
     fun failureShowsRetry() = runTest(main.dispatcher) {
         api.fail("GET /api/search", 503, "unavailable")
         val vm = vm()

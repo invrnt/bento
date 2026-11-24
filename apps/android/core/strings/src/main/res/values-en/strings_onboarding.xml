@@ -35,6 +35,9 @@
     <string name="onboarding_phone_submit">Send code</string>
     <string name="onboarding_code_title">Enter the code</string>
     <string name="onboarding_code_body">We sent a code to your Telegram app (%1$s).</string>
+    <string name="onboarding_code_body_sms">We sent a code by SMS to %1$s.</string>
+    <string name="onboarding_code_body_call">Telegram will call %1$s with the code.</string>
+    <string name="onboarding_code_body_email">We sent a code to the email of your Telegram account (%1$s).</string>
     <string name="onboarding_code_label">Telegram code</string>
     <string name="onboarding_code_hint">It arrives in Telegram, on your other devices, or by SMS. We continue as soon as you type the last digit.</string>
     <string name="onboarding_code_paste">Paste %1$s</string>
@@ -70,13 +73,18 @@
     <string name="onboarding_error_flood_ready">Trying again…</string>
 
     <string name="onboarding_creating_title">Creating your cloud</string>
+    <string name="onboarding_checking_title">Checking your cloud…</string>
+    <string name="onboarding_checking_body">We are looking at what changed while this phone was disconnected.</string>
     <string name="onboarding_creating_body">This takes a few seconds.</string>
     <string name="onboarding_connected_as">Connected as %1$s</string>
     <string name="onboarding_creating_channels">Private channels in your Telegram</string>
-    <string name="onboarding_creating_folder">Bento folder in your Telegram</string>
     <string name="onboarding_creating_keys">Encryption keys on this phone</string>
+    <string name="onboarding_creating_device">This phone in your cloud</string>
     <string name="onboarding_creating_step_working">in progress</string>
     <string name="onboarding_creating_step_done">done</string>
+    <string name="onboarding_creating_step_pending">waiting</string>
+    <string name="onboarding_creating_step_failed">failed</string>
+    <string name="onboarding_creating_step_count">%1$s of %2$s</string>
     <string name="onboarding_creating_slow">Telegram is slow, still working…</string>
     <string name="onboarding_creating_failed">Your cloud couldn’t be created. Your account is untouched.</string>
     <string name="onboarding_creating_failed_hint">Check your internet connection and try again.</string>

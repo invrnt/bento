@@ -6,6 +6,7 @@
     <string name="photos_tile_video">Video, %1$s</string>
     <string name="photos_tile_video_plain">Video</string>
     <string name="photos_tile_favorite">en favoritos</string>
+    <string name="photos_tile_offline">disponible sin conexión</string>
     <string name="photos_tile_pending">pendiente de respaldo</string>
     <string name="photos_tile_uploading">subiendo</string>
     <string name="photos_tile_failed">no se pudo respaldar</string>

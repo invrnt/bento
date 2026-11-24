@@ -12,7 +12,7 @@ android {
 bentoOpenApi {
     backendProject.set(rootProject.layout.projectDirectory.dir("../api"))
     packageName.set("dev.bento.api.generated")
-    // Binary or multipart operations: hand-written in BinaryEndpoints / Coil / Media3.
+    // Binary, multipart or streaming operations: hand-written in BinaryEndpoints / Coil / Media3 / EventsClient.
     excludedOperations.set(
         setOf(
             "uploadAsset",
@@ -20,7 +20,8 @@ bentoOpenApi {
             "assetPreview",
             "assetContent",
             "downloadAsset",
-            "avatar"
+            "avatar",
+            "libraryEvents"
         )
     )
 }
