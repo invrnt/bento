@@ -76,6 +76,7 @@ fun OnboardingScreen(
     onFinished: () -> Unit,
     onExit: () -> Unit,
     modifier: Modifier = Modifier,
+    onRemoved: () -> Unit = onExistingVault,
     viewModel: OnboardingViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -86,6 +87,7 @@ fun OnboardingScreen(
                 OnboardingEffect.ExistingVault -> onExistingVault()
                 OnboardingEffect.OpenBackupSetup -> onBackupSetup()
                 OnboardingEffect.Finished -> onFinished()
+                OnboardingEffect.RemovedWhileAway -> onRemoved()
             }
         }
     }

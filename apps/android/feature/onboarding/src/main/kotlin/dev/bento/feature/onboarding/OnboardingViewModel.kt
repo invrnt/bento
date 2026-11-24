@@ -48,6 +48,9 @@ sealed interface OnboardingEffect {
 
     /** Setup is over (Listo, local mode, or a reconnect that found the cloud ready). */
     data object Finished : OnboardingEffect
+
+    /** Signed in again only to learn another device removed this phone: explain it and offer to join again. */
+    data object RemovedWhileAway : OnboardingEffect
 }
 
 @HiltViewModel
@@ -156,9 +159,10 @@ class OnboardingViewModel @Inject constructor(
     fun reconnected() {
         viewModelScope.launch {
             val status = (attempt { vault.status() } as? Outcome.Ok)?.value
-            when (status?.state) {
-                "locked" -> effects.send(OnboardingEffect.ExistingVault)
-                "no_vault" -> go(OnboardingStep.Creating).also { create() }
+            when {
+                status?.reason == "device_removed" -> effects.send(OnboardingEffect.RemovedWhileAway)
+                status?.state == "locked" -> effects.send(OnboardingEffect.ExistingVault)
+                status?.state == "no_vault" -> go(OnboardingStep.Creating).also { create() }
                 else -> finish()
             }
         }

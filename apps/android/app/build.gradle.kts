@@ -96,4 +96,7 @@ dependencies {
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.uiautomator)
     androidTestImplementation(libs.kotlinx.coroutines.test)
+    // Trust journeys (agent 38): Compose UI driven end to end against the real embedded engine.
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.ui.test.junit4)
 }

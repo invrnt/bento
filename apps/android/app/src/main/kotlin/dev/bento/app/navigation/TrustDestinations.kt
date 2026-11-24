@@ -18,7 +18,9 @@ internal fun OnboardingDestination(navigator: Navigator, reconnect: Boolean) {
         },
         onBackupSetup = { navigator.navigate(Route.BackupSetup) },
         onFinished = { navigator.reset(Route.Photos) },
-        onExit = { if (!navigator.back()) navigator.reset(Route.Photos) }
+        onExit = { if (!navigator.back()) navigator.reset(Route.Photos) },
+        // Removing a device closes its Telegram session first, so the removal is only found after signing in again.
+        onRemoved = { navigator.reset(Route.Photos, Route.DeviceRemoved) }
     )
 }
 
