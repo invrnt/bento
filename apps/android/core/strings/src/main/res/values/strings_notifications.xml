@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- TEMPORARY home of platform notification strings; move to core/strings (agent 37) at merge. -->
+<!-- Notification channels and notifications posted by core/background (product/android.md §9). -->
 <resources>
     <string name="bento_channel_transfers">Respaldo y transferencias</string>
     <string name="bento_channel_transfers_description">Progreso de respaldos y transferencias largas.</string>
@@ -17,10 +17,12 @@
     <string name="bento_transfer_pause">Pausar</string>
     <plurals name="bento_transfer_progress">
         <item quantity="one">%1$d de %2$d archivo</item>
+        <item quantity="many">%1$d de %2$d de archivos</item>
         <item quantity="other">%1$d de %2$d archivos</item>
     </plurals>
     <plurals name="bento_transfer_finished_backup">
         <item quantity="one">Listo: %d foto respaldada</item>
+        <item quantity="many">Listo: %d de fotos respaldadas</item>
         <item quantity="other">Listo: %d fotos respaldadas</item>
     </plurals>
     <string name="bento_attention_title">Bento necesita tu atención</string>

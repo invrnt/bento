@@ -14,7 +14,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import dev.bento.app.navigation.BentoApp
 import dev.bento.app.navigation.DeepLinks
 import dev.bento.app.navigation.Navigator
-import dev.bento.app.tempdesign.TempBentoTheme
+import dev.bento.designsystem.theme.BentoTheme
 import dev.bento.engine.BentoEngine
 import javax.inject.Inject
 
@@ -34,7 +34,7 @@ class MainActivity : ComponentActivity() {
             setContent {
                 val state by engine.state.collectAsStateWithLifecycle()
                 val nav = remember { navigator }
-                TempBentoTheme {
+                BentoTheme {
                     BentoApp(navigator = nav, engineState = state, onExit = ::finish)
                 }
             }

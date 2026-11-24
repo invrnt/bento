@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only: the design-system kitchen sink (merged from core/designsystem's debug manifest) is reachable
+     from a launcher shortcut on the app icon (long press) and with
+     `adb shell am start -n dev.bento.app/dev.bento.designsystem.kitchensink.KitchenSinkActivity`. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity android:name=".MainActivity">
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/debug_shortcuts" />
+        </activity>
+    </application>
+</manifest>

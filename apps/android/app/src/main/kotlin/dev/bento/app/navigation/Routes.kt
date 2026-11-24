@@ -1,6 +1,9 @@
 package dev.bento.app.navigation
 
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation3.runtime.NavKey
+import dev.bento.designsystem.generated.BentoNavIcons
+import dev.bento.strings.R as StringsR
 import kotlinx.serialization.Serializable
 
 /**
@@ -39,10 +42,10 @@ sealed interface Route : NavKey {
 }
 
 /** The three tabs, in order; [Route.Photos] is the start destination. */
-enum class TopLevel(val route: Route, val labelRes: Int, val glyph: String) {
-    PHOTOS(Route.Photos, dev.bento.app.R.string.nav_photos, "▣"),
-    FILES(Route.Files(), dev.bento.app.R.string.nav_files, "▢"),
-    COLLECTIONS(Route.Collections, dev.bento.app.R.string.nav_collections, "◫")
+enum class TopLevel(val route: Route, val labelRes: Int, val icon: ImageVector) {
+    PHOTOS(Route.Photos, StringsR.string.shell_nav_photos, BentoNavIcons.Images),
+    FILES(Route.Files(), StringsR.string.shell_nav_files, BentoNavIcons.FolderClosed),
+    COLLECTIONS(Route.Collections, StringsR.string.shell_nav_collections, BentoNavIcons.SquareLibrary)
     ;
 
     companion object {

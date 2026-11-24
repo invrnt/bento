@@ -2,7 +2,6 @@ package dev.bento.app.navigation
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -11,7 +10,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.navigation3.runtime.EntryProviderScope
-import dev.bento.app.R
+import dev.bento.designsystem.theme.BentoTheme
+import dev.bento.strings.R as StringsR
 
 /**
  * Screen registration: one `entry<Route.X> { … }` line per destination. Every entry is a PLACEHOLDER until
@@ -38,13 +38,14 @@ fun EntryProviderScope<Route>.bentoEntries(navigator: Navigator) {
     entry<Route.Recovery> { Placeholder("Recuperación") }
 }
 
-/** TEMPORARY placeholder screen (agent 36); not localized beyond the template on purpose. */
+/** Placeholder until the destination's feature agent (Stage 21) lands; [name] is a developer label. */
 @Composable
 fun Placeholder(name: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(
-            text = stringResource(R.string.placeholder_destination, name),
-            style = MaterialTheme.typography.titleMedium,
+            text = stringResource(StringsR.string.shell_placeholder_destination, name),
+            color = BentoTheme.colors.inkMuted,
+            style = BentoTheme.typography.sectionTitle,
             modifier = Modifier.semantics { heading() }
         )
     }

@@ -11,7 +11,9 @@ import android.content.pm.PackageManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import dev.bento.designsystem.R as DesignR
 import dev.bento.engine.bridge.EngineEvent
+import dev.bento.strings.R as StringsR
 
 /** Channels, ids and builders for every Bento notification (product/android.md §8). No marketing, ever. */
 object BentoNotifications {
@@ -35,26 +37,26 @@ object BentoNotifications {
             listOf(
                 NotificationChannel(
                     CHANNEL_TRANSFERS,
-                    context.getString(R.string.bento_channel_transfers),
+                    context.getString(StringsR.string.bento_channel_transfers),
                     NotificationManager.IMPORTANCE_LOW
                 ).apply {
-                    description = context.getString(R.string.bento_channel_transfers_description)
+                    description = context.getString(StringsR.string.bento_channel_transfers_description)
                     setShowBadge(false)
                     setSound(null, null)
                 },
                 NotificationChannel(
                     CHANNEL_ATTENTION,
-                    context.getString(R.string.bento_channel_attention),
+                    context.getString(StringsR.string.bento_channel_attention),
                     NotificationManager.IMPORTANCE_DEFAULT
                 ).apply {
-                    description = context.getString(R.string.bento_channel_attention_description)
+                    description = context.getString(StringsR.string.bento_channel_attention_description)
                 },
                 NotificationChannel(
                     CHANNEL_DEVICES,
-                    context.getString(R.string.bento_channel_devices),
+                    context.getString(StringsR.string.bento_channel_devices),
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
-                    description = context.getString(R.string.bento_channel_devices_description)
+                    description = context.getString(StringsR.string.bento_channel_devices_description)
                 }
             )
         )
@@ -69,20 +71,27 @@ object BentoNotifications {
         val kind = progress?.kind ?: EngineEvent.TransferKind.UNKNOWN
         val title = context.getString(
             when (kind) {
-                EngineEvent.TransferKind.BACKUP -> R.string.bento_transfer_title_backup
-                EngineEvent.TransferKind.UPLOAD -> R.string.bento_transfer_title_upload
-                EngineEvent.TransferKind.DOWNLOAD -> R.string.bento_transfer_title_download
-                EngineEvent.TransferKind.IMPORT -> R.string.bento_transfer_title_import
-                EngineEvent.TransferKind.UNKNOWN -> R.string.bento_transfer_title_generic
+                EngineEvent.TransferKind.BACKUP -> StringsR.string.bento_transfer_title_backup
+                EngineEvent.TransferKind.UPLOAD -> StringsR.string.bento_transfer_title_upload
+                EngineEvent.TransferKind.DOWNLOAD -> StringsR.string.bento_transfer_title_download
+                EngineEvent.TransferKind.IMPORT -> StringsR.string.bento_transfer_title_import
+                EngineEvent.TransferKind.UNKNOWN -> StringsR.string.bento_transfer_title_generic
             }
         )
         val text = when {
-            progress == null || progress.total <= 0 -> context.getString(R.string.bento_transfer_preparing)
-            progress.paused -> context.getString(R.string.bento_transfer_paused)
-            else -> context.resources.getQuantityString(R.plurals.bento_transfer_progress, progress.total, progress.done, progress.total)
+            progress == null || progress.total <= 0 -> context.getString(StringsR.string.bento_transfer_preparing)
+
+            progress.paused -> context.getString(StringsR.string.bento_transfer_paused)
+
+            else -> context.resources.getQuantityString(
+                StringsR.plurals.bento_transfer_progress,
+                progress.total,
+                progress.done,
+                progress.total
+            )
         }
         val builder = NotificationCompat.Builder(context, CHANNEL_TRANSFERS)
-            .setSmallIcon(R.drawable.bento_ic_notification_temp)
+            .setSmallIcon(DesignR.drawable.ic_stat_bento)
             .setContentTitle(title)
             .setContentText(text)
             .setOngoing(true)
@@ -91,7 +100,7 @@ object BentoNotifications {
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setContentIntent(openApp(context))
-            .addAction(0, context.getString(R.string.bento_transfer_pause), TransferActionReceiver.pauseIntent(context))
+            .addAction(0, context.getString(StringsR.string.bento_transfer_pause), TransferActionReceiver.pauseIntent(context))
         if (progress == null || progress.bytesTotal <= 0) {
             builder.setProgress(0, 0, true)
         } else {
@@ -105,24 +114,24 @@ object BentoNotifications {
     }
 
     fun backupSummary(context: Context, count: Int): Notification = NotificationCompat.Builder(context, CHANNEL_TRANSFERS)
-        .setSmallIcon(R.drawable.bento_ic_notification_temp)
-        .setContentTitle(context.resources.getQuantityString(R.plurals.bento_transfer_finished_backup, count, count))
+        .setSmallIcon(DesignR.drawable.ic_stat_bento)
+        .setContentTitle(context.resources.getQuantityString(StringsR.plurals.bento_transfer_finished_backup, count, count))
         .setAutoCancel(true)
         .setContentIntent(openApp(context))
         .build()
 
     fun attention(context: Context): Notification = NotificationCompat.Builder(context, CHANNEL_ATTENTION)
-        .setSmallIcon(R.drawable.bento_ic_notification_temp)
-        .setContentTitle(context.getString(R.string.bento_attention_title))
-        .setContentText(context.getString(R.string.bento_attention_text))
+        .setSmallIcon(DesignR.drawable.ic_stat_bento)
+        .setContentTitle(context.getString(StringsR.string.bento_attention_title))
+        .setContentText(context.getString(StringsR.string.bento_attention_text))
         .setAutoCancel(true)
         .setContentIntent(openApp(context))
         .build()
 
     fun device(context: Context, title: String): Notification = NotificationCompat.Builder(context, CHANNEL_DEVICES)
-        .setSmallIcon(R.drawable.bento_ic_notification_temp)
+        .setSmallIcon(DesignR.drawable.ic_stat_bento)
         .setContentTitle(title)
-        .setContentText(context.getString(R.string.bento_device_review_text))
+        .setContentText(context.getString(StringsR.string.bento_device_review_text))
         .setPriority(NotificationCompat.PRIORITY_HIGH)
         .setAutoCancel(true)
         .setContentIntent(openApp(context))
@@ -170,12 +179,12 @@ class NotificationDriver(private val context: Context, private val policy: Notif
 
             is NotificationDecision.DeviceRequest -> manager.notify(
                 BentoNotifications.deviceId(decision.requestId),
-                BentoNotifications.device(context, context.getString(R.string.bento_device_request_title))
+                BentoNotifications.device(context, context.getString(StringsR.string.bento_device_request_title))
             )
 
             is NotificationDecision.DeviceAdded -> manager.notify(
                 BentoNotifications.deviceId(decision.deviceId),
-                BentoNotifications.device(context, context.getString(R.string.bento_device_added_title, decision.name))
+                BentoNotifications.device(context, context.getString(StringsR.string.bento_device_added_title, decision.name))
             )
         }
     }

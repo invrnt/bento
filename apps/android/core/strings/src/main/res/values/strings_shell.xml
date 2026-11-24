@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App shell (app/): launcher label, tabs, engine status. Features own their screens' strings. -->
+<resources>
+    <string name="app_name" translatable="false">Bento</string>
+    <string name="shell_nav_photos">Fotos</string>
+    <string name="shell_nav_files">Archivos</string>
+    <string name="shell_nav_collections">Colecciones</string>
+    <string name="shell_placeholder_destination">Pantalla pendiente: %1$s</string>
+    <string name="shell_engine_starting">Preparando tu nube…</string>
+    <string name="shell_engine_problem">Bento tuvo un problema al iniciar. Se reintentará solo.</string>
+</resources>

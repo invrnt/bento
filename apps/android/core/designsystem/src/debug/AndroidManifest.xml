@@ -6,6 +6,6 @@
             android:name="dev.bento.designsystem.kitchensink.KitchenSinkActivity"
             android:exported="true"
             android:label="Bento · Kitchen sink"
-            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+            android:theme="@style/Theme.Bento" />
     </application>
 </manifest>

@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <style name="Theme.Bento.Temp" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@color/bento_temp_background</item>
-    </style>
-
-    <color name="bento_temp_background">#FF1A1917</color>
-</resources>

@@ -6,7 +6,7 @@ import com.github.takahirom.roborazzi.captureRoboImage
 import dev.bento.app.navigation.BentoApp
 import dev.bento.app.navigation.Navigator
 import dev.bento.app.navigation.TopLevel
-import dev.bento.app.tempdesign.TempBentoTheme
+import dev.bento.designsystem.theme.BentoTheme
 import dev.bento.engine.EngineState
 import org.junit.Rule
 import org.junit.Test
@@ -15,7 +15,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/** Shell screenshots (temporary theme): compact and expanded, light and dark, engine starting. */
+/** Shell screenshots (BentoTheme): compact and expanded, light and dark, engine starting. */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class ShellScreenshotTest {
@@ -24,7 +24,7 @@ class ShellScreenshotTest {
 
     private fun shell(dark: Boolean, state: EngineState = EngineState.Ready(1, "t", dev.bento.engine.WorkerMode.FULL)) {
         compose.setContent {
-            TempBentoTheme(dark = dark) { BentoApp(Navigator(), state, onExit = {}) }
+            BentoTheme(darkTheme = dark, reducedMotion = true) { BentoApp(Navigator(), state, onExit = {}) }
         }
     }
 
@@ -47,7 +47,7 @@ class ShellScreenshotTest {
     fun expandedLightFiles() {
         compose.setContent {
             val nav = Navigator().apply { selectTab(TopLevel.FILES) }
-            TempBentoTheme(dark = false) { BentoApp(nav, EngineState.Stopped, onExit = {}) }
+            BentoTheme(darkTheme = false, reducedMotion = true) { BentoApp(nav, EngineState.Stopped, onExit = {}) }
         }
         compose.onRoot().captureRoboImage("src/test/screenshots/shell_expanded_light_files.png")
     }

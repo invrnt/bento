@@ -9,6 +9,8 @@ android {
 
 dependencies {
     api(project(":core:engine"))
+    // Notification icon (ic_stat_bento) and the notification strings (core/strings).
+    implementation(project(":core:designsystem"))
     api(libs.androidx.work.runtime)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.hilt.work)

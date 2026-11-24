@@ -56,6 +56,7 @@ dependencies {
     implementation(project(":core:api"))
     implementation(project(":core:data"))
     implementation(project(":core:background"))
+    implementation(project(":core:designsystem"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
@@ -73,8 +74,6 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.compose.foundation)
     implementation(libs.compose.material3)
-    implementation(libs.compose.material3.adaptive)
-    implementation(libs.compose.material3.adaptive.navigation.suite)
     implementation(libs.kotlinx.serialization.json)
     ksp(libs.androidx.hilt.compiler)
 
