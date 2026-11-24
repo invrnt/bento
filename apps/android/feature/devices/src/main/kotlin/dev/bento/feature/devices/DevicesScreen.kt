@@ -249,7 +249,7 @@ private fun lastSeen(device: DeviceResponse, now: Long): String {
 
         else -> stringResource(
             StringsR.string.devices_last_seen,
-            DateUtils.getRelativeTimeSpanString(seen, now, DateUtils.MINUTE_IN_MILLIS).toString()
+            DateUtils.getRelativeTimeSpanString(seen, now, DateUtils.MINUTE_IN_MILLIS).toString().replaceFirstChar { it.lowercase() }
         )
     }
 }
