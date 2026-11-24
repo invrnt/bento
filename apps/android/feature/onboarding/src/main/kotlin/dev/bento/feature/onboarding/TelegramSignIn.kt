@@ -8,6 +8,8 @@ import android.telephony.TelephonyManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -328,6 +330,7 @@ private fun CountrySheet(onPick: (Country) -> Unit, onDismiss: () -> Unit, query
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CodeStep(
     state: SignInState,
@@ -359,7 +362,8 @@ private fun CodeStep(
                 size = BentoButtonSize.Large,
                 leadingIcon = BentoIcons.ExternalLink
             )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            // Wraps instead of squeezing: at 200 % font "Reenviar en 0:42" would otherwise break mid-word.
+            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 BentoButton(
                     stringResource(StringsR.string.onboarding_code_change_number),
                     actions.onChangeNumber,

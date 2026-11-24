@@ -23,19 +23,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.metrics.performance.JankStats
 import androidx.metrics.performance.PerformanceMetricsState
 import dev.bento.api.generated.AssetResponse
 import dev.bento.designsystem.component.BentoIconButton
 import dev.bento.designsystem.component.BentoSnackbarHostState
-import dev.bento.designsystem.component.BentoTextAction
 import dev.bento.designsystem.component.FloatingAction
+import dev.bento.designsystem.format.pluralCountResource
 import dev.bento.designsystem.generated.BentoIcons
 import dev.bento.designsystem.theme.BentoTheme
 import dev.bento.strings.R as StringsR
@@ -56,16 +56,18 @@ fun SelectionTopBar(count: Int, onClose: () -> Unit, onSelectAll: (() -> Unit)?,
         verticalAlignment = Alignment.CenterVertically
     ) {
         BentoIconButton(BentoIcons.X, stringResource(StringsR.string.ds_clear_selection), onClose)
+        // One line, never hyphenated: select-all is an icon so the count keeps the room at 200 % font.
         Text(
-            pluralStringResource(StringsR.plurals.common_count_selected, count, count),
+            pluralCountResource(StringsR.plurals.common_count_selected, count),
             color = c.ink,
             style = BentoTheme.typography.sectionTitle.copy(fontFeatureSettings = "tnum"),
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f).padding(start = 4.dp).semantics { liveRegion = LiveRegionMode.Polite }
         )
-        if (onSelectAll !=
-            null
-        ) {
-            BentoTextAction(stringResource(StringsR.string.common_action_select_all), onSelectAll, Modifier.padding(end = 8.dp))
+        if (onSelectAll != null) {
+            BentoIconButton(BentoIcons.Check, stringResource(StringsR.string.common_action_select_all), onSelectAll)
         }
     }
 }

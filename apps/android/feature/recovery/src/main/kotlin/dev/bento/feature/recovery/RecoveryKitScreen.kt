@@ -35,6 +35,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -151,13 +152,16 @@ fun RecoveryKitContent(
         onBack = onBack,
         modifier = modifier,
         actions = {
+            val ready = typed.text.length == RecoveryCodes.GROUP
+            // At 200 % the field can sit below the fold: the disabled button says what it is waiting for.
+            val waiting = stringResource(StringsR.string.recovery_confirm_hint)
             BentoButton(
                 text = stringResource(StringsR.string.recovery_confirm_submit),
                 onClick = { onConfirm(typed.text.toString()) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().semantics { if (!ready) stateDescription = waiting },
                 variant = BentoButtonVariant.Primary,
                 size = BentoButtonSize.Large,
-                enabled = typed.text.length == RecoveryCodes.GROUP,
+                enabled = ready,
                 loading = ui.confirm.confirming
             )
             if (onLater != null) {

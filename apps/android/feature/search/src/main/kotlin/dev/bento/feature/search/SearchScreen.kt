@@ -40,9 +40,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
@@ -273,7 +276,10 @@ private fun dateLabel(date: DateFilter): String = when (date) {
     }
 }
 
-/** Filter chips (Tipo, Fecha, Carpeta), each opening its sheet; active ones show their value. */
+/**
+ * Filter chips (Tipo, Fecha, Carpeta), each opening its sheet (a dropdown for TalkBack); active ones show their value
+ * and read "Tipo: Fotos", with a custom action to remove just that filter.
+ */
 @Composable
 private fun FilterRow(state: SearchState, actions: SearchActions) {
     val filters = state.filters
@@ -281,29 +287,48 @@ private fun FilterRow(state: SearchState, actions: SearchActions) {
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        BentoFilterChip(
-            filters.kind?.let { kindLabel(it) } ?: stringResource(StringsR.string.search_filter_kind),
-            selected = filters.kind != null,
-            onSelectedChange = { actions.onSheet(FilterSheet.Kind) },
-            leadingIcon = BentoIcons.SlidersHorizontal
+        SearchFilterChip(
+            name = stringResource(StringsR.string.search_filter_kind),
+            value = filters.kind?.let { kindLabel(it) },
+            icon = BentoIcons.SlidersHorizontal,
+            onOpen = { actions.onSheet(FilterSheet.Kind) },
+            onRemove = { actions.onKind(null) }
         )
-        BentoFilterChip(
-            filters.date?.let { dateLabel(it) } ?: stringResource(StringsR.string.search_filter_date),
-            selected = filters.date != null,
-            onSelectedChange = { actions.onSheet(FilterSheet.Date) },
-            leadingIcon = BentoIcons.Calendar
+        SearchFilterChip(
+            name = stringResource(StringsR.string.search_filter_date),
+            value = filters.date?.let { dateLabel(it) },
+            icon = BentoIcons.Calendar,
+            onOpen = { actions.onSheet(FilterSheet.Date) },
+            onRemove = { actions.onDate(null) }
         )
-        BentoFilterChip(
-            filters.folder?.let { stringResource(StringsR.string.search_filter_folder_value, it.name) }
-                ?: stringResource(StringsR.string.search_filter_folder),
-            selected = filters.folder != null,
-            onSelectedChange = { actions.onSheet(FilterSheet.Folder) },
-            leadingIcon = BentoIcons.FolderClosed
+        SearchFilterChip(
+            name = stringResource(StringsR.string.search_filter_folder),
+            value = filters.folder?.let { stringResource(StringsR.string.search_filter_folder_value, it.name) },
+            icon = BentoIcons.FolderClosed,
+            onOpen = { actions.onSheet(FilterSheet.Folder) },
+            onRemove = { actions.onFolder(null) }
         )
         if (filters.active) {
             BentoChip(stringResource(StringsR.string.search_empty_remove_filters), actions.onClearFilters, trailingIcon = BentoIcons.X)
         }
     }
+}
+
+@Composable
+private fun SearchFilterChip(name: String, value: String?, icon: ImageVector, onOpen: () -> Unit, onRemove: () -> Unit) {
+    val description = value?.let { stringResource(StringsR.string.common_label_value, name, it) } ?: name
+    val removeLabel = value?.let { stringResource(StringsR.string.search_filter_remove, name) }
+    BentoChip(
+        label = value ?: name,
+        onClick = onOpen,
+        leadingIcon = icon,
+        selected = value != null,
+        role = Role.DropdownList,
+        modifier = Modifier.semantics {
+            contentDescription = description
+            if (removeLabel != null) customActions = listOf(CustomAccessibilityAction(removeLabel) { onRemove().let { true } })
+        }
+    )
 }
 
 /** ≥ 840 dp: filters as a side pane. */
