@@ -1,0 +1,16 @@
+# The `android` dependency profile of architecture/android-runtime.md §4 (spike pins).
+# Deviations from apps/api/pyproject.toml are marked; see docs/dev/android-spike.md.
+fastapi>=0.115,<0.116
+pydantic==2.13.4
+pydantic-core==2.46.4          # built locally for Android (wheels/build_rust_wheel.sh)
+pydantic-settings>=2.7,<3
+sqlalchemy>=2.0,<2.1
+alembic>=1.14,<2
+cryptography==42.0.8           # DEVIATION: backend pins >=46,<47; Chaquopy repo's newest Android build is 42.0.8
+spake2>=0.9,<0.10
+segno>=1.6,<2
+telethon>=1.45,<2
+uvicorn>=0.34,<0.35            # without [standard]
+websockets>=15,<18
+python-multipart>=0.0.20,<0.1
+pillow==11.0.0                 # Chaquopy repo build (backend dev/media extras pin >=11,<12)
