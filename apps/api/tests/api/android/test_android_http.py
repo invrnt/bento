@@ -203,3 +203,41 @@ def test_pairing_link_form_depends_on_the_site_url() -> None:
     site = pairing_response(view, site_url="https://bento.example/")  # type: ignore[arg-type]
     assert site.link == site.web_link == "https://bento.example/join#v=1&c=X2B0-2YM6-Q3SQ"
     assert site.qr != plain.qr  # the QR encodes the link form in use
+
+
+def test_jobs_and_status_show_why_work_waits(tmp_path: Path) -> None:
+    from bento.adapters.jobs import SQLiteJobQueue
+    from bento.domain.jobs import JobType
+    from tests.unit.android.bridge_fakes import FakeDeviceConditions
+
+    conditions = FakeDeviceConditions(unmetered=False, metered=True, charging=False, battery_pct=60)
+    services.install_android_host(AndroidHost.from_bridges({"conditions": conditions}))
+    try:
+        data_dir = migrated_data_dir(tmp_path)
+        components = pipeline_for(data_dir, RemoteSwitch(None), storage_backend="local", platform="android")
+        settings = Settings(data_dir=str(data_dir), storage_backend="local", platform="android")
+        app = create_app(settings)
+        app.state.storage_pipeline = components
+        client = TestClient(app)
+        import asyncio
+
+        queue: SQLiteJobQueue = components.jobs
+
+        async def seed() -> dict[str, str]:
+            upload = await queue.enqueue(type=JobType.REMOTE_UPLOAD, priority=10, payload={"kind": "original"})
+            thumb = await queue.enqueue(type=JobType.REMOTE_UPLOAD, priority=11, payload={"kind": "thumbnail"})
+            ocr = await queue.enqueue(type=JobType.OCR, priority=3, payload={})
+            return {"upload": upload.id, "thumb": thumb.id, "ocr": ocr.id}
+
+        ids = asyncio.run(seed())
+        reasons = {job["id"]: job["wait_reason"] for job in client.get("/api/jobs").json()["items"]}
+        assert reasons == {ids["upload"]: "wifi", ids["thumb"]: None, ids["ocr"]: "charging"}
+        assert client.get("/api/sync/status").json()["waiting"] == {"wifi": 1, "charging": 1}
+        assert client.get("/api/backup/status").json()["waiting"]["wifi"] == 1
+
+        assert client.post("/api/backup/run-now").status_code == 202  # lifts the Wi-Fi rule for this backlog
+        services.get_job_eligibility(settings)  # cached per database; the run-now timestamp is read live
+        reasons = {job["id"]: job["wait_reason"] for job in client.get("/api/jobs").json()["items"]}
+        assert reasons[ids["upload"]] is None and reasons[ids["ocr"]] == "charging"
+    finally:
+        services.install_android_host(None)

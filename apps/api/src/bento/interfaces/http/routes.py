@@ -257,6 +257,8 @@ class JobResponse(BaseModel):
     error: str | None
     created_at: str
     updated_at: str
+    # Queued jobs held back by device conditions (Android): `offline|thermal|battery|charging|wifi`.
+    wait_reason: str | None = None
 
 
 class JobsResponse(BaseModel):
@@ -566,7 +568,11 @@ async def list_jobs(
 ) -> JobsResponse | JSONResponse:
     try:
         result = await _product_dependencies(request).jobs.list_jobs(ListJobsQuery(cursor=cursor, limit=_safe_limit(limit)))
-        return JobsResponse(items=[_job_response(job) for job in result.items], next_cursor=result.next_cursor)
+        items = [_job_response(job) for job in result.items]
+        reasons = _wait_reasons(request, result.items)
+        for item in items:
+            item.wait_reason = reasons.get(item.id)
+        return JobsResponse(items=items, next_cursor=result.next_cursor)
     except DomainError as exc:
         return _domain_error_response(request, exc)
 
@@ -741,6 +747,25 @@ async def delete_asset(asset_id: str, request: Request) -> AssetResponse | JSONR
 
 
 THUMBNAIL_SIZES = (256, 512, 1024)
+
+
+def _wait_reasons(request: Request, jobs: tuple[Job, ...]) -> dict[str, str]:
+    from bento.adapters.jobs.sqlite_queue import job_class
+    from bento.domain.jobs import JobStatus
+    from bento.infrastructure import services
+
+    deferral = services.get_job_eligibility(_settings(request)).current()
+    waiting = [job for job in jobs if job.status in {JobStatus.QUEUED, JobStatus.RETRYING}]
+    if deferral.empty or not waiting:
+        return {}
+    videos = _photo_details(request).video_asset_ids([job.asset_id for job in waiting if job.asset_id])
+    reasons: dict[str, str] = {}
+    for job in waiting:
+        reason = deferral.reasons.get(job_class(job, is_video=job.asset_id in videos))
+        cutoff = deferral.wifi_override_before
+        if reason is not None and not (reason.value == "wifi" and cutoff is not None and job.created_at <= cutoff):
+            reasons[job.id] = reason.value
+    return reasons
 _pin_downloads: set[Any] = set()
 
 

@@ -13,7 +13,7 @@ from bento.adapters.repositories.mappers import blob_ref_from_model
 from bento.domain.jobs import JobStatus, JobType
 from bento.domain.storage import BlobKind, BlobRef, StorageBackend
 from bento.infrastructure.db.engine import session_scope
-from bento.infrastructure.db.models import BlobRefModel, JobModel, ThumbnailModel
+from bento.infrastructure.db.models import AssetModel, BlobRefModel, JobModel, ThumbnailModel
 
 _ACTIVE = (JobStatus.QUEUED.value, JobStatus.RUNNING.value, JobStatus.RETRYING.value)
 
@@ -81,6 +81,12 @@ class SQLitePhotoDetails:
                 thumbnail_etag=hashlib.sha1("|".join(ids).encode()).hexdigest()[:16] if ids else None,
             )
         return result
+
+    def video_asset_ids(self, asset_ids: list[str]) -> set[str]:
+        if not asset_ids:
+            return set()
+        with session_scope(self._session_factory) as session:
+            return set(session.scalars(select(AssetModel.id).where(AssetModel.id.in_(asset_ids), AssetModel.kind == "video")))
 
     def thumbnail_bytes(self) -> int:
         """Bytes of thumbnails and previews stored on this device (they are kept, never evicted)."""
