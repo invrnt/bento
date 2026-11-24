@@ -1,8 +1,25 @@
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Protocol
 
+from bento.domain.device import JobDeferral, WaitReason
 from bento.domain.jobs import Job, JobType
+
+
+@dataclass(frozen=True, slots=True)
+class JobBacklog:
+    """Queued/retrying jobs (optionally of some types) as the worker sees them now."""
+
+    runnable: int = 0
+    deferred: dict[WaitReason, int] = field(default_factory=dict)
+    scheduled: int = 0
+    next_run_after: datetime | None = None
+
+    @property
+    def remaining(self) -> int:
+        return self.runnable + sum(self.deferred.values()) + self.scheduled
 
 
 class JobQueuePort(Protocol):
@@ -27,6 +44,22 @@ class JobQueuePort(Protocol):
     async def release_abandoned(self, worker_id: str) -> int:
         """Requeue jobs left running by a worker that is no longer alive; returns how many."""
         ...
+
+
+class SelectiveJobQueuePort(JobQueuePort, Protocol):
+    """A queue that can claim by job type and skip jobs deferred by device conditions."""
+
+    async def claim_next(
+        self,
+        worker_id: str,
+        *,
+        types: frozenset[JobType] | None = None,
+        deferral: JobDeferral | None = None,
+    ) -> Job | None: ...
+
+    async def backlog(
+        self, *, types: frozenset[JobType] | None = None, deferral: JobDeferral | None = None
+    ) -> JobBacklog: ...
 
 
 class ActiveJobsPort(Protocol):

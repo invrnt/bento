@@ -12,9 +12,8 @@ from bento.adapters.embeddings import (
 )
 from bento.adapters.jobs import SQLiteJobQueue
 from bento.adapters.manifest import SQLiteManifestJournal
-from bento.adapters.backup.watcher import WatchdogFolderWatcher
-from bento.adapters.media import LocalMediaGenerator, SQLiteBlobRefCatalog, SQLiteThumbnailCatalog
-from bento.adapters.ocr import DisabledOCRAdapter, MockOCRAdapter, Pypdfium2PDFPageRenderer, RapidOCRAdapter, SQLitePDFPageTextCatalog
+from bento.adapters.media import SQLiteBlobRefCatalog, SQLiteThumbnailCatalog
+from bento.adapters.ocr import SQLitePDFPageTextCatalog
 from bento.adapters.repositories import SQLiteAssetRepository
 from bento.adapters.search.sqlite_fts import SQLiteFTSSearchIndex
 from bento.adapters.search.sqlite_vec import SQLiteVecSearchIndex
@@ -22,6 +21,7 @@ from bento.application.indexing.embedding import EmbeddingIndexingService
 from bento.application.indexing.reindex import ReindexService
 from bento.application.media import MediaProcessingService, ProcessingCompletionService
 from bento.application.indexing import OCRIndexingService
+from bento.infrastructure import services
 from bento.infrastructure.db.clock import SystemClock
 from bento.infrastructure.db.engine import create_app_session_factory
 from bento.infrastructure.settings import Settings, get_settings
@@ -41,38 +41,10 @@ LOGGER = logging.getLogger("bento.worker")
 
 
 async def run_worker(stop_event: asyncio.Event | None = None) -> None:
-    settings = get_settings()
-    LOGGER.info(
-        "Worker started in %s mode with concurrency=%s",
-        settings.storage_backend,
-        settings.worker_concurrency,
-    )
-    event = stop_event or asyncio.Event()
-    configure_change_capture(settings.storage_backend != "local")
-    worker_id = f"worker-{os.getpid()}"
-    dispatcher = _create_dispatcher(worker_id=worker_id, settings=settings)
-    released = await dispatcher.jobs.release_abandoned(worker_id)
-    if released:
-        LOGGER.info("Requeued %s jobs left running by a previous worker", released)
-    inbox_loop = asyncio.create_task(run_inbox_loop(settings, event))
-    pipeline_loop = asyncio.create_task(
-        StoragePipelineLoop(get_storage_pipeline(settings), watcher=WatchdogFolderWatcher()).run(event)
-    )
-    sync_task = start_sync_loop(settings, event)
-    try:
-        while not event.is_set():
-            processed = await dispatcher.process_one()
-            if processed:
-                continue
-            try:
-                await asyncio.wait_for(event.wait(), timeout=1.0)
-            except TimeoutError:
-                continue
-    finally:
-        event.set()
-        await asyncio.gather(inbox_loop, return_exceptions=True)
-        await pipeline_loop
-        await stop_sync_loop(sync_task)
+    """The worker process: job loop plus Inbox, storage-pipeline housekeeping, and sync loops until `stop_event`."""
+    from bento.interfaces.worker.runtime import WorkerRuntime
+
+    await WorkerRuntime(get_settings()).run(stop_event or asyncio.Event())
 
 
 def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> WorkerDispatcher:
@@ -93,17 +65,12 @@ def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> Work
         thumbnails=thumbnails,
         blob_store=pipeline.local_store,
         materializer=pipeline.materializer,
-        generator=LocalMediaGenerator(data_dir / "cache" / "media"),
+        generator=services.get_media_generator(settings, data_dir / "cache" / "media"),
         manifest=manifest,
         clock=clock,
         remote_uploads=pipeline.pipeline,
     )
-    if settings.ocr_provider == "rapidocr":
-        provider = RapidOCRAdapter()
-    elif settings.ocr_provider == "mock":
-        provider = MockOCRAdapter()
-    else:
-        provider = DisabledOCRAdapter()
+    provider = services.get_ocr_provider(settings)
     ocr = OCRIndexingService(
         assets=assets,
         blob_refs=blob_refs,
@@ -112,7 +79,7 @@ def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> Work
         index=SQLiteFTSSearchIndex(session_factory, clock),
         manifest=manifest,
         clock=clock,
-        pdf_renderer=Pypdfium2PDFPageRenderer(data_dir / "cache" / "ocr" / "pdf-pages"),
+        pdf_renderer=services.get_pdf_page_renderer(settings, data_dir / "cache" / "ocr" / "pdf-pages"),
         pdf_pages=SQLitePDFPageTextCatalog(session_factory, clock),
         index_recorder=create_asset_index_recorder(settings, session_factory),
     )

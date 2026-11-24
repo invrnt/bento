@@ -1,14 +1,18 @@
 from __future__ import annotations
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import ColumnElement, and_, false, func, not_, or_, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from bento.adapters.repositories.ids import new_id
-from bento.adapters.repositories.mappers import job_from_model, job_to_model
+from bento.adapters.repositories.mappers import aware, job_from_model, job_to_model
+from bento.domain.device import JobClass, JobDeferral, WaitReason
 from bento.domain.jobs import Job, JobStatus, JobType
 from bento.infrastructure.db.engine import session_scope
-from bento.infrastructure.db.models import JobModel
+from bento.infrastructure.db.models import AssetModel, JobModel
+from bento.ports.jobs import JobBacklog
 from bento.ports.repositories import ClockPort
+
+_WAITING = (JobStatus.QUEUED.value, JobStatus.RETRYING.value)
 
 
 class SQLiteJobQueue:
@@ -68,18 +72,27 @@ class SQLiteJobQueue:
         next_cursor = str(offset + limit) if len(models) > limit else None
         return tuple(job_from_model(model) for model in models[:limit]), next_cursor
 
-    async def claim_next(self, worker_id: str) -> Job | None:
+    async def claim_next(
+        self,
+        worker_id: str,
+        *,
+        types: frozenset[JobType] | None = None,
+        deferral: JobDeferral | None = None,
+    ) -> Job | None:
+        """The next due job by priority; `types` limits the job types, `deferral` skips deferred job classes."""
         now = self._clock.now()
         with session_scope(self._session_factory) as session:
+            statement = select(JobModel).where(
+                JobModel.status.in_(_WAITING),
+                JobModel.locked_by.is_(None),
+                or_(JobModel.run_after.is_(None), JobModel.run_after <= now),
+            )
+            if types is not None:
+                statement = statement.where(JobModel.type.in_(sorted(job_type.value for job_type in types)))
+            if deferral is not None and not deferral.empty:
+                statement = statement.where(not_(_deferred_condition(deferral)))
             model = session.scalar(
-                select(JobModel)
-                .where(
-                    JobModel.status.in_([JobStatus.QUEUED.value, JobStatus.RETRYING.value]),
-                    JobModel.locked_by.is_(None),
-                    or_(JobModel.run_after.is_(None), JobModel.run_after <= now),
-                )
-                .order_by(JobModel.priority.asc(), JobModel.created_at.asc(), JobModel.id.asc())
-                .limit(1)
+                statement.order_by(JobModel.priority.asc(), JobModel.created_at.asc(), JobModel.id.asc()).limit(1)
             )
             if model is None:
                 return None
@@ -100,6 +113,34 @@ class SQLiteJobQueue:
             for model in models:
                 session.merge(job_to_model(job_from_model(model).release(now)))
             return len(models)
+
+    async def backlog(
+        self, *, types: frozenset[JobType] | None = None, deferral: JobDeferral | None = None
+    ) -> JobBacklog:
+        now = self._clock.now()
+        waiting = [JobModel.status.in_(_WAITING), JobModel.locked_by.is_(None)]
+        if types is not None:
+            waiting.append(JobModel.type.in_(sorted(job_type.value for job_type in types)))
+        due = or_(JobModel.run_after.is_(None), JobModel.run_after <= now)
+        deferred: dict[WaitReason, int] = {}
+        with session_scope(self._session_factory) as session:
+            counted: ColumnElement[bool] = false()
+            if deferral is not None:
+                for job_class, reason in deferral.reasons.items():
+                    condition = _class_condition(job_class, deferral)
+                    count = int(session.scalar(select(func.count()).where(*waiting, due, condition, not_(counted))) or 0)
+                    if count:
+                        deferred[reason] = deferred.get(reason, 0) + count
+                    counted = or_(counted, condition)
+            runnable = int(session.scalar(select(func.count()).where(*waiting, due, not_(counted))) or 0)
+            scheduled = int(session.scalar(select(func.count()).where(*waiting, not_(due))) or 0)
+            next_run_after = session.scalar(select(func.min(JobModel.run_after)).where(*waiting, not_(due)))
+        return JobBacklog(
+            runnable=runnable,
+            deferred=deferred,
+            scheduled=scheduled,
+            next_run_after=aware(next_run_after) if next_run_after is not None else None,
+        )
 
     async def has_active(
         self, asset_id: str, *, types: frozenset[JobType], exclude_job_id: str | None = None
@@ -151,3 +192,44 @@ def _decode_cursor(cursor: str | None) -> int:
     except ValueError:
         return 0
     return max(value, 0)
+
+
+def _deferred_condition(deferral: JobDeferral) -> ColumnElement[bool]:
+    return or_(false(), *(_class_condition(job_class, deferral) for job_class in deferral.reasons))
+
+
+def _class_condition(job_class: JobClass, deferral: JobDeferral) -> ColumnElement[bool]:
+    """SQL for "a job of `job_class` that `deferral` holds back" (see `domain/device.py`)."""
+    kind = func.json_extract(JobModel.payload_json, "$.kind")
+    videos = select(AssetModel.id).where(AssetModel.kind == "video")
+    remote = JobModel.type == JobType.REMOTE_UPLOAD.value
+    if job_class == JobClass.ORIGINAL_UPLOAD:
+        condition = and_(remote, kind == "original", or_(JobModel.asset_id.is_(None), JobModel.asset_id.not_in(videos)))
+    elif job_class == JobClass.VIDEO_UPLOAD:
+        condition = and_(remote, kind == "original", JobModel.asset_id.in_(videos))
+    elif job_class == JobClass.DERIVED_UPLOAD:
+        condition = and_(remote, or_(kind.is_(None), kind != "original"))
+    elif job_class == JobClass.INDEXING:
+        condition = JobModel.type.in_((JobType.OCR.value, JobType.EMBEDDING.value))
+    elif job_class == JobClass.BULK_LOCAL:
+        condition = JobModel.type == JobType.BACKUP_UPLOAD.value
+    else:
+        return false()
+    cutoff = deferral.wifi_override_before
+    if cutoff is not None and deferral.reasons.get(job_class) == WaitReason.WIFI:
+        # `POST /backup/run-now`: uploads queued before the override run anyway; newer ones keep waiting.
+        condition = and_(condition, JobModel.created_at > cutoff)
+    return condition
+
+
+def job_class(job: Job, *, is_video: bool = False) -> JobClass:
+    """Python mirror of `_class_condition` for one job (asset kind supplied by the caller)."""
+    if job.type == JobType.REMOTE_UPLOAD:
+        if job.payload.get("kind") == "original":
+            return JobClass.VIDEO_UPLOAD if is_video else JobClass.ORIGINAL_UPLOAD
+        return JobClass.DERIVED_UPLOAD
+    if job.type in {JobType.OCR, JobType.EMBEDDING}:
+        return JobClass.INDEXING
+    if job.type == JobType.BACKUP_UPLOAD:
+        return JobClass.BULK_LOCAL
+    return JobClass.OTHER
