@@ -53,6 +53,20 @@ class _StreamToLog(io.TextIOBase):
         self._buffer = ""
 
 
+_installed: list[logging.Handler] = []
+
+
+def reinstall() -> None:
+    """Restore the redacted handlers after something (alembic's fileConfig) reset the root logger."""
+    root = logging.getLogger()
+    for handler in _installed:
+        if handler not in root.handlers:
+            root.addHandler(handler)
+    if _installed:
+        root.setLevel(logging.INFO)
+    logging.getLogger("alembic").setLevel(logging.WARNING)
+
+
 def install(log_dir: Path, *, mirror: bool, secrets: tuple[str, ...]) -> None:
     _secrets.extend(s for s in secrets if s and s not in _secrets)
     root = logging.getLogger()
@@ -71,5 +85,6 @@ def install(log_dir: Path, *, mirror: bool, secrets: tuple[str, ...]) -> None:
         console.setFormatter(logging.Formatter("%(levelname)s %(name)s %(message)s"))
         root.addHandler(console)
     root.setLevel(logging.INFO)
+    _installed[:] = list(root.handlers)
     sys.stdout = _StreamToLog(logging.getLogger("stdout"), logging.INFO)
     sys.stderr = _StreamToLog(logging.getLogger("stderr"), logging.WARNING)

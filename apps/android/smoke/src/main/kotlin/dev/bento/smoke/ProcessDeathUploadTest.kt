@@ -12,6 +12,7 @@ import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import okio.BufferedSink
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -43,6 +44,32 @@ class ProcessDeathUploadTest {
         }
     }
 
+    private fun call(endpoint: AppDriver.Endpoint, method: String, path: String, json: String? = null): JsonObject {
+        val body = json?.toRequestBody("application/json".toMediaType()) ?: if (method == "POST") ByteArray(0).toRequestBody(null) else null
+        client.newCall(request(endpoint, path).method(method, body).build()).execute().use { response ->
+            check(response.isSuccessful) { "$method $path -> ${response.code}" }
+            return Json.parseToJsonElement(response.body.string()).jsonObject
+        }
+    }
+
+    /** Fake cloud (debug): QR login auto-approves; create the vault and confirm the kit so uploads run. */
+    private fun signInWithFakeCloud(endpoint: AppDriver.Endpoint) {
+        fun state() = call(endpoint, "GET", "/api/vault")["state"]!!.jsonPrimitive.content
+        if (state() == "ready") return
+        if (call(endpoint, "GET", "/api/account")["step"]!!.jsonPrimitive.content != "authorized") {
+            call(endpoint, "POST", "/api/account/login/qr")
+            val deadline = System.currentTimeMillis() + 30_000
+            while (call(endpoint, "GET", "/api/account")["step"]!!.jsonPrimitive.content != "authorized") {
+                check(System.currentTimeMillis() < deadline) { "fake login did not authorize" }
+                Thread.sleep(200)
+            }
+        }
+        if (state() == "no_vault") {
+            val code = call(endpoint, "POST", "/api/vault")["recovery_code"]!!.jsonPrimitive.content
+            call(endpoint, "POST", "/api/vault/recovery-code/confirm", "{\"last_group\":\"${code.substringAfterLast('-')}\"}")
+        }
+    }
+
     @Test
     fun uploadResumesAfterSigkill() {
         AppDriver.forceStop()
@@ -52,6 +79,7 @@ class ProcessDeathUploadTest {
         AppDriver.forceStop()
         AppDriver.launch()
         val first = AppDriver.awaitEndpoint()
+        signInWithFakeCloud(first)
 
         val expected = MessageDigest.getInstance("SHA-256")
         val body = object : RequestBody() {

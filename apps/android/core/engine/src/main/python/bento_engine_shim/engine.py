@@ -102,6 +102,9 @@ def migrate() -> dict[str, Any]:
     from bento.interfaces.desktop import launcher
 
     launcher._run_migrations()
+    from bento_engine_shim.redaction import reinstall
+
+    reinstall()  # alembic's fileConfig() replaces the root handlers
     after = _alembic_revision()
     return {"from": before, "to": after, "ran": before != after, "ms": int((time.perf_counter() - started) * 1000)}
 
@@ -154,14 +157,17 @@ def start_worker(mode: str) -> None:
     with _lock:
         if _state["worker"] == mode:
             return None
-        _stop_worker_loop(10.0)
+    _stop_worker_loop(10.0)
+    ready = threading.Event()
+    with _lock:
+        _state["worker"] = mode
         if mode == "full":
-            ready = threading.Event()
             thread = threading.Thread(target=_full_worker_thread, args=(ready,), name="bento-worker", daemon=True)
             _state["worker_thread"] = thread
             thread.start()
-            ready.wait(30)
-        _state["worker"] = mode
+    # Wait outside the lock: the worker thread registers its loop under it.
+    if mode == "full" and not ready.wait(30):
+        LOGGER.warning("worker loop did not report ready within 30 s")
     return None
 
 
@@ -221,7 +227,12 @@ class EngineConfigError(RuntimeError):
 
 # region worker
 def _full_worker_thread(ready: threading.Event) -> None:
-    from bento.interfaces.worker.main import run_worker
+    try:
+        from bento.interfaces.worker.main import run_worker
+    except Exception as error:  # noqa: BLE001
+        _record_crash("worker", error)
+        ready.set()
+        return
 
     attempt = 0
     while True:

@@ -46,7 +46,11 @@ object AppDriver {
         error("engine endpoint not published within $timeoutMs ms")
     }
 
+    /** SIGKILL (no cleanup runs), then wait until the system has reaped the process. */
     fun kill(pid: Int) {
         shell("run-as $PACKAGE kill -9 $pid")
+        val deadline = System.currentTimeMillis() + 10_000
+        while (shell("pidof $PACKAGE").trim().split(" ").contains(pid.toString()) && System.currentTimeMillis() < deadline) Thread.sleep(100)
+        Thread.sleep(500)
     }
 }
