@@ -10,11 +10,13 @@
 <title>Bento · Your private cloud, with no storage limit, kept in your Telegram</title>
 <meta name="description" content="Bento backs up your photos and files, encrypted, to your own Telegram account and keeps them in order across all your computers. For Windows, macOS and Linux.">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="/assets/fonts/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/site.css">
 <link rel="alternate" hreflang="es" href="/">
 <link rel="alternate" hreflang="en" href="/en/">
+<script type="module" src="/assets/motion.js"></script>
 </head>
-<body>
+<body class="home">
 <a class="skip-link" href="#content">Skip to content</a>
 <header class="site-header">
   <div class="wrap">
@@ -37,12 +39,12 @@
 </header>
 
 <main id="content">
-  <div class="wrap">
-    <section class="hero" aria-labelledby="title">
-      <div>
-        <span class="eyebrow">Your private cloud, in order</span>
-        <h1 id="title">Your private cloud, with no storage limit, kept in your Telegram.</h1>
-        <p class="lead">Bento backs up your photos and files to your own Telegram account, encrypted before they leave your computer, and keeps them in order across all your devices. No bots, no technical setup.</p>
+  <section class="hero" aria-labelledby="title">
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <span class="eyebrow eyebrow-chip"><span class="eyebrow-dot" aria-hidden="true"></span>Your private cloud, in order</span>
+        <h1 id="title"><span class="h1-line">Everything in its place.</span> <span class="h1-line h1-soft">Encrypted, in your own Telegram.</span></h1>
+        <p class="lead">Bento backs up your photos and files to your own Telegram account, with no storage limit, encrypted before they leave your computer, and keeps them in order across all your devices. No bots, no technical setup.</p>
         <div class="button-row">
           <a class="button button-primary button-xl" href="#download">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
@@ -52,149 +54,277 @@
         </div>
         <p class="hero-note">For Windows, macOS and Linux. Telegram does not announce a total storage limit, but it does not guarantee one by contract either: <a href="#limits">read the limits</a>. Bento uses the Telegram API and is not affiliated with Telegram.</p>
       </div>
-      <div class="box-illustration" aria-hidden="true">
-        <div class="box-photos">
-          <span class="mini-label">Photos · October</span>
-          <div class="photo-grid"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-        </div>
-        <div>
-          <span class="status-pill"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>All up to date</span>
-          <p class="mini-stat">1.2 TB</p>
-          <p class="mini-sub">in your cloud</p>
-        </div>
-        <div>
-          <span class="mini-label">Add device</span>
-          <span class="code-chip">K7Q2-MXR9-T4WA</span>
-          <span class="emoji-row">🐙 🌵 🎈 🚀</span>
-        </div>
-      </div>
-    </section>
 
-    <section class="section" id="how-it-works" aria-labelledby="how-it-works-title">
-      <div class="section-head">
+      <div class="hero-stage" aria-hidden="true" data-tilt data-progress="exit">
+        <div class="hero-lid"><span class="lid-cord"></span></div>
+        <div class="hero-box">
+          <div class="hb hb-photos">
+            <span class="hb-label">Photos · October</span>
+            <div class="photos"><span class="ph ph-1"></span><span class="ph ph-2"></span><span class="ph ph-3"></span><span class="ph ph-4"></span><span class="ph ph-5"></span><span class="ph ph-6"></span><span class="ph ph-7"></span><span class="ph ph-8"></span><span class="ph ph-9"></span></div>
+          </div>
+          <div class="hb hb-doc">
+            <span class="kind-badge kind-pdf">PDF</span>
+            <span class="hb-title">Passport.pdf</span>
+            <span class="lines"><span></span><span></span><span></span></span>
+          </div>
+          <div class="hb hb-status">
+            <span class="status-pill"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>All up to date</span>
+            <span class="hb-stat">1.2 TB</span>
+            <span class="hb-sub">in your cloud</span>
+          </div>
+          <div class="hb hb-audio" data-live>
+            <span class="wave"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span>
+            <span class="hb-sub">Voice note · 0:42</span>
+          </div>
+          <div class="hb hb-search">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <span class="hb-query">power bill</span>
+            <span class="kind-badge kind-sheet">3</span>
+          </div>
+        </div>
+        <div class="hero-floor"></div>
+      </div>
+    </div>
+
+    <div class="kinds" aria-hidden="true" data-progress>
+      <div class="kinds-row">
+        <span class="kind-chip k-image">Photos</span><span class="kind-chip k-video">Videos</span><span class="kind-chip k-pdf">PDFs</span><span class="kind-chip k-doc">Documents</span><span class="kind-chip k-sheet">Spreadsheets</span><span class="kind-chip k-audio">Voice notes</span><span class="kind-chip k-folder">Folders</span><span class="kind-chip k-archive">Archives</span><span class="kind-chip k-text">Notes</span>
+        <span class="kind-chip k-image">Screenshots</span><span class="kind-chip k-video">Videos</span><span class="kind-chip k-pdf">Invoices</span><span class="kind-chip k-doc">Contracts</span><span class="kind-chip k-sheet">Budgets</span><span class="kind-chip k-audio">Music</span><span class="kind-chip k-folder">Projects</span>
+      </div>
+      <div class="kinds-row kinds-row-reverse">
+        <span class="kind-chip k-folder">Desktop</span><span class="kind-chip k-doc">Thesis</span><span class="kind-chip k-image">Trip 2024</span><span class="kind-chip k-archive">.zip backups</span><span class="kind-chip k-pdf">Recipes</span><span class="kind-chip k-video">Birthdays</span><span class="kind-chip k-text">Ideas</span><span class="kind-chip k-sheet">Expenses</span><span class="kind-chip k-audio">Podcasts</span>
+        <span class="kind-chip k-folder">Pictures</span><span class="kind-chip k-doc">Documents</span><span class="kind-chip k-image">Family</span><span class="kind-chip k-archive">Backups</span><span class="kind-chip k-pdf">Deeds</span><span class="kind-chip k-video">Wedding</span><span class="kind-chip k-text">Class notes</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="section story" id="how-it-works" aria-labelledby="how-it-works-title">
+    <div class="wrap">
+      <div class="section-head" data-reveal>
         <span class="eyebrow">How it works</span>
         <h2 id="how-it-works-title">Three steps and you are done</h2>
-        <p>You use the Telegram account you already have. Bento takes care of the rest in the background.</p>
+        <p>Like packing a bento: you fill it, wrap it and take it with you. You use the Telegram account you already have and Bento takes care of the rest in the background.</p>
       </div>
-      <ol class="steps grid grid-3">
-        <li class="compartment">
-          <span class="step-number" aria-hidden="true">1</span>
-          <h3>Connect your Telegram</h3>
-          <p>Open Telegram on your phone › Settings › Devices › Link Desktop Device and scan the QR code Bento shows you. You can also sign in with your phone number.</p>
-        </li>
-        <li class="compartment">
-          <span class="step-number" aria-hidden="true">2</span>
-          <h3>Choose what to back up</h3>
-          <p>Bento suggests Pictures, Documents and Desktop. Turn on the folders you want: they upload in the background, resume on their own and never block your computer.</p>
-        </li>
-        <li class="compartment">
-          <span class="step-number" aria-hidden="true">3</span>
-          <h3>Save your recovery kit</h3>
-          <p>A code only you have. With your Telegram and that code you can recover everything, even if you lose your computers.</p>
-        </li>
-      </ol>
-      <p class="callout">
+
+      <div class="story-grid" data-story>
+        <div class="story-stage" aria-hidden="true">
+          <div class="stage" data-stage data-active="3">
+            <div class="scene scene-qr">
+              <div class="phone">
+                <span class="phone-notch"></span>
+                <span class="phone-title">Link device</span>
+                <span class="qr">
+                  <svg viewBox="-2 -2 29 29" aria-hidden="true"><path d="M9 0h1v1h-1zM16 0h1v1h-1zM9 1h1v1h-1zM10 1h1v1h-1zM12 1h1v1h-1zM13 1h1v1h-1zM14 1h1v1h-1zM15 1h1v1h-1zM11 2h1v1h-1zM14 2h1v1h-1zM16 2h1v1h-1zM9 3h1v1h-1zM10 3h1v1h-1zM8 4h1v1h-1zM9 4h1v1h-1zM10 4h1v1h-1zM12 4h1v1h-1zM13 4h1v1h-1zM15 4h1v1h-1zM9 5h1v1h-1zM10 5h1v1h-1zM12 5h1v1h-1zM13 5h1v1h-1zM16 5h1v1h-1zM10 6h1v1h-1zM12 6h1v1h-1zM13 6h1v1h-1zM16 6h1v1h-1zM8 7h1v1h-1zM9 7h1v1h-1zM10 7h1v1h-1zM12 7h1v1h-1zM13 7h1v1h-1zM1 8h1v1h-1zM3 8h1v1h-1zM6 8h1v1h-1zM7 8h1v1h-1zM9 8h1v1h-1zM10 8h1v1h-1zM13 8h1v1h-1zM14 8h1v1h-1zM16 8h1v1h-1zM17 8h1v1h-1zM19 8h1v1h-1zM21 8h1v1h-1zM24 8h1v1h-1zM0 9h1v1h-1zM2 9h1v1h-1zM3 9h1v1h-1zM4 9h1v1h-1zM6 9h1v1h-1zM7 9h1v1h-1zM8 9h1v1h-1zM9 9h1v1h-1zM11 9h1v1h-1zM17 9h1v1h-1zM18 9h1v1h-1zM20 9h1v1h-1zM2 10h1v1h-1zM5 10h1v1h-1zM6 10h1v1h-1zM15 10h1v1h-1zM16 10h1v1h-1zM17 10h1v1h-1zM18 10h1v1h-1zM19 10h1v1h-1zM22 10h1v1h-1zM24 10h1v1h-1zM0 11h1v1h-1zM5 11h1v1h-1zM7 11h1v1h-1zM9 11h1v1h-1zM15 11h1v1h-1zM17 11h1v1h-1zM19 11h1v1h-1zM20 11h1v1h-1zM22 11h1v1h-1zM0 12h1v1h-1zM2 12h1v1h-1zM5 12h1v1h-1zM9 12h1v1h-1zM16 12h1v1h-1zM17 12h1v1h-1zM20 12h1v1h-1zM22 12h1v1h-1zM23 12h1v1h-1zM24 12h1v1h-1zM0 13h1v1h-1zM4 13h1v1h-1zM5 13h1v1h-1zM7 13h1v1h-1zM8 13h1v1h-1zM9 13h1v1h-1zM15 13h1v1h-1zM18 13h1v1h-1zM20 13h1v1h-1zM22 13h1v1h-1zM24 13h1v1h-1zM0 14h1v1h-1zM1 14h1v1h-1zM3 14h1v1h-1zM5 14h1v1h-1zM6 14h1v1h-1zM7 14h1v1h-1zM8 14h1v1h-1zM15 14h1v1h-1zM17 14h1v1h-1zM18 14h1v1h-1zM19 14h1v1h-1zM20 14h1v1h-1zM21 14h1v1h-1zM1 15h1v1h-1zM2 15h1v1h-1zM6 15h1v1h-1zM9 15h1v1h-1zM10 15h1v1h-1zM11 15h1v1h-1zM12 15h1v1h-1zM13 15h1v1h-1zM20 15h1v1h-1zM4 16h1v1h-1zM12 16h1v1h-1zM14 16h1v1h-1zM16 16h1v1h-1zM18 16h1v1h-1zM21 16h1v1h-1zM22 16h1v1h-1zM23 16h1v1h-1zM8 17h1v1h-1zM9 17h1v1h-1zM10 17h1v1h-1zM11 17h1v1h-1zM15 17h1v1h-1zM19 17h1v1h-1zM22 17h1v1h-1zM23 17h1v1h-1zM24 17h1v1h-1zM8 18h1v1h-1zM9 18h1v1h-1zM10 18h1v1h-1zM20 18h1v1h-1zM21 18h1v1h-1zM22 18h1v1h-1zM8 19h1v1h-1zM9 19h1v1h-1zM14 19h1v1h-1zM15 19h1v1h-1zM16 19h1v1h-1zM19 19h1v1h-1zM21 19h1v1h-1zM22 19h1v1h-1zM23 19h1v1h-1zM9 20h1v1h-1zM10 20h1v1h-1zM11 20h1v1h-1zM14 20h1v1h-1zM15 20h1v1h-1zM16 20h1v1h-1zM18 20h1v1h-1zM21 20h1v1h-1zM16 21h1v1h-1zM17 21h1v1h-1zM22 21h1v1h-1zM24 21h1v1h-1zM10 22h1v1h-1zM13 22h1v1h-1zM15 22h1v1h-1zM16 22h1v1h-1zM17 22h1v1h-1zM20 22h1v1h-1zM24 22h1v1h-1zM9 23h1v1h-1zM10 23h1v1h-1zM12 23h1v1h-1zM13 23h1v1h-1zM14 23h1v1h-1zM20 23h1v1h-1zM22 23h1v1h-1zM23 23h1v1h-1zM24 23h1v1h-1zM9 24h1v1h-1zM10 24h1v1h-1zM11 24h1v1h-1zM12 24h1v1h-1zM16 24h1v1h-1zM18 24h1v1h-1zM19 24h1v1h-1zM20 24h1v1h-1zM22 24h1v1h-1z"/><path fill-rule="evenodd" d="M0 0h7v7h-7zM1 1v5h5v-5zM2 2h3v3h-3zM18 0h7v7h-7zM19 1v5h5v-5zM20 2h3v3h-3zM0 18h7v7h-7zM1 19v5h5v-5zM2 20h3v3h-3z"/></svg>
+                  <span class="qr-scan"></span>
+                </span>
+                <span class="phone-sub">Settings › Devices</span>
+              </div>
+            </div>
+            <div class="scene scene-box">
+              <div class="mini-box">
+                <span class="mb-cell mb-tall"><span class="folder-chip fc-1"><span class="fc-icon"></span>Pictures<span class="fc-bar"></span></span></span>
+                <span class="mb-cell"><span class="folder-chip fc-2"><span class="fc-icon"></span>Documents<span class="fc-bar"></span></span></span>
+                <span class="mb-cell"><span class="folder-chip fc-3"><span class="fc-icon"></span>Desktop<span class="fc-bar"></span></span></span>
+              </div>
+            </div>
+            <div class="scene scene-wrap">
+              <div class="furoshiki"><span class="knot"><span class="ear ear-l"></span><span class="ear ear-r"></span><span class="knot-core"></span></span></div>
+              <div class="kit-card">
+                <span class="kit-label"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>Recovery kit</span>
+                <span class="kit-code">••••-••••-••••-••••</span>
+              </div>
+            </div>
+            <ol class="stage-dots"><li></li><li></li><li></li></ol>
+          </div>
+        </div>
+
+        <ol class="story-steps">
+          <li class="story-step" data-step="1">
+            <span class="step-number" aria-hidden="true">1</span>
+            <span class="step-kicker">Connect</span>
+            <h3>Connect your Telegram</h3>
+            <p>Open Telegram on your phone › Settings › Devices › Link Desktop Device and scan the QR code Bento shows you. You can also sign in with your phone number.</p>
+          </li>
+          <li class="story-step" data-step="2">
+            <span class="step-number" aria-hidden="true">2</span>
+            <span class="step-kicker">Fill</span>
+            <h3>Choose what to back up</h3>
+            <p>Bento suggests Pictures, Documents and Desktop. Turn on the folders you want: they upload in the background, resume on their own and never block your computer.</p>
+          </li>
+          <li class="story-step" data-step="3">
+            <span class="step-number" aria-hidden="true">3</span>
+            <span class="step-kicker">Wrap</span>
+            <h3>Save your recovery kit</h3>
+            <p>Everything leaves your computer wrapped, like a bento in its <i lang="ja">furoshiki</i>: encrypted. The knot is a code only you have. With your Telegram and that code you can recover everything, even if you lose your computers.</p>
+          </li>
+        </ol>
+      </div>
+
+      <p class="callout" data-reveal>
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
         <span>Your cloud lives in three private channels Bento creates in your account (“Bento · Archivos”, “Bento · Sync” and “Bento · Bandeja”) inside a chat folder called “Bento”. You are the only member.</span>
       </p>
-    </section>
+    </div>
+  </section>
 
-    <section class="section" id="privacy" aria-labelledby="privacy-title">
-      <div class="section-head">
+  <section class="section" id="privacy" aria-labelledby="privacy-title">
+    <div class="wrap">
+      <div class="section-head" data-reveal>
         <span class="eyebrow">Privacy</span>
         <h2 id="privacy-title">Your files, unreadable to everyone but you</h2>
         <p>Bento encrypts everything it uploads on your computer. Neither Telegram nor Bento can open your cloud.</p>
       </div>
-      <div class="grid grid-4">
-        <article class="compartment">
+
+      <div class="bento-grid privacy-grid" data-stagger>
+        <figure class="tile lens" data-lens>
+          <div class="lens-head">
+            <figcaption>
+              <span class="lens-title">The same files, as seen by…</span>
+              <span class="lens-hint">Telegram stores encrypted parts: it sees their size and time, not what they are.</span>
+            </figcaption>
+            <div class="segmented" role="group" aria-label="Change who is looking" data-lens-controls hidden>
+              <button type="button" aria-pressed="true" data-lens-mode="plain">You</button>
+              <button type="button" aria-pressed="false" data-lens-mode="cipher">Telegram</button>
+            </div>
+          </div>
+          <ul class="lens-list">
+            <li><span class="lens-thumb kind-image"></span><span class="lens-text"><span class="lens-name" data-cipher>Tayrona beach.jpg</span><span class="lens-meta" data-cipher="4.2 MB · uploaded 14:02">Aug 12, 2024 · Santa Marta</span></span></li>
+            <li><span class="lens-thumb kind-pdf"></span><span class="lens-text"><span class="lens-name" data-cipher>Passport.pdf</span><span class="lens-meta" data-cipher="1.1 MB · uploaded 14:02">Documents · personal</span></span></li>
+            <li><span class="lens-thumb kind-sheet"></span><span class="lens-text"><span class="lens-name" data-cipher>Household budget.xlsx</span><span class="lens-meta" data-cipher="88 KB · uploaded 14:03">Spreadsheets · 3 sheets</span></span></li>
+            <li><span class="lens-thumb kind-video"></span><span class="lens-text"><span class="lens-name" data-cipher>Mom’s birthday.mp4</span><span class="lens-meta" data-cipher="312 MB · uploaded 14:05">Mar 3, 2025 · Medellín</span></span></li>
+          </ul>
+        </figure>
+
+        <article class="tile">
           <span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
           <h3>Encrypted on your computer</h3>
           <p>Contents, file and folder names, dates, photo locations and the text Bento recognizes are encrypted before they leave.</p>
         </article>
-        <article class="compartment">
+        <article class="tile">
           <span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></span>
           <h3>What Telegram sees</h3>
           <p>That you use Bento, how much encrypted data you store, when you upload it and which devices are signed in. Not what it is or what it is called.</p>
         </article>
-        <article class="compartment">
+        <article class="tile">
           <span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2h13a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-5"/><path d="M10 10 2.5 2.5C2 2 2 2.5 2 5v3a2 2 0 0 0 2 2h6z"/><path d="M22 17v-1a2 2 0 0 0-2-2h-1"/><path d="M4 14a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h16.5l1-.5.5.5-8-8H4z"/><path d="M6 18h.01"/><path d="m2 2 20 20"/></svg></span>
           <h3>No Bento servers</h3>
           <p>There are no Bento accounts and no servers that store your files. To pair devices, a relay passes encrypted messages for a few minutes and forgets them.</p>
         </article>
-        <article class="compartment">
+        <article class="tile">
           <span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg></span>
           <h3>You hold the key</h3>
           <p>Keys live on your devices and in your recovery kit. Bento cannot open your cloud or reset your access if you lose them all.</p>
         </article>
       </div>
+
+      <dl class="figures" data-stagger>
+        <div><dt>Random master key</dt><dd><span data-count="256">256</span><small>bits</small></dd></div>
+        <div><dt>Bento servers holding your files</dt><dd><span>0</span></dd></div>
+        <div><dt>Lifetime of a pairing code</dt><dd><span data-count="10">10</span><small>min</small></dd></div>
+        <div><dt>To restore what you delete</dt><dd><span data-count="30">30</span><small>days</small></dd></div>
+      </dl>
+
       <p class="more-links">
         <a href="/en/security/">Exactly what each party sees <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
         <a href="/en/privacy/">Privacy policy</a>
       </p>
-    </section>
+    </div>
+  </section>
 
-    <section class="section" id="devices" aria-labelledby="devices-title">
-      <div class="devices">
-        <div>
-          <div class="section-head">
-            <span class="eyebrow">All your devices</span>
-            <h2 id="devices-title">One code and your other computer is in</h2>
-            <p>Add as many computers as you like. They all see the same library and changes arrive on their own: rename, move or delete on one and the others follow.</p>
-          </div>
-          <ul class="check-list">
-            <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>On the computer you already use: <strong>Settings › Devices › Add device</strong>. You will see a QR code and a code like <span class="mono">K7Q2-MXR9-T4WA</span>.</span></li>
-            <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>On the new one: open Bento, choose <strong>“I already use Bento on another device”</strong> and type the code or paste the link.</span></li>
-            <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>Check that the <strong>four emojis</strong> match on both screens and press <strong>Add</strong>. If they don’t match, press <strong>Not me</strong>.</span></li>
-            <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>The code expires after 10 minutes and works once. Don’t have your other computer at hand? Sign in with Telegram and use your recovery kit.</span></li>
-          </ul>
+  <section class="section" id="devices" aria-labelledby="devices-title">
+    <div class="wrap devices">
+      <div>
+        <div class="section-head" data-reveal>
+          <span class="eyebrow">All your devices</span>
+          <h2 id="devices-title">One code and your other computer is in</h2>
+          <p>Add as many computers as you like. They all see the same library and changes arrive on their own: rename, move or delete on one and the others follow.</p>
         </div>
-        <div class="pairing-card" aria-hidden="true">
-          <span class="mini-label">Add device · expires in 9:41</span>
-          <span class="code-chip">K7Q2-MXR9-T4WA</span>
-          <span class="emoji-row">🐙 🌵 🎈 🚀</span>
+        <ul class="check-list" data-stagger>
+          <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>On the computer you already use: <strong>Settings › Devices › Add device</strong>. You will see a QR code and a code like <span class="mono">K7Q2-MXR9-T4WA</span>.</span></li>
+          <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>On the new one: open Bento, choose <strong>“I already use Bento on another device”</strong> and type the code or paste the link.</span></li>
+          <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>Check that the <strong>four emojis</strong> match on both screens and press <strong>Add</strong>. If they don’t match, press <strong>Not me</strong>.</span></li>
+          <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>The code expires after 10 minutes and works once. Don’t have your other computer at hand? Sign in with Telegram and use your recovery kit.</span></li>
+        </ul>
+      </div>
+
+      <div class="pairing" aria-hidden="true" data-pairing data-live>
+        <div class="device device-a">
+          <span class="device-bar"><span></span><span></span><span></span><span class="device-name">Desktop · Windows</span></span>
+          <span class="mini-label">Add device · expires in <span data-countdown>9:41</span></span>
+          <span class="code-chip"><span data-type>K7Q2-MXR9-T4WA</span><span class="caret"></span></span>
+          <span class="emoji-row"><span>🐙</span><span>🌵</span><span>🎈</span><span>🚀</span></span>
+        </div>
+        <div class="pair-thread"><span class="packet"></span><span class="packet packet-2"></span></div>
+        <div class="device device-b">
+          <span class="device-bar"><span></span><span></span><span></span><span class="device-name">Ana’s laptop · Linux</span></span>
           <p class="pairing-question">Add “Ana’s laptop · Linux”?</p>
-          <div class="fake-buttons"><span>Add</span><span>Not me</span></div>
+          <span class="emoji-row"><span>🐙</span><span>🌵</span><span>🎈</span><span>🚀</span></span>
+          <span class="fake-buttons"><span>Add</span><span>Not me</span></span>
         </div>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <section class="section" id="everyday" aria-labelledby="everyday-title">
-      <div class="section-head">
+  <section class="section" id="everyday" aria-labelledby="everyday-title">
+    <div class="wrap">
+      <div class="section-head" data-reveal>
         <span class="eyebrow">Every day</span>
         <h2 id="everyday-title">Made so you don’t have to think about it</h2>
       </div>
-      <div class="grid grid-4">
-        <article class="compartment">
-          <span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></span>
-          <h3>Telegram inbox</h3>
-          <p>Forward any photo or file to “Bento · Bandeja” from Telegram on your phone and it shows up in your library within seconds, already encrypted.</p>
-        </article>
-        <article class="compartment">
-          <span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg></span>
-          <h3>Share and import</h3>
-          <p>Send a copy to any chat (Bento tells you that copy is not encrypted) or bring into Bento what you already keep in Saved Messages.</p>
-        </article>
-        <article class="compartment">
-          <span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></span>
-          <h3>30-day trash</h3>
-          <p>Anything you delete can be undone right away and restored for 30 days, on all your devices.</p>
-        </article>
-        <article class="compartment">
+      <div class="bento-grid daily-grid" data-stagger>
+        <article class="tile tile-search" data-search-demo data-live>
+          <div class="search-demo" aria-hidden="true">
+            <span class="search-field"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><span data-typing data-words="power bill|passport|tayrona">power bill</span><span class="caret"></span></span>
+            <span class="search-results">
+              <span class="result is-match" data-result="0"><span class="lens-thumb kind-pdf"></span><span>Bill_October.pdf<small>“…<mark>power</mark> <mark>bill</mark>, October…”</small></span></span>
+              <span class="result" data-result="1"><span class="lens-thumb kind-image"></span><span>IMG_0381.jpg<small>Text in the image: “<mark>PASSPORT</mark>”</small></span></span>
+              <span class="result" data-result="2"><span class="lens-thumb kind-image"></span><span>Tayrona beach.jpg<small>Name · August photos</small></span></span>
+            </span>
+          </div>
           <span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>
           <h3>Find anything</h3>
           <p>Search by name or by the text inside your photos and PDFs. Search runs on your computer and sends nothing to anyone.</p>
         </article>
+        <article class="tile tile-inbox" data-live>
+          <div class="inbox-demo" aria-hidden="true">
+            <span class="bubble bubble-1"><span class="lens-thumb kind-image"></span>IMG_2024.jpg</span>
+            <span class="bubble bubble-2"><span class="lens-thumb kind-pdf"></span>Ticket.pdf</span>
+            <span class="tray-slot"></span>
+          </div>
+          <span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></span>
+          <h3>Telegram inbox</h3>
+          <p>Forward any photo or file to “Bento · Bandeja” from Telegram on your phone and it shows up in your library within seconds, already encrypted.</p>
+        </article>
+        <article class="tile">
+          <span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg></span>
+          <h3>Share and import</h3>
+          <p>Send a copy to any chat (Bento tells you that copy is not encrypted) or bring into Bento what you already keep in Saved Messages.</p>
+        </article>
+        <article class="tile tile-trash">
+          <div class="trash-ring" aria-hidden="true" data-reveal>
+            <svg viewBox="0 0 120 120" aria-hidden="true"><circle class="ring-track" cx="60" cy="60" r="52"/><circle class="ring-fill" cx="60" cy="60" r="52"/></svg>
+            <span class="ring-num">30<small>days</small></span>
+          </div>
+          <div>
+            <span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></span>
+            <h3>30-day trash</h3>
+            <p>Anything you delete can be undone right away and restored for 30 days, on all your devices.</p>
+          </div>
+        </article>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <section class="section" id="download" aria-labelledby="download-title">
-      <div class="section-head">
+  <section class="section lacquer" id="download" aria-labelledby="download-title">
+    <div class="wrap">
+      <div class="section-head" data-reveal>
         <span class="eyebrow">Download</span>
         <h2 id="download-title">Download Bento for your computer</h2>
         <p>Bento is a desktop app. There is no mobile app yet: on your phone you only use Telegram, to connect your account and for the inbox.</p>
       </div>
-      <div class="grid grid-3">
-        <article class="compartment download-card">
+      <div class="download-tray" data-stagger>
+        <article class="download-card" data-os="windows">
+          <span class="os-badge" data-os-badge hidden>Your system</span>
           <h3><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>Windows</h3>
           <p class="meta">Windows x64. Signed installer (.exe).</p>
           <div class="button-row">
@@ -202,7 +332,8 @@
           </div>
           <a class="checksums" data-checksums="windows-x64" href="https://github.com/invrnt/bento/releases/latest">SHA-256 checksums for Windows</a>
         </article>
-        <article class="compartment download-card">
+        <article class="download-card" data-os="macos">
+          <span class="os-badge" data-os-badge hidden>Your system</span>
           <h3><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9m16 0H4m16 0 1.28 2.55a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45L4 16"/></svg>macOS</h3>
           <p class="meta">macOS 13 or later. Signed and notarized (.dmg).</p>
           <div class="button-row">
@@ -211,7 +342,8 @@
           </div>
           <p class="checksums"><a data-checksums="macos-arm64" href="https://github.com/invrnt/bento/releases/latest">SHA-256 checksums (Apple silicon)</a> · <a data-checksums="macos-x64" href="https://github.com/invrnt/bento/releases/latest">SHA-256 checksums (Intel)</a></p>
         </article>
-        <article class="compartment download-card">
+        <article class="download-card" data-os="linux">
+          <span class="os-badge" data-os-badge hidden>Your system</span>
           <h3><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><line x1="22" x2="2" y1="12" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" x2="6.01" y1="16" y2="16"/><line x1="10" x2="10.01" y1="16" y2="16"/></svg>Linux</h3>
           <p class="meta">Ubuntu 22.04 x64 and Debian-based systems. Other distributions may work without official support.</p>
           <div class="button-row">
@@ -226,81 +358,95 @@
         <a href="https://github.com/invrnt/bento/blob/main/docs/user/en/getting-started.md">Getting started guide</a>
         <a href="https://github.com/invrnt/bento/blob/main/docs/desktop/install-first-run.md">How to verify the download</a>
       </p>
-    </section>
+    </div>
+  </section>
 
-    <section class="section" id="faq" aria-labelledby="faq-title">
-      <div class="section-head">
+  <section class="section" id="faq" aria-labelledby="faq-title">
+    <div class="wrap faq-layout">
+      <div class="section-head faq-head" data-reveal>
         <span class="eyebrow">Frequently asked questions</span>
         <h2 id="faq-title">Good to know before you start</h2>
+        <p class="more-links"><a href="https://github.com/invrnt/bento/blob/main/docs/user/en/faq.md">More questions and answers</a></p>
       </div>
       <div class="faq">
-        <details id="limits">
-          <summary>Is there really no storage limit?</summary>
-          <div class="answer">
-            <p>Telegram does not charge for storage or announce a total limit for what you keep in its cloud, and Bento splits large files into parts, so Telegram’s per-file limit does not affect you. But it is not a contract: Telegram can change its terms, limit speed or restrict accounts at any time.</p>
-            <p>Telegram also deletes accounts that stay offline for too long (you choose the period in its privacy settings), and your cloud would go with the account. For anything irreplaceable, keep another copy as well.</p>
-          </div>
-        </details>
-        <details>
-          <summary>What can Telegram see?</summary>
-          <div class="answer">
-            <p>That your account has three channels created by Bento, the size and time of each encrypted part you upload or download, and your devices’ sessions (as with any Telegram app). It cannot see contents, names, the dates or locations of your photos, or your searches.</p>
-            <p>What you choose to send unencrypted is visible: copies you share to a chat and what you forward to the inbox until Bento imports it. <a href="/en/security/#telegram">More detail</a>.</p>
-          </div>
-        </details>
-        <details>
-          <summary>Is Bento an official Telegram app?</summary>
-          <div class="answer">
-            <p>No. Bento uses the Telegram API with its own application ID and is not affiliated with or endorsed by Telegram.</p>
-          </div>
-        </details>
-        <details>
-          <summary>What if I lose my phone?</summary>
-          <div class="answer">
-            <p>Bento stores nothing on your phone: you only use it to sign in to Telegram. Your computers with Bento keep working. Recover your Telegram account as you normally would and, to be safe, check which sessions are open in Telegram › Settings › Devices.</p>
-          </div>
-        </details>
-        <details>
-          <summary>What if I lose a computer?</summary>
-          <div class="answer">
-            <p>From another of your computers, go to Settings › Devices and remove the lost one: Bento signs it out of Telegram, changes your cloud’s keys and gives you a new recovery kit. Whatever that computer had already downloaded cannot be erased remotely.</p>
-            <p>If it was your only computer, install Bento on another one, connect your Telegram and use your recovery kit.</p>
-          </div>
-        </details>
-        <details>
-          <summary>What if I lose my recovery kit?</summary>
-          <div class="answer">
-            <p>As long as you have a computer with Bento, create a new one in Settings › Account and cloud; the old one stops working. If you lose all your computers and the kit, nobody, not even Bento, can open your cloud again.</p>
-          </div>
-        </details>
-        <details>
-          <summary>Can I use Bento without Telegram?</summary>
-          <div class="answer">
-            <p>Yes. On the welcome screen choose “Use only on this computer”: your files stay on that computer, with no cloud and no sync with other devices.</p>
-          </div>
-        </details>
-        <details>
-          <summary>Do I need Telegram Premium?</summary>
-          <div class="answer">
-            <p>No. Bento works with free Telegram accounts.</p>
-          </div>
-        </details>
-        <details>
-          <summary>Can I share with someone who doesn’t use Telegram?</summary>
-          <div class="answer">
-            <p>Not yet. For now you can send a copy through Telegram to any chat. Public links, a mobile app and shared family clouds are not available yet.</p>
-          </div>
-        </details>
-        <details>
-          <summary>Does Bento use my files to train artificial intelligence?</summary>
-          <div class="answer">
-            <p>No. Text recognition and search run on your computer, only over your files, and nothing is used to train models. Bento does not send analytics or show ads either.</p>
-          </div>
-        </details>
+          <details id="limits">
+            <summary>Is there really no storage limit?</summary>
+            <div class="answer">
+              <p>Telegram does not charge for storage or announce a total limit for what you keep in its cloud, and Bento splits large files into parts, so Telegram’s per-file limit does not affect you. But it is not a contract: Telegram can change its terms, limit speed or restrict accounts at any time.</p>
+              <p>Telegram also deletes accounts that stay offline for too long (you choose the period in its privacy settings), and your cloud would go with the account. For anything irreplaceable, keep another copy as well.</p>
+            </div>
+          </details>
+          <details>
+            <summary>What can Telegram see?</summary>
+            <div class="answer">
+              <p>That your account has three channels created by Bento, the size and time of each encrypted part you upload or download, and your devices’ sessions (as with any Telegram app). It cannot see contents, names, the dates or locations of your photos, or your searches.</p>
+              <p>What you choose to send unencrypted is visible: copies you share to a chat and what you forward to the inbox until Bento imports it. <a href="/en/security/#telegram">More detail</a>.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Is Bento an official Telegram app?</summary>
+            <div class="answer">
+              <p>No. Bento uses the Telegram API with its own application ID and is not affiliated with or endorsed by Telegram.</p>
+            </div>
+          </details>
+          <details>
+            <summary>What if I lose my phone?</summary>
+            <div class="answer">
+              <p>Bento stores nothing on your phone: you only use it to sign in to Telegram. Your computers with Bento keep working. Recover your Telegram account as you normally would and, to be safe, check which sessions are open in Telegram › Settings › Devices.</p>
+            </div>
+          </details>
+          <details>
+            <summary>What if I lose a computer?</summary>
+            <div class="answer">
+              <p>From another of your computers, go to Settings › Devices and remove the lost one: Bento signs it out of Telegram, changes your cloud’s keys and gives you a new recovery kit. Whatever that computer had already downloaded cannot be erased remotely.</p>
+              <p>If it was your only computer, install Bento on another one, connect your Telegram and use your recovery kit.</p>
+            </div>
+          </details>
+          <details>
+            <summary>What if I lose my recovery kit?</summary>
+            <div class="answer">
+              <p>As long as you have a computer with Bento, create a new one in Settings › Account and cloud; the old one stops working. If you lose all your computers and the kit, nobody, not even Bento, can open your cloud again.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Can I use Bento without Telegram?</summary>
+            <div class="answer">
+              <p>Yes. On the welcome screen choose “Use only on this computer”: your files stay on that computer, with no cloud and no sync with other devices.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Do I need Telegram Premium?</summary>
+            <div class="answer">
+              <p>No. Bento works with free Telegram accounts.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Can I share with someone who doesn’t use Telegram?</summary>
+            <div class="answer">
+              <p>Not yet. For now you can send a copy through Telegram to any chat. Public links, a mobile app and shared family clouds are not available yet.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Does Bento use my files to train artificial intelligence?</summary>
+            <div class="answer">
+              <p>No. Text recognition and search run on your computer, only over your files, and nothing is used to train models. Bento does not send analytics or show ads either.</p>
+            </div>
+          </details>
       </div>
-      <p class="more-links"><a href="https://github.com/invrnt/bento/blob/main/docs/user/en/faq.md">More questions and answers</a></p>
-    </section>
-  </div>
+    </div>
+  </section>
+
+  <section class="closing" aria-labelledby="closing-title" data-reveal>
+    <div class="wrap">
+      <svg class="closing-mark" viewBox="0 0 32 32" aria-hidden="true"><rect class="box" width="32" height="32" rx="9"/><rect class="cell cell-1" x="4.5" y="5" width="10.5" height="22" rx="3.5"/><rect class="cell cell-2" x="17" y="5" width="10.5" height="10" rx="3.5"/><rect class="cell cell-3" x="17" y="17" width="10.5" height="10" rx="3.5"/><circle class="plum" cx="22.25" cy="22" r="2.75"/></svg>
+      <h2 id="closing-title">Everything in its place.</h2>
+      <p>Your private cloud, in order. Works with free Telegram accounts.</p>
+      <div class="button-row">
+        <a class="button button-primary button-xl" href="#download">Download Bento</a>
+        <a class="button button-secondary button-xl" href="/en/security/">Read about security</a>
+      </div>
+    </div>
+  </section>
 </main>
 
 <footer class="site-footer">

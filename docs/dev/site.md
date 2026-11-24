@@ -1,6 +1,6 @@
 # Public site
 
-`apps/site` is Bento’s public website: home and downloads, security, privacy and terms pages, and the `/join` page that turns a pairing web link into a `bento://` deep link. It is plain HTML, CSS and two small ES modules, with no framework and no runtime dependencies, deployed to Cloudflare Pages.
+`apps/site` is Bento’s public website: home and downloads, security, privacy and terms pages, and the `/join` page that turns a pairing web link into a `bento://` deep link. It is plain HTML, CSS and three small ES modules, with no framework and no runtime dependencies, deployed to Cloudflare Pages.
 
 ## Layout
 
@@ -11,12 +11,17 @@
 | `src/404.html` | Not-found page. Its presence also stops Pages from treating the site as a single-page app. |
 | `src/assets/site.css` | Styles. Tokens mirror `apps/web/src/styles/tokens.css`; light/dark follows `prefers-color-scheme`. |
 | `src/assets/join-code.js`, `src/assets/join.js` | Pairing-code parser and the `/join` page behaviour. |
+| `src/assets/motion.js` | Progressive enhancement for every page: header behaviour, scroll-linked effects, reveals and the home-page demos. Sets `html.motion` only without `prefers-reduced-motion`; without it (or without JavaScript) everything renders in its final, still state. |
 | `src/assets/fonts/` | Geist and Geist Mono (Latin subset) with their OFL licenses. |
 | `src/_headers` | Content-Security-Policy and other response headers for Pages. |
 | `site.config.json` | Repository and (optionally) the exact release whose files the download buttons point to. |
 | `scripts/` | `build.mjs` (copy and conservative minify), `serve.mjs` (local preview with the real headers), `check-placeholders.mjs` (publishing guard). |
 | `test/` | `node:test` suites. |
 | `wrangler.jsonc` | Pages project name, output directory and compatibility date. |
+
+### Home page design
+
+The home page tells Bento’s story as a bento box: the hero box opens (the lid lifts) and its compartments drift apart as you scroll; *Cómo funciona* is a sticky stage that fills the box, wraps it in a *furoshiki* (encryption) and ties the knot (the recovery kit); the privacy “lens” shows the same files as you see them and as Telegram stores them; downloads sit in a lacquered tray. Brand rules from `orchestration/design-system/brand.md` still apply: tokens only, one shu (ume) per screen: the hero and story use no shu, and the closing mark’s ume lands while scrolling down, when the header has tucked itself away.
 
 Header and footer markup is repeated in every page on purpose (no templating). When you change navigation, change all eleven pages; the tests catch broken links and missing counterparts.
 
