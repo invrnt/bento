@@ -50,7 +50,14 @@ import org.robolectric.annotation.GraphicsMode
 private const val DAY = 86_400_000L
 private val NOW = java.time.OffsetDateTime.parse("2024-03-20T12:00:00Z").toInstant().toEpochMilli()
 
-private fun trashItem(id: String, name: String, days: Long, size: Long = 2_400_000, type: String = "asset", thumb: Boolean = true) = TrashItem(
+private fun trashItem(
+    id: String,
+    name: String,
+    days: Long,
+    size: Long = 2_400_000,
+    type: String = "asset",
+    thumb: Boolean = true
+) = TrashItem(
     id = id,
     type = type,
     name = name,

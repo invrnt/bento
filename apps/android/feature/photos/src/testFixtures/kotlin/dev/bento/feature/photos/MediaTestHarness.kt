@@ -39,7 +39,9 @@ class MediaTestHarness(context: Context, scope: CoroutineScope) {
         transport.on("POST /api/trash/restore") { """{"restored":1}""" }
         MediaSamples.library.forEach { asset ->
             transport.on("DELETE /api/assets/${asset.id}") { json(asset) }
-            transport.on("POST /api/photos/${asset.id}/favorite") { call -> json(asset.copy(favorite = call.body?.contains("true") == true)) }
+            transport.on("POST /api/photos/${asset.id}/favorite") { call ->
+                json(asset.copy(favorite = call.body?.contains("true") == true))
+            }
         }
     }
 
@@ -48,7 +50,7 @@ class MediaTestHarness(context: Context, scope: CoroutineScope) {
 
 /** Coil loader that answers every Bento image with a flat color (screenshots show filled tiles, deterministically). */
 fun fakeImageLoader(context: Context): ImageLoader {
-    val palette = intArrayOf(0xFF6E8BA8.toInt(), 0xFFB9A27A.toInt(), 0xFF8AA67F.toInt(), 0xFFC98A6B.toInt(), 0xFF7E7AA8.toInt(), 0xFFA8B5BF.toInt())
+    val palette = longArrayOf(0xFF6E8BA8, 0xFFB9A27A, 0xFF8AA67F, 0xFFC98A6B, 0xFF7E7AA8, 0xFFA8B5BF).map { it.toInt() }
     val engine = FakeImageLoaderEngine.Builder()
         .default(
             coil3.intercept.Interceptor { chain ->

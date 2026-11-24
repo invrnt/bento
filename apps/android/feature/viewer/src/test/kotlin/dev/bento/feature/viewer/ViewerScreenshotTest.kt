@@ -34,7 +34,13 @@ import org.robolectric.annotation.GraphicsMode
 
 private val sampleInfo = ViewerInfo(
     "p4",
-    exif = ExifSummary(camera = "Google Pixel 7a", lens = "Principal", exposure = "1/120 s · ƒ/1,8 · ISO 100 · 4,2 mm", latitude = 6.24420, longitude = -75.58120),
+    exif = ExifSummary(
+        camera = "Google Pixel 7a",
+        lens = "Principal",
+        exposure = "1/120 s · ƒ/1,8 · ISO 100 · 4,2 mm",
+        latitude = 6.24420,
+        longitude = -75.58120
+    ),
     folderPath = "/Del teléfono/Pixel de Ana/Cámara",
     albums = MediaSamples.albums.take(2)
 )
@@ -85,13 +91,16 @@ class ViewerScreenshotTest(private val state: ScreenState) {
         @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
         fun states(): List<Array<Any>> = listOf(
             ScreenState("viewer-photo") { Viewer(page = 0) },
-            ScreenState("viewer-photo-portrait") { Viewer(page = 3 /* p4 is 3024 × 4032 */) },
+            // p4 is 3024 × 4032
+            ScreenState("viewer-photo-portrait") { Viewer(page = 3) },
             ScreenState("viewer-photo-immersive") { Viewer(chrome = ViewerChrome(chromeVisible = false)) },
             ScreenState("viewer-video-poster") { Viewer(page = 1) },
             ScreenState("viewer-info-pane") { Viewer(chrome = ViewerChrome(infoOpen = true)) },
             ScreenState("viewer-info-content") {
                 BentoTheme(darkTheme = false, reducedMotion = true) {
-                    Column(Modifier.fillMaxSize().background(BentoTheme.colors.raised).verticalScroll(rememberScrollState()).padding(16.dp)) {
+                    Column(
+                        Modifier.fillMaxSize().background(BentoTheme.colors.raised).verticalScroll(rememberScrollState()).padding(16.dp)
+                    ) {
                         ViewerInfoContent(MediaSamples.library[3], sampleInfo, InfoCallbacks({}, {}, { _, _ -> }, {}))
                     }
                 }
@@ -101,7 +110,10 @@ class ViewerScreenshotTest(private val state: ScreenState) {
                 val player = remember { ExoPlayer.Builder(context).build() }
                 BentoMediaTheme(reducedMotion = true) {
                     Box(Modifier.fillMaxSize().background(BentoTheme.colors.black), contentAlignment = Alignment.BottomCenter) {
-                        VideoControls(player, PlaybackUi(playing = true, positionMs = 12_000, durationMs = 42_000, muted = false, buffering = false))
+                        VideoControls(
+                            player,
+                            PlaybackUi(playing = true, positionMs = 12_000, durationMs = 42_000, muted = false, buffering = false)
+                        )
                     }
                 }
             }

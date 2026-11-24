@@ -115,7 +115,11 @@ class PhotosSheetsScreenshotTest {
 
     private fun sheet(name: String, dark: Boolean = false, content: @Composable () -> Unit) {
         compose.setContent {
-            CompositionLocalProvider(LocalBentoImageLoader provides remember { fakeImageLoader(ApplicationProvider.getApplicationContext()) }) {
+            CompositionLocalProvider(
+                LocalBentoImageLoader provides remember {
+                    fakeImageLoader(ApplicationProvider.getApplicationContext())
+                }
+            ) {
                 BentoTheme(darkTheme = dark, reducedMotion = true) { content() }
             }
         }
@@ -126,7 +130,13 @@ class PhotosSheetsScreenshotTest {
 
     private val folders = listOf("Trabajo", "Viajes", "Recibos 2024").mapIndexed { i, name ->
         DriveItemResponse(
-            folder = FolderResponse(createdAt = "2024-01-01T00:00:00Z", id = "f$i", name = name, parentId = null, updatedAt = "2024-01-01T00:00:00Z"),
+            folder = FolderResponse(
+                createdAt = "2024-01-01T00:00:00Z",
+                id = "f$i",
+                name = name,
+                parentId = null,
+                updatedAt = "2024-01-01T00:00:00Z"
+            ),
             id = "f$i",
             name = name,
             type = "folder",
@@ -138,10 +148,14 @@ class PhotosSheetsScreenshotTest {
     fun albumSheet() = sheet("sheet-add-to-album") { AddToAlbumSheetContent(SheetData.Ready(MediaSamples.albums), {}, {}, {}) }
 
     @Test
-    fun albumSheetDark() = sheet("sheet-add-to-album", dark = true) { AddToAlbumSheetContent(SheetData.Ready(MediaSamples.albums), {}, {}, {}) }
+    fun albumSheetDark() = sheet("sheet-add-to-album", dark = true) {
+        AddToAlbumSheetContent(SheetData.Ready(MediaSamples.albums), {}, {}, {})
+    }
 
     @Test
-    fun moveSheet() = sheet("sheet-move") { MoveToFolderSheetContent(listOf("Archivos", "Fotos"), SheetData.Ready(folders), {}, {}, {}, {}) }
+    fun moveSheet() = sheet("sheet-move") {
+        MoveToFolderSheetContent(listOf("Archivos", "Fotos"), SheetData.Ready(folders), {}, {}, {}, {})
+    }
 
     @Test
     fun telegramSheet() = sheet("sheet-telegram") {

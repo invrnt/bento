@@ -6,6 +6,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -13,7 +14,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.click
 import androidx.compose.ui.test.swipeLeft
 import androidx.exifinterface.media.ExifInterface
 import androidx.test.core.app.ApplicationProvider
@@ -161,7 +161,12 @@ class ViewerContentTest {
                     expectedCount = MediaSamples.library.size,
                     info = ViewerInfo(
                         MediaSamples.library[initialPage].id,
-                        exif = ExifSummary(camera = "Google Pixel 7a", exposure = "1/120 s · ƒ/1,8 · ISO 100", latitude = 6.2442, longitude = -75.5812),
+                        exif = ExifSummary(
+                            camera = "Google Pixel 7a",
+                            exposure = "1/120 s · ƒ/1,8 · ISO 100",
+                            latitude = 6.2442,
+                            longitude = -75.5812
+                        ),
                         folderPath = "/Fotos/Cámara",
                         albums = MediaSamples.albums.take(1)
                     ),
@@ -180,7 +185,10 @@ class ViewerContentTest {
         }
     }
 
-    private fun harness() = MediaTestHarness(ApplicationProvider.getApplicationContext(), CoroutineScope(SupervisorJob() + Dispatchers.Main))
+    private fun harness() = MediaTestHarness(
+        ApplicationProvider.getApplicationContext(),
+        CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    )
 
     @Test
     fun `opens on the tapped photo, swipes to the next, and a tap hides the chrome`() {

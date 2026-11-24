@@ -50,7 +50,9 @@ fun androidx.compose.ui.test.junit4.ComposeContentTestRule.captureVariants(state
             LocalBentoImageLoader provides remember { fakeImageLoader(ApplicationProvider.getApplicationContext()) }
         ) {
             BentoTheme(darkTheme = variant.dark, reducedMotion = true) {
-                Box(Modifier.testTag("screen").size(variant.width.dp, variant.height.dp).background(BentoTheme.colors.tray)) { state.content() }
+                Box(Modifier.testTag("screen").size(variant.width.dp, variant.height.dp).background(BentoTheme.colors.tray)) {
+                    state.content()
+                }
             }
         }
     }
@@ -65,4 +67,3 @@ fun androidx.compose.ui.test.junit4.ComposeContentTestRule.captureVariants(state
         onNodeWithTag("screen").captureRoboImage("screenshots/${state.name}/${v.name}.png")
     }
 }
-

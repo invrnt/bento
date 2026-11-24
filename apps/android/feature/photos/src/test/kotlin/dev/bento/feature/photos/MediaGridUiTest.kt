@@ -11,15 +11,15 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ApplicationProvider
-import dev.bento.designsystem.component.BentoSnackbarHostState
 import dev.bento.designsystem.component.AvatarStatus
+import dev.bento.designsystem.component.BentoSnackbarHostState
 import dev.bento.designsystem.theme.BentoTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -126,7 +126,9 @@ class MediaGridUiTest {
     @Test
     fun `tiles read type, date, favorite and upload state`() {
         grid()
-        compose.onNodeWithTag(MediaTestTags.tile("p2")).assert(descriptionContains("Video, 0:42")).assert(descriptionContains("14 de marzo de 2024"))
+        compose.onNodeWithTag(
+            MediaTestTags.tile("p2")
+        ).assert(descriptionContains("Video, 0:42")).assert(descriptionContains("14 de marzo de 2024"))
         compose.onNodeWithTag(MediaTestTags.tile("p3")).assert(descriptionContains("pendiente de respaldo"))
         compose.onNodeWithTag(MediaTestTags.tile("p5")).assert(descriptionContains("no se pudo respaldar"))
         compose.onNodeWithTag(MediaTestTags.tile("p6")).assert(descriptionContains("Foto")).assert(descriptionContains("favorita"))
@@ -193,7 +195,10 @@ class PhotosContentTest {
         }
     }
 
-    private fun harness() = MediaTestHarness(ApplicationProvider.getApplicationContext(), CoroutineScope(SupervisorJob() + Dispatchers.Main))
+    private fun harness() = MediaTestHarness(
+        ApplicationProvider.getApplicationContext(),
+        CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    )
 
     @Test
     fun `delete offers Deshacer for 6 s and undo restores from the trash`() {
@@ -222,7 +227,9 @@ class PhotosContentTest {
     @Test
     fun `the top card and the empty state`() {
         compose.setContent {
-            BentoTheme(reducedMotion = true) { Screen(harness(), load = PhotosLoad.Empty, card = PhotosCard.BackupOff, selection = remember { SelectionState() }) }
+            BentoTheme(reducedMotion = true) {
+                Screen(harness(), load = PhotosLoad.Empty, card = PhotosCard.BackupOff, selection = remember { SelectionState() })
+            }
         }
         compose.onNodeWithText("Respalda las fotos de este teléfono").assertIsDisplayed()
         compose.onNodeWithText("Tus fotos aparecerán aquí").assertIsDisplayed()
