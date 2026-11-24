@@ -2,9 +2,13 @@ package dev.bento.api
 
 import android.content.Context
 import coil3.ImageLoader
+import coil3.decode.DataSource
+import coil3.decode.ImageSource
 import coil3.disk.DiskCache
 import coil3.disk.directory
+import coil3.fetch.FetchResult
 import coil3.fetch.Fetcher
+import coil3.fetch.SourceFetchResult
 import coil3.key.Keyer
 import coil3.memory.MemoryCache
 import coil3.network.NetworkFetcher
@@ -49,7 +53,9 @@ class BentoImageKeyer : Keyer<BentoImage> {
 
 /**
  * Resolves [BentoImage] to the loopback URL at fetch time (awaiting the engine) and delegates to Coil's
- * OkHttp network fetcher with a port-independent disk cache key.
+ * OkHttp network fetcher with a port-independent disk cache key. Thumbnails with an etag are immutable (the etag is
+ * the stored thumbnail's id), so a disk-cache hit is served without waiting for the engine: on a cold start the cached
+ * Fotos grid shows pixels before Python is up (§13 "cached Fotos grid with thumbnails").
  */
 class BentoImageFetcher(
     private val image: BentoImage,
@@ -60,15 +66,28 @@ class BentoImageFetcher(
 ) : Fetcher {
     override suspend fun fetch() = run {
         val size = if (image.kind == BentoImage.Kind.THUMBNAIL) sizeHint(options) else null
+        val key = cacheKey(image, size)
+        if (image.kind == BentoImage.Kind.THUMBNAIL && image.etag != null) cached(key)?.let { return@run it }
         val path = when (image.kind) {
             BentoImage.Kind.THUMBNAIL -> AssetPaths.thumbnail(image.assetId)
             BentoImage.Kind.PREVIEW -> AssetPaths.preview(image.assetId)
             BentoImage.Kind.ORIGINAL -> AssetPaths.content(image.assetId)
         }
         val url = http.url(path, listOfNotNull(size?.let { "size" to it.px.toString() })).toString()
-        val keyed = options.copy(diskCacheKey = cacheKey(image, size))
+        val keyed = options.copy(diskCacheKey = key)
         val delegate = network.create(url.toUri(), keyed, loader) ?: error("network fetcher unavailable")
         delegate.fetch()
+    }
+
+    private fun cached(key: String): FetchResult? {
+        if (!options.diskCachePolicy.readEnabled) return null
+        val cache = loader.diskCache ?: return null
+        val snapshot = cache.openSnapshot(key) ?: return null
+        return SourceFetchResult(
+            source = ImageSource(file = snapshot.data, fileSystem = cache.fileSystem, diskCacheKey = key, closeable = snapshot),
+            mimeType = null,
+            dataSource = DataSource.DISK
+        )
     }
 
     class Factory(private val http: BentoHttp, private val network: NetworkFetcher.Factory) : Fetcher.Factory<BentoImage> {
