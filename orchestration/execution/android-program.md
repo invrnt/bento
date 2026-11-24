@@ -80,3 +80,17 @@ See the bottom of this file (updated by the orchestrator at the end of each stag
 - The debug shortcut meta-data on `MainActivity` must be merged with agent 41's launcher shortcuts.
 - The kitchen-sink BrandLogo specimen wraps "Bento" at 411 dp.
 - Python 3.14 and cryptography ≥ 46 on Android remain follow-ups from the spike.
+
+## Stage 22e status (agent 42e, performance) — WIP handoff (2026-11-24)
+
+Branch `t3/android-performance-profiles` (not rebased on the moved `feature/android`; orchestrator merges). Details and numbers: `docs/dev/android-performance.md`.
+
+**Done (committed):** `:baselineprofile` generator + committed `baseline-prof.txt`/`startup-prof.txt` (dex layout on); `:benchmark` Macrobenchmarks for every emulator-measurable §13 budget (None vs Partial(Require)); `:benchmark-common` driver; `benchmark/run.sh` + `summarize.py`; benchmark variants with fake cloud (`ENGINE_BENCHMARK_TOOLS`, core/engine); `InteractionTrace` slices + Fotos `ReportDrawnWhen`. Fixes: UI cache never written (`TimelinePositionalSource` putIfAbsent), thumbnails from disk cache before engine (`BentoImageFetcher`), Geist font preload. Measured (emulator, 2k library): TTID 1080 ms (profile) / 1171 ms (none), TTFD 4.9 s → 1.44 s, engine ready ~3.0–3.3 s; TTID dominated by ~600 ms GPU shader compile (software GPU, cache dropped per cold start).
+
+**Verified:** generator journeys pass on emulator; StartupBenchmarks pass in both modes; `core:api` BentoImageFetcherTest and `core:data` tests pass; benchmarkRelease/nonMinifiedRelease/debug assemble.
+
+**Not verified / pending:** full 10k benchmark run (Fotos, viewer, Archivos, Buscar, share, memory) — FotosBenchmarks/FilesSearchShareBenchmarks/MemoryBenchmark never ran end to end; gate `./gradlew check assembleDebug :app:assembleDebugAndroidTest` not run (ktlint/detekt/lint on new modules unknown); profile regenerated after fixes but benchmarkRelease not yet rebuilt/measured with it; physical-device list in the doc.
+
+**Changes outside owned paths:** `core/engine` (build types, endpoint dir), `core/api` (fetcher), `core/data` (positional fix), `core/designsystem` (InteractionTrace, font preload), `feature/{photos,files,search,share}` (trace hooks, ReportDrawn), `app` (ShareActivity onPause, BentoApplication preload, plugin lines + `baselineProfile {}` block), root `build.gradle.kts`, catalog, settings.
+
+**Next steps:** see "Pending" in `docs/dev/android-performance.md`.
