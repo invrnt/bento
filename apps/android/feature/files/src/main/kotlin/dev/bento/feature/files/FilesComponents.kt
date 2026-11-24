@@ -156,14 +156,14 @@ data class ItemCallbacks(
 )
 
 @Composable
-private fun itemSemantics(item: DriveItemResponse, callbacks: ItemCallbacks, badges: List<ItemBadge>): Modifier {
+private fun Modifier.itemSemantics(item: DriveItemResponse, callbacks: ItemCallbacks, badges: List<ItemBadge>): Modifier {
     val open = stringResource(if (item.folder != null) StringsR.string.files_open_folder else StringsR.string.files_open_file)
     val select = stringResource(StringsR.string.common_action_select)
     val share = stringResource(StringsR.string.common_action_share)
     val favorite = stringResource(StringsR.string.common_action_favorite)
     val trash = stringResource(StringsR.string.common_action_delete)
     val badgeText = badges.map { badgeLabel(it) }
-    return Modifier.semantics {
+    return semantics {
         customActions = buildList {
             add(CustomAccessibilityAction(open) { callbacks.onOpen(item).let { true } })
             add(CustomAccessibilityAction(select) { callbacks.onSelect(item).let { true } })
@@ -204,7 +204,7 @@ fun FileRow(
     ListRow(
         headline = item.name,
         supporting = itemSupporting(item),
-        modifier = modifier.secondaryClick { callbacks.onMenu(item) }.then(itemSemantics(item, callbacks, badges)),
+        modifier = modifier.secondaryClick { callbacks.onMenu(item) }.itemSemantics(item, callbacks, badges),
         leading = {
             Box {
                 KindIcon(FileKinds.fileKind(item))
@@ -248,7 +248,7 @@ fun FileTile(
             .combinedClickable(interaction, ripple(), role = Role.Button, onLongClick = {
                 callbacks.onSelect(item)
             }) { callbacks.onOpen(item) }
-            .then(itemSemantics(item, callbacks, badges))
+            .itemSemantics(item, callbacks, badges)
             .semantics(mergeDescendants = true) { if (selected) this.selected = true }
             .padding(8.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -369,15 +369,7 @@ fun UploadCard(
     val c = BentoTheme.colors
     val resources = LocalResources.current
     var expanded by remember { mutableStateOf(initiallyExpanded) }
-    val title = when {
-        state.active -> pluralStringResource(StringsR.plurals.files_upload_title, state.pendingCount, state.pendingCount)
-
-        state.failedCount > 0 -> pluralStringResource(StringsR.plurals.files_upload_failed, state.failedCount, state.failedCount)
-
-        else -> state.rows.count {
-            it.status != UploadStatus.Failed
-        }.let { pluralStringResource(StringsR.plurals.files_upload_done, it, it) }
-    }
+    val title = uploadTitle(state)
     val bytes = stringResource(
         StringsR.string.common_unit_progress_of,
         Sizes.format(resources, state.doneBytes),
@@ -418,31 +410,7 @@ fun UploadCard(
             )
         }
         if (state.active) ProgressBar(state.progress, Modifier.fillMaxWidth())
-        if (expanded) {
-            Column(Modifier.heightIn(max = 240.dp).padding(top = 4.dp)) {
-                state.rows.takeLast(MAX_ROWS).forEach { row ->
-                    Row(Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                row.name,
-                                color = c.ink,
-                                style = BentoTheme.typography.label,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                stringResource(rowStatus(row.status)),
-                                color = if (row.status == UploadStatus.Failed) c.dangerInk else c.inkMuted,
-                                style = BentoTheme.typography.metadata
-                            )
-                        }
-                        row.sizeBytes?.let {
-                            Text(Sizes.format(resources, it), color = c.inkSubtle, style = BentoTheme.typography.metadata)
-                        }
-                    }
-                }
-            }
-        }
+        if (expanded) UploadRows(state.rows)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             when {
                 state.active && state.paused -> BentoTextAction(stringResource(StringsR.string.files_upload_resume), onResume)
@@ -454,6 +422,34 @@ fun UploadCard(
 }
 
 private const val MAX_ROWS = 50
+
+@Composable
+private fun UploadRows(rows: List<UploadRow>) {
+    val c = BentoTheme.colors
+    val resources = LocalResources.current
+    Column(Modifier.heightIn(max = 240.dp).padding(top = 4.dp)) {
+        rows.takeLast(MAX_ROWS).forEach { row ->
+            Row(Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(row.name, color = c.ink, style = BentoTheme.typography.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        stringResource(rowStatus(row.status)),
+                        color = if (row.status == UploadStatus.Failed) c.dangerInk else c.inkMuted,
+                        style = BentoTheme.typography.metadata
+                    )
+                }
+                row.sizeBytes?.let { Text(Sizes.format(resources, it), color = c.inkSubtle, style = BentoTheme.typography.metadata) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun uploadTitle(state: UploadsState): String = when {
+    state.active -> pluralStringResource(StringsR.plurals.files_upload_title, state.pendingCount, state.pendingCount)
+    state.failedCount > 0 -> pluralStringResource(StringsR.plurals.files_upload_failed, state.failedCount, state.failedCount)
+    else -> state.rows.count { it.status != UploadStatus.Failed }.let { pluralStringResource(StringsR.plurals.files_upload_done, it, it) }
+}
 
 private fun rowStatus(status: UploadStatus): Int = when (status) {
     UploadStatus.Queued -> StringsR.string.files_upload_row_queued

@@ -24,6 +24,9 @@ object FileKinds {
     private val slideExtensions = setOf("ppt", "pptx", "odp", "key")
     private val docExtensions = setOf("doc", "docx", "odt", "rtf", "pages")
     private val archiveExtensions = setOf("zip", "rar", "7z", "tar", "gz", "tgz", "bz2", "xz")
+    private val imageExtensions = setOf("jpg", "jpeg", "png", "gif", "webp", "heic", "heif", "avif", "dng", "bmp")
+    private val videoExtensions = setOf("mp4", "mov", "m4v", "mkv", "webm", "3gp", "avi")
+    private val audioExtensions = setOf("mp3", "m4a", "aac", "ogg", "opus", "wav", "flac", "amr")
 
     fun extension(name: String): String = name.substringAfterLast('.', "").lowercase(Locale.ROOT)
 
@@ -32,12 +35,28 @@ object FileKinds {
         val ext = extension(name)
         return when {
             type.startsWith("image/") -> OpenKind.Image
+
             type.startsWith("video/") -> OpenKind.Video
+
             type == "application/pdf" || ext == "pdf" -> OpenKind.Pdf
+
             type.startsWith("audio/") -> OpenKind.Audio
+
+            // No (or a generic) MIME type: the extension decides (search hits carry only a title).
+            type.isEmpty() || type == "application/octet-stream" -> byExtension(ext)
+
             type.startsWith("text/") || ext in textExtensions || type == "application/json" || type == "application/xml" -> OpenKind.Text
+
             else -> OpenKind.Other
         }
+    }
+
+    private fun byExtension(ext: String): OpenKind = when (ext) {
+        in imageExtensions -> OpenKind.Image
+        in videoExtensions -> OpenKind.Video
+        in audioExtensions -> OpenKind.Audio
+        in textExtensions -> OpenKind.Text
+        else -> OpenKind.Other
     }
 
     fun openKind(asset: AssetResponse): OpenKind = openKind(asset.mimeType, asset.filename)

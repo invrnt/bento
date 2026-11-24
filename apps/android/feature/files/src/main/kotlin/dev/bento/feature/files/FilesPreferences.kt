@@ -2,6 +2,7 @@ package dev.bento.feature.files
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -113,13 +114,13 @@ class SharedFilesPreferences(private val prefs: SharedPreferences) :
     ) {
     override fun persist() {
         val sortsSnapshot = synchronized(sorts) { sorts.toMap() }.entries.toList().takeLast(MAX_SORTS).associate { it.key to it.value }
-        prefs.edit()
-            .putString(KEY_SORTS, json.encodeToString(MapSerializer(String.serializer(), FolderSort.serializer()), sortsSnapshot))
-            .putString(KEY_LAYOUT, layout.value.name)
-            .putString(KEY_RECENT, json.encodeToString(ListSerializer(Destination.serializer()), recentDestinations.value))
-            .putString(KEY_PINNED, json.encodeToString(SetSerializer(String.serializer()), pinned.value))
-            .putStringSet(KEY_SKIPPED, synchronized(skipped) { skipped.map { it.name }.toSet() })
-            .apply()
+        prefs.edit {
+            putString(KEY_SORTS, json.encodeToString(MapSerializer(String.serializer(), FolderSort.serializer()), sortsSnapshot))
+            putString(KEY_LAYOUT, layout.value.name)
+            putString(KEY_RECENT, json.encodeToString(ListSerializer(Destination.serializer()), recentDestinations.value))
+            putString(KEY_PINNED, json.encodeToString(SetSerializer(String.serializer()), pinned.value))
+            putStringSet(KEY_SKIPPED, synchronized(skipped) { skipped.map { it.name }.toSet() })
+        }
     }
 
     companion object {

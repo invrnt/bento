@@ -51,7 +51,8 @@ class UploadsTest {
         on("POST /api/android/imports") { """{"import_id":"imp_1","done":false,"counts":{},"items":[]}""" }
         on("GET /api/android/imports/imp_1") {
             val items = statuses.mapIndexed { index, status ->
-                """{"client_index":$index,"asset_id":${if (status == "failed") "null" else "\"as_$index\""},"status":"$status","error":${if (status == "failed") "\"content_unreadable\"" else "null"}}"""
+                """{"client_index":$index,"asset_id":${if (status == "failed") "null" else "\"as_$index\""},""" +
+                    """"status":"$status","error":${if (status == "failed") "\"content_unreadable\"" else "null"}}"""
             }
             """{"import_id":"imp_1","done":true,"counts":{},"items":[${items.joinToString(",")}]}"""
         }

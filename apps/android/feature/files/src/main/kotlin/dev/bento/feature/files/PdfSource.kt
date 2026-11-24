@@ -6,8 +6,9 @@ import android.graphics.RectF
 import android.graphics.pdf.PdfRenderer
 import android.os.Build
 import android.os.ParcelFileDescriptor
-import android.os.ext.SdkExtensions
-import androidx.annotation.RequiresExtension
+import androidx.annotation.ChecksSdkIntAtLeast
+import androidx.annotation.RequiresApi
+import androidx.core.graphics.createBitmap
 import java.io.Closeable
 import java.io.File
 import java.util.concurrent.Executors
@@ -36,7 +37,7 @@ interface PdfSource : Closeable {
 
 /**
  * [PdfRenderer] over a temporary plaintext copy (deleted on [close]). Rendering is serialized on one thread (the
- * renderer is not thread-safe). Text search uses `Page.searchText` (Android 15 / SDK extension 13) when available.
+ * renderer is not thread-safe). Text search uses `Page.searchText` (Android 15) when available.
  */
 class AndroidPdfSource(private val file: File, private val onClose: (File) -> Unit) : PdfSource {
     private val descriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
@@ -59,7 +60,7 @@ class AndroidPdfSource(private val file: File, private val onClose: (File) -> Un
             renderer.openPage(page).use { pdfPage ->
                 val width = widthPx.coerceIn(MIN_WIDTH, MAX_WIDTH)
                 val height = (width * pdfPage.height.toFloat() / pdfPage.width.coerceAtLeast(1)).toInt().coerceAtLeast(1)
-                Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { bitmap ->
+                createBitmap(width, height).also { bitmap ->
                     bitmap.eraseColor(Color.WHITE)
                     pdfPage.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                 }
@@ -72,7 +73,7 @@ class AndroidPdfSource(private val file: File, private val onClose: (File) -> Un
         return withContext(dispatcher) { lock.withLock { searchAll(query) } }
     }
 
-    @RequiresExtension(extension = Build.VERSION_CODES.S, version = 13)
+    @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
     private fun searchAllWithText(query: String): List<PdfMatch> = (0 until pageCount).mapNotNull { index ->
         renderer.openPage(index).use { page ->
             val width = page.width.toFloat().coerceAtLeast(1f)
@@ -85,7 +86,7 @@ class AndroidPdfSource(private val file: File, private val onClose: (File) -> Un
     }
 
     private fun searchAll(query: String): List<PdfMatch> =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && SdkExtensions.getExtensionVersion(Build.VERSION_CODES.S) >= TEXT_EXTENSION) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
             searchAllWithText(query)
         } else {
             emptyList()
@@ -102,9 +103,8 @@ class AndroidPdfSource(private val file: File, private val onClose: (File) -> Un
         const val MIN_WIDTH = 64
         const val MAX_WIDTH = 2_400
 
-        const val TEXT_EXTENSION = 13
-
-        fun textApis(): Boolean =
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && SdkExtensions.getExtensionVersion(Build.VERSION_CODES.S) >= TEXT_EXTENSION
+        /** `Page.searchText` ships with Android 15. */
+        @ChecksSdkIntAtLeast(api = Build.VERSION_CODES.VANILLA_ICE_CREAM)
+        fun textApis(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM
     }
 }

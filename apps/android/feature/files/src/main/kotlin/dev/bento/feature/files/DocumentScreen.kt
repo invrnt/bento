@@ -91,12 +91,12 @@ fun DocumentScreen(assetId: String, onBack: () -> Unit, modifier: Modifier = Mod
 fun DocumentContent(
     state: DocumentState,
     onBack: () -> Unit,
+    modifier: Modifier = Modifier,
     onPage: (Int) -> Unit = {},
     onMonospace: () -> Unit = {},
     onSearchOpen: (Boolean) -> Unit = {},
     onQuery: (String) -> Unit = {},
-    onStep: (Int) -> Unit = {},
-    modifier: Modifier = Modifier
+    onStep: (Int) -> Unit = {}
 ) {
     val c = BentoTheme.colors
     val title = state.asset?.filename.orEmpty()

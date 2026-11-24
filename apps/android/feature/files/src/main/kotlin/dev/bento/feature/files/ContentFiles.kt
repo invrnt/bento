@@ -55,8 +55,18 @@ class ContentFiles(
     suspend fun text(assetId: String, limit: Long = TEXT_LIMIT): String? = http.execute("GET", AssetPaths.content(assetId)) { response ->
         val length = response.body.contentLength()
         if (length > limit) return@execute null
-        val bytes = response.body.byteStream().use { it.readNBytes((limit + 1).toInt()) }
-        if (bytes.size > limit) null else bytes.toString(Charsets.UTF_8)
+        val out = java.io.ByteArrayOutputStream()
+        val tooLarge = response.body.byteStream().use { input ->
+            val buffer = ByteArray(BUFFER)
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                out.write(buffer, 0, read)
+                if (out.size() > limit) return@use true
+            }
+            false
+        }
+        if (tooLarge) null else out.toString(Charsets.UTF_8.name())
     }
 
     /** A temporary file the in-app PDF reader renders (never shared; deleted when the reader closes). */

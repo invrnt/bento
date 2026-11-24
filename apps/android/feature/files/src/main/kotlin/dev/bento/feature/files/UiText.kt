@@ -2,7 +2,7 @@ package dev.bento.feature.files
 
 import android.content.res.Resources
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import dev.bento.data.Undoable
 
 /** Copy decided by a ViewModel, rendered from string resources by the UI (no strings in ViewModels). */
@@ -24,7 +24,7 @@ sealed interface UiText {
 }
 
 @Composable
-fun UiText.text(): String = resolve(LocalContext.current.resources)
+fun UiText.text(): String = resolve(LocalResources.current)
 
 /** A calm one-line message; [undo] adds `Deshacer` for 6 s (product/android.md §1.5). */
 data class FilesMessage(val text: UiText, val undo: Undoable? = null, val danger: Boolean = false)

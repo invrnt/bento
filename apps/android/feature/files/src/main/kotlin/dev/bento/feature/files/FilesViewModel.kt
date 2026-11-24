@@ -289,8 +289,7 @@ class FilesViewModel @Inject constructor(
             return
         }
         val kind = FileKinds.openKind(asset)
-        val needsBytes = kind == OpenKind.Pdf || kind == OpenKind.Text || kind == OpenKind.Other || kind == OpenKind.Audio
-        if (needsBytes && !connectivity.online() && asset.id !in _state.value.pinned) {
+        if (kind in NEEDS_ORIGINAL && !connectivity.online() && asset.id !in _state.value.pinned) {
             showSheet(FilesSheet.OfflineUnavailable(item))
             return
         }
@@ -628,5 +627,8 @@ class FilesViewModel @Inject constructor(
         effects.trySend(effect)
     }
 }
+
+/** Openers that read the original (thumbnails/previews are enough for the viewer). */
+private val NEEDS_ORIGINAL = setOf(OpenKind.Pdf, OpenKind.Text, OpenKind.Other, OpenKind.Audio)
 
 internal fun ApiException.isConflict(): Boolean = this is ApiException.Http && kind == ApiErrorKind.CONFLICT

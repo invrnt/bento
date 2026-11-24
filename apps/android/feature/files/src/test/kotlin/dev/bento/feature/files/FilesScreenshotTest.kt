@@ -35,36 +35,36 @@ class FilesScreenshotTest {
     )
 
     @Composable
-    private fun files(state: FilesState, uploads: UploadsState = UploadsState(), audio: AudioState = AudioState()) =
+    private fun Files(state: FilesState, uploads: UploadsState = UploadsState(), audio: AudioState = AudioState()) =
         FilesContent(state, uploads, audio, FilesActions())
 
     @Composable
-    private fun sheet(content: @Composable () -> Unit) = Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+    private fun Sheet(content: @Composable () -> Unit) = Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
         SheetFrame { content() }
     }
 
-    @Test fun list() = shot("list") { files(live) }
+    @Test fun list() = shot("list") { Files(live) }
 
-    @Test fun grid() = shot("grid") { files(live.copy(layout = FilesLayout.Grid)) }
+    @Test fun grid() = shot("grid") { Files(live.copy(layout = FilesLayout.Grid)) }
 
     @Test fun subfolderWithBreadcrumbs() = shot("subfolder") {
-        files(live.copy(folderId = "f_2024", breadcrumbs = crumbs, items = items.drop(2).take(3)))
+        Files(live.copy(folderId = "f_2024", breadcrumbs = crumbs, items = items.drop(2).take(3)))
     }
 
-    @Test fun cachedOffline() = shot("offline") { files(live.copy(offline = true, fromCache = true)) }
+    @Test fun cachedOffline() = shot("offline") { Files(live.copy(offline = true, fromCache = true)) }
 
-    @Test fun loading() = shot("loading") { files(FilesState()) }
+    @Test fun loading() = shot("loading") { Files(FilesState()) }
 
-    @Test fun error() = shot("error") { files(FilesState(loading = false, loadFailed = true)) }
+    @Test fun error() = shot("error") { Files(FilesState(loading = false, loadFailed = true)) }
 
-    @Test fun emptyRoot() = shot("empty-root") { files(FilesState(loading = false)) }
+    @Test fun emptyRoot() = shot("empty-root") { Files(FilesState(loading = false)) }
 
-    @Test fun emptyFolder() = shot("empty-folder") { files(FilesState(loading = false, folderId = "f", breadcrumbs = crumbs.take(1))) }
+    @Test fun emptyFolder() = shot("empty-folder") { Files(FilesState(loading = false, folderId = "f", breadcrumbs = crumbs.take(1))) }
 
-    @Test fun selection() = shot("selection") { files(live.copy(selection = setOf("a_tax", "a_sheet"))) }
+    @Test fun selection() = shot("selection") { Files(live.copy(selection = setOf("a_tax", "a_sheet"))) }
 
     @Test fun uploading() = shot("uploading") {
-        files(
+        Files(
             live,
             UploadsState(
                 listOf(
@@ -97,31 +97,31 @@ class FilesScreenshotTest {
     }
 
     @Test fun audioAndPreparing() = shot("audio-preparing") {
-        files(
+        Files(
             live.copy(preparing = Preparing("Copia del proyecto.zip", 300_000_000, 812_000_000)),
             audio = AudioState("a_song", "Voz de la abuela.m4a", playing = true, positionMs = 42_000, durationMs = 185_000)
         )
     }
 
     @Test fun expandedListDetail() = shot("expanded-tree") {
-        files(live.copy(folderId = "f_work", breadcrumbs = crumbs.take(1), tree = tree, expanded = setOf("f_work")))
+        Files(live.copy(folderId = "f_work", breadcrumbs = crumbs.take(1), tree = tree, expanded = setOf("f_work")))
     }
 
-    @Test fun newSheet() = shot("sheet-new") { sheet { NewSheetBody("Trabajo", true, {}, {}, {}, {}, {}) } }
+    @Test fun newSheet() = shot("sheet-new") { Sheet { NewSheetBody("Trabajo", true, {}, {}, {}, {}, {}) } }
 
     @Test fun newFolderSheet() = shot("sheet-new-folder") {
-        sheet {
+        Sheet {
             NameSheetBody("Nueva carpeta", "Nombre de la carpeta", "Crear", rememberTextFieldState("Facturas 2026"), null, false, {
             }, autoFocus = false)
         }
     }
 
-    @Test fun sortSheet() = shot("sheet-sort") { sheet { SortSheetBody(FolderSort(SortField.Modified, descending = true)) {} } }
+    @Test fun sortSheet() = shot("sheet-sort") { Sheet { SortSheetBody(FolderSort(SortField.Modified, descending = true)) {} } }
 
-    @Test fun itemMenu() = shot("sheet-item-menu") { sheet { ItemMenuBody(items.first { it.id == "a_tax" }, pinned = false) {} } }
+    @Test fun itemMenu() = shot("sheet-item-menu") { Sheet { ItemMenuBody(items.first { it.id == "a_tax" }, pinned = false) {} } }
 
     @Test fun moveSheet() = shot("sheet-move") {
-        sheet {
+        Sheet {
             FolderPickerBody(
                 "Mover a…",
                 "Mover aquí",
@@ -141,11 +141,11 @@ class FilesScreenshotTest {
     }
 
     @Test fun detailsSheet() = shot("sheet-details") {
-        sheet { DetailsSheetBody(items.first { it.id == "a_tax" }, "Archivos › Trabajo", pinned = true) }
+        Sheet { DetailsSheetBody(items.first { it.id == "a_tax" }, "Archivos › Trabajo", pinned = true) }
     }
 
     @Test fun telegramSheet() = shot("sheet-telegram") {
-        sheet {
+        Sheet {
             TelegramSheetBody(
                 TelegramPicker(
                     loading = false,
@@ -158,9 +158,9 @@ class FilesScreenshotTest {
         }
     }
 
-    @Test fun disclosureSheet() = shot("sheet-disclosure") { sheet { DisclosureSheetBody(Disclosure.Share, {}, {}) } }
+    @Test fun disclosureSheet() = shot("sheet-disclosure") { Sheet { DisclosureSheetBody(Disclosure.Share, {}, {}) } }
 
-    @Test fun offlineSheet() = shot("sheet-offline") { sheet { OfflineSheetBody(items.first { it.id == "a_tax" }) {} } }
+    @Test fun offlineSheet() = shot("sheet-offline") { Sheet { OfflineSheetBody(items.first { it.id == "a_tax" }) {} } }
 
     @Test fun pdfReader() = shot("pdf-reader") {
         DocumentContent(

@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -189,31 +190,7 @@ fun ItemMenuBody(item: DriveItemResponse, pinned: Boolean, onAction: (MenuAction
             leading = { KindIcon(FileKinds.fileKind(item)) }
         )
         menuActions(item).forEach { action ->
-            val (label, icon) = when (action) {
-                MenuAction.Open -> stringResource(StringsR.string.files_open_folder) to BentoIcons.FolderClosed
-
-                MenuAction.Share -> stringResource(StringsR.string.common_action_share) to BentoIcons.Share2
-
-                MenuAction.Download -> stringResource(StringsR.string.common_action_download) to BentoIcons.Download
-
-                MenuAction.Offline -> stringResource(
-                    if (pinned) StringsR.string.files_menu_offline_remove else StringsR.string.files_menu_offline
-                ) to if (pinned) BentoIcons.PinOff else BentoIcons.Pin
-
-                MenuAction.Move -> stringResource(StringsR.string.common_action_move) to BentoIcons.FolderInput
-
-                MenuAction.Rename -> stringResource(StringsR.string.common_action_rename) to BentoIcons.PencilLine
-
-                MenuAction.Favorite -> stringResource(
-                    if (item.asset?.favorite == true) StringsR.string.files_menu_unfavorite else StringsR.string.common_action_favorite
-                ) to BentoIcons.Heart
-
-                MenuAction.Telegram -> stringResource(StringsR.string.common_action_send_telegram) to BentoIcons.Send
-
-                MenuAction.Details -> stringResource(StringsR.string.files_menu_details) to BentoIcons.Info
-
-                MenuAction.Delete -> stringResource(StringsR.string.common_action_delete) to BentoIcons.Trash2
-            }
+            val (label, icon) = menuEntry(action, item, pinned)
             val danger = action == MenuAction.Delete
             ListRow(
                 headline = label,
@@ -222,6 +199,39 @@ fun ItemMenuBody(item: DriveItemResponse, pinned: Boolean, onAction: (MenuAction
             )
         }
     }
+}
+
+/** Label and icon of one menu entry (exhaustive table). */
+@Suppress("CyclomaticComplexMethod")
+@Composable
+private fun menuEntry(action: MenuAction, item: DriveItemResponse, pinned: Boolean): Pair<String, ImageVector> = when (action) {
+    MenuAction.Open -> stringResource(StringsR.string.files_open_folder) to BentoIcons.FolderClosed
+
+    MenuAction.Share -> stringResource(StringsR.string.common_action_share) to BentoIcons.Share2
+
+    MenuAction.Download -> stringResource(StringsR.string.common_action_download) to BentoIcons.Download
+
+    MenuAction.Offline -> if (pinned) {
+        stringResource(StringsR.string.files_menu_offline_remove) to BentoIcons.PinOff
+    } else {
+        stringResource(StringsR.string.files_menu_offline) to BentoIcons.Pin
+    }
+
+    MenuAction.Move -> stringResource(StringsR.string.common_action_move) to BentoIcons.FolderInput
+
+    MenuAction.Rename -> stringResource(StringsR.string.common_action_rename) to BentoIcons.PencilLine
+
+    MenuAction.Favorite -> if (item.asset?.favorite == true) {
+        stringResource(StringsR.string.files_menu_unfavorite) to BentoIcons.Heart
+    } else {
+        stringResource(StringsR.string.common_action_favorite) to BentoIcons.Heart
+    }
+
+    MenuAction.Telegram -> stringResource(StringsR.string.common_action_send_telegram) to BentoIcons.Send
+
+    MenuAction.Details -> stringResource(StringsR.string.files_menu_details) to BentoIcons.Info
+
+    MenuAction.Delete -> stringResource(StringsR.string.common_action_delete) to BentoIcons.Trash2
 }
 
 /**
@@ -240,7 +250,6 @@ fun FolderPickerBody(
     onConfirm: (Destination) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val c = BentoTheme.colors
     val root = stringResource(StringsR.string.files_title)
     val query = rememberTextFieldState(state.query)
     val newName = rememberTextFieldState()
@@ -254,55 +263,7 @@ fun FolderPickerBody(
             hideLabel = true,
             placeholder = stringResource(StringsR.string.files_move_search)
         )
-        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 380.dp).padding(top = 8.dp)) {
-            if (state.query.isNotBlank()) {
-                items(state.results, key = { "r:${it.id}" }) { folder ->
-                    FolderPickRow(folder.name, blocked = folder.id in state.blocked) { onOpen(folder.id) }
-                }
-            } else {
-                val recent = state.recent.filter { it.id != state.folderId }.take(3)
-                if (recent.isNotEmpty() && state.crumbs.isEmpty()) {
-                    item { SectionHeader(stringResource(StringsR.string.files_move_recent)) }
-                    items(recent, key = { "recent:${it.id}" }) { destination ->
-                        FolderPickRow(destination.name, blocked = destination.id in state.blocked, icon = BentoIcons.History) {
-                            onOpen(destination.id)
-                        }
-                    }
-                }
-                item {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (state.crumbs.isNotEmpty()) {
-                            dev.bento.designsystem.component.BentoIconButton(
-                                BentoIcons.ArrowLeft,
-                                stringResource(StringsR.string.files_up),
-                                onUp
-                            )
-                        }
-                        SectionHeader(state.currentName ?: root, Modifier.weight(1f))
-                    }
-                }
-                when {
-                    state.loading -> item { LoadingState(Modifier.padding(16.dp)) }
-
-                    state.failed -> item {
-                        Text(stringResource(StringsR.string.files_load_failed), color = c.inkMuted, style = BentoTheme.typography.metadata)
-                    }
-
-                    state.folders.isEmpty() -> item {
-                        Text(
-                            stringResource(StringsR.string.files_move_no_folders),
-                            color = c.inkMuted,
-                            style = BentoTheme.typography.metadata,
-                            modifier = Modifier.padding(16.dp)
-                        )
-                    }
-
-                    else -> items(state.folders, key = { it.id }) { folder ->
-                        FolderPickRow(folder.name, blocked = folder.id in state.blocked) { onOpen(folder.id) }
-                    }
-                }
-            }
-        }
+        FolderPickerList(state, root, onOpen, onUp)
         if (creating) {
             NameSheetInline(newName, state, onCreate = { onCreate(newName.text.toString()) })
         } else {
@@ -321,6 +282,60 @@ fun FolderPickerBody(
             variant = BentoButtonVariant.Primary,
             enabled = state.canChooseHere && !state.loading
         )
+    }
+}
+
+@Composable
+private fun FolderPickerList(state: FolderBrowserState, root: String, onOpen: (String?) -> Unit, onUp: () -> Unit) {
+    val c = BentoTheme.colors
+    LazyColumn(Modifier.fillMaxWidth().heightIn(max = 380.dp).padding(top = 8.dp)) {
+        if (state.query.isNotBlank()) {
+            items(state.results, key = { "r:${it.id}" }) { folder ->
+                FolderPickRow(folder.name, blocked = folder.id in state.blocked) { onOpen(folder.id) }
+            }
+        } else {
+            val recent = state.recent.filter { it.id != state.folderId }.take(3)
+            if (recent.isNotEmpty() && state.crumbs.isEmpty()) {
+                item { SectionHeader(stringResource(StringsR.string.files_move_recent)) }
+                items(recent, key = { "recent:${it.id}" }) { destination ->
+                    FolderPickRow(destination.name, blocked = destination.id in state.blocked, icon = BentoIcons.History) {
+                        onOpen(destination.id)
+                    }
+                }
+            }
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (state.crumbs.isNotEmpty()) {
+                        dev.bento.designsystem.component.BentoIconButton(
+                            BentoIcons.ArrowLeft,
+                            stringResource(StringsR.string.files_up),
+                            onUp
+                        )
+                    }
+                    SectionHeader(state.currentName ?: root, Modifier.weight(1f))
+                }
+            }
+            when {
+                state.loading -> item { LoadingState(Modifier.padding(16.dp)) }
+
+                state.failed -> item {
+                    Text(stringResource(StringsR.string.files_load_failed), color = c.inkMuted, style = BentoTheme.typography.metadata)
+                }
+
+                state.folders.isEmpty() -> item {
+                    Text(
+                        stringResource(StringsR.string.files_move_no_folders),
+                        color = c.inkMuted,
+                        style = BentoTheme.typography.metadata,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+
+                else -> items(state.folders, key = { it.id }) { folder ->
+                    FolderPickRow(folder.name, blocked = folder.id in state.blocked) { onOpen(folder.id) }
+                }
+            }
+        }
     }
 }
 

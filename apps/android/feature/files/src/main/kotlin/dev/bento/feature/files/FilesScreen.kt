@@ -108,7 +108,7 @@ import dev.bento.feature.files.di.FilesEntryPoint
 import dev.bento.strings.R as StringsR
 import java.io.File
 import java.time.LocalDateTime
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 /** Everything Archivos can ask for; defaults make previews and tests terse. */
 data class FilesActions(
@@ -156,164 +156,43 @@ fun FilesScreen(
     viewModel: FilesViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    val activity = LocalActivity.current
-    val resources = LocalResources.current
     val state by viewModel.state.collectAsStateWithLifecycle()
     val uploads by viewModel.uploads.state.collectAsStateWithLifecycle()
     val audio by viewModel.audio.state.collectAsStateWithLifecycle()
     val snackbar = remember { BentoSnackbarHostState() }
-    val scope = rememberCoroutineScope()
     val entry = remember(context) { runCatching { FilesEntryPoint.get(context) }.getOrNull() }
-    val contentFiles = entry?.contentFiles()
-    var pendingSave by remember { mutableStateOf<DriveItemResponse?>(null) }
+    val launchers = rememberFilesLaunchers(viewModel, entry?.contentFiles())
 
     LaunchedEffect(folderId) { viewModel.start(folderId) }
     BackHandler(enabled = state.selecting || state.canGoUp) { if (state.selecting) viewModel.clearSelection() else viewModel.up() }
-
-    val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        viewModel.upload(uris.map { PickedContent(it.toString()) })
-    }
-    val pickMedia = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { uris ->
-        viewModel.upload(uris.map { PickedContent(it.toString()) })
-    }
-    val pickTree = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        if (uri != null) viewModel.uploadTree(uri.toString())
-    }
-    val scan = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
-        val pdf = GmsDocumentScanningResult.fromActivityResultIntent(result.data)?.pdf
-        if (result.resultCode == Activity.RESULT_OK && pdf != null) {
-            viewModel.uploadScan(
-                pdf.uri.toString(),
-                DisplayNames.scan(resources.getString(StringsR.string.files_scan_prefix), LocalDateTime.now())
-            )
-        }
-    }
-    val createDocument = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri ->
-        val item = pendingSave
-        pendingSave = null
-        if (uri != null && item != null && contentFiles != null) {
-            viewModel.saveTo(item) { assetId, progress -> contentFiles.saveTo(context.contentResolver, uri, assetId, progress) }
-        }
-    }
-
-    LaunchedEffect(viewModel) {
-        viewModel.effect.collect { effect ->
-            when (effect) {
-                is FilesEffect.Message -> scope.launch {
-                    val message = effect.message
-                    val text = message.text.resolve(resources)
-                    val undo = message.undo
-                    if (undo != null) {
-                        if (snackbar.showUndo(text, resources.getString(StringsR.string.common_action_undo))) undo.undo()
-                    } else {
-                        snackbar.show(text, tone = if (message.danger) BentoSnackbarTone.Danger else BentoSnackbarTone.Neutral)
-                    }
-                }
-
-                is FilesEffect.OpenViewer -> onOpenViewer(effect.assetId)
-
-                is FilesEffect.OpenDocument -> onOpenDocument(effect.assetId)
-
-                is FilesEffect.OpenWith -> if (!startExternal(context, viewIntent(context, effect.file, effect.mimeType))) {
-                    viewModel.message(UiText.of(StringsR.string.files_open_with_none))
-                }
-
-                is FilesEffect.Share -> startExternal(context, shareIntent(context, effect.files))
-
-                is FilesEffect.CreateDocument -> {
-                    pendingSave = effect.item
-                    runCatching { createDocument.launch(DisplayNames.file(effect.item.name)) }
-                }
-
-                is FilesEffect.SaveToDownloads -> if (contentFiles != null) {
-                    effect.items.forEach { item ->
-                        val target = downloadsTarget(context, item) ?: return@forEach
-                        viewModel.saveTo(item) { assetId, progress ->
-                            contentFiles.saveTo(context.contentResolver, target, assetId, progress)
-                        }
-                    }
-                }
-
-                is FilesEffect.Search -> onSearch(effect.folderId, effect.folderName)
-            }
-        }
-    }
-
-    val scanAvailable = remember(context) {
-        GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context) == ConnectionResult.SUCCESS
-    }
-    val actions = FilesActions(
-        onOpen = viewModel::open,
-        onSelect = viewModel::toggleSelection,
-        onMenu = { viewModel.showSheet(FilesSheet.ItemMenu(it)) },
-        onShare = viewModel::share,
-        onFavorite = { viewModel.setFavorite(it, it.asset?.favorite != true) },
-        onTrash = viewModel::trash,
-        onMove = { viewModel.showSheet(FilesSheet.Move(it)) },
-        onDownload = viewModel::download,
-        onPin = viewModel::setPinned,
-        onNavigate = viewModel::navigateTo,
-        onRetry = { viewModel.load() },
-        onNew = { viewModel.showSheet(FilesSheet.New) },
-        onSort = { viewModel.showSheet(FilesSheet.Sort) },
-        onToggleLayout = viewModel::toggleLayout,
-        onSearch = { onSearch(null, null) },
-        onSearchHere = viewModel::searchHere,
-        onSelectAll = viewModel::selectAll,
-        onClearSelection = viewModel::clearSelection,
-        onToggleTree = viewModel::toggleExpanded,
-        onDrop = viewModel::upload,
-        onPauseUploads = viewModel.uploads::pause,
-        onResumeUploads = viewModel.uploads::resume,
-        onDismissUploads = viewModel.uploads::clearFinished,
-        onToggleAudio = viewModel.audio::toggle,
-        onCloseAudio = viewModel.audio::close,
-        onCancelPreparing = viewModel::cancelPreparing
-    )
+    FilesEffects(viewModel, snackbar, launchers, FilesNavigation(onOpenViewer, onOpenDocument, onSearch))
     LaunchedEffect(audio.playing) {
         while (audio.playing) {
             viewModel.audio.tick()
-            kotlinx.coroutines.delay(AUDIO_TICK_MS)
+            delay(AUDIO_TICK_MS)
         }
+    }
+    val scanAvailable = remember(context) {
+        GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context) == ConnectionResult.SUCCESS
     }
     CompositionLocalProvider(LocalBentoImageLoader provides entry?.imageLoader()) {
         FilesContent(
             state = state,
             uploads = uploads,
             audio = audio,
-            actions = actions,
+            actions = filesActions(viewModel) { onSearch(null, null) },
             snackbar = snackbar,
             modifier = modifier,
             onLoadTree = viewModel::loadTree,
             avatar = { BentoIconButton(BentoIcons.User, stringResource(StringsR.string.files_account), onAccount) }
         )
-        FilesSheetHost(
-            state = state,
-            viewModel = viewModel,
-            scanAvailable = scanAvailable,
-            onUploadFiles = { runCatching { pickFiles.launch(arrayOf("*/*")) } },
-            onUploadMedia = {
-                runCatching { pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) }
-            },
-            onUploadFolder = { runCatching { pickTree.launch(null) } },
-            onScan = {
-                viewModel.dismissSheet()
-                val host = activity
-                if (host == null) {
-                    viewModel.message(UiText.of(StringsR.string.files_scan_unavailable))
-                } else {
-                    scanner().getStartScanIntent(host)
-                        .addOnSuccessListener { sender -> scan.launch(IntentSenderRequest.Builder(sender).build()) }
-                        .addOnFailureListener { viewModel.message(UiText.of(StringsR.string.files_scan_unavailable)) }
-                }
-            }
-        )
+        FilesSheetHost(state, viewModel, scanAvailable, launchers)
     }
 }
 
 private const val AUDIO_TICK_MS = 500L
 
-private fun scanner() = GmsDocumentScanning.getClient(
+internal fun scanner() = GmsDocumentScanning.getClient(
     GmsDocumentScannerOptions.Builder()
         .setGalleryImportAllowed(true)
         .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_PDF)
@@ -350,7 +229,7 @@ fun commonMime(types: List<String>): String {
     return if (families.size == 1) "${families.first()}/*" else "*/*"
 }
 
-private fun startExternal(context: Context, intent: Intent): Boolean = try {
+internal fun startExternal(context: Context, intent: Intent): Boolean = try {
     context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     true
 } catch (error: android.content.ActivityNotFoundException) {
@@ -358,7 +237,7 @@ private fun startExternal(context: Context, intent: Intent): Boolean = try {
 }
 
 /** `Downloads/Bento/<name>` through MediaStore (no storage permission on Android 10+). */
-private fun downloadsTarget(context: Context, item: DriveItemResponse): Uri? {
+internal fun downloadsTarget(context: Context, item: DriveItemResponse): Uri? {
     val values = ContentValues().apply {
         put(MediaStore.MediaColumns.DISPLAY_NAME, DisplayNames.file(item.name))
         put(MediaStore.MediaColumns.MIME_TYPE, item.asset?.mimeType ?: "application/octet-stream")
@@ -368,15 +247,7 @@ private fun downloadsTarget(context: Context, item: DriveItemResponse): Uri? {
 }
 
 @Composable
-private fun FilesSheetHost(
-    state: FilesState,
-    viewModel: FilesViewModel,
-    scanAvailable: Boolean,
-    onUploadFiles: () -> Unit,
-    onUploadMedia: () -> Unit,
-    onUploadFolder: () -> Unit,
-    onScan: () -> Unit
-) {
+private fun FilesSheetHost(state: FilesState, viewModel: FilesViewModel, scanAvailable: Boolean, launchers: FilesLaunchers) {
     val sheet = state.sheet ?: return
     val root = stringResource(StringsR.string.files_title)
     BentoSheet(onDismissRequest = viewModel::dismissSheet) {
@@ -384,10 +255,10 @@ private fun FilesSheetHost(
             FilesSheet.New -> NewSheetBody(
                 folderName = state.folderName ?: root,
                 scanAvailable = scanAvailable,
-                onUploadFiles = onUploadFiles,
-                onUploadMedia = onUploadMedia,
-                onUploadFolder = onUploadFolder,
-                onScan = onScan,
+                onUploadFiles = launchers::pickFiles,
+                onUploadMedia = launchers::pickMedia,
+                onUploadFolder = launchers::pickTree,
+                onScan = launchers::scan,
                 onNewFolder = { viewModel.showSheet(FilesSheet.NewFolder) }
             )
 
@@ -636,36 +507,7 @@ private fun FilesPane(
                     onRetry = actions.onRetry
                 )
 
-                state.empty -> EmptyState(
-                    title = stringResource(
-                        if (state.folderId ==
-                            null
-                        ) {
-                            StringsR.string.files_root_empty_title
-                        } else {
-                            StringsR.string.files_empty_title
-                        }
-                    ),
-                    body = stringResource(
-                        if (state.folderId ==
-                            null
-                        ) {
-                            StringsR.string.files_root_empty_body
-                        } else {
-                            StringsR.string.files_empty_body
-                        }
-                    ),
-                    icon = BentoIcons.FolderClosed,
-                    modifier = Modifier.fillMaxSize().padding(24.dp),
-                    action = {
-                        BentoButton(
-                            stringResource(StringsR.string.files_new),
-                            actions.onNew,
-                            variant = BentoButtonVariant.Primary,
-                            leadingIcon = BentoIcons.Plus
-                        )
-                    }
-                )
+                state.empty -> FilesEmpty(root = state.folderId == null, onNew = actions.onNew)
 
                 state.layout == FilesLayout.Grid -> FilesGrid(state, actions, gridColumnsMin)
 
@@ -673,6 +515,19 @@ private fun FilesPane(
             }
         }
     }
+    FilesOverlays(state, uploads, audio, actions, snackbar, fabExpanded)
+}
+
+/** Bottom layers: snackbar, decrypting card, audio mini player, upload card, then the selection bar or the FAB. */
+@Composable
+private fun FilesOverlays(
+    state: FilesState,
+    uploads: UploadsState,
+    audio: AudioState,
+    actions: FilesActions,
+    snackbar: BentoSnackbarHostState,
+    fabExpanded: Boolean
+) {
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Bottom) {
         BentoSnackbarHost(snackbar)
         state.preparing?.let { PreparingCard(it, actions.onCancelPreparing) }
@@ -708,6 +563,24 @@ private fun FilesPane(
             }
         }
     }
+}
+
+@Composable
+private fun FilesEmpty(root: Boolean, onNew: () -> Unit) {
+    EmptyState(
+        title = stringResource(if (root) StringsR.string.files_root_empty_title else StringsR.string.files_empty_title),
+        body = stringResource(if (root) StringsR.string.files_root_empty_body else StringsR.string.files_empty_body),
+        icon = BentoIcons.FolderClosed,
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        action = {
+            BentoButton(
+                stringResource(StringsR.string.files_new),
+                onNew,
+                variant = BentoButtonVariant.Primary,
+                leadingIcon = BentoIcons.Plus
+            )
+        }
+    )
 }
 
 @Composable

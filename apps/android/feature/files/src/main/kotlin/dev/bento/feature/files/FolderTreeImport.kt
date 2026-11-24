@@ -1,8 +1,8 @@
 package dev.bento.feature.files
 
 import android.content.ContentResolver
-import android.net.Uri
 import android.provider.DocumentsContract
+import androidx.core.net.toUri
 
 /** One entry of a SAF document tree. */
 data class TreeNode(val uri: String, val name: String, val mimeType: String?, val sizeBytes: Long?, val directory: Boolean)
@@ -78,7 +78,7 @@ class FolderTreeImport(
 
 class DocumentTreeReader(private val resolver: ContentResolver) : TreeReader {
     override fun rootName(treeUri: String): String {
-        val tree = Uri.parse(treeUri)
+        val tree = treeUri.toUri()
         val document = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
         return resolver.query(document, arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME), null, null, null)?.use { cursor ->
             if (cursor.moveToFirst()) cursor.getString(0) else null
@@ -86,8 +86,8 @@ class DocumentTreeReader(private val resolver: ContentResolver) : TreeReader {
     }
 
     override fun children(treeUri: String, documentUri: String?): List<TreeNode> {
-        val tree = Uri.parse(treeUri)
-        val parentId = documentUri?.let { DocumentsContract.getDocumentId(Uri.parse(it)) } ?: DocumentsContract.getTreeDocumentId(tree)
+        val tree = treeUri.toUri()
+        val parentId = documentUri?.let { DocumentsContract.getDocumentId(it.toUri()) } ?: DocumentsContract.getTreeDocumentId(tree)
         val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(tree, parentId)
         val columns = arrayOf(
             DocumentsContract.Document.COLUMN_DOCUMENT_ID,
