@@ -11,7 +11,7 @@
     "url": "git+https://github.com/invrnt/bento.git"
   },
   "author": "Bento contributors",
-  "license": "UNLICENSED",
+  "license": "AGPL-3.0-only",
   "main": "dist/main/index.js",
   "engines": {
     "node": ">=22 <26"

@@ -2,6 +2,7 @@
   "name": "bento-relay",
   "version": "0.1.0",
   "private": true,
+  "license": "AGPL-3.0-only",
   "description": "Stateless pairing relay for Bento devices (Cloudflare Worker + Durable Object).",
   "type": "module",
   "engines": {

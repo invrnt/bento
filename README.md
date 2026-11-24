@@ -49,11 +49,17 @@ Más: [Privacidad y seguridad](docs/user/es/privacidad-y-seguridad.md) · [Polí
 - Aún no hay app para móvil, enlaces públicos ni nubes compartidas en familia.
 - Para lo irreemplazable, conserva también otra copia.
 
+## Licencia
+
+Bento es software libre bajo la [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0-only). Puedes usarlo, estudiarlo, modificarlo y redistribuirlo; si distribuyes una versión modificada, o la ofreces como servicio en red (por ejemplo el relay), debes publicar su código bajo la misma licencia.
+
 ## English
 
 Bento is your private cloud, with no storage limit, kept in your own Telegram account. It encrypts your photos and files on your computer before backing them up, keeps them in order across all your devices, and adds a new computer with a single code. Telegram only sees content-free metadata: that you use Bento, sizes, times and sessions. Telegram does not contractually guarantee unlimited storage, and losing every device **and** the recovery kit means losing access. Bento uses the Telegram API and is not affiliated with Telegram.
 
 Read the [English guides](docs/user/en/README.md), [privacy and security](docs/user/en/privacy-and-security.md) and the [privacy policy](docs/legal/en/privacy.md).
+
+Bento is free software under the [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0-only).
 
 ## For developers
 

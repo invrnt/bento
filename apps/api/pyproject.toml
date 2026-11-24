@@ -2,6 +2,7 @@
 name = "bento-api"
 version = "0.1.0"
 description = "Bento local-first API and worker package."
+license = "AGPL-3.0-only"
 requires-python = ">=3.12"
 dependencies = [
   "alembic>=1.14,<2",
