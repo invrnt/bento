@@ -1,0 +1,12 @@
+.gradle/
+.kotlin/
+build/
+local.properties
+captures/
+*.apk
+*.aab
+*.apks
+*.jks
+*.keystore
+python-wheels/dist/
+python-wheels/work/

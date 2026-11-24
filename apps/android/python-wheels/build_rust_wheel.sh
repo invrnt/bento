@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Cross-build a PyO3/maturin sdist for Chaquopy Python 3.13 on Android.
-# usage: build_rust_wheel.sh <srcdir> <abi: arm64-v8a|x86_64>
+# usage: build_rust_wheel.sh <srcdir> <abi: arm64-v8a|x86_64> [<wheel version override>]
 # Needs: rustup targets aarch64-linux-android/x86_64-linux-android, Android NDK, work/buildenv (see build_all.sh).
 set -euo pipefail
-SRC=$1; ABI=$2
+SRC=$1; ABI=$2; VERSION=${3:-}
 HERE=$(cd "$(dirname "$0")" && pwd)
 WORK=$HERE/work; OUT=$HERE/dist
 NDK=${ANDROID_NDK_HOME:-$HOME/Android/Sdk/ndk/27.1.12297006}
@@ -45,6 +45,6 @@ RAW=$WORK/raw-$ABI; rm -rf "$RAW"; mkdir -p "$RAW" "$OUT"
 for wheel in "$RAW"/*.whl; do
   # maturin names the extension `*.cpython-313-<arch>-android-android.so`; CPython on Android expects
   # `*.cpython-313-<triple>.so` (EXT_SUFFIX), so rename it and rewrite RECORD.
-  "$WORK/buildenv/bin/python" "$HERE/fix_ext_suffix.py" "$wheel"
-  mv "$wheel" "$OUT/"
+  "$WORK/buildenv/bin/python" "$HERE/fix_ext_suffix.py" "$wheel" $VERSION
+  mv "$RAW"/*.whl "$OUT/"
 done

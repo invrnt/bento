@@ -1,0 +1,16 @@
+root = true
+
+[*.{kt,kts}]
+indent_size = 4
+max_line_length = 140
+insert_final_newline = true
+ktlint_code_style = android_studio
+ktlint_function_naming_ignore_when_annotated_with = Composable
+ktlint_standard_no-wildcard-imports = enabled
+ktlint_standard_function-signature = disabled
+ktlint_standard_class-signature = disabled
+ktlint_standard_backing-property-naming = disabled
+ktlint_standard_property-naming = disabled
+
+[**/generated/**]
+ktlint = disabled

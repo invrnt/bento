@@ -1,0 +1,35 @@
+# The `android` dependency profile (architecture/android-runtime.md §4), pinned from apps/api/uv.lock.
+# Native packages use the newest cp313 Android build available; deviations from uv.lock are marked.
+# Replace with the `android` extra of apps/api/pyproject.toml once agent 35 merges it.
+fastapi==0.115.14
+starlette==0.46.2
+pydantic==2.13.4
+pydantic-core==2.46.4          # built here (build_rust_wheel.sh); must equal what pydantic pins
+pydantic-settings==2.14.2
+python-dotenv==1.2.2
+sqlalchemy==2.0.51
+greenlet==3.1.1                # DEVIATION (uv.lock 3.5.3): newest Chaquopy-repo cp313 build
+alembic==1.18.5
+mako==1.3.12
+markupsafe==3.0.4              # DEVIATION (uv.lock 3.0.3): first release with official android_24 wheels on PyPI
+cryptography==42.0.8           # DEVIATION (uv.lock 46.0.7): newest Chaquopy-repo build, see android-spike.md
+cffi==1.17.1                   # DEVIATION (uv.lock 2.1.1): dependency of the Chaquopy cryptography 42 build
+spake2==0.9
+hkdf==0.0.3                    # sdist-only on PyPI: prebuilt as a wheel by build_all.sh
+segno==1.6.6
+telethon==1.45.0
+pyaes==1.6.1                   # sdist-only on PyPI: prebuilt as a wheel by build_all.sh
+rsa==4.9.1
+pyasn1==0.6.5
+cryptg==0.6.1                  # MANDATORY on Android (Telethon AES-IGE); built here; wheel metadata says 0.1.0
+uvicorn==0.34.3                # without [standard]: no uvloop/httptools/watchfiles
+h11==0.16.0
+click==8.4.2
+websockets==16.0
+python-multipart==0.0.32
+pillow==11.0.0                 # DEVIATION (uv.lock 11.3.0): newest Chaquopy-repo cp313 build
+anyio==4.14.1
+idna==3.18
+typing-extensions==4.15.0
+typing-inspection==0.4.2
+annotated-types==0.7.0
