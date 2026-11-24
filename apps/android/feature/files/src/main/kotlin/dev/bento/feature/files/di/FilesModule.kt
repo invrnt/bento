@@ -33,6 +33,7 @@ import dev.bento.feature.files.SharedFilesPreferences
 import dev.bento.feature.files.TransferControl
 import dev.bento.feature.files.TreeReader
 import dev.bento.feature.files.UploadCoordinator
+import dev.bento.feature.files.revokeSharedFile
 import java.io.File
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -66,7 +67,8 @@ object FilesModule {
     @Provides
     @Singleton
     fun contentFiles(@ApplicationContext context: Context, http: BentoHttp): ContentFiles =
-        ContentFiles(http, File(context.cacheDir, "share")).also { it.prune(everything = true) }
+        ContentFiles(http, File(context.cacheDir, "share"), onExpired = { file -> revokeSharedFile(context, file) })
+            .also { it.prune(everything = true) }
 
     @Provides
     @Singleton

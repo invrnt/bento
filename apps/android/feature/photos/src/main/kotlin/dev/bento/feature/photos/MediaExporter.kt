@@ -39,6 +39,11 @@ class MediaExporter @Inject constructor(@ApplicationContext private val context:
                 response.body.byteStream().use { input -> tmp.outputStream().use(input::copyTo) }
             }
             tmp.renameTo(file)
+        } else {
+            // A reused copy starts a new TTL, so the janitor never deletes it while a receiver reads it (SEC-04).
+            val now = System.currentTimeMillis()
+            file.setLastModified(now)
+            dir.setLastModified(now)
         }
         FileProvider.getUriForFile(context, authority, file)
     }
@@ -96,7 +101,18 @@ class MediaExporter @Inject constructor(@ApplicationContext private val context:
 
     private fun pruneOldCopies() {
         val cutoff = System.currentTimeMillis() - COPY_TTL_MS
-        shareDir.listFiles()?.forEach { dir -> if (dir.lastModified() < cutoff) dir.deleteRecursively() }
+        shareDir.listFiles()?.forEach { dir ->
+            if (dir.lastModified() < cutoff) {
+                // Revoke the receivers' grants before the copy goes (SEC-04).
+                dir.walkBottomUp().filter { it.isFile }.forEach { file ->
+                    runCatching {
+                        val uri = FileProvider.getUriForFile(context, authority, file)
+                        context.revokeUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                }
+                dir.deleteRecursively()
+            }
+        }
     }
 
     companion object {

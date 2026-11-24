@@ -203,6 +203,11 @@ internal fun scanner() = GmsDocumentScanning.getClient(
 /** FileProvider URI (authority `<applicationId>.files`, `cacheDir/share/` only) with a per-URI read grant. */
 fun providerUri(context: Context, file: File): Uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
 
+/** Revokes every app's read grant on [file]'s content URI (before the copy is deleted, SEC-04). */
+fun revokeSharedFile(context: Context, file: File) {
+    context.revokeUriPermission(providerUri(context, file), Intent.FLAG_GRANT_READ_URI_PERMISSION)
+}
+
 fun viewIntent(context: Context, file: File, mimeType: String): Intent {
     val uri = providerUri(context, file)
     val view = Intent(Intent.ACTION_VIEW).setDataAndType(uri, mimeType).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
