@@ -33,7 +33,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --version) VERSION="${2:-}"; shift 2 ;;
     --abi) ABI="${2:-}"; shift 2 ;;
-    --out) OUT="${2:-}"; shift 2 ;;
+    --out) OUT="$(realpath -m "${2:-}")"; shift 2 ;;
     --feed-port) FEED_PORT="${2:-}"; shift 2 ;;
     --dry-run) DRY_RUN=1; shift ;;
     --skip-build) SKIP_BUILD=1; shift ;;
