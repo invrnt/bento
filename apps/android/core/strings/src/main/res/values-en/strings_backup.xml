@@ -13,6 +13,7 @@
     <string name="backup_header_no_access">Bento can’t see your photos</string>
     <string name="backup_header_done">All backed up ✓</string>
     <string name="backup_header_done_ago">All backed up ✓ · %1$s</string>
+    <string name="backup_just_now">just now</string>
     <string name="backup_header_paused">Backup paused</string>
     <string name="backup_header_paused_battery">Paused · low battery</string>
     <plurals name="backup_header_running">

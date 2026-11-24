@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.bento.background.TransferScheduler
+import dev.bento.data.Invalidations
 import dev.bento.engine.BentoEngine
 import dev.bento.feature.recovery.Outcome
 import dev.bento.feature.recovery.attempt
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
@@ -151,7 +153,9 @@ class BackupViewModel internal constructor(
     private val local: LocalSettings,
     private val clock: Clock,
     /** MediaStore and permission reads; tests pass their virtual-time dispatcher. */
-    private val io: CoroutineDispatcher
+    private val io: CoroutineDispatcher,
+    /** Server events (jobs/sync stream) keep the status header live while the screen is open; null in tests. */
+    invalidations: Invalidations? = null
 ) : ViewModel() {
     @Inject
     constructor(
@@ -159,8 +163,9 @@ class BackupViewModel internal constructor(
         phoneSettings: PhoneSettingsRepository,
         media: PhoneMedia,
         local: LocalSettings,
-        clock: Clock
-    ) : this(backup, phoneSettings, media, local, clock, Dispatchers.IO)
+        clock: Clock,
+        invalidations: Invalidations
+    ) : this(backup, phoneSettings, media, local, clock, Dispatchers.IO, invalidations)
 
     private val _state = MutableStateFlow(BackupUiState())
     val state: StateFlow<BackupUiState> = _state.asStateFlow()
@@ -172,6 +177,26 @@ class BackupViewModel internal constructor(
 
     init {
         refresh()
+        invalidations?.let { events ->
+            viewModelScope.launch {
+                @OptIn(kotlinx.coroutines.FlowPreview::class)
+                events.topics.debounce(LIVE_DEBOUNCE_MS).collect { refreshLive() }
+            }
+            viewModelScope.launch {
+                while (true) {
+                    kotlinx.coroutines.delay(LIVE_TICK_MS)
+                    refreshLive()
+                }
+            }
+        }
+    }
+
+    /** Status and policy only (cheap); folders reload on resume and after changes. */
+    private suspend fun refreshLive() {
+        if (_state.value.loading) return
+        val status = (attempt { backup.status() } as? Outcome.Ok)?.value ?: return
+        val policy = (attempt { backup.policy() } as? Outcome.Ok)?.value
+        _state.update { it.copy(status = status, policy = policy ?: it.policy) }
     }
 
     /** On start and every resume: permissions may have changed in system settings meanwhile ("revoked later"). */
@@ -282,13 +307,17 @@ class BackupViewModel internal constructor(
     private fun enableDefaults() {
         viewModelScope.launch {
             _state.update { it.copy(saving = true, failed = false) }
+            // The first load may have run before the engine answered (onboarding opens this right after sign-in).
+            load()
             val rows = _state.value.buckets
             val targets = rows.filter { it.suggested }.ifEmpty { rows.take(1) }
             val ok = targets.filterNot { it.enabled }.all { row -> attempt { enableBucket(row) } is Outcome.Ok }
             _state.update { it.copy(saving = false, failed = !ok) }
             load()
             if (ok) {
-                if ((_state.value.status?.pending ?: 0) > 0) media.startTransfer()
+                // The initial backup runs as a user-initiated transfer; right after enabling, the backlog may not be
+                // counted yet (the scan is queued), so the folders' own counts decide.
+                if (targets.sumOf { it.count } > 0 || (_state.value.status?.pending ?: 0) > 0) media.startTransfer()
                 _effects.trySend(BackupEffect.Finished)
             }
         }
@@ -449,6 +478,9 @@ class BackupViewModel internal constructor(
         _effects.trySend(BackupEffect.Finished)
     }
 }
+
+private const val LIVE_DEBOUNCE_MS = 500L
+private const val LIVE_TICK_MS = 10_000L
 
 /** Injectable time source (tests pass a fixed clock). */
 fun interface Clock {

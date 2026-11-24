@@ -342,7 +342,7 @@ object BackupCopy {
             BackupHeader.NoAccess -> context.getString(StringsR.string.backup_header_no_access)
 
             is BackupHeader.Done -> header.lastBackupAt?.let {
-                context.getString(StringsR.string.backup_header_done_ago, relativeTime(it, now))
+                context.getString(StringsR.string.backup_header_done_ago, relativeTime(context, it, now))
             } ?: context.getString(StringsR.string.backup_header_done)
 
             is BackupHeader.Paused -> context.getString(
@@ -369,8 +369,12 @@ object BackupCopy {
     }
 }
 
-internal fun relativeTime(epochMs: Long, now: Long): String =
-    DateUtils.getRelativeTimeSpanString(epochMs.coerceAtMost(now), now, DateUtils.MINUTE_IN_MILLIS).toString().lowercase()
+internal fun relativeTime(context: android.content.Context, epochMs: Long, now: Long): String =
+    if (now - epochMs < DateUtils.MINUTE_IN_MILLIS) {
+        context.getString(StringsR.string.backup_just_now)
+    } else {
+        DateUtils.getRelativeTimeSpanString(epochMs.coerceAtMost(now), now, DateUtils.MINUTE_IN_MILLIS).toString().lowercase()
+    }
 
 @Composable
 private fun BackupHeaderCard(header: BackupHeader, now: Long) {

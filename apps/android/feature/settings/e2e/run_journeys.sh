@@ -29,7 +29,8 @@ trap cleanup EXIT
 
 "$SDK/emulator/emulator" -avd "$AVD" -no-window -no-audio -no-snapshot-save -no-boot-anim -gpu swiftshader_indirect -memory "${EMU_MEMORY:-2048}" >"$OUT/emulator.log" 2>&1 &
 emu_pid=$!
-"$adb" wait-for-device
+# Fail fast when the emulator cannot start (never hold the shared lock on a dead `wait-for-device`).
+until "$adb" get-state >/dev/null 2>&1; do sleep 2; kill -0 "$emu_pid" 2>/dev/null || { tail -5 "$OUT/emulator.log"; exit 1; }; done
 until [[ "$("$adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; do sleep 2; done
 for scale in window_animation_scale transition_animation_scale animator_duration_scale; do "$adb" shell settings put global "$scale" 0; done
 "$adb" install -r -t "$app_apk" >/dev/null
@@ -49,9 +50,10 @@ for j in "${journeys[@]}"; do
   options='{"fake_telegram_url":"http://127.0.0.1:8790","manual_login":"true"}'
   "$adb" shell "run-as dev.bento.app sh -c 'mkdir -p files && echo '\''$options'\'' > files/dev-options.json'"
   echo "== $j"
-  if ! "$adb" shell am instrument -w -r -e class "dev.bento.app.BackupJourneysTest#$j" dev.bento.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$OUT/$j.txt" | grep -E "OK \(|FAILURES|Tests run|AssertionError|Exception" ; then status=1; fi
+  if ! "$adb" shell am instrument -w -r -e class "dev.bento.app.${CLASS:-BackupJourneysTest}#$j" dev.bento.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$OUT/$j.txt" | grep -E "OK \(|FAILURES|Tests run|AssertionError|Exception" ; then status=1; fi
   grep -q "OK (1 test)" "$OUT/$j.txt" || status=1
   "$adb" logcat -d -s BentoJourney:I > "$OUT/$j.logcat" 2>/dev/null || true
+  "$adb" logcat -d -b crash,main "*:E" > "$OUT/$j.errors.logcat" 2>/dev/null || true
   mkdir -p "$OUT/screens-${APP_LOCALE:-es-ES}"
   "$adb" pull /sdcard/Android/data/dev.bento.app/files/journeys/. "$OUT/screens-${APP_LOCALE:-es-ES}" >/dev/null 2>&1 || true
   kill "$cloud_pid" 2>/dev/null || true; wait "$cloud_pid" 2>/dev/null || true; cloud_pid=""

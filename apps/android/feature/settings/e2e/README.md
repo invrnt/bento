@@ -31,3 +31,11 @@ Deviations (not reproducible inside instrumentation, covered as closely as feasi
   `SettingsLogicTest.recentsHidingFollowsTheLock` and the call site.
 - The permission denial paths (denied, partial, revoked later) run in `BackupViewModelTest`/`SettingsUiTest`: the
   emulator's permission dialogs are system UI and grants persist across `pm clear` only through the test rule.
+- Journeys 10 and 16 put one photo in the roll before turning backup on: with an empty roll there is no "Camera"
+  bucket yet, so nothing is enabled and photos taken later are not backed up (a follow-up listed in agent 41's
+  handoff: remember "backup on" and enable the suggested buckets when they first appear).
+- Journey 11 inserts its 120 photos on the backup step (after sign-in): 120 MediaStore inserts during sign-in made the
+  emulator miss the phone-number field.
+
+`CLASS=TrustJourneysTest` runs another journey class with the same single fake cloud (used to re-check agent 38's
+`j01_firstRunNewVault` and `j15_sessionRevoked` after the backup step replaced the placeholder).
