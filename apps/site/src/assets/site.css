@@ -1207,13 +1207,34 @@ main {
 
 .screenshot-row {
   display: grid;
-  gap: 32px;
+  grid-auto-flow: column;
+  grid-auto-columns: min(68%, 260px);
+  gap: 16px;
+  margin-inline: calc(var(--gutter) * -1);
+  padding: 4px var(--gutter) 16px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--gutter);
+}
+
+.screenshot-row > * {
+  scroll-snap-align: start;
+}
+
+@media (max-width: 767px) {
+  .phone-frame-hero {
+    max-width: 230px;
+  }
 }
 
 @media (min-width: 768px) {
   .screenshot-row {
+    grid-auto-flow: row;
     grid-template-columns: repeat(3, 1fr);
     gap: 24px;
+    margin-inline: 0;
+    padding: 0;
+    overflow: visible;
   }
 }
 
