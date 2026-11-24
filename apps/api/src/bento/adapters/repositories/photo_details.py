@@ -10,10 +10,18 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from bento.adapters.repositories.mappers import blob_ref_from_model
+from bento.domain.backup import BackupFileState
 from bento.domain.jobs import JobStatus, JobType
 from bento.domain.storage import BlobKind, BlobRef, StorageBackend
 from bento.infrastructure.db.engine import session_scope
-from bento.infrastructure.db.models import AssetModel, BlobRefModel, JobModel, ThumbnailModel
+from bento.infrastructure.db.models import (
+    AssetModel,
+    BackupFileModel,
+    BlobRefModel,
+    CacheEntryModel,
+    JobModel,
+    ThumbnailModel,
+)
 
 _ACTIVE = (JobStatus.QUEUED.value, JobStatus.RUNNING.value, JobStatus.RETRYING.value)
 
@@ -24,6 +32,15 @@ class PhotoItemDetails:
     height: int | None
     remote_state: str  # local_only | uploading | remote | failed
     thumbnail_etag: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class LocalOriginalState:
+    offline_pinned: bool
+    """The original is pinned in the cache ("Disponible sin conexión")."""
+    locally_available: bool
+    """The original can be opened without the network: never uploaded, cached, or still in its backup source
+    (read from the catalog; the backup file is not stat'ed, so a moved source file still counts)."""
 
 
 class SQLitePhotoDetails:
@@ -81,6 +98,47 @@ class SQLitePhotoDetails:
                 thumbnail_etag=hashlib.sha1("|".join(ids).encode()).hexdigest()[:16] if ids else None,
             )
         return result
+
+    def local_states(self, asset_ids: list[str]) -> dict[str, LocalOriginalState]:
+        """Per asset, whether its original is on this device: three queries for the whole page."""
+        if not asset_ids:
+            return {}
+        with session_scope(self._session_factory) as session:
+            originals = session.execute(
+                select(BlobRefModel.asset_id, BlobRefModel.id, BlobRefModel.backend).where(
+                    BlobRefModel.asset_id.in_(asset_ids), BlobRefModel.kind == BlobKind.ORIGINAL.value
+                )
+            ).all()
+            blob_ids = [blob_id for _asset, blob_id, _backend in originals]
+            cached = (
+                dict(
+                    session.execute(
+                        select(CacheEntryModel.blob_ref_id, CacheEntryModel.pinned).where(
+                            CacheEntryModel.blob_ref_id.in_(blob_ids)
+                        )
+                    ).all()
+                )
+                if blob_ids
+                else {}
+            )
+            in_sources = set(
+                session.scalars(
+                    select(BackupFileModel.asset_id).where(
+                        BackupFileModel.asset_id.in_(asset_ids), BackupFileModel.state == BackupFileState.DONE.value
+                    )
+                )
+            )
+        pinned: set[str] = set()
+        local: set[str] = set(in_sources)
+        for asset_id, blob_id, backend in originals:
+            if backend == StorageBackend.LOCAL.value or blob_id in cached:
+                local.add(asset_id)
+            if cached.get(blob_id):
+                pinned.add(asset_id)
+        return {
+            asset_id: LocalOriginalState(offline_pinned=asset_id in pinned, locally_available=asset_id in local)
+            for asset_id in asset_ids
+        }
 
     def video_asset_ids(self, asset_ids: list[str]) -> set[str]:
         if not asset_ids:

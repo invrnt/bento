@@ -121,6 +121,8 @@ def album_from_model(model: AlbumModel, asset_ids: frozenset[str]) -> Album:
         created_at=require_aware(model.created_at),
         updated_at=require_aware(model.updated_at),
         deleted_at=aware(model.deleted_at),
+        # A cover whose photo left the album (e.g. through sync) no longer counts.
+        cover_asset_id=model.cover_asset_id if model.cover_asset_id in asset_ids else None,
     )
 
 
@@ -131,6 +133,7 @@ def album_to_model(album: Album) -> AlbumModel:
         created_at=album.created_at,
         updated_at=album.updated_at,
         deleted_at=album.deleted_at,
+        cover_asset_id=album.cover_asset_id,
     )
 
 

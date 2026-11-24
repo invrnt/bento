@@ -23,10 +23,17 @@ from bento.application.drive import (
 )
 from bento.application.ingestion import AssetFileQueryService, AssetIngestionService, UploadedAssetFile
 from bento.application.jobs import JobsUseCases, ListJobsQuery
-from bento.application.photos import AddAlbumAssetCommand, CreateAlbumCommand, PhotosUseCases, TimelineQuery
+from bento.application.photos import (
+    AddAlbumAssetCommand,
+    CreateAlbumCommand,
+    PhotosUseCases,
+    TimelineQuery,
+    UpdateAlbumCommand,
+)
 from bento.application.storage_maintenance import StorageMaintenanceService
 from bento.domain.assets import Asset, AssetKind, AssetMode
-from bento.domain.drive import DriveItem, Folder
+from bento.domain.drive import DriveItem, DriveSort, Folder, SortOrder
+from bento.domain.exif import summarize_exif
 from bento.domain.errors import AssetNotFoundError, DomainError, UnsupportedMediaTypeError, ValidationFailedError
 from bento.domain.jobs import Job, JobType
 from bento.domain.photos import Album, TimelineGroup
@@ -41,6 +48,7 @@ from bento.interfaces.http.routes_content import router as content_router
 from bento.interfaces.http.routes_dev import router as dev_router
 from bento.interfaces.http.routes_devices import router as devices_router
 from bento.interfaces.http.routes_drive_paths import router as drive_paths_router
+from bento.interfaces.http.routes_events import router as events_router
 from bento.interfaces.http.routes_pairing import router as pairing_router
 from bento.interfaces.http.routes_trash import router as trash_router
 from bento.interfaces.http.routes_search import router as search_router
@@ -65,6 +73,7 @@ router.include_router(activity_router)
 router.include_router(sync_router)
 router.include_router(drive_paths_router)
 router.include_router(android_router)
+router.include_router(events_router)
 
 
 class HealthResponse(BaseModel):
@@ -112,6 +121,19 @@ class StorageReclaimResponse(BaseModel):
     skipped_recent_files: int
 
 
+class ExifSummaryResponse(BaseModel):
+    camera_make: str | None = None
+    camera_model: str | None = None
+    lens_model: str | None = None
+    exposure_time_s: float | None = None
+    exposure_display: str | None = None
+    f_number: float | None = None
+    iso: int | None = None
+    focal_length_mm: float | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+
+
 class AssetResponse(BaseModel):
     id: str
     kind: str
@@ -136,6 +158,11 @@ class AssetResponse(BaseModel):
     duration_ms: int | None = None
     remote_state: str | None = None
     thumbnail_etag: str | None = None
+    # Where the original is (`api/android-endpoints.md` §6): pinned for offline use, and openable offline.
+    offline_pinned: bool = False
+    locally_available: bool = False
+    exif: ExifSummaryResponse | None = None
+    """Parsed camera summary; absent when the file carries no usable EXIF."""
 
 
 class FolderResponse(BaseModel):
@@ -154,6 +181,8 @@ class DriveItemResponse(BaseModel):
     updated_at: str
     asset: AssetResponse | None = None
     folder: FolderResponse | None = None
+    item_count: int | None = None
+    """Folders only: live direct children (subfolders and files)."""
 
 
 class DriveBreadcrumbResponse(BaseModel):
@@ -231,10 +260,17 @@ class AlbumResponse(BaseModel):
     created_at: str
     updated_at: str
     deleted_at: str | None = None
+    cover_asset_id: str | None = None
+    """Chosen on this device (not synced to other devices); `null` lets the client pick one."""
 
 
 class AlbumCreateRequest(BaseModel):
     title: str
+
+
+class AlbumPatchRequest(BaseModel):
+    title: str | None = Field(default=None, max_length=255)
+    cover_asset_id: str | None = Field(default=None, max_length=64)
 
 
 class AlbumItemRequest(BaseModel):
@@ -372,15 +408,21 @@ async def drive_items(
     folder_id: str | None = None,
     cursor: str | None = None,
     limit: int = 50,
+    sort: DriveSort | None = None,
+    order: SortOrder | None = None,
 ) -> DriveItemsResponse | JSONResponse:
+    """`sort` (`name|modified|size|kind`) puts folders first; without it the listing is newest first, mixed.
+    `order` defaults to `asc` (`desc` for `modified`). Keep the same `sort`/`order` across a cursor's pages."""
     try:
         dependencies = _product_dependencies(request)
         result = await dependencies.drive.list_items(
-            ListDriveItemsQuery(folder_id=folder_id, cursor=cursor, limit=_safe_limit(limit))
+            ListDriveItemsQuery(folder_id=folder_id, cursor=cursor, limit=_safe_limit(limit), sort=sort, order=order)
         )
+        items = [_drive_item_response(item) for item in result.items]
+        _apply_local_states(request, [item.asset for item in items if item.asset is not None])
         return DriveItemsResponse(
             breadcrumbs=await _drive_breadcrumbs(dependencies.folders, folder_id),
-            items=[_drive_item_response(item) for item in result.items],
+            items=items,
             next_cursor=result.next_cursor,
         )
     except DomainError as exc:
@@ -462,6 +504,7 @@ async def photos_timeline(
                 if item is not None:
                     asset.width, asset.height = item.width, item.height
                     asset.remote_state, asset.thumbnail_etag = item.remote_state, item.thumbnail_etag
+        _apply_local_states(request, [asset for group in groups for asset in group.assets])
         return PhotoTimelineResponse(groups=groups, next_cursor=result.next_cursor)
     except DomainError as exc:
         return _domain_error_response(request, exc)
@@ -513,6 +556,32 @@ async def album_detail(album_id: str, request: Request) -> AlbumResponse | JSONR
         return _domain_error_response(request, exc)
 
 
+@router.patch("/photos/albums/{album_id}", response_model=AlbumResponse)
+async def update_album(album_id: str, request: Request, body: AlbumPatchRequest) -> AlbumResponse | JSONResponse:
+    """`title` renames (synced); `cover_asset_id` picks the cover among the album's photos, `null` clears it."""
+    try:
+        album = await _product_dependencies(request).photos.update_album(
+            UpdateAlbumCommand(
+                album_id=album_id,
+                title=body.title if "title" in body.model_fields_set else None,
+                cover_asset_id=body.cover_asset_id,
+                set_cover="cover_asset_id" in body.model_fields_set,
+            )
+        )
+        return _album_response(album)
+    except DomainError as exc:
+        return _domain_error_response(request, exc)
+
+
+@router.delete("/photos/albums/{album_id}", response_model=AlbumResponse)
+async def delete_album(album_id: str, request: Request) -> AlbumResponse | JSONResponse:
+    """Deletes the album on every device; its photos stay in the library."""
+    try:
+        return _album_response(await _product_dependencies(request).photos.delete_album(album_id))
+    except DomainError as exc:
+        return _domain_error_response(request, exc)
+
+
 @router.delete("/photos/albums/{album_id}/items/{asset_id}", response_model=AlbumResponse)
 async def remove_album_item(album_id: str, asset_id: str, request: Request) -> AlbumResponse | JSONResponse:
     try:
@@ -539,7 +608,7 @@ async def add_album_item(album_id: str, request: Request, body: AlbumItemRequest
 async def photo_detail(asset_id: str, request: Request) -> AssetResponse | JSONResponse:
     try:
         asset = await _asset_dependencies(request).files.get_asset(asset_id)
-        return _asset_response(asset)
+        return _apply_local_states(request, [_asset_response(asset)])[0]
     except DomainError as exc:
         return _domain_error_response(request, exc)
 
@@ -555,7 +624,7 @@ async def set_photo_favorite(asset_id: str, request: Request, body: FavoriteRequ
             raise AssetNotFoundError(asset_id)
         if asset.favorite != body.favorite:
             asset = await dependencies.photos.toggle_favorite(asset_id)
-        return _asset_response(asset)
+        return _apply_local_states(request, [_asset_response(asset)])[0]
     except DomainError as exc:
         return _domain_error_response(request, exc)
 
@@ -624,7 +693,7 @@ async def upload_asset(request: Request, response: Response) -> AssetResponse | 
             temp_path.unlink(missing_ok=True)
             await upload.close()
         response.headers["X-Bento-Duplicate"] = "true" if result.duplicate else "false"
-        return _asset_response(result.asset, duplicate=result.duplicate)
+        return _apply_local_states(request, [_asset_response(result.asset, duplicate=result.duplicate)])[0]
     except DomainError as exc:
         return _domain_error_response(request, exc)
 
@@ -633,7 +702,7 @@ async def upload_asset(request: Request, response: Response) -> AssetResponse | 
 async def asset_detail(asset_id: str, request: Request) -> AssetResponse | JSONResponse:
     try:
         asset = await _asset_dependencies(request).files.get_asset(asset_id)
-        return _asset_response(asset)
+        return _apply_local_states(request, [_asset_response(asset)])[0]
     except DomainError as exc:
         return _domain_error_response(request, exc)
 
@@ -948,7 +1017,25 @@ def _asset_response(asset: Asset, *, duplicate: bool = False) -> AssetResponse:
         preview_url=f"/api/assets/{asset.id}/preview?v={media_version}" if has_media else None,
         taken_at=asset.metadata.taken_at.isoformat() if asset.metadata.taken_at else None,
         thumbnail_url=f"/api/assets/{asset.id}/thumbnail?v={media_version}" if has_media else None,
+        exif=_exif_response(asset),
     )
+
+
+def _exif_response(asset: Asset) -> ExifSummaryResponse | None:
+    summary = summarize_exif(asset.metadata.exif)
+    if summary is None:
+        return None
+    return ExifSummaryResponse(**{name: getattr(summary, name) for name in ExifSummaryResponse.model_fields})
+
+
+def _apply_local_states(request: Request, responses: list[AssetResponse]) -> list[AssetResponse]:
+    """Fills `offline_pinned`/`locally_available` for a page of assets with one batched lookup."""
+    states = _photo_details(request).local_states([response.id for response in responses])
+    for response in responses:
+        state = states.get(response.id)
+        if state is not None:
+            response.offline_pinned, response.locally_available = state.offline_pinned, state.locally_available
+    return responses
 
 
 def _folder_response(folder: Folder) -> FolderResponse:
@@ -970,6 +1057,7 @@ def _drive_item_response(item: DriveItem) -> DriveItemResponse:
         updated_at=item.updated_at.isoformat(),
         asset=_asset_response(item.asset) if item.asset is not None else None,
         folder=_folder_response(item.folder) if item.folder is not None else None,
+        item_count=item.item_count,
     )
 
 
@@ -1005,6 +1093,7 @@ def _album_response(album: Album) -> AlbumResponse:
         created_at=album.created_at.isoformat(),
         updated_at=album.updated_at.isoformat(),
         deleted_at=album.deleted_at.isoformat() if album.deleted_at else None,
+        cover_asset_id=album.cover_asset_id,
     )
 
 

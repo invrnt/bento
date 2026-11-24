@@ -36,6 +36,7 @@ _STATUS_CODES = {
     "telegram_session_too_new": 409,
     "vault_locked": 409,
     "vault_already_exists": 409,
+    "vault_creation_in_progress": 409,
     "integrity_failed": 409,
     "vault_not_found": 404,
     "asset_not_found": 404,
@@ -65,6 +66,11 @@ class AccountStatusResponse(BaseModel):
     qr_expires_at: str | None
     password_hint: str | None
     error: ErrorBody | None
+    code_length: int | None = None
+    """`code_required`: digits of the code Telegram sent, when known (size the input from it)."""
+    code_delivery: str | None = None
+    """`code_required`: `app`, `sms`, `call`, `flash_call`, `missed_call`, `email`, `fragment_sms`,
+    `firebase_sms`, or `null`."""
 
 
 # Length limits are checked in code: schema errors (422) would echo the submitted secret back.
@@ -150,6 +156,8 @@ def account_status_response(status: AccountStatus) -> AccountStatusResponse:
         qr_expires_at=status.qr_expires_at.isoformat() if status.qr_expires_at else None,
         password_hint=status.password_hint,
         error=error,
+        code_length=status.code_length,
+        code_delivery=status.code_delivery,
     )
 
 

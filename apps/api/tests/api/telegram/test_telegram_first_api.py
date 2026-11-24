@@ -87,7 +87,7 @@ def test_account_qr_login_avatar_and_logout(tmp_path: Path) -> None:
     signed_out = api.request("GET", "/account").json()
     assert signed_out == {
         "step": "signed_out", "account": None, "qr_url": None, "qr": None, "qr_expires_at": None,
-        "password_hint": None, "error": None,
+        "password_hint": None, "error": None, "code_length": None, "code_delivery": None,
     }
     assert api.request("GET", "/account/avatar").status_code == 404
 
@@ -117,9 +117,13 @@ def test_account_phone_code_and_password_errors(tmp_path: Path, monkeypatch: pyt
 
     expired = api.request("POST", "/account/login/code", json={"code": "12345"})
     assert expired.status_code == 409 and expired.json()["error"]["code"] == "telegram_login_expired"
-    assert api.request("POST", "/account/login/phone", json={"phone": "+57 300 000 0001"}).json()["step"] == "code_required"
+    code_step = api.request("POST", "/account/login/phone", json={"phone": "+57 300 000 0001"}).json()
+    assert code_step["step"] == "code_required"
+    assert (code_step["code_length"], code_step["code_delivery"]) == (len(FAKE_LOGIN_CODE), "app")
+    assert api.request("GET", "/account").json()["code_length"] == len(FAKE_LOGIN_CODE)
     wrong = api.request("POST", "/account/login/code", json={"code": "99999"}).json()
     assert wrong["step"] == "code_required" and wrong["error"]["code"] == "telegram_code_invalid"
+    assert wrong["code_length"] == len(FAKE_LOGIN_CODE)
     password = api.request("POST", "/account/login/code", json={"code": FAKE_LOGIN_CODE}).json()
     assert password["step"] == "password_required" and password["password_hint"] == "demo"
     bad = api.request("POST", "/account/login/password", json={"password": "hunter2-hunter2"})
@@ -147,6 +151,12 @@ def test_vault_create_recovery_kit_and_unlock_on_a_second_device(tmp_path: Path)
     assert len(code) == 44 and body["recovery_qr"]["size"] == len(body["recovery_qr"]["rows"])
     assert body["vault"]["state"] == "ready" and body["vault"]["devices_count"] == 1
     assert body["vault"]["recovery_kit_saved"] is False and body["vault"]["usage"] == {"files": 0, "bytes": 0}
+    creation = body["vault"]["creation"]
+    assert creation["state"] == "done" and creation["error_code"] is None
+    assert [(step["step"], step["state"]) for step in creation["steps"]] == [
+        ("files", "done"), ("sync", "done"), ("inbox", "done"), ("header", "done"), ("device", "done")
+    ]
+    assert desk.request("GET", "/vault").json()["creation"]["state"] == "done"
     again = desk.request("POST", "/vault")
     assert again.status_code == 409 and again.json()["error"]["code"] == "vault_already_exists"
     status = desk.request("GET", "/vault").json()

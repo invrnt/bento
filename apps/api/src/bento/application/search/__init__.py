@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from bento.domain.search import SearchQuery, SearchResultType, SearchResults
+from bento.domain.search import SearchOrigin, SearchQuery, SearchResults, SearchResultType
 from bento.ports.search import SearchIndexPort
 
 from .parser import ParsedSearchQuery, QueryIntent, parse_search_query
@@ -19,6 +19,7 @@ class SearchAssetsQuery:
     date_to: datetime | None = None
     limit: int = 50
     cursor: str | None = None
+    origin: SearchOrigin | None = None
 
 
 class SearchUseCase:
@@ -35,6 +36,7 @@ class SearchUseCase:
                 date_to=query.date_to,
                 limit=max(min(query.limit, 100), 1),
                 cursor=query.cursor,
+                origin=query.origin,
             )
         )
 

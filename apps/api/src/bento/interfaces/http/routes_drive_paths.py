@@ -38,7 +38,7 @@ class AssetLookupRequest(BaseModel):
 @router.get("/drive/resolve", response_model=None)
 async def resolve_drive_path(request: Request, path: str = ROOT_PATH) -> dict[str, Any] | JSONResponse:
     async def run(use_cases: DrivePathUseCases) -> dict[str, Any]:
-        return _resolved(await use_cases.resolve(parse_drive_ref(path)))
+        return _resolved(request, await use_cases.resolve(parse_drive_ref(path)))
 
     return await _handle(request, run)
 
@@ -87,10 +87,11 @@ async def lookup_assets(request: Request, body: AssetLookupRequest) -> dict[str,
     async def run(use_cases: DrivePathUseCases) -> dict[str, Any]:
         matches = await use_cases.lookup_sha256(body.sha256)
         http = _http()
+        responses = http._apply_local_states(request, [http._asset_response(match.asset) for match in matches.values()])
         return {
             "items": {
-                sha256: {"asset": http._asset_response(match.asset).model_dump(), "path": match.path}
-                for sha256, match in matches.items()
+                sha256: {"asset": response.model_dump(), "path": match.path}
+                for (sha256, match), response in zip(matches.items(), responses, strict=True)
             }
         }
 
@@ -116,13 +117,14 @@ async def _handle(
         return _http()._domain_error_response(request, exc)
 
 
-def _resolved(item: ResolvedDriveItem) -> dict[str, Any]:
+def _resolved(request: Request, item: ResolvedDriveItem) -> dict[str, Any]:
     http = _http()
+    asset = http._apply_local_states(request, [http._asset_response(item.asset)])[0] if item.asset is not None else None
     return {
         "kind": item.kind.value,
         "path": item.path,
         "folder": http._folder_response(item.folder).model_dump() if item.folder is not None else None,
-        "asset": http._asset_response(item.asset).model_dump() if item.asset is not None else None,
+        "asset": asset.model_dump() if asset is not None else None,
         "breadcrumbs": [{"id": folder.id, "name": folder.name} for folder in item.breadcrumbs],
     }
 

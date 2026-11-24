@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol
 
 from bento.domain.account import AcceptedLogin, AccountStatus, TelegramAuthorization
 from bento.domain.sync import SyncMessageKind, SyncMessageRef
 from bento.domain.telegram import InboxItem, RemotePart, TelegramChat, TelegramMediaItem
-from bento.domain.vault import VaultLayout
+from bento.domain.vault import VaultChannelRole, VaultLayout
 
 
 class TelegramAccountPort(Protocol):
@@ -49,8 +50,12 @@ class VaultTransportPort(Protocol):
 
     async def find_vaults(self) -> tuple[VaultLayout, ...]: ...
 
-    async def create_vault(self, vault_id: str) -> VaultLayout:
-        """Create the three channels, chat folder, mute/archive settings. Idempotent per `vault_id`."""
+    async def create_vault(
+        self, vault_id: str, *, on_channel: Callable[[VaultChannelRole], None] | None = None
+    ) -> VaultLayout:
+        """Create the three channels, chat folder, mute/archive settings. Idempotent per `vault_id`.
+
+        `on_channel(role)` is called once each channel exists (found or created), in `VaultChannelRole` order."""
         ...
 
     async def read_header_text(self, layout: VaultLayout) -> str | None:

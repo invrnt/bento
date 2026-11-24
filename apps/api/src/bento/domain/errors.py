@@ -143,6 +143,11 @@ class VaultLockedError(DomainError):
         super().__init__("vault_locked", "This device has not been granted access to the vault")
 
 
+class VaultCreationInProgressError(DomainError):
+    def __init__(self) -> None:
+        super().__init__("vault_creation_in_progress", "The vault is already being created")
+
+
 class VaultAlreadyExistsError(DomainError):
     def __init__(self, vault_id: str) -> None:
         super().__init__("vault_already_exists", "A Bento vault already exists in this account", {"vault_id": vault_id})

@@ -13,6 +13,7 @@ import asyncio
 import io
 import logging
 import uuid
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -61,10 +62,12 @@ class MtprotoVaultTransport:
     async def find_vaults(self) -> tuple[VaultLayout, ...]:
         return await self._session.call(self._find_vaults)
 
-    async def create_vault(self, vault_id: str) -> VaultLayout:
+    async def create_vault(
+        self, vault_id: str, *, on_channel: Callable[[VaultChannelRole], None] | None = None
+    ) -> VaultLayout:
         if parse_channel_marker(channel_about(VaultChannelRole.SYNC, vault_id)) != (VaultChannelRole.SYNC, vault_id):
             raise ValidationFailedError("Vault ids look like vlt_<id>", {"vault_id": vault_id})
-        return await self._session.call(lambda client: self._create_vault(client, vault_id))
+        return await self._session.call(lambda client: self._create_vault(client, vault_id, on_channel))
 
     async def read_header_text(self, layout: VaultLayout) -> str | None:
         async def read(client: Any) -> str | None:
@@ -280,22 +283,24 @@ class MtprotoVaultTransport:
     async def _find_vaults(self, client: Any) -> tuple[VaultLayout, ...]:
         return discover_vault_layouts(candidate for candidate, _ in await self._bento_channels(client))
 
-    async def _create_vault(self, client: Any, vault_id: str) -> VaultLayout:
+    async def _create_vault(
+        self, client: Any, vault_id: str, on_channel: Callable[[VaultChannelRole], None] | None = None
+    ) -> VaultLayout:
         existing: dict[VaultChannelRole, Any] = {}
         for candidate, entity in await self._bento_channels(client):
             parsed = parse_channel_marker(candidate.about)
             if parsed is not None and parsed[1] == vault_id:
                 existing.setdefault(parsed[0], entity)
         for role in VaultChannelRole:
-            if role in existing:
-                continue
-            result = await client(
-                functions.channels.CreateChannelRequest(
-                    title=CHANNEL_TITLES[role.value], about=channel_about(role, vault_id), broadcast=True
+            if role not in existing:
+                result = await client(
+                    functions.channels.CreateChannelRequest(
+                        title=CHANNEL_TITLES[role.value], about=channel_about(role, vault_id), broadcast=True
+                    )
                 )
-            )
-            channel = next(chat for chat in result.chats if isinstance(chat, types.Channel))
-            existing[role] = channel
+                existing[role] = next(chat for chat in result.chats if isinstance(chat, types.Channel))
+            if on_channel is not None:
+                on_channel(role)
         peers = {role: utils.get_input_peer(entity) for role, entity in existing.items()}
         ids = {role: utils.get_peer_id(entity) for role, entity in existing.items()}
         for role, peer in peers.items():

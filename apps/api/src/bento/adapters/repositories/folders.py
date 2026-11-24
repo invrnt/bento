@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from bento.adapters.repositories.batching import chunks, parent_conditions
 from bento.adapters.repositories.ids import new_id
 from bento.adapters.repositories.mappers import asset_from_model, folder_from_model, folder_to_model
-from bento.domain.drive import DriveItem, DriveItemType, Folder
+from bento.domain.drive import DriveItem, DriveItemType, DriveSort, Folder, SortOrder, sort_drive_items
 from bento.infrastructure.db.engine import session_scope
 from bento.infrastructure.db.models import AssetModel, FolderModel
 
@@ -106,6 +106,8 @@ class SQLiteFolderRepository:
         folder_id: str | None,
         cursor: str | None = None,
         limit: int = 50,
+        sort: DriveSort | None = None,
+        order: SortOrder | None = None,
     ) -> tuple[tuple[DriveItem, ...], str | None]:
         offset = _decode_cursor(cursor)
         with session_scope(self._session_factory) as session:
@@ -125,6 +127,7 @@ class SQLiteFolderRepository:
                     )
                 )
             )
+            counts = _child_counts(session, [model.id for model in folder_models])
 
         items = [
             DriveItem(
@@ -133,6 +136,7 @@ class SQLiteFolderRepository:
                 name=folder.name,
                 updated_at=folder.updated_at,
                 folder=folder,
+                item_count=counts.get(folder.id, 0),
             )
             for folder in (folder_from_model(model) for model in folder_models)
         ]
@@ -146,10 +150,24 @@ class SQLiteFolderRepository:
             )
             for asset in (asset_from_model(model) for model in asset_models)
         )
-        items.sort(key=lambda item: (item.updated_at, item.type.value, item.id), reverse=True)
+        items = sort_drive_items(items, sort, order)
         visible = items[offset : offset + limit]
         next_cursor = str(offset + limit) if len(items) > offset + limit else None
         return tuple(visible), next_cursor
+
+
+def _child_counts(session: Session, folder_ids: Sequence[str]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for chunk in chunks(folder_ids):
+        for model, column in ((FolderModel, FolderModel.parent_id), (AssetModel, AssetModel.folder_id)):
+            rows = session.execute(
+                select(column, func.count())
+                .where(column.in_(chunk), model.deleted_at.is_(None))
+                .group_by(column)
+            ).all()
+            for parent_id, count in rows:
+                counts[parent_id] = counts.get(parent_id, 0) + int(count)
+    return counts
 
 
 def _decode_cursor(cursor: str | None) -> int:

@@ -573,3 +573,30 @@ def test_edited_pairing_messages_and_headers_are_ignored(tmp_path: Path) -> None
             await guest.pairing.close()
 
     asyncio.run(scenario())
+
+
+def test_a_new_fallback_request_emits_pairing_request_once(tmp_path: Path) -> None:
+    from bento.ports.device import NotifierEvent
+
+    events: list[NotifierEvent] = []
+
+    class Notifier:
+        def emit(self, event: NotifierEvent) -> None:
+            events.append(event)
+
+    async def scenario() -> None:
+        host, guest = await _devices(tmp_path)
+        host.pairing._notifier = Notifier()  # noqa: SLF001 - the API wires the host notifier here
+        try:
+            await guest.pairing.request_access()
+            [request] = await host.pairing.list_requests()
+            assert [(event.name, event.payload) for event in events] == [
+                ("pairing_request", {"request_id": request.id, "device_name": "guest · Linux", "platform": "linux"})
+            ]
+            await host.pairing.list_requests()
+            assert len(events) == 1  # already announced
+        finally:
+            await host.pairing.close()
+            await guest.pairing.close()
+
+    asyncio.run(scenario())

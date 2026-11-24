@@ -24,6 +24,20 @@ class VaultUsageResponse(BaseModel):
     bytes: int
 
 
+class VaultCreationStepResponse(BaseModel):
+    step: str
+    """`files`, `sync`, `inbox` (the three compartments), `header`, `device`."""
+    state: str
+    """`pending`, `running`, `done`, `failed`."""
+
+
+class VaultCreationResponse(BaseModel):
+    state: str
+    """`running`, `done`, `failed`."""
+    steps: list[VaultCreationStepResponse]
+    error_code: str | None = None
+
+
 class VaultStatusResponse(BaseModel):
     state: str
     vault_id: str | None
@@ -34,6 +48,8 @@ class VaultStatusResponse(BaseModel):
     other_vaults: int
     recovery_kit_stale: bool = False
     reason: str | None = None
+    creation: VaultCreationResponse | None = None
+    """The last `POST /vault` of this process; poll `GET /vault` while it runs (state stays `no_vault`)."""
 
 
 class CreatedVaultResponse(BaseModel):
@@ -129,6 +145,15 @@ def vault_status_response(status: VaultStatus) -> VaultStatusResponse:
         other_vaults=status.other_vaults,
         recovery_kit_stale=status.recovery_kit_stale,
         reason=status.reason,
+        creation=(
+            VaultCreationResponse(
+                state=status.creation.state.value,
+                steps=[VaultCreationStepResponse(step=step.value, state=state.value) for step, state in status.creation.steps],
+                error_code=status.creation.error_code,
+            )
+            if status.creation is not None
+            else None
+        ),
     )
 
 

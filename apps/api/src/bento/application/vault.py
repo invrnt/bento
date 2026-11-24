@@ -15,6 +15,7 @@ the document digest.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import logging
@@ -37,6 +38,7 @@ from bento.domain.errors import (
     TelegramNotAvailableError,
     ValidationFailedError,
     VaultAlreadyExistsError,
+    VaultCreationInProgressError,
     VaultLockedError,
     VaultNotFoundError,
 )
@@ -45,6 +47,10 @@ from bento.domain.sync import SyncMessageKind, SyncState, SyncStatus
 from bento.domain.vault import (
     DEVICE_REMOVED_REASON,
     SESSION_CLOSED_REASON,
+    VaultChannelRole,
+    VaultCreationProgress,
+    VaultCreationState,
+    VaultCreationStep,
     VaultHeader,
     VaultLayout,
     VaultState,
@@ -69,6 +75,8 @@ RECOVERY_KIT_WRAP_KEY = "vault.recovery_kit_wrap"
 HEADER_CLEANUP_KEY_PREFIX = "vault.header_cleanup_after."
 """Sync message id below which superseded headers of the vault were already deleted by this device."""
 BOOTSTRAP_PENDING_KEY = "vault.bootstrap_pending"
+SESSION_LOST_KEY = "vault.session_lost_at"
+"""When this device was first seen signed out of a vault it belongs to (cleared by the first pull afterwards)."""
 """ISO time of an `install()` the sync engine has not pulled after yet (`"0"` once it has)."""
 KEYRING_REVISION_KEY = "vault.keyring_revision"
 """Changes with every keyring write, so other processes drop their cached context."""
@@ -233,10 +241,19 @@ class VaultService:
         self._kit: _CachedKit | None = None
         self._current_header: VaultHeader | None = None
         """Last header `read_header` verified at this device's current epoch, or that this process published."""
+        self._creation: VaultCreationProgress | None = None
 
     # VaultSessionPort
 
     async def status(self) -> VaultStatus:
+        creation = self._creation
+        if creation is not None and creation.state == VaultCreationState.RUNNING:
+            # Answer from memory while `create` talks to Telegram: onboarding polls this for the steps.
+            return VaultStatus(state=VaultState.NO_VAULT, creation=creation)
+        status = await self._status()
+        return replace(status, creation=creation) if creation is not None else status
+
+    async def _status(self) -> VaultStatus:
         try:
             ports = self._telegram()
         except TelegramNotAvailableError:
@@ -249,7 +266,13 @@ class VaultService:
             # A device that was attached to a vault and lost its Telegram session (logged out, or closed from
             # another device) is not a new user: the app offers to reconnect instead of the first-run welcome.
             if await self._state.get_value(LAYOUT_KEY) is not None:
-                removed = await self._removal_flag() is not None
+                removed = await self._removal_flag() is not None or await self._identity_removed(
+                    await self._identities.get()
+                )
+                if not removed and self._sync_signal() is not None and await self._state.get_value(SESSION_LOST_KEY) is None:
+                    # After the next sign-in, hold `bootstrapping` until a pull has run: a removal keys message
+                    # posted while this session was closed is found before the vault is ever reported ready.
+                    await self._state.set_value(SESSION_LOST_KEY, self._clock.now().isoformat())
                 return VaultStatus(
                     state=VaultState.SIGNED_OUT, reason=DEVICE_REMOVED_REASON if removed else SESSION_CLOSED_REASON
                 )
@@ -259,8 +282,9 @@ class VaultService:
             layout, keyring = local
             created_at = await self._state.get_value(CREATED_AT_KEY)
             kit = await self._recovery_kit_state(ports, layout, keyring)
+            catching_up = await self._bootstrapping() or await self._catching_up_after_session_loss()
             return VaultStatus(
-                state=VaultState.BOOTSTRAPPING if await self._bootstrapping() else VaultState.READY,
+                state=VaultState.BOOTSTRAPPING if catching_up else VaultState.READY,
                 vault_id=layout.vault_id,
                 created_at=datetime.fromisoformat(created_at) if created_at else None,
                 recovery_kit_saved=kit.saved,
@@ -451,7 +475,34 @@ class VaultService:
 
         Safe to retry after a crash: keys are stored before anything is published and the layout only after the
         header, so a half-created vault of this device is resumed (with a fresh recovery code) instead of duplicated.
+        `status()` reports each step (`VaultStatus.creation`) while this runs.
         """
+        if self._creation is not None and self._creation.state == VaultCreationState.RUNNING:
+            raise VaultCreationInProgressError()
+        self._creation = VaultCreationProgress.started()
+        try:
+            created = await self._create()
+        except DomainError as exc:
+            self._creation = self._creation.failed(exc.code)
+            raise
+        except Exception:
+            self._creation = self._creation.failed("vault_creation_failed")
+            raise
+        self._creation = self._creation.finished()
+        return replace(created, status=replace(created.status, creation=self._creation))
+
+    def _creation_step(self, step: VaultCreationStep, state: VaultCreationState) -> None:
+        if self._creation is not None:
+            self._creation = self._creation.mark(step, state)
+
+    def _channel_ready(self, role: VaultChannelRole) -> None:
+        step = VaultCreationStep(role.value)
+        self._creation_step(step, VaultCreationState.DONE)
+        order = list(VaultCreationStep)
+        following = order[order.index(step) + 1]
+        self._creation_step(following, VaultCreationState.RUNNING)
+
+    async def _create(self) -> CreatedVault:
         ports = self._require_ports()
         account = _authorized(await ports.account.status())
         if await self._local(account) is not None:
@@ -469,7 +520,9 @@ class VaultService:
         else:
             keyring = self._crypto.generate_keyring(f"vlt_{secrets.token_hex(8)}")
             await self._write_keyring(keyring)
-        layout = await ports.transport.create_vault(keyring.vault_id)
+        self._creation_step(VaultCreationStep.FILES, VaultCreationState.RUNNING)
+        layout = await ports.transport.create_vault(keyring.vault_id, on_channel=self._channel_ready)
+        self._creation_step(VaultCreationStep.HEADER, VaultCreationState.RUNNING)
         recovery_code = self._crypto.generate_recovery_code()
         header = self._sign(
             VaultHeader(
@@ -487,9 +540,11 @@ class VaultService:
         await self._state.set_value(BOOTSTRAP_PENDING_KEY, "0")
         await self._remember_kit(keyring.vault_id, recovery_code, header.recovery)
         await self._save_layout(layout, account)
+        self._creation_step(VaultCreationStep.HEADER, VaultCreationState.DONE)
+        self._creation_step(VaultCreationStep.DEVICE, VaultCreationState.RUNNING)
         await self._register_device()
         await self._changed()
-        return CreatedVault(status=await self.status(), recovery_code=recovery_code)
+        return CreatedVault(status=await self._status(), recovery_code=recovery_code)
 
     async def unlock(self, recovery_code: str) -> VaultStatus:
         """Open the account's vault on this device with the recovery kit."""
@@ -599,6 +654,31 @@ class VaultService:
         if installed_at is not None and status.last_pull_at is not None and status.last_pull_at >= installed_at:
             await self._state.set_value(BOOTSTRAP_PENDING_KEY, "0")
             return False
+        return True
+
+    async def _catching_up_after_session_loss(self) -> bool:
+        """Signed in again after the session was lost: wait for one pull newer than the loss (only with a sync
+        engine to ask). The pull stops at a keys message that removed this device, which then reads as removed."""
+        lost = await self._state.get_value(SESSION_LOST_KEY)
+        if lost is None:
+            return False
+        sync = self._sync_signal()
+        if sync is None:
+            await self._state.delete_value(SESSION_LOST_KEY)
+            return False
+        try:
+            status = await sync.status()
+        except DomainError:
+            return True
+        try:
+            lost_at = datetime.fromisoformat(lost)
+        except ValueError:
+            lost_at = None
+        if lost_at is None or (status.last_pull_at is not None and status.last_pull_at >= lost_at):
+            await self._state.delete_value(SESSION_LOST_KEY)
+            return False
+        with contextlib.suppress(DomainError):
+            await sync.request_sync()
         return True
 
     def _sync_signal(self) -> SyncSignalPort | None:

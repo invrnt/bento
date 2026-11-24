@@ -13,6 +13,28 @@
               }
             ]
           },
+          "code_delivery": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code Delivery"
+          },
+          "code_length": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code Length"
+          },
           "error": {
             "anyOf": [
               {
@@ -109,6 +131,36 @@
         "title": "AlbumItemRequest",
         "type": "object"
       },
+      "AlbumPatchRequest": {
+        "properties": {
+          "cover_asset_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Asset Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "AlbumPatchRequest",
+        "type": "object"
+      },
       "AlbumResponse": {
         "properties": {
           "asset_ids": {
@@ -117,6 +169,17 @@
             },
             "title": "Asset Ids",
             "type": "array"
+          },
+          "cover_asset_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Asset Id"
           },
           "created_at": {
             "title": "Created At",
@@ -249,6 +312,16 @@
             ],
             "title": "Duration Ms"
           },
+          "exif": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExifSummaryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "favorite": {
             "title": "Favorite",
             "type": "boolean"
@@ -287,6 +360,11 @@
             "title": "Kind",
             "type": "string"
           },
+          "locally_available": {
+            "default": false,
+            "title": "Locally Available",
+            "type": "boolean"
+          },
           "mime_type": {
             "title": "Mime Type",
             "type": "string"
@@ -294,6 +372,11 @@
           "mode": {
             "title": "Mode",
             "type": "string"
+          },
+          "offline_pinned": {
+            "default": false,
+            "title": "Offline Pinned",
+            "type": "boolean"
           },
           "preview_url": {
             "anyOf": [
@@ -795,6 +878,17 @@
             "title": "Id",
             "type": "string"
           },
+          "item_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Count"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -865,6 +959,16 @@
         "title": "DrivePathsRequest",
         "type": "object"
       },
+      "DriveSort": {
+        "enum": [
+          "name",
+          "modified",
+          "size",
+          "kind"
+        ],
+        "title": "DriveSort",
+        "type": "string"
+      },
       "EnsureFolderRequest": {
         "properties": {
           "path": {
@@ -899,6 +1003,122 @@
           "message"
         ],
         "title": "ErrorBody",
+        "type": "object"
+      },
+      "ExifSummaryResponse": {
+        "properties": {
+          "camera_make": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Camera Make"
+          },
+          "camera_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Camera Model"
+          },
+          "exposure_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exposure Display"
+          },
+          "exposure_time_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exposure Time S"
+          },
+          "f_number": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "F Number"
+          },
+          "focal_length_mm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Focal Length Mm"
+          },
+          "iso": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iso"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "lens_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lens Model"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          }
+        },
+        "title": "ExifSummaryResponse",
         "type": "object"
       },
       "FavoriteRequest": {
@@ -1808,9 +2028,61 @@
             ],
             "title": "Asset Id"
           },
+          "folder_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Id"
+          },
+          "folder_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Name"
+          },
           "id": {
             "title": "Id",
             "type": "string"
+          },
+          "match_reasons": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Match Reasons",
+            "type": "array"
+          },
+          "mime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mime Type"
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin"
           },
           "processing_state": {
             "anyOf": [
@@ -1830,6 +2102,16 @@
           "score": {
             "title": "Score",
             "type": "number"
+          },
+          "snippet": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SearchSnippetResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "subtitle": {
             "anyOf": [
@@ -1875,6 +2157,18 @@
         ],
         "title": "SearchItemResponse",
         "type": "object"
+      },
+      "SearchOrigin": {
+        "description": "`GET /search?origin=`: how this device obtained the asset (`assets.origin`, device-local).",
+        "enum": [
+          "device",
+          "peer",
+          "telegram",
+          "telegram_inbox",
+          "telegram_import"
+        ],
+        "title": "SearchOrigin",
+        "type": "string"
       },
       "SearchResponse": {
         "properties": {
@@ -1925,6 +2219,42 @@
         ],
         "title": "SearchResultType",
         "type": "string"
+      },
+      "SearchSnippetResponse": {
+        "properties": {
+          "highlights": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Highlights",
+            "type": "array"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "highlights",
+          "source"
+        ],
+        "title": "SearchSnippetResponse",
+        "type": "object"
       },
       "SecretReferenceRequest": {
         "properties": {
@@ -2125,6 +2455,14 @@
         ],
         "title": "ShareResponse",
         "type": "object"
+      },
+      "SortOrder": {
+        "enum": [
+          "asc",
+          "desc"
+        ],
+        "title": "SortOrder",
+        "type": "string"
       },
       "StorageMaintenanceStatusResponse": {
         "properties": {
@@ -2542,6 +2880,56 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "VaultCreationResponse": {
+        "properties": {
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/VaultCreationStepResponse"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "state",
+          "steps"
+        ],
+        "title": "VaultCreationResponse",
+        "type": "object"
+      },
+      "VaultCreationStepResponse": {
+        "properties": {
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "step": {
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step",
+          "state"
+        ],
+        "title": "VaultCreationStepResponse",
+        "type": "object"
+      },
       "VaultStatusResponse": {
         "properties": {
           "created_at": {
@@ -2554,6 +2942,16 @@
               }
             ],
             "title": "Created At"
+          },
+          "creation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VaultCreationResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "devices_count": {
             "title": "Devices Count",
@@ -3058,6 +3456,39 @@
           }
         },
         "summary": "Get Import"
+      }
+    },
+    "/api/android/imports/{import_id}/dismiss": {
+      "post": {
+        "description": "Hides the `import_failed` Activity item of a finished import (404 while unknown or still running).",
+        "operationId": "dismiss_import_api_android_imports__import_id__dismiss_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "import_id",
+            "required": true,
+            "schema": {
+              "title": "Import Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Dismiss Import"
       }
     },
     "/api/assets/lookup": {
@@ -4264,6 +4695,7 @@
     },
     "/api/drive/items": {
       "get": {
+        "description": "`sort` (`name|modified|size|kind`) puts folders first; without it the listing is newest first, mixed.\n`order` defaults to `asc` (`desc` for `modified`). Keep the same `sort`/`order` across a cursor's pages.",
         "operationId": "drive_items_api_drive_items_get",
         "parameters": [
           {
@@ -4306,6 +4738,38 @@
               "default": 50,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/DriveSort"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sort"
+            }
+          },
+          {
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/SortOrder"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Order"
             }
           }
         ],
@@ -4572,6 +5036,65 @@
           }
         },
         "summary": "Drive Tree"
+      }
+    },
+    "/api/events": {
+      "get": {
+        "description": "`topics`: comma-separated subset of `library,jobs,imports,sync` (default: all). Events:\n`ready` (`data: {\"topics\": [...]}`) once, then `change` (`data: {\"topics\": [\"library\", ...]}`) whenever a\nwatched topic changed; `: ping` comments while idle. The server ends the stream after `max_seconds`;\nreconnect (the `retry` hint is 3 s) and refetch what you show, since changes are not replayed.",
+        "operationId": "library_events_api_events_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "topics",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Topics"
+            }
+          },
+          {
+            "in": "query",
+            "name": "max_seconds",
+            "required": false,
+            "schema": {
+              "default": 3600,
+              "maximum": 3600,
+              "minimum": 1,
+              "title": "Max Seconds",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "text/event-stream": {}
+            },
+            "description": "Server-Sent Events"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Library Events"
       }
     },
     "/api/health": {
@@ -5219,6 +5742,44 @@
       }
     },
     "/api/photos/albums/{album_id}": {
+      "delete": {
+        "description": "Deletes the album on every device; its photos stay in the library.",
+        "operationId": "delete_album_api_photos_albums__album_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "album_id",
+            "required": true,
+            "schema": {
+              "title": "Album Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlbumResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Album"
+      },
       "get": {
         "operationId": "album_detail_api_photos_albums__album_id__get",
         "parameters": [
@@ -5255,6 +5816,54 @@
           }
         },
         "summary": "Album Detail"
+      },
+      "patch": {
+        "description": "`title` renames (synced); `cover_asset_id` picks the cover among the album's photos, `null` clears it.",
+        "operationId": "update_album_api_photos_albums__album_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "album_id",
+            "required": true,
+            "schema": {
+              "title": "Album Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlbumPatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlbumResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Album"
       }
     },
     "/api/photos/albums/{album_id}/items": {
@@ -5519,6 +6128,7 @@
     },
     "/api/search": {
       "get": {
+        "description": "`origin` keeps assets this device got a given way (`device`, `peer`, `telegram`, `telegram_inbox`,\n`telegram_import`); folders and albums are left out while it is set.",
         "operationId": "search_api_search_get",
         "parameters": [
           {
@@ -5623,6 +6233,22 @@
                 }
               ],
               "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "origin",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/SearchOrigin"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Origin"
             }
           }
         ],

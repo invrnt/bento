@@ -40,11 +40,12 @@ from bento.adapters.search.sqlite_vec import SQLiteVecSearchIndex
 from bento.adapters.storage.cache import CachedBlobPathResolver, CachedBlobSourceMaterializer, SQLiteBlobCache
 from bento.adapters.storage.local_blob_store import LocalBlobStoreAdapter
 from bento.adapters.storage.maintenance import LocalEphemeralCache, SQLiteStorageInventory
+from bento.adapters.sync.store import SQLiteSyncStateStore
 from bento.application.activity import ActivityService
 from bento.application.backup import BackupService
 from bento.application.content import FULL_FETCH_THRESHOLD_BYTES, AssetContentService
 from bento.application.drive import DriveUseCases
-from bento.application.ingestion import AssetFileQueryService, AssetIngestionService
+from bento.application.ingestion import AssetFileQueryService, AssetIngestionService, IndexingPolicy
 from bento.application.storage_maintenance import StorageMaintenanceService
 from bento.application.storage_pipeline import RemoteStoreProvider, StoragePipelineService
 from bento.application.trash import TrashService
@@ -196,6 +197,9 @@ def build_storage_pipeline(
         blob_refs=blob_refs,
         metadata_extractor=LocalUploadMetadataExtractor(),
         remote_uploads=pipeline,
+        indexing=IndexingPolicy.from_providers(
+            ocr_provider=settings.ocr_provider, embeddings_provider=settings.embeddings_provider
+        ),
     )
     drive = DriveUseCases(assets=assets, folders=folders, manifest=manifest, clock=clock)
     policy = SQLiteBackupPolicyRepository(factory, clock, locked=_locked_backup_settings(settings))
@@ -238,6 +242,8 @@ def build_storage_pipeline(
         downloads=content.tracker,
         sync_status=_sync_status(settings),
         vault_status=_vault_status(settings),
+        notifier=services.get_notifier(settings),
+        announced=SQLiteSyncStateStore(factory),
     )
 
     maintenance = StorageMaintenanceService(

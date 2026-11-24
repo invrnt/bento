@@ -200,3 +200,66 @@ def _dated_asset(
         created_at=taken_at,
         updated_at=taken_at,
     )
+
+
+def test_hits_carry_reason_codes_snippet_folder_mime_and_origin(tmp_path: Path) -> None:
+    from bento.adapters.repositories import SQLiteAlbumRepository
+    from bento.domain.assets import AssetOrigin
+    from bento.domain.photos import Album
+    from bento.domain.search import MatchReason, SearchOrigin
+
+    async def scenario() -> None:
+        factory = migrated_session_factory(tmp_path)
+        clock = FixedClock()
+        assets = SQLiteAssetRepository(factory)
+        folders = SQLiteFolderRepository(factory)
+        search = CompositeSearchIndex(factory, clock, text_index=SQLiteFTSSearchIndex(factory, clock))
+        now = datetime(2026, 1, 1, tzinfo=UTC)
+        await folders.add(Folder(id="folder_tax", name="Impuestos", parent_id=None, created_at=now, updated_at=now))
+        scan = replace(make_asset("asset_scan", filename="scan.pdf", folder_id="folder_tax"), origin=AssetOrigin.DEVICE)
+        inbox = replace(make_asset("asset_inbox", filename="otro.pdf", sha256="b" * 64), origin=AssetOrigin.TELEGRAM_INBOX)
+        photo = replace(
+            make_asset("asset_beach", filename="IMG_1.jpg", sha256="c" * 64, kind=AssetKind.IMAGE), origin=None
+        )
+        for asset in (scan, inbox, photo):
+            await assets.add(asset)
+            await search.index_asset(asset)
+        await search.index_ocr(
+            OCRBlock(id="ocr_1", asset_id=scan.id, text="Factura número 42. Total a pagar: 99 € por el café de la mañana")
+        )
+        await search.index_ocr(OCRBlock(id="ocr_2", asset_id=inbox.id, text="Otro café"))
+        await SQLiteAlbumRepository(factory).add(
+            Album(id="album_sea", title="Playa", asset_ids=frozenset({photo.id}), created_at=now, updated_at=now)
+        )
+
+        results = await search.search(SearchQuery(text="café"))
+        scan_hit = next(item for item in results.items if item.asset_id == scan.id and item.type != SearchResultType.OCR_BLOCK)
+        assert scan_hit.match_reasons[0] == MatchReason.OCR_TEXT
+        assert scan_hit.snippet is not None and scan_hit.snippet.source == MatchReason.OCR_TEXT
+        start, end = scan_hit.snippet.highlights[0]
+        assert scan_hit.snippet.text[start:end].casefold() == "café"
+        assert (scan_hit.folder_id, scan_hit.folder_name) == ("folder_tax", "Impuestos")
+        assert scan_hit.mime_type == "application/pdf"
+        assert scan_hit.origin == SearchOrigin.DEVICE
+
+        only_device = await search.search(SearchQuery(text="café", origin=SearchOrigin.DEVICE))
+        assert {item.asset_id for item in only_device.items} == {scan.id}
+        only_telegram = await search.search(SearchQuery(text="café", origin=SearchOrigin.TELEGRAM))
+        assert {item.asset_id for item in only_telegram.items} == {inbox.id}
+
+        in_folder = await search.search(SearchQuery(text="impuestos"))
+        folder_hit = next(item for item in in_folder.items if item.type == SearchResultType.FOLDER)
+        assert folder_hit.match_reasons == (MatchReason.FOLDER_NAME,) and folder_hit.origin is None
+        member = next(item for item in in_folder.items if item.asset_id == scan.id)
+        assert MatchReason.FOLDER_NAME in member.match_reasons
+        assert member.snippet is not None and member.snippet.text == "Impuestos"
+        assert member.snippet.highlights == ((0, 9),)
+
+        in_album = await search.search(SearchQuery(text="playa"))
+        beach = next(item for item in in_album.items if item.asset_id == photo.id)
+        assert MatchReason.ALBUM in beach.match_reasons
+        assert beach.origin == SearchOrigin.PEER
+        peers = await search.search(SearchQuery(text="playa", origin=SearchOrigin.PEER))
+        assert [item.asset_id for item in peers.items] == [photo.id]  # the album itself is left out
+
+    asyncio.run(scenario())

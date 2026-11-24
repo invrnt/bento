@@ -86,6 +86,42 @@ def test_imports_adopt_fd_handles_sanitize_names_and_dedupe(android, tmp_path: P
     assert client.post("/api/android/imports", json={"items": []}).status_code == 422
 
 
+def test_imports_survive_a_restart_as_interrupted_failures_shown_in_activity(android) -> None:  # type: ignore[no-untyped-def]
+    from bento.infrastructure.db.models import ContentImportItemModel, ContentImportModel
+
+    client, components, _bridges = android
+    at = datetime(2026, 1, 1, tzinfo=UTC)
+    with session_scope(components.session_factory) as session:  # left behind by a process that died mid-import
+        session.add(ContentImportModel(id="imp_old", owner="dead-process", created_at=at))
+        session.flush()
+        session.add_all(
+            [
+                ContentImportItemModel(import_id="imp_old", client_index=0, status="done", asset_id="asset_x"),
+                ContentImportItemModel(import_id="imp_old", client_index=1, status="importing"),
+                ContentImportItemModel(import_id="imp_old", client_index=2, status="pending"),
+            ]
+        )
+
+    attention = client.get("/api/activity").json()["attention"]
+    item = next(entry for entry in attention if entry["kind"] == "import_failed")
+    assert item["id"] == "import_failed:imp_old" and item["action"] == "dismiss"
+    assert item["params"] == {"import_id": "imp_old", "count": 2, "code": "import_interrupted"}
+
+    body = client.get("/api/android/imports/imp_old").json()
+    assert body["done"] is True
+    assert [(entry["status"], entry["error"]) for entry in body["items"]] == [
+        ("done", None),
+        ("failed", "import_interrupted"),
+        ("failed", "import_interrupted"),
+    ]
+    assert body["counts"] == {"done": 1, "failed": 2}
+
+    assert client.post("/api/android/imports/imp_old/dismiss").status_code == 204
+    assert all(entry["kind"] != "import_failed" for entry in client.get("/api/activity").json()["attention"])
+    assert client.get("/api/android/imports/imp_old").status_code == 200  # still readable after dismissal
+    assert client.post("/api/android/imports/imp_missing/dismiss").status_code == 404
+
+
 def test_thumbnail_sizes_etag_timeline_paging_index_and_item_fields(android) -> None:  # type: ignore[no-untyped-def]
     client, components, _bridges = android
     ids = []
@@ -169,7 +205,11 @@ def test_offline_pins_and_local_storage(android) -> None:  # type: ignore[no-unt
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"%PDF-1.4 pin me")
         session.add(CacheEntryModel(blob_ref_id=blob.id, path=str(path), size_bytes=15, last_accessed_at=datetime(2020, 1, 1, tzinfo=UTC)))
+    detail = client.get(f"/api/assets/{asset['id']}").json()
+    assert (detail["offline_pinned"], detail["locally_available"]) == (False, True)  # cached, evictable
     assert client.put(f"/api/assets/{asset['id']}/offline").json()["pinned"] is True
+    detail = client.get(f"/api/assets/{asset['id']}").json()
+    assert (detail["offline_pinned"], detail["locally_available"]) == (True, True)
     storage = client.get("/api/storage/local").json()
     assert storage["pinned_bytes"] == 15 and storage["pinned_count"] == 1 and storage["cache_limit_bytes"] == components.cache_max_bytes
     assert set(storage) == {"cache_bytes", "cache_files", "pinned_bytes", "pinned_count", "cache_limit_bytes", "thumbs_bytes"}
@@ -182,6 +222,8 @@ def test_offline_pins_and_local_storage(android) -> None:  # type: ignore[no-unt
     assert result.deleted_files == 0 and path.exists()
     assert client.delete(f"/api/assets/{asset['id']}/offline").json()["pinned"] is False
     assert asyncio.run(components.cache.evict(max_bytes=0)).deleted_files == 1
+    detail = client.get(f"/api/assets/{asset['id']}").json()
+    assert (detail["offline_pinned"], detail["locally_available"]) == (False, False)  # remote only now
     assert client.put("/api/assets/asset_missing/offline").status_code == 404
 
 

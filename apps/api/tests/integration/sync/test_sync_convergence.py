@@ -14,7 +14,7 @@ from bento.application.drive import (
     RenameFolderCommand,
     UpdateAssetCommand,
 )
-from bento.application.photos import AddAlbumAssetCommand, CreateAlbumCommand
+from bento.application.photos import AddAlbumAssetCommand, CreateAlbumCommand, UpdateAlbumCommand
 from bento.domain.sync import SyncMessageKind
 from bento.infrastructure.db.engine import session_scope
 from bento.infrastructure.db.models import AssetModel, FolderModel, SyncPurgedModel
@@ -88,6 +88,37 @@ def test_create_rename_move_favorite_album_converge_both_directions(pair: tuple[
         beach = state["assets"]["asset_beach"]
         assert (beach[2], beach[3], beach[10]) == (None, "playa-2026.jpg", True)
         assert state["album_items"] == [(album.id, "asset_cat")]
+
+    asyncio.run(scenario())
+
+
+def test_album_rename_and_delete_converge_while_the_cover_stays_local(pair: tuple[SyncDevice, SyncDevice]) -> None:
+    first, second = pair
+
+    async def scenario() -> None:
+        await first.add_asset("asset_sun", filename="sol.jpg")
+        album = await first.photos.create_album(CreateAlbumCommand(title="Verano"))
+        await first.photos.add_asset_to_album(AddAlbumAssetCommand(album_id=album.id, asset_id="asset_sun"))
+        await exchange(first, second)
+
+        first.clock.advance()
+        await first.photos.update_album(
+            UpdateAlbumCommand(album_id=album.id, title="Verano 2026", cover_asset_id="asset_sun", set_cover=True)
+        )
+        await exchange(first, second)
+        state = synced_state(second.factory)
+        assert state == synced_state(first.factory)
+        assert state["albums"][album.id][0] == "Verano 2026"
+        assert (await second.photos.get_album(album.id)).cover_asset_id is None  # device-local
+        assert (await first.photos.get_album(album.id)).cover_asset_id == "asset_sun"
+
+        first.clock.advance()
+        await second.photos.delete_album(album.id)
+        await exchange(second, first)
+        state = synced_state(first.factory)
+        assert state == synced_state(second.factory)
+        assert state["albums"][album.id][2] is not None
+        assert "asset_sun" in state["assets"] and state["assets"]["asset_sun"][-1] is None  # the photo stays
 
     asyncio.run(scenario())
 

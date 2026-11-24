@@ -74,3 +74,50 @@ When `site_url` is configured, pairing sessions return `link = "<site_url>/join#
 ## 10. OpenAPI export
 
 `uv run python -m bento.interfaces.http.export_openapi > apps/android/core/api/openapi.json` (deterministic ordering). The Android build generates DTOs from it; CI fails when the snapshot is stale.
+
+## 11. Stage 21b backend additions
+
+All additive: new fields are optional/defaulted and old routes keep their shapes.
+
+### OCR and embeddings on upload
+
+Uploads (`POST /assets/upload`, Android imports, folder/MediaStore backup) queue OCR and embedding jobs from the configured providers (`IndexingPolicy.from_providers`: a provider other than `disabled` turns its jobs on), like `POST /admin/reindex`. Job order and conditions stay with the scheduler: thumbnails run first (priority), OCR waits for `charging` when `ocr_requires_charging` (Android default) and for the battery/thermal rules. Files obtained from Telegram are never indexed.
+
+### Telegram sign-in and vault creation
+
+- `GET/POST /account…` (`AccountStatusResponse`) add `code_length: int | null` and `code_delivery: "app"|"sms"|"call"|"flash_call"|"missed_call"|"email"|"fragment_sms"|"firebase_sms"|null` on `code_required` (from Telethon's `auth.SentCode.type`).
+- `GET /vault` (`VaultStatusResponse`) adds `creation: {state: "running"|"done"|"failed", steps: [{step: "files"|"sync"|"inbox"|"header"|"device", state: "pending"|"running"|"done"|"failed"}], error_code}` for the last `POST /vault` of this process. While it runs, `GET /vault` answers from memory with `state: "no_vault"` and `creation.state: "running"`; poll it during the (blocking) `POST /vault`. A second concurrent `POST /vault` fails `409 vault_creation_in_progress`.
+
+### Pairing while signing in
+
+While a guest pairing is `needs_telegram_login`, the guest keeps one login in flight: once the person starts a phone login (`POST /account/login/phone` → `code_required`, then `password_required`), the session stops showing a Telegram QR (`telegram_qr: null`, `needs_telegram_qr: false`) and never restarts QR login; the app drives the code/password through `/account`. When `/account` reaches `authorized` the pairing continues by itself.
+
+### Removed devices
+
+- While signed out of a vault it belongs to, `/vault` reports `reason: "device_removed"` (instead of `session_closed`) whenever this device already holds removal evidence: the sync `device_removed` flag, its own registry row with `removed_at` (a peer's removal op), or its id in `removed_device_ids`.
+- After signing in again following a lost session, `/vault` reports `bootstrapping` until the sync engine completed one pull newer than the loss (the backend requests it), so a removal keys message posted while the session was closed is found before `ready` is ever reported; `/vault` then turns `locked` with `reason: "device_removed"`.
+- Not done (protocol): the desktop closes the phone's Telegram session (step 2) before it posts the rotation keys message (step 3), so a removed phone cannot learn of the removal before re-signing in. Rotating before revoking would let an online phone read the keys message first; it changes the binding step order of `architecture/telegram-first.md` § Devices, Removal, Key Rotation and widens the window in which a removed session can delete or edit the rotation, so it needs a protocol decision first.
+
+### Android imports
+
+Import state is persisted (`content_imports`, `content_import_items`, migration `0008`), so `GET /android/imports/{id}` answers after a restart. The fds die with the process, so unfinished items of an earlier process end `failed` with `error: "import_interrupted"` (share them again); other item errors are `content_unreadable`, `album_unavailable`, or an upload error code. Imports with failed items show an Activity item `{id: "import_failed:<import_id>", kind: "import_failed", action: "dismiss", params: {import_id, count, code}}` until `POST /android/imports/{id}/dismiss` (`204`; `404` while unknown or running).
+
+### Search
+
+See `api/search-contract.md`: `match_reasons`, `snippet`, `folder_id`, `folder_name`, `mime_type`, `origin` per item and the `origin` filter.
+
+### Drive, assets, albums
+
+- `GET /drive/items?sort=name|modified|size|kind&order=asc|desc`: with `sort`, folders come first and both groups follow the key (`order` defaults to `asc`, `desc` for `modified`; folders sort by `item_count` for `size`, by name for `kind`); without it the listing stays newest first, mixed. Keep `sort`/`order` across a cursor's pages. Folder items carry `item_count` (live direct children).
+- `AssetResponse` adds `offline_pinned` (the original is pinned in the cache), `locally_available` (the original opens offline: never uploaded, cached, or still in its backup source) and `exif: {camera_make, camera_model, lens_model, exposure_time_s, exposure_display, f_number, iso, focal_length_mm, latitude, longitude} | null` (parsed at read time from the stored EXIF; GPS is read from the GPS IFD for new uploads). `offline_pinned`/`locally_available` are filled on asset detail, photo detail, favorite, upload, Drive listings, and the timeline.
+- `PATCH /photos/albums/{id}` `{title?, cover_asset_id?}` and `DELETE /photos/albums/{id}` (the album only; photos stay). Rename and delete sync through the album's `title`/`deleted_at` (LWW). `cover_asset_id` must be a member (`400 validation_failed` otherwise), `null` clears it, and it is **device-local**: the Sync `album` entity has no cover field and peers reject ops with unknown fields (`SyncOperation` validation), so syncing covers needs a protocol revision. `AlbumResponse` adds `cover_asset_id`.
+
+### Events
+
+`GET /events` (Server-Sent Events, bearer-guarded like every route) replaces polling: `?topics=library,jobs,imports,sync` (default all), `?max_seconds=` (≤ 3600, the server then closes; reconnect). Stream: `retry: 3000`, one `event: ready` (`data: {"topics": [...]}`), then `event: change` (`data: {"topics": ["library", ...]}`) whenever a watched topic changed, `: ping` comments every 15 s while idle. Events name what changed, never data; refetch: `library` → Drive/Photos/albums/search, `jobs` → `/jobs`, `/activity`, `/backup/status`, `imports` → `/android/imports/{id}`, `sync` → `/sync/status`, `/vault`, `/devices`, `/activity`. Changes are detected once per second from SQLite, so they include the worker's and sync's writes; nothing is replayed after a reconnect.
+
+### Notifier
+
+- `attention {code, count}`: the worker (every 30 s while running, and at the end of each bounded run) emits one event per Activity kind with items not announced before (`count` = new items of that kind). Announced ids live in `sync_state` (`activity.announced`), so background runs do not notify again. `new_device` items use their own event.
+- `new_device {device_id, name}`: the sync engine, after a pull that introduced devices needing review.
+- `pairing_request {request_id, device_name, platform}`: when the host indexes a new, unanswered fallback request (on `GET /pairing/requests` and reviews; there is no background scan of pairing requests yet).
