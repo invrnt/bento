@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Accessibility and helper text used by core/designsystem primitives. -->
+<resources>
+    <string name="ds_brand_name" translatable="false">Bento</string>
+    <string name="ds_loading">Cargando…</string>
+    <string name="ds_selected">Seleccionado</string>
+    <string name="ds_not_selected">No seleccionado</string>
+    <string name="ds_password_show">Mostrar contraseña</string>
+    <string name="ds_password_hide">Ocultar contraseña</string>
+    <string name="ds_more_options">Más opciones</string>
+    <string name="ds_dismiss">Descartar</string>
+    <string name="ds_clear_selection">Cancelar selección</string>
+    <string name="ds_sheet_handle">Arrastra para ajustar o cerrar</string>
+    <string name="ds_sas_label">Emojis de verificación: %1$s</string>
+    <string name="ds_qr_label">Código QR</string>
+    <string name="ds_thumbnail">Miniatura</string>
+    <string name="ds_video">Video</string>
+    <string name="ds_favorite">Favorito</string>
+    <string name="ds_favorite_add">Añadir a favoritos</string>
+    <string name="ds_favorite_remove">Quitar de favoritos</string>
+    <plurals name="ds_code_progress">
+        <item quantity="one">%1$d de %2$d carácter</item>
+        <item quantity="many">%1$d de %2$d caracteres</item>
+        <item quantity="other">%1$d de %2$d caracteres</item>
+    </plurals>
+    <string name="ds_code_complete">Código completo</string>
+    <string name="ds_progress_percent">%1$s completado</string>
+    <string name="ds_avatar_label">Cuenta y actividad de %1$s. %2$s</string>
+    <string name="ds_avatar_idle">Todo al día</string>
+    <string name="ds_avatar_syncing">Sincronizando</string>
+    <string name="ds_avatar_syncing_progress">Sincronizando, %1$s</string>
+    <string name="ds_avatar_attention">Algo necesita tu atención</string>
+    <string name="ds_avatar_offline">Sin conexión</string>
+    <string name="ds_avatar_paused">Respaldo en pausa</string>
+    <string name="ds_kind_folder">Carpeta</string>
+    <string name="ds_kind_pdf">PDF</string>
+    <string name="ds_kind_doc">Documento</string>
+    <string name="ds_kind_sheet">Hoja de cálculo</string>
+    <string name="ds_kind_slides">Presentación</string>
+    <string name="ds_kind_image">Imagen</string>
+    <string name="ds_kind_video">Video</string>
+    <string name="ds_kind_audio">Audio</string>
+    <string name="ds_kind_archive">Comprimido</string>
+    <string name="ds_kind_text">Archivo</string>
+</resources>

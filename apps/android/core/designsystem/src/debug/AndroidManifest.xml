@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Debug-only kitchen sink: adb shell am start -n <applicationId>/dev.bento.designsystem.kitchensink.KitchenSinkActivity -->
+        <activity
+            android:name="dev.bento.designsystem.kitchensink.KitchenSinkActivity"
+            android:exported="true"
+            android:label="Bento · Kitchen sink"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+    </application>
+</manifest>

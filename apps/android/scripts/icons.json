@@ -1,0 +1,305 @@
+{
+  "$comment": "Icons generated into BentoIcons.kt by generate_icons.mjs from lucide-static (version pinned in package.json, same as lucide-react in apps/web). Canonical names: design-system/brand.md §8 and android.md §5. nav: also emitted in BentoNavIcons with stroke 1.75. filled: also emitted as <Name>Filled.",
+  "icons": [
+    {
+      "name": "Images",
+      "lucide": "images",
+      "use": "Fotos",
+      "nav": true
+    },
+    {
+      "name": "SquareLibrary",
+      "lucide": "square-library",
+      "use": "Álbumes / Colecciones",
+      "nav": true
+    },
+    {
+      "name": "Heart",
+      "lucide": "heart",
+      "use": "Favoritos",
+      "filled": true
+    },
+    {
+      "name": "FolderClosed",
+      "lucide": "folder-closed",
+      "use": "Drive / Archivos",
+      "nav": true
+    },
+    {
+      "name": "FileText",
+      "lucide": "file-text",
+      "use": "Documentos"
+    },
+    {
+      "name": "Activity",
+      "lucide": "activity",
+      "use": "Trabajos"
+    },
+    {
+      "name": "Settings2",
+      "lucide": "settings-2",
+      "use": "Ajustes",
+      "nav": true
+    },
+    {
+      "name": "Upload",
+      "lucide": "upload",
+      "use": "Subir"
+    },
+    {
+      "name": "FolderUp",
+      "lucide": "folder-up",
+      "use": "Subir carpeta"
+    },
+    {
+      "name": "Download",
+      "lucide": "download",
+      "use": "Descargar"
+    },
+    {
+      "name": "PencilLine",
+      "lucide": "pencil-line",
+      "use": "Renombrar"
+    },
+    {
+      "name": "FolderInput",
+      "lucide": "folder-input",
+      "use": "Mover"
+    },
+    {
+      "name": "Trash2",
+      "lucide": "trash-2",
+      "use": "Eliminar"
+    },
+    {
+      "name": "Eye",
+      "lucide": "eye",
+      "use": "Vista previa"
+    },
+    {
+      "name": "RotateCw",
+      "lucide": "rotate-cw",
+      "use": "Reintentar"
+    },
+    {
+      "name": "Search",
+      "lucide": "search",
+      "use": "Buscar"
+    },
+    {
+      "name": "Smartphone",
+      "lucide": "smartphone",
+      "use": "Este teléfono"
+    },
+    {
+      "name": "CloudUpload",
+      "lucide": "cloud-upload",
+      "use": "Respaldo"
+    },
+    {
+      "name": "CloudOff",
+      "lucide": "cloud-off",
+      "use": "Sin conexión"
+    },
+    {
+      "name": "ScanLine",
+      "lucide": "scan-line",
+      "use": "Escanear"
+    },
+    {
+      "name": "QrCode",
+      "lucide": "qr-code",
+      "use": "Código QR"
+    },
+    {
+      "name": "Share2",
+      "lucide": "share-2",
+      "use": "Compartir"
+    },
+    {
+      "name": "Lock",
+      "lucide": "lock",
+      "use": "Bloqueo / cifrado"
+    },
+    {
+      "name": "X",
+      "lucide": "x",
+      "use": "Cerrar"
+    },
+    {
+      "name": "Check",
+      "lucide": "check",
+      "use": "Seleccionado"
+    },
+    {
+      "name": "ChevronRight",
+      "lucide": "chevron-right",
+      "use": "Entrar"
+    },
+    {
+      "name": "ChevronLeft",
+      "lucide": "chevron-left",
+      "use": "Anterior"
+    },
+    {
+      "name": "ChevronDown",
+      "lucide": "chevron-down",
+      "use": "Desplegar"
+    },
+    {
+      "name": "ArrowLeft",
+      "lucide": "arrow-left",
+      "use": "Atrás"
+    },
+    {
+      "name": "CircleAlert",
+      "lucide": "circle-alert",
+      "use": "Error"
+    },
+    {
+      "name": "CircleCheck",
+      "lucide": "circle-check",
+      "use": "Éxito"
+    },
+    {
+      "name": "Info",
+      "lucide": "info",
+      "use": "Información"
+    },
+    {
+      "name": "TriangleAlert",
+      "lucide": "triangle-alert",
+      "use": "Atención"
+    },
+    {
+      "name": "Plus",
+      "lucide": "plus",
+      "use": "Nuevo"
+    },
+    {
+      "name": "EyeOff",
+      "lucide": "eye-off",
+      "use": "Ocultar"
+    },
+    {
+      "name": "Pause",
+      "lucide": "pause",
+      "use": "Pausado"
+    },
+    {
+      "name": "CirclePause",
+      "lucide": "circle-pause",
+      "use": "Respaldo en pausa"
+    },
+    {
+      "name": "Play",
+      "lucide": "play",
+      "use": "Video"
+    },
+    {
+      "name": "EllipsisVertical",
+      "lucide": "ellipsis-vertical",
+      "use": "Más opciones"
+    },
+    {
+      "name": "Undo2",
+      "lucide": "undo-2",
+      "use": "Deshacer"
+    },
+    {
+      "name": "Copy",
+      "lucide": "copy",
+      "use": "Copiar"
+    },
+    {
+      "name": "Sparkles",
+      "lucide": "sparkles",
+      "use": "Motivo de coincidencia"
+    },
+    {
+      "name": "Monitor",
+      "lucide": "monitor",
+      "use": "Computador"
+    },
+    {
+      "name": "Laptop",
+      "lucide": "laptop",
+      "use": "Portátil"
+    },
+    {
+      "name": "Send",
+      "lucide": "send",
+      "use": "Enviar por Telegram"
+    },
+    {
+      "name": "ExternalLink",
+      "lucide": "external-link",
+      "use": "Abrir con otra app"
+    },
+    {
+      "name": "ImagePlus",
+      "lucide": "image-plus",
+      "use": "Añadir a álbum"
+    },
+    {
+      "name": "LayoutGrid",
+      "lucide": "layout-grid",
+      "use": "Vista de cuadrícula"
+    },
+    {
+      "name": "List",
+      "lucide": "list",
+      "use": "Vista de lista"
+    },
+    {
+      "name": "User",
+      "lucide": "user",
+      "use": "Cuenta"
+    },
+    {
+      "name": "Folder",
+      "lucide": "folder",
+      "use": "Carpeta"
+    },
+    {
+      "name": "File",
+      "lucide": "file",
+      "use": "Archivo"
+    },
+    {
+      "name": "FileArchive",
+      "lucide": "file-archive",
+      "use": "Comprimido"
+    },
+    {
+      "name": "FileAudio",
+      "lucide": "file-audio",
+      "use": "Audio"
+    },
+    {
+      "name": "FileCode",
+      "lucide": "file-code",
+      "use": "Texto / código"
+    },
+    {
+      "name": "FileImage",
+      "lucide": "file-image",
+      "use": "Imagen"
+    },
+    {
+      "name": "FileSpreadsheet",
+      "lucide": "file-spreadsheet",
+      "use": "Hoja de cálculo"
+    },
+    {
+      "name": "FileVideo",
+      "lucide": "file-video",
+      "use": "Video"
+    },
+    {
+      "name": "Presentation",
+      "lucide": "presentation",
+      "use": "Presentación"
+    }
+  ]
+}
