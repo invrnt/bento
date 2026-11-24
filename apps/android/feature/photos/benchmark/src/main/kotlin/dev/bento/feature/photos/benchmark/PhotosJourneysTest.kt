@@ -68,11 +68,12 @@ class PhotosJourneysTest {
     @Test
     fun journey7_viewer() {
         BentoDevice.forceStop()
-        val endpoint = BentoDevice.ready()
-        LibrarySeeder.ensure(endpoint, 120)
-        val videoId = LibrarySeeder.ensureVideo(endpoint)
+        val seeding = BentoDevice.ready()
+        LibrarySeeder.ensure(seeding, 120)
+        val videoId = LibrarySeeder.ensureVideo(seeding)
         BentoDevice.forceStop()
         BentoDevice.launch()
+        val endpoint = BentoDevice.awaitEndpoint(previousPid = seeding.pid)
         val grid = waitRes("photos:grid", 60_000)
         val photoTile = Pattern.compile("photos:tile:(?!$videoId).*")
         device.wait(Until.hasObject(By.res(photoTile)), 30_000) ?: failWithScreen("no photo tiles")
@@ -109,7 +110,8 @@ class PhotosJourneysTest {
         device.waitForIdle()
 
         // Favorite (heart toggles; the backend has it) and delete with undo.
-        val current = device.findObject(By.res(Pattern.compile("viewer:page:.*")))!!.resourceName.removePrefix("viewer:page:")
+        val page = device.wait(Until.findObject(By.res(Pattern.compile("viewer:page:.*"))), 5_000) ?: failWithScreen("no viewer page")
+        val current = page.resourceName.removePrefix("viewer:page:")
         if (device.findObject(By.desc("Añadir a favoritos")) == null) device.click(device.displayWidth / 2, device.displayHeight / 2)
         waitDesc("Añadir a favoritos").click()
         waitDesc("Quitar de favoritos")
@@ -123,8 +125,9 @@ class PhotosJourneysTest {
         // Back to the grid; open the video and seek while it streams through Range requests.
         device.pressBack()
         waitRes("photos:grid")
+        // The grid came back on the last viewed photo (deep in the timeline): fling to the top, where the video is.
         val gridAgain = waitRes("photos:grid")
-        gridAgain.scroll(Direction.UP, 50f)
+        repeat(12) { if (device.findObject(By.res("photos:tile:$videoId")) == null) gridAgain.fling(Direction.UP, 8_000) }
         val video = device.wait(Until.findObject(By.res("photos:tile:$videoId")), 10_000) ?: error("video tile missing")
         video.click()
         waitRes("viewer:video-controls", 10_000)

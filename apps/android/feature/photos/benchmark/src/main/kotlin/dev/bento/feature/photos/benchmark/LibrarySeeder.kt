@@ -33,19 +33,30 @@ object LibrarySeeder {
         if (existing >= target) return existing
         val dir = File(InstrumentationRegistry.getInstrumentation().context.cacheDir, "seed").apply { mkdirs() }
         val next = AtomicInteger(existing)
+        val failed = AtomicInteger(0)
         val pool = Executors.newFixedThreadPool(threads)
         repeat(threads) {
             pool.execute {
                 while (true) {
                     val i = next.getAndIncrement()
                     if (i >= target) break
-                    BentoDevice.upload(endpoint, "seed_%05d.jpg".format(i), "image/jpeg", jpeg(i, dir))
+                    // Concurrent uploads occasionally get a 500 from the engine (SQLite contention): retry with backoff,
+                    // and never let a pool thread die (an uncaught exception kills the instrumentation process).
+                    val ok = (1..4).any { attempt ->
+                        runCatching { BentoDevice.upload(endpoint, "seed_%05d.jpg".format(i), "image/jpeg", jpeg(i, dir)) }
+                            .onFailure { Thread.sleep(250L * attempt) }
+                            .isSuccess
+                    }
+                    if (!ok) failed.incrementAndGet()
                 }
             }
         }
         pool.shutdown()
         check(pool.awaitTermination(2, TimeUnit.HOURS)) { "seeding timed out" }
-        return photoCount(endpoint)
+        val count = photoCount(endpoint)
+        android.util.Log.i("BentoBenchmark", "seeded to $count photos, ${failed.get()} uploads failed after retries")
+        check(failed.get() <= target / 100) { "${failed.get()} uploads failed" }
+        return count
     }
 
     /** A 96 × 96 JPEG unique to [i] (different bytes → different sha256) with its EXIF capture time. */

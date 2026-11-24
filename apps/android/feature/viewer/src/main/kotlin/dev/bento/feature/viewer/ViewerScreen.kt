@@ -9,7 +9,8 @@ import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -53,6 +54,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.layout
@@ -263,41 +265,30 @@ fun ViewerContent(
                             else -> false
                         }
                     }
-                    .pointerInput(chrome.verticalGesturesEnabled) {
-                        if (!chrome.verticalGesturesEnabled) return@pointerInput
-                        val tracker = VelocityTracker()
-                        detectVerticalDragGestures(
-                            onDragStart = { tracker.resetTracking() },
-                            onVerticalDrag = { change, delta ->
-                                tracker.addPosition(change.uptimeMillis, change.position)
-                                change.consume()
-                                scope.launch { dragY.snapTo(dragY.value + delta) }
-                                if (dragY.value > 0) dispatch(ViewerIntent.DismissDrag(dragY.value / heightPx))
-                            },
-                            onDragEnd = {
-                                val velocity = tracker.calculateVelocity().y
-                                when {
-                                    dragY.value < -heightPx * 0.08f || velocity < -1_400f -> {
-                                        dispatch(ViewerIntent.SwipeUp)
-                                        viewerSheet = ViewerSheet.Info
-                                        scope.launch { dragY.animateTo(0f) }
-                                    }
-
-                                    ViewerReducer.shouldCommitDismiss(dragY.value / heightPx, velocity) && dragY.value > 0 ->
-                                        dispatch(ViewerIntent.DismissRelease(commit = true))
-
-                                    else -> {
-                                        dispatch(ViewerIntent.DismissRelease(commit = false))
-                                        scope.launch { dragY.animateTo(0f) }
-                                    }
+                    .verticalSwipe(
+                        enabled = chrome.verticalGesturesEnabled,
+                        onDrag = { delta ->
+                            scope.launch { dragY.snapTo(dragY.value + delta) }
+                            if (dragY.value + delta > 0) dispatch(ViewerIntent.DismissDrag((dragY.value + delta) / heightPx))
+                        },
+                        onEnd = { velocity ->
+                            when {
+                                dragY.value < -heightPx * 0.08f || velocity < -1_400f -> {
+                                    dispatch(ViewerIntent.SwipeUp)
+                                    viewerSheet = ViewerSheet.Info
+                                    scope.launch { dragY.animateTo(0f) }
                                 }
-                            },
-                            onDragCancel = {
-                                dispatch(ViewerIntent.DismissRelease(commit = false))
-                                scope.launch { dragY.animateTo(0f) }
+
+                                ViewerReducer.shouldCommitDismiss(dragY.value / heightPx, velocity) && dragY.value > 0 ->
+                                    dispatch(ViewerIntent.DismissRelease(commit = true))
+
+                                else -> {
+                                    dispatch(ViewerIntent.DismissRelease(commit = false))
+                                    scope.launch { dragY.animateTo(0f) }
+                                }
                             }
-                        )
-                    }
+                        }
+                    )
                     // Shrink with the finger through layout (not a draw transform) so the shared element returns from
                     // exactly where the photo is.
                     .layout { measurable, constraints ->
@@ -599,3 +590,42 @@ private fun SystemBarsForViewer(visible: Boolean) {
         }
     }
 }
+
+/**
+ * Swipe down (dismiss) / up (info) at fit zoom. Runs in the Initial pass and claims the gesture only once it is clearly
+ * vertical, so Telephoto (which handles pans in the Main pass) and the pager keep horizontal and zoomed gestures.
+ */
+@Suppress("CyclomaticComplexMethod", "LoopWithTooManyJumpStatements")
+private fun Modifier.verticalSwipe(enabled: Boolean, onDrag: (Float) -> Unit, onEnd: (velocityY: Float) -> Unit): Modifier =
+    if (!enabled) {
+        this
+    } else {
+        pointerInput(Unit) {
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                val slop = viewConfiguration.touchSlop
+                val tracker = VelocityTracker()
+                tracker.addPosition(down.uptimeMillis, down.position)
+                var claimed = false
+                while (true) {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                    if (event.changes.size > 1) return@awaitEachGesture
+                    val change = event.changes.firstOrNull { it.id == down.id } ?: return@awaitEachGesture
+                    tracker.addPosition(change.uptimeMillis, change.position)
+                    if (!change.pressed) {
+                        if (claimed) onEnd(tracker.calculateVelocity().y)
+                        return@awaitEachGesture
+                    }
+                    val total = change.position - down.position
+                    if (!claimed) {
+                        if (kotlin.math.abs(total.x) > slop) return@awaitEachGesture
+                        val vertical = kotlin.math.abs(total.y) > slop && kotlin.math.abs(total.y) > 2 * kotlin.math.abs(total.x)
+                        if (vertical) claimed = true else continue
+                    }
+                    val delta = change.position.y - change.previousPosition.y
+                    change.consume()
+                    onDrag(delta)
+                }
+            }
+        }
+    }

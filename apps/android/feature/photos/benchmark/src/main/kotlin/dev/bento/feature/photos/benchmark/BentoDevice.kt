@@ -40,13 +40,15 @@ object BentoDevice {
         shell("am force-stop $PACKAGE")
     }
 
-    fun awaitEndpoint(timeoutMs: Long = 180_000): Endpoint {
+    /** The engine's endpoint; pass [previousPid] after a relaunch (each start picks a new loopback port). */
+    fun awaitEndpoint(timeoutMs: Long = 180_000, previousPid: Int? = null): Endpoint {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
             val text = shell("run-as $PACKAGE cat no_backup/dev-endpoint.json").trim()
             if (text.startsWith("{")) {
                 val o = json.parseToJsonElement(text).jsonObject
-                return Endpoint(o["port"]!!.jsonPrimitive.int, o["token"]!!.jsonPrimitive.content, o["pid"]!!.jsonPrimitive.int)
+                val endpoint = Endpoint(o["port"]!!.jsonPrimitive.int, o["token"]!!.jsonPrimitive.content, o["pid"]!!.jsonPrimitive.int)
+                if (endpoint.pid != previousPid) return endpoint
             }
             Thread.sleep(200)
         }
