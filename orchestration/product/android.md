@@ -229,7 +229,7 @@ Offline (browse cache, queue actions, banner only when an action needs network);
 |---|---|
 | Cold start → first frame | ≤ 500 ms p50 (Baseline Profile) |
 | Cold start → cached Fotos grid with thumbnails | ≤ 900 ms p50, ≤ 1.5 s p90 |
-| Engine ready (API answering) | ≤ 2.5 s p50, ≤ 4 s p90 on the floor device |
+| Engine ready (API answering) | ≤ 2.5 s p50, ≤ 4 s p90 on the floor device (spike: 2.9 s p50 on emulator before import-time cuts) |
 | Fotos scroll (10,000 items, fling + fast scroller) | ≤ 1 % janky frames (JankStats), no blank tiles after fling settles > 150 ms |
 | Tile thumbnail (local) | ≤ 50 ms from bind to pixels |
 | Viewer open | first frame ≤ 100 ms (shared thumbnail), original ≤ 1 s on Wi-Fi |

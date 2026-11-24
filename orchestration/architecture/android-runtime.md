@@ -58,6 +58,18 @@ Android app process (single process, com.<org>.bento)
 - Python version = the newest Chaquopy-supported version satisfying `requires-python >= 3.12`, pinned in the spike report.
 - SQLite: Python's `sqlite3` with FTS5 (verified in the spike). `sqlite-vec` is not loaded on Android v1.
 
+### 4.1 Spike findings (Stage 19, binding)
+
+From `docs/dev/android-spike.md`:
+
+- Pins: AGP 9.5.2, Kotlin 2.4.21, Gradle 9.9.2, Chaquopy 17.2.0, JDK 17, NDK r27b, **Python 3.13** (Chaquopy has no 3.14 builds of cryptography/pillow/cffi/greenlet).
+- `cryptg` is **mandatory** on Android (pure-Python AES runs at ~0.4 MB/s; with `cryptg` 293-432 MB/s). Telethon's libssl fallback does not find Chaquopy's renamed `libssl_python.so`.
+- `cryptography` is 42.0.8 on Android (Chaquopy repository); the backend's `>=46` floor becomes `>=42` for the `android` extra only; every API Bento uses exists in 42. Building 46 for Android in CI is the follow-up.
+- `pydantic-core` and `cryptg` are cross-compiled with maturin for both ABIs (`wheels/build_all.sh`, ext-suffix fix); pure-Python sdists (`pyaes`, `hkdf`) are prebuilt as wheels because Chaquopy 17 refuses sdists. CI builds these wheels and serves them from an internal index (Stage 20 platform agent moves `spikes/android-engine/wheels/` to `apps/android/python-wheels/`).
+- The process that runs the engine must be kept un-frozen while it works: the engine runs inside a **bound/started service** (`EngineService`) whenever any holder is active, not just as an application singleton; Android's cached-app freezer otherwise stalls background requests.
+- Measured on the emulator: engine ready p50 2.9 s / p90 3.1 s; Python PSS ~152 MB idle (budget raised to **160 MB**, reduction work tracked: lazy Telethon, no OpenAPI build at start, alembic-free head check, launcher split); APK arm64 ~29 MB download.
+- Chaquopy refuses AGP ABI splits; per-ABI APKs are produced as separate flavors (`abi` dimension) in Stage 22.
+
 ## 5. Platform adapters (Python) and host bridges (Kotlin)
 
 Every Android capability enters the backend through an existing or new **port**, implemented by a Python adapter under `adapters/android/` that calls a Kotlin bridge through Chaquopy's `java` module. Only `adapters/android/*` and `interfaces/android/*` may import `java`/Chaquopy; they are wired only when `BENTO_PLATFORM=android` (`infrastructure/services.py`). Python tests replace bridges with fakes; nothing else in the backend knows it runs on Android.
