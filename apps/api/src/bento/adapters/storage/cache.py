@@ -150,6 +150,29 @@ class SQLiteBlobCache:
             ).one()
         return CacheUsage(bytes=int(row[0]), files=int(row[1]))
 
+    async def set_pinned(self, blob_id: str, pinned: bool) -> bool:
+        """Pin (or unpin) a cached blob; False when it is not in the cache (yet)."""
+        with session_scope(self._session_factory) as session:
+            entry = session.get(CacheEntryModel, blob_id)
+            if entry is None:
+                return False
+            entry.pinned = pinned
+            return True
+
+    async def is_pinned(self, blob_id: str) -> bool:
+        with session_scope(self._session_factory) as session:
+            entry = session.get(CacheEntryModel, blob_id)
+            return bool(entry is not None and entry.pinned)
+
+    async def pinned_usage(self) -> CacheUsage:
+        with session_scope(self._session_factory) as session:
+            row = session.execute(
+                select(func.coalesce(func.sum(CacheEntryModel.size_bytes), 0), func.count())
+                .select_from(CacheEntryModel)
+                .where(CacheEntryModel.pinned.is_(True))
+            ).one()
+        return CacheUsage(bytes=int(row[0]), files=int(row[1]))
+
     async def over_budget(self, max_bytes: int) -> bool:
         return (await self.evictable_usage()).bytes > max_bytes
 
@@ -194,6 +217,8 @@ class SQLiteBlobCache:
             for entry, asset_id in rows:
                 if max_bytes is not None and total <= max_bytes:
                     break
+                if entry.pinned:  # "Disponible sin conexión": never evicted
+                    continue
                 if require_aware(entry.last_accessed_at) > cutoff:
                     skipped_recent += 1
                     continue

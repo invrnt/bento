@@ -105,8 +105,8 @@ def test_relay_pairing_over_http(tmp_path: Path, relay: RelayDouble) -> None:
         assert hosted["role"] == "host" and hosted["transport"] == "relay" and hosted["state"] == "waiting"
         code = hosted["code"]
         assert re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}", code)
-        assert hosted["link"] == f"bento://join?v=1&c={code}"
-        assert hosted["web_link"] == f"{SITE}/join#v=1&c={code}"
+        # A configured public site makes the https App Link the pairing link (and QR payload).
+        assert hosted["link"] == hosted["web_link"] == f"{SITE}/join#v=1&c={code}"
         assert hosted["qr"]["size"] == len(hosted["qr"]["rows"]) > 20
         assert hosted["sas"] is None and hosted["peer"] is None and hosted["error"] is None
         assert hosted["telegram_qr"] is None and hosted["expires_at"]

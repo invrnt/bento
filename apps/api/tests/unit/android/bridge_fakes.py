@@ -27,7 +27,8 @@ class FakeMediaTools:
         self.page_count = page_count
 
     def _write(self, output: str, max_side: int) -> None:
-        Path(output).write_bytes(b"\xff\xd8fake-jpeg-" + str(max_side).encode() + b"\xff\xd9")
+        # Unique per output (real thumbnails differ per photo; blobs are content-addressed).
+        Path(output).write_bytes(b"\xff\xd8fake-jpeg-" + f"{max_side}:{output}".encode() + b"\xff\xd9")
 
     def thumbnail(self, source: str, output: str, maxSide: int, quality: int, format: str) -> str:  # noqa: N803
         self.calls.append(("thumbnail", (source, output, maxSide, quality, format)))

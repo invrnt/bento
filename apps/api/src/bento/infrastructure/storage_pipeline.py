@@ -93,12 +93,14 @@ class StoragePipelineComponents:
     maintenance: StorageMaintenanceService
 
     async def request_cache_eviction(self) -> bool:
-        """Enqueue `cache_evict` when cached originals exceed `cache_max_gb`."""
-        if not await self.cache.over_budget(self.cache_max_bytes):
+        """Enqueue `cache_evict` when cached originals exceed `cache_max_gb`, or when the device reports less than
+        10 % free space (then every evictable original goes; pinned and not-yet-uploaded ones never do)."""
+        low_storage = services.get_device_conditions(self.settings).snapshot().low_storage
+        if not low_storage and not await self.cache.over_budget(self.cache_max_bytes):
             return False
         if await self.backup_jobs.has_waiting(JobType.CACHE_EVICT):
             return False
-        await self.jobs.enqueue(type=JobType.CACHE_EVICT, priority=7, payload={})
+        await self.jobs.enqueue(type=JobType.CACHE_EVICT, priority=7, payload={"low_storage": low_storage} if low_storage else {})
         return True
 
 

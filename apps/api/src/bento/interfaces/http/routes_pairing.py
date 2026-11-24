@@ -306,15 +306,18 @@ async def _respond(request: Request, call: Awaitable[PairingView]) -> PairingRes
 def pairing_response(view: PairingView, *, site_url: str = "") -> PairingResponse:
     session = view.session
     code = session.code
+    # With a public site configured, the link (and the QR) is the verified https App Link; else the custom scheme.
+    web_link = code.web_link(site_url) if code is not None and site_url.strip() else None
+    link = web_link or (code.link() if code is not None else None)
     return PairingResponse(
         id=session.id,
         role=session.role.value,
         transport=session.transport.value,
         state=session.state.value,
         code=code.format() if code is not None else None,
-        link=code.link() if code is not None else None,
-        web_link=code.web_link(site_url) if code is not None and site_url.strip() else None,
-        qr=qr_matrix(code.link()) if code is not None else None,
+        link=link,
+        web_link=web_link,
+        qr=qr_matrix(link) if link is not None else None,
         expires_at=session.expires_at.isoformat(),
         peer=PairingPeerResponse(device_name=session.peer.device_name, platform=session.peer.platform)
         if session.peer is not None

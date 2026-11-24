@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import base64
+import json
 from collections import OrderedDict
 from collections.abc import Sequence
+from datetime import UTC, datetime
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from bento.adapters.repositories.batching import chunks, parent_conditions
@@ -103,17 +106,22 @@ class SQLiteAssetRepository:
         cursor: str | None = None,
         limit: int = 50,
     ) -> tuple[tuple[TimelineGroup, ...], str | None]:
-        offset = _decode_cursor(cursor)
+        """Newest first. Cursors are keyset positions (`k.<token>`); legacy numeric offsets still work."""
+        keyset = _decode_keyset(cursor)
+        offset = 0 if keyset is not None else _decode_cursor(cursor)
         with session_scope(self._session_factory) as session:
             sort_date = func.coalesce(AssetModel.taken_at, AssetModel.created_at)
             statement: Select[tuple[AssetModel]] = (
                 select(AssetModel)
                 .where(AssetModel.mode == AssetMode.PHOTOS.value, AssetModel.deleted_at.is_(None))
                 .order_by(sort_date.desc(), AssetModel.id.desc())
-                .offset(offset)
-                .limit(limit + 1)
             )
-            models = list(session.scalars(statement))
+            if keyset is not None:
+                before, before_id = keyset
+                statement = statement.where(or_(sort_date < before, and_(sort_date == before, AssetModel.id < before_id)))
+            elif offset:
+                statement = statement.offset(offset)
+            models = list(session.scalars(statement.limit(limit + 1)))
 
         visible = models[:limit]
         groups: OrderedDict[object, list[str]] = OrderedDict()
@@ -121,8 +129,50 @@ class SQLiteAssetRepository:
             group_date = (asset.metadata.taken_at or asset.created_at).date()
             groups.setdefault(group_date, []).append(asset.id)
 
-        next_cursor = str(offset + limit) if len(models) > limit else None
+        next_cursor = None
+        if len(models) > limit and visible:
+            last = visible[-1]
+            next_cursor = encode_timeline_cursor(last.taken_at or last.created_at, last.id)
         return tuple(TimelineGroup(day=day, asset_ids=tuple(asset_ids)) for day, asset_ids in groups.items()), next_cursor
+
+    async def photos_month_index(self) -> tuple[tuple[str, int, str], ...]:
+        """`(YYYY-MM, count, cursor of the month's first item)` newest first, in one grouped query."""
+        with session_scope(self._session_factory) as session:
+            sort_date = func.coalesce(AssetModel.taken_at, AssetModel.created_at)
+            month = func.strftime("%Y-%m", sort_date)
+            rows = session.execute(
+                select(month, func.count())
+                .where(AssetModel.mode == AssetMode.PHOTOS.value, AssetModel.deleted_at.is_(None))
+                .group_by(month)
+                .order_by(month.desc())
+            ).all()
+        index = []
+        for value, count in rows:
+            if not value:
+                continue
+            year, number = (int(part) for part in str(value).split("-"))
+            following = datetime(year + (number == 12), number % 12 + 1, 1, tzinfo=UTC)
+            # Everything strictly before the next month's first instant: the month's newest item comes first.
+            index.append((str(value), int(count), encode_timeline_cursor(following, "")))
+        return tuple(index)
+
+
+def encode_timeline_cursor(sort_date: datetime, asset_id: str) -> str:
+    raw = json.dumps([sort_date.isoformat(), asset_id], separators=(",", ":")).encode()
+    return "k." + base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+
+def _decode_keyset(cursor: str | None) -> tuple[datetime, str] | None:
+    if not cursor or not cursor.startswith("k."):
+        return None
+    token = cursor[2:]
+    try:
+        values = json.loads(base64.urlsafe_b64decode(token + "=" * (-len(token) % 4)))
+        moment = datetime.fromisoformat(values[0])
+        asset_id = str(values[1])
+    except (ValueError, TypeError, IndexError, json.JSONDecodeError):
+        return None
+    return (moment if moment.tzinfo else moment.replace(tzinfo=UTC)), asset_id
 
 
 def _decode_cursor(cursor: str | None) -> int:
