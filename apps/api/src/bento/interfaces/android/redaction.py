@@ -117,9 +117,18 @@ def install(log_dir: Path, *, mirror: bool, secrets: tuple[str, ...] = ()) -> Pa
         root.setLevel(logging.INFO)
         logging.getLogger("alembic").setLevel(logging.WARNING)
         _state.stdout, _state.stderr = sys.stdout, sys.stderr
-        sys.stdout = _StreamToLog(logging.getLogger("stdout"), logging.INFO)  # type: ignore[assignment]
-        sys.stderr = _StreamToLog(logging.getLogger("stderr"), logging.WARNING)  # type: ignore[assignment]
+        sys.stdout = _StreamToLog(_stream_logger("stdout"), logging.INFO)  # type: ignore[assignment]
+        sys.stderr = _StreamToLog(_stream_logger("stderr"), logging.WARNING)  # type: ignore[assignment]
     return path
+
+
+def _stream_logger(name: str) -> logging.Logger:
+    """A logger for captured output that a `logging.config` call (`disable_existing_loggers`) cannot silence."""
+    logger = logging.getLogger(name)
+    logger.disabled = False
+    logger.propagate = True
+    logger.setLevel(logging.NOTSET)
+    return logger
 
 
 def uninstall() -> None:

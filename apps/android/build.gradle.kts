@@ -23,6 +23,10 @@ plugins {
 // Quality gates: the convention plugins apply ktlint and detekt; they are configured once here.
 val ktlintCliVersion = libs.versions.ktlint.cli.get()
 subprojects {
+    // `check` verifies the committed screenshot goldens (record with recordRoborazziDebug).
+    plugins.withId("io.github.takahirom.roborazzi") {
+        tasks.matching { it.name == "check" }.configureEach { dependsOn("verifyRoborazziDebug") }
+    }
     plugins.withId("org.jlleitschuh.gradle.ktlint") {
         configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
             version.set(ktlintCliVersion)

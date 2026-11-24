@@ -57,3 +57,26 @@ release signing keystore custody (generated once, backed up offline; the same ke
 ## Status
 
 See the bottom of this file (updated by the orchestrator at the end of each stage).
+
+## Stage 20 status (2026-11-24, orchestrator)
+
+**Landed on `feature/android`:** backend (agent 35), design system (agent 37), platform (agent 36), then integration:
+
+- Root build: the platform's files (compileSdk 37 minor 2, targetSdk 36, minSdk 29, Compose BOM 2026.11.01, build-logic conventions, ktlint/detekt). `core/designsystem` and `core/strings` use the `bento.android.library`/`compose` conventions; the catalog gains the lint API (32.5.2), compose animation, and `android-lint`. `check` now runs ktlint, detekt, Android lint, JVM tests, Roborazzi verify, generator drift (`verifyBentoGenerated`), OpenAPI drift and `checkPythonRequirements`. Design-system goldens verified unchanged on the new BOM (no re-record).
+- Engine: Kotlin calls `bento.interfaces.android.engine` directly (shim, migrations package and `extractPackages` deleted). `warm_up()` and the redacted log routing (`interfaces/android/redaction.py`) now live in the backend. Migrations ship as APK assets and are copied once per install to `noBackupFilesDir/migrations/<install stamp>` (`MigrationAssets`), passed as `migrations_dir`. Debug options map to `fake_telegram_dir` and the allowed `settings` overrides (`EngineConfigWire`). Bridges match the adapters: `storage_total_bytes`, `media_changed {"bucket_ids": [...]}`.
+- `requirements-android.txt` generated from `uv export --extra android` (`python-wheels/generate_requirements.py`; overrides: cffi 1.17.1, greenlet 3.1.1, markupsafe 3.0.4). The OpenAPI snapshot comes from `bento.interfaces.http.export_openapi`; `monthIndex()` uses `GET /photos/timeline/index`.
+- UI: `BentoTheme`, `Theme.Bento` window themes, `BentoNavigationSuite` with the Lucide nav icons, launcher/notification icons, and shell/notification strings in `core/strings`. In debug builds the kitchen sink is reachable from a launcher shortcut.
+
+**Verification:** backend 1270 passed; Android JVM 167 (+5 build-logic); instrumented on API 35 emulator `app` 4/4, `smoke` 1/1 + Macrobenchmark smoke. Cold start with the real module: engine ready median 2.76 s (warm-up 2.51 s, `start_api` 0.18 s); TTID median 1.10 s.
+
+**Deviations:**
+- The root `.gitignore` rule `data/` hid `apps/android/core/data` from git on the platform branch. It is now `/data/` and the module was restored from the agent worktree.
+- The backend has a single `data_dir` = `noBackupFilesDir/bento`. Blobs and thumbs live there too, not in `filesDir/bento` as §10 says. Both are excluded from backup, so this is not a safety issue.
+- `hkdf` is no longer installed (spake2 0.9 uses cryptography's HKDF). The wheel is still built.
+
+**Open items:**
+- TTID rose from 0.79 s (temporary theme) to 1.10 s with BentoTheme, fonts and the splash AVD. Profile this in Stage 22 with the Baseline Profile.
+- Split blobs and thumbs into `filesDir` if §10 stays binding (needs a backend setting).
+- The debug shortcut meta-data on `MainActivity` must be merged with agent 41's launcher shortcuts.
+- The kitchen-sink BrandLogo specimen wraps "Bento" at 411 dp.
+- Python 3.14 and cryptography ≥ 46 on Android remain follow-ups from the spike.

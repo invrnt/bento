@@ -62,10 +62,10 @@ Android app process (single process, com.<org>.bento)
 
 From `docs/dev/android-spike.md`:
 
-- Pins: AGP 9.5.2, Kotlin 2.4.21, Gradle 9.9.2, Chaquopy 17.2.0, JDK 17, NDK r27b, **Python 3.13** (Chaquopy has no 3.14 builds of cryptography/pillow/cffi/greenlet).
+- Pins: AGP 9.5.2, Kotlin 2.4.21, Gradle 9.9.2, Chaquopy 17.2.0, JDK 17, NDK r27b, **Python 3.13** (Chaquopy has no 3.14 builds of cryptography/pillow/cffi/greenlet). Stage 20 raised compileSdk to **37** (minor 2; Compose BOM 2026.11.01 / Material 3 1.5 need it); targetSdk stays 36, minSdk 29.
 - `cryptg` is **mandatory** on Android (pure-Python AES runs at ~0.4 MB/s; with `cryptg` 293-432 MB/s). Telethon's libssl fallback does not find Chaquopy's renamed `libssl_python.so`.
 - `cryptography` is 42.0.8 on Android (Chaquopy repository); the backend's `>=46` floor becomes `>=42` for the `android` extra only; every API Bento uses exists in 42. Building 46 for Android in CI is the follow-up.
-- `pydantic-core` and `cryptg` are cross-compiled with maturin for both ABIs (`wheels/build_all.sh`, ext-suffix fix); pure-Python sdists (`pyaes`, `hkdf`) are prebuilt as wheels because Chaquopy 17 refuses sdists. CI builds these wheels and serves them from an internal index (Stage 20 platform agent moves `spikes/android-engine/wheels/` to `apps/android/python-wheels/`).
+- `pydantic-core` and `cryptg` are cross-compiled with maturin for both ABIs (`apps/android/python-wheels/build_all.sh`, ext-suffix fix); pure-Python sdists (`pyaes`, `hkdf`) are prebuilt as wheels because Chaquopy 17 refuses sdists. CI builds these wheels (cached artifact) and Gradle passes `python-wheels/dist` to Chaquopy pip with `--find-links`. `python-wheels/requirements-android.txt` is generated from the backend's `android` extra (`uv export --extra android --no-dev --no-emit-project`, Android markers, a short list of Chaquopy-build overrides) and checked by `:core:engine:checkPythonRequirements`.
 - The process that runs the engine must be kept un-frozen while it works: the engine runs inside a **bound/started service** (`EngineService`) whenever any holder is active, not just as an application singleton; Android's cached-app freezer otherwise stalls background requests.
 - Measured on the emulator: engine ready p50 2.9 s / p90 3.1 s; Python PSS ~152 MB idle (budget raised to **160 MB**, reduction work tracked: lazy Telethon, no OpenAPI build at start, alembic-free head check, launcher split); APK arm64 ~29 MB download.
 - Chaquopy refuses AGP ABI splits; per-ABI APKs are produced as separate flavors (`abi` dimension) in Stage 22.
@@ -174,6 +174,9 @@ cacheDir/                       Coil disk cache, decrypted temporary share/open 
 ```txt
 apps/android/
   settings.gradle.kts, gradle/libs.versions.toml (version catalog, all versions pinned)
+  build-logic/              convention plugins (android application/library/compose, hilt, openapi), OpenAPI → Kotlin generator
+  python-wheels/            locally built Android wheels (build_all.sh) and the generated requirements-android.txt
+  scripts/                  design-system generators (tokens, Lucide icons) and their drift check
   app/                      Application, MainActivity, ShareActivity, navigation, DI, manifest
   core/engine/              Chaquopy config, BentoEngine, bridges, python include list
   core/api/                 OkHttp client, generated DTOs, SSE, Coil fetcher, Media3 data source
@@ -183,10 +186,11 @@ apps/android/
   core/background/          WorkManager workers, UIDT/FGS, notifications, QS tile
   core/testing/             fakes for engine/bridges/api
   feature/{onboarding,pairing,recovery,photos,viewer,files,search,collections,share,activity,settings,devices}/
-  baselineprofile/, benchmark/   Baseline Profile generator, Macrobenchmark
+  smoke/                    separate-process instrumentation: SIGKILL during upload, Macrobenchmark cold-start smoke
+  baselineprofile/, benchmark/   Baseline Profile generator, Macrobenchmark (Stage 22; smoke/ hosts the startup smoke until then)
 ```
 
-- Gradle Kotlin DSL, AGP/Kotlin/Compose BOM at the latest stable versions at Stage 19 start, recorded in the spike report.
+- Gradle Kotlin DSL, AGP/Kotlin/Compose BOM at the latest stable versions at Stage 19 start, recorded in the spike report; compileSdk 37 (minor 2), targetSdk 36, minSdk 29 since Stage 20.
 - CI (`.github/workflows/android.yml`): lint, detekt/ktlint, unit (JVM), Roborazzi screenshot tests, OpenAPI drift check, assemble release (unsigned in PRs), instrumented tests on an emulator (API 29 and latest), Macrobenchmark smoke on emulator. Release workflow signs with the upload key from secrets and publishes to Play internal testing.
 - Backend CI adds `tests/unit/android` (adapters with fake bridges, run everywhere) and an `android` dependency-profile import smoke.
 

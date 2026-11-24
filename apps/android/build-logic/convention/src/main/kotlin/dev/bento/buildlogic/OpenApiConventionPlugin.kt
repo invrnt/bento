@@ -105,7 +105,7 @@ class OpenApiConventionPlugin : Plugin<Project> {
             )
             workingDir(extension.backendProject)
         }
-        tasks.register("checkOpenApiDrift") {
+        val drift = tasks.register("checkOpenApiDrift") {
             group = "verification"
             description = "Fails when core/api/openapi.json is stale versus the backend."
             dependsOn(export)
@@ -121,6 +121,7 @@ class OpenApiConventionPlugin : Plugin<Project> {
                 }
             }
         }
+        tasks.named("check") { dependsOn(drift) }
         tasks.register("updateOpenApiSnapshot") {
             group = "bento"
             description = "Rewrites core/api/openapi.json from the backend."

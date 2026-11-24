@@ -9,6 +9,16 @@ source set is `apps/api/src` itself, not a copy. Every Android-specific change l
 `app/src/main/python/bento_spike/patches.py` as a monkeypatch and is listed under
 [Required backend changes](#required-backend-changes-for-agent-35).
 
+> **Paths after Stage 20.** `spikes/android-engine/` was deleted when Stage 20 merged; this report is kept as the
+> historical record and its paths refer to that removed project (see git history before `feature/android` commit
+> "Merge Stage 20 Android platform"). Current homes: wheels → `apps/android/python-wheels/` (`build_all.sh`,
+> `build_rust_wheel.sh`, `fix_ext_suffix.py`; requirements generated from the backend's `android` extra by
+> `generate_requirements.py`); the monkeypatches in `bento_spike/patches.py` became real backend code
+> (`bento.interfaces.android.engine`, `bento.adapters.android.*`, `bento.infrastructure.db.migrate`); the
+> engine/app is `apps/android/` (`apps/android/README.md`). compileSdk moved to 37 (minor 2) at Stage 20 for the
+> Compose BOM 2026.11.01; targetSdk stays 36. The Reproduce section below no longer runs as written: use
+> `apps/android/README.md`.
+
 **Measurement environment.** No physical device was available. Every number below comes from an
 **emulator**: AVD `bento_spike_api35` (Pixel 7 profile, Android 15 / API 35, `google_apis` x86_64 image, 4 vCPU,
 3 GB RAM, KVM) on an AMD Ryzen 7 5800H host. x86_64 numbers run natively on a fast desktop CPU, so they are
