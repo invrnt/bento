@@ -1,0 +1,14 @@
+{
+  "name": "bento-android-scripts",
+  "private": true,
+  "type": "module",
+  "description": "Generators for core/designsystem: tokens.css -> BentoTokens.kt, lucide-static -> BentoIcons.kt.",
+  "scripts": {
+    "generate": "node generate_tokens.mjs && node generate_icons.mjs",
+    "check": "node generate_tokens.mjs --check && node generate_icons.mjs --check",
+    "test": "node --test test/"
+  },
+  "devDependencies": {
+    "lucide-static": "0.468.0"
+  }
+}
