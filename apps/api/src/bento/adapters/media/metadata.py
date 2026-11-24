@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from bento.adapters.media.image_formats import open_formats
 from bento.application.ingestion.metadata import ExtractedUploadMetadata, sanitize_filename
 
 
@@ -84,7 +85,7 @@ def _extract_image_exif(source_path: Path) -> tuple[datetime | None, dict[str, A
         return None, None
 
     try:
-        with Image.open(source_path) as image:
+        with Image.open(source_path, formats=open_formats()) as image:
             raw_exif = image.getexif()
             if not raw_exif:
                 return None, None

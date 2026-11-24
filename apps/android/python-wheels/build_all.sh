@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Builds every wheel the app needs that neither PyPI nor the Chaquopy repository provides for Android cp313:
-#   pydantic-core 2.46.4 and cryptg 0.6.1 (Rust/PyO3, both ABIs), pyaes 1.6.1 and hkdf 0.0.3 (pure Python, sdist-only).
+#   pydantic-core 2.46.4 and cryptg 0.6.1 (Rust/PyO3, both ABIs), pillow 13.0.0 (C, both ABIs, build_pillow.sh),
+#   pyaes 1.6.1 and hkdf 0.0.3 (pure Python, sdist-only).
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd); WORK=$HERE/work; mkdir -p "$WORK/src" "$HERE/dist"
 rustup target add aarch64-linux-android x86_64-linux-android
@@ -14,6 +15,7 @@ fetch pydantic-core 2.46.4; fetch cryptg 0.6.1
 for abi in arm64-v8a x86_64; do
   "$HERE/build_rust_wheel.sh" "$WORK/src/pydantic_core-2.46.4" "$abi"
   "$HERE/build_rust_wheel.sh" "$WORK/src/cryptg-0.6.1" "$abi" 0.6.1
+  "$HERE/build_pillow.sh" "$abi"
 done
 "$WORK/buildenv/bin/python" -m pip wheel -q --no-deps pyaes==1.6.1 hkdf==0.0.3 -w "$HERE/dist"
 ls -l "$HERE/dist"
