@@ -12,6 +12,7 @@ The Telegram-first program is implemented and tested end to end against the simu
 6. **Telegram API terms** — confirm with counsel the reading applied in the product: data obtained from Telegram (Inbox, imports) is never sent to OCR/embeddings (§1.5); Bento discloses that it uses the Telegram API and is not affiliated with Telegram (§2.2–2.3); automatic Inbox reactions are documented to users (§1.4).
 7. **Public site** — `npm --prefix apps/site run deploy` after the legal review, add the custom domain, then set `BENTO_PUBLIC_SITE_URL`. See [site.md](site.md).
 8. **License** — `apps/desktop/package.json` is `UNLICENSED`; choose the project license.
+9. **Android signing keystore** — generate the release keystore once (`keytool -genkeypair … -storetype PKCS12 -keyalg RSA -keysize 4096`), keep it and its passwords offline and in a password manager (losing it breaks updates for every user), pin its SHA-256 as `BENTO_ANDROID_CERT_SHA256` and publish it in `/.well-known/assetlinks.json`. Android releases are built and signed locally with `apps/android/scripts/release.sh`, which signs the Android update-manifest entries with the same key as step 4. See [android-release.md](android-release.md).
 
 ## Recommended
 
