@@ -557,6 +557,10 @@ class _Session:
     cleaned: bool = False
 
 
+_LOGIN_IN_FLIGHT = frozenset({LoginStep.CODE_REQUIRED, LoginStep.PASSWORD_REQUIRED})
+"""Login steps the guest never replaces with a fresh QR login."""
+
+
 @dataclass
 class _GuestLogin:
     authorized: bool
@@ -1080,8 +1084,9 @@ class PairingService:
         own_qr = login.login_failed or (
             grant_received and login.grace_deadline is not None and self._now() >= login.grace_deadline
         )
-        if status.step is LoginStep.PASSWORD_REQUIRED:
-            # The host accepted the token but the account has a cloud password: the UI asks for it.
+        if status.step in _LOGIN_IN_FLIGHT:
+            # A cloud password (the host accepted the token) or a phone login the person started here: keep that
+            # single login going; a new QR would reset it. The UI follows `/account` for the code/password step.
             session.telegram_login_url = None
             if session.state is not PairingState.NEEDS_TELEGRAM_LOGIN:
                 self._set(session, PairingState.NEEDS_TELEGRAM_LOGIN)
@@ -1117,9 +1122,12 @@ class PairingService:
             login.authorized = True
             await self._send(channel, crypto, {"type": MessageType.TELEGRAM_READY.value})
             return
-        if status.step is not LoginStep.QR_PENDING:
-            status = await self._account.start_qr_login()
-        session.telegram_login_url = status.qr_url
+        if status.step in _LOGIN_IN_FLIGHT:
+            session.telegram_login_url = None
+        else:
+            if status.step is not LoginStep.QR_PENDING:
+                status = await self._account.start_qr_login()
+            session.telegram_login_url = status.qr_url
         self._set(session, PairingState.NEEDS_TELEGRAM_LOGIN)
 
     async def _handshake(self, session: _Session, channel: PairingChannelPort, crypto: PairingCryptoSessionPort) -> None:
