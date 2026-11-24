@@ -28,6 +28,7 @@ import dev.bento.api.generated.TelegramChatResponse
 import dev.bento.designsystem.component.AvatarStatus
 import dev.bento.designsystem.component.BentoSnackbarHostState
 import dev.bento.designsystem.theme.BentoTheme
+import dev.bento.testing.BentoScreenshots
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -103,6 +104,21 @@ class PhotosScreenshotTest(private val state: ScreenState) {
             ScreenState("photos-first-run") { Photos(load = PhotosLoad.FirstRun) }
         ).map { arrayOf<Any>(it) }
     }
+}
+
+/** Journey 7 entry screens on a phone on its side (`screenshots/<state>/landscape.png`). */
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(qualifiers = BentoScreenshots.LANDSCAPE_QUALIFIERS)
+class PhotosLandscapeScreenshotTest {
+    @get:Rule
+    val compose = createComposeRule()
+
+    @Test
+    fun grid() = compose.captureVariants(ScreenState("photos-grid") { Photos() }, listOf(LandscapeVariant))
+
+    @Test
+    fun selection() = compose.captureVariants(ScreenState("photos-selection") { Photos(selected = 4) }, listOf(LandscapeVariant))
 }
 
 /** Sheets render in their own window: captured with the whole screen, light and dark. */

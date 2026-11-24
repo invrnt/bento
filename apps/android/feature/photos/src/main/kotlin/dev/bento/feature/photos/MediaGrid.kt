@@ -286,6 +286,17 @@ private fun DensityGrid(
                 .onPreviewKeyEvent { event ->
                     if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                     when {
+                        // Ctrl + / Ctrl − : the keyboard path for pinch (larger photos / more per row).
+                        event.isCtrlPressed && event.key in ZoomInKeys -> {
+                            state.changeDensity(state.density.larger(), null)
+                            true
+                        }
+
+                        event.isCtrlPressed && event.key in ZoomOutKeys -> {
+                            state.changeDensity(state.density.smaller(), null)
+                            true
+                        }
+
                         event.isCtrlPressed && event.key == Key.A -> {
                             selection.set((0 until cells.count).mapNotNull { (cells.peek(it) as? GridCell.Media)?.asset }, true)
                             true
@@ -508,3 +519,6 @@ private fun StickyMonthHeader(gridState: LazyGridState, cells: MediaCells, layou
         MonthHeader(current)
     }
 }
+
+private val ZoomInKeys = setOf(Key.Equals, Key.Plus, Key.NumPadAdd)
+private val ZoomOutKeys = setOf(Key.Minus, Key.NumPadSubtract)

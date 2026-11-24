@@ -24,7 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -47,6 +46,8 @@ import dev.bento.designsystem.component.ListRow
 import dev.bento.designsystem.component.LoadingState
 import dev.bento.designsystem.component.SettingsRow
 import dev.bento.designsystem.component.Thumbnail
+import dev.bento.designsystem.format.BentoFormat
+import dev.bento.designsystem.format.pluralCountResource
 import dev.bento.designsystem.generated.BentoIcons
 import dev.bento.designsystem.theme.BentoShapes
 import dev.bento.designsystem.theme.BentoTheme
@@ -55,7 +56,6 @@ import dev.bento.feature.files.FolderBrowserState
 import dev.bento.feature.files.FolderPickerBody
 import dev.bento.feature.files.LocalBentoImageLoader
 import dev.bento.feature.files.SheetBody
-import dev.bento.feature.files.Sizes
 import dev.bento.feature.files.di.FilesEntryPoint
 import dev.bento.strings.R as StringsR
 
@@ -151,9 +151,9 @@ private fun ShareMainBody(state: ShareState, actions: ShareActions) {
             return@SheetBody
         }
         ThumbnailStrip(state)
-        val files = pluralStringResource(StringsR.plurals.common_count_files, state.count, state.count)
+        val files = pluralCountResource(StringsR.plurals.common_count_files, state.count)
         Text(
-            stringResource(StringsR.string.share_summary, files, Sizes.format(resources, state.totalBytes)),
+            stringResource(StringsR.string.share_summary, files, BentoFormat.bytes(resources, state.totalBytes)),
             color = c.ink,
             style = BentoTheme.typography.bodyStrong,
             modifier = Modifier.padding(top = 12.dp)
@@ -166,7 +166,7 @@ private fun ShareMainBody(state: ShareState, actions: ShareActions) {
                 Modifier.padding(top = 12.dp),
                 tone = CalloutTone.Warning,
                 title = stringResource(StringsR.string.share_unreadable_title),
-                body = pluralStringResource(StringsR.plurals.share_unreadable, state.unreadable.size, state.unreadable.size) +
+                body = pluralCountResource(StringsR.plurals.share_unreadable, state.unreadable.size) +
                     "\n" + state.unreadable.joinToString(", ") { it.name },
                 icon = BentoIcons.TriangleAlert
             )

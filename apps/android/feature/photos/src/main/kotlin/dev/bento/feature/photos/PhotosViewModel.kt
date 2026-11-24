@@ -170,7 +170,7 @@ class PhotosViewModel @Inject constructor(
         viewModelScope.launch {
             val failed = uris.count { uri -> !runCatching { binary.uploadAsset(source(uri), mode = "photos") }.isSuccess }
             if (failed > 0) {
-                actionsMessage(StringsR.string.photos_action_failed)
+                actionsMessage(StringsR.string.common_error_generic)
             } else {
                 actionsMessage(StringsR.string.photos_upload_started)
             }

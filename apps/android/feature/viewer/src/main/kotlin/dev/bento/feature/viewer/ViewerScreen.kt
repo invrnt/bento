@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -242,6 +243,7 @@ fun ViewerContent(
                 .fillMaxSize()
                 .background(c.black.copy(alpha = (1f - chrome.dismissProgress * 1.4f).coerceIn(0f, 1f)))
         )
+        val reducedMotion = BentoTheme.motion.reduced
         Row(Modifier.fillMaxSize()) {
             Box(
                 Modifier
@@ -253,11 +255,11 @@ fun ViewerContent(
                         if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
                         when (event.key) {
                             Key.DirectionRight -> scope.launch {
-                                pager.animateScrollToPage((pager.currentPage + 1).coerceAtMost(count - 1))
+                                pager.goTo((pager.currentPage + 1).coerceAtMost(count - 1), reducedMotion)
                             }.let { true }
 
                             Key.DirectionLeft -> scope.launch {
-                                pager.animateScrollToPage((pager.currentPage - 1).coerceAtLeast(0))
+                                pager.goTo((pager.currentPage - 1).coerceAtLeast(0), reducedMotion)
                             }.let { true }
 
                             Key.Escape -> navigation.back().let { true }
@@ -322,6 +324,7 @@ fun ViewerContent(
                             active = page == pager.settledPage,
                             aspect = aspectOf(asset),
                             controlsVisible = chrome.chromeVisible,
+                            contentDescription = tileDescription(asset, MediaFormat.dayOf(asset), selected = false),
                             onTap = { dispatch(ViewerIntent.Tap) },
                             poster = { SharedPoster(asset, animatedScope, shared = page == pager.currentPage) },
                             modifier = Modifier.testTag(ViewerTestTags.page(asset.id))
@@ -332,6 +335,7 @@ fun ViewerContent(
                             animatedScope = animatedScope,
                             sharedActive = page == pager.currentPage,
                             contentDescription = tileDescription(asset, MediaFormat.dayOf(asset), selected = false),
+                            controlsVisible = chrome.chromeVisible,
                             onTap = { dispatch(ViewerIntent.Tap) },
                             onZoomChanged = { zoomed -> if (page == pager.currentPage) dispatch(ViewerIntent.Zoom(zoomed)) },
                             onSignals = { signals -> if (page == pager.settledPage) offlineNotice = signals.offline }
@@ -629,3 +633,8 @@ private fun Modifier.verticalSwipe(enabled: Boolean, onDrag: (Float) -> Unit, on
             }
         }
     }
+
+/** Keyboard paging: a slide, or a cut with reduced motion. */
+private suspend fun PagerState.goTo(page: Int, reducedMotion: Boolean) {
+    if (reducedMotion) scrollToPage(page) else animateScrollToPage(page)
+}

@@ -1,5 +1,10 @@
 package dev.bento.feature.search
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -86,6 +91,20 @@ class SearchUiTest {
         compose.onNodeWithText("Fecha").performClick()
         compose.onAllNodes(hasText("Carpeta"))[0].performClick()
         assertEquals(listOf(FilterSheet.Kind, FilterSheet.Date, FilterSheet.Folder), sheets)
+    }
+
+    @Test
+    fun activeFilterChipNamesItsFilterIsADropdownAndCanBeRemoved() {
+        val kinds = mutableListOf<SearchKind?>()
+        content(
+            SearchState(query = "x", filters = SearchFilters(kind = SearchKind.Photos), results = SearchFixtures.results),
+            SearchActions(onKind = { kinds += it })
+        )
+        val chip = compose.onNodeWithContentDescription("Tipo: Fotos")
+        chip.assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.DropdownList))
+        val remove = chip.fetchSemanticsNode().config[SemanticsActions.CustomActions].single { it.label == "Quitar el filtro «Tipo»" }
+        compose.runOnIdle { remove.action() }
+        assertEquals(listOf<SearchKind?>(null), kinds)
     }
 
     @Test

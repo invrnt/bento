@@ -412,7 +412,7 @@ class TrashViewModel @Inject constructor(
                 val undoable = dev.bento.data.optimistic({}, {}, remote = { trash.restore(ids) }, inverse = { timeline.trash(ids) })
                 _undo.value = UiText(StringsR.string.collections_trash_restored) to undoable
             } catch (error: ApiException) {
-                _message.value = UiText(StringsR.string.photos_action_failed)
+                _message.value = UiText(StringsR.string.common_error_generic)
             }
         }
     }
@@ -427,7 +427,7 @@ class TrashViewModel @Inject constructor(
                 block()
                 UiText(done)
             } catch (error: ApiException) {
-                UiText(StringsR.string.photos_action_failed)
+                UiText(StringsR.string.common_error_generic)
             }
         }
     }

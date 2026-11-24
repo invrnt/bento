@@ -38,6 +38,12 @@ class RecoveryScreenshotTest {
 
     @Test fun kitFirstRun() = kit(RecoveryKitUi(code, KitOccasion.FirstRun))
 
+    @Test
+    @Config(qualifiers = BentoScreenshots.LANDSCAPE_QUALIFIERS)
+    fun kitFirstRunLandscape() = BentoScreenshots.captureLandscape(compose, "screenshots", "kit-firstrun") {
+        RecoveryKitContent(RecoveryKitUi(code, KitOccasion.FirstRun), {}, {}, {}, {}, {}, onLater = {}, typed = TextFieldState(""))
+    }
+
     @Test fun kitCopied() = kit(RecoveryKitUi(code, KitOccasion.FirstRun, notice = KitNotice.Copied))
 
     @Test fun kitMismatch() = kit(

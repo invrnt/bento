@@ -2,7 +2,6 @@
 <!-- Colecciones (feature/collections, agent 39): albums, favorites, videos, documents, phone, Telegram, trash. -->
 <resources>
     <string name="collections_albums">Albums</string>
-    <string name="collections_albums_all">See all</string>
     <string name="collections_new_album">New album</string>
     <string name="collections_favorites">Favorites</string>
     <string name="collections_videos">Videos</string>
@@ -15,8 +14,8 @@
     <string name="collections_videos_summary">All your videos</string>
     <string name="collections_documents_summary">PDFs, documents and spreadsheets</string>
     <string name="collections_phone_summary">Backed-up folders on this phone</string>
-    <string name="collections_telegram_summary">Photos and files brought from your chats</string>
-    <string name="collections_trash_summary">Empties itself after 30 days</string>
+    <string name="collections_telegram_summary">Photos and files imported from your chats</string>
+    <string name="collections_trash_summary">Emptied automatically after 30 days</string>
     <string name="collections_albums_empty_title">No albums yet</string>
     <string name="collections_albums_empty_body">Group photos from any date into an album. Photos don’t move.</string>
     <string name="collections_album_add_photos">Add photos</string>
@@ -47,7 +46,6 @@
     <string name="collections_phone_state_paused">Paused</string>
     <string name="collections_phone_state_error">Needs attention</string>
     <string name="collections_phone_state_off">Off</string>
-    <string name="collections_phone_row">%1$s · %2$s</string>
     <string name="collections_phone_error">We couldn’t read this phone’s folders.</string>
     <string name="collections_telegram_import">Import from Telegram</string>
     <string name="collections_telegram_empty_title">Bring photos and files from your chats</string>
@@ -64,7 +62,6 @@
     <string name="collections_telegram_kind_photo">Photos</string>
     <string name="collections_telegram_kind_video">Videos</string>
     <string name="collections_telegram_kind_document">Files</string>
-    <string name="collections_telegram_started">Importing in the background. You’ll see it in Photos and Files.</string>
     <string name="collections_telegram_media_row">%1$s · %2$s</string>
     <string name="collections_trash_restore">Restore</string>
     <string name="collections_trash_empty_action">Empty trash</string>
@@ -78,7 +75,6 @@
     <string name="collections_trash_restored">Restored to where it was</string>
     <string name="collections_trash_purged">Deleted forever</string>
     <string name="collections_trash_emptied">Trash emptied</string>
-    <string name="collections_trash_row">%1$s · %2$s</string>
     <string name="collections_select_all">Select all</string>
     <plurals name="collections_trash_days_left">
         <item quantity="one">Will be deleted in %1$s day</item>

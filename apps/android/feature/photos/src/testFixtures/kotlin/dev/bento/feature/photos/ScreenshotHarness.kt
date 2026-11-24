@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.captureRoboImage
 import dev.bento.designsystem.theme.BentoTheme
+import dev.bento.testing.BentoScreenshots
 
 /** Screen variants shared by the media features' goldens (design-system/android.md §9). */
 data class ScreenVariant(val name: String, val dark: Boolean, val fontScale: Float, val width: Int, val height: Int)
@@ -31,6 +32,9 @@ val ScreenVariants = listOf(
     ScreenVariant("expanded", dark = true, fontScale = 1f, width = 840, height = 900)
 )
 
+/** The shared landscape frame (`BentoScreenshots.landscape`); run under `BentoScreenshots.LANDSCAPE_QUALIFIERS`. */
+val LandscapeVariant: ScreenVariant = BentoScreenshots.landscape.let { ScreenVariant(it.name, it.dark, it.fontScale, it.width, it.height) }
+
 /** One screen state rendered under every variant into `screenshots/<state>/<variant>.png`. */
 class ScreenState(val name: String, val content: @Composable () -> Unit) {
     override fun toString() = name
@@ -40,8 +44,11 @@ class ScreenState(val name: String, val content: @Composable () -> Unit) {
  * Captures [state] under every [ScreenVariants] entry. Images come from [fakeImageLoader] (flat colors per id), so the
  * goldens are deterministic.
  */
-fun androidx.compose.ui.test.junit4.ComposeContentTestRule.captureVariants(state: ScreenState) {
-    var variant by mutableStateOf(ScreenVariants.first())
+fun androidx.compose.ui.test.junit4.ComposeContentTestRule.captureVariants(
+    state: ScreenState,
+    variants: List<ScreenVariant> = ScreenVariants
+) {
+    var variant by mutableStateOf(variants.first())
     mainClock.autoAdvance = false
     setContent {
         val density = LocalDensity.current
@@ -56,7 +63,7 @@ fun androidx.compose.ui.test.junit4.ComposeContentTestRule.captureVariants(state
             }
         }
     }
-    for (v in ScreenVariants) {
+    for (v in variants) {
         runOnUiThread {
             variant = v
             Snapshot.sendApplyNotifications()

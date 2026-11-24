@@ -1,13 +1,10 @@
 package dev.bento.feature.photos
 
-import android.content.Context
 import android.icu.text.DateFormat
 import android.icu.text.DisplayContext
-import android.icu.text.NumberFormat
 import android.icu.util.TimeZone
 import android.icu.util.ULocale
 import dev.bento.api.generated.AssetResponse
-import dev.bento.strings.R as StringsR
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
@@ -82,30 +79,6 @@ object MediaFormat {
             ?: return iso
         return format("yMMMMEEEEdjm", locale, Date.from(instant), utc = false)
     }
-
-    /** `1,5 MB` with the shared unit strings. */
-    fun bytes(context: Context, bytes: Long, locale: Locale = context.resources.configuration.locales[0]): String {
-        val units = listOf(
-            StringsR.string.common_unit_bytes,
-            StringsR.string.common_unit_kilobytes,
-            StringsR.string.common_unit_megabytes,
-            StringsR.string.common_unit_gigabytes,
-            StringsR.string.common_unit_terabytes
-        )
-        var value = bytes.toDouble().coerceAtLeast(0.0)
-        var unit = 0
-        while (value >= 1000 && unit < units.lastIndex) {
-            value /= 1000
-            unit++
-        }
-        val number = NumberFormat.getInstance(ULocale.forLocale(locale)).apply {
-            maximumFractionDigits =
-                if (unit == 0 || value >= 100) 0 else 1
-        }
-        return context.getString(units[unit], number.format(value))
-    }
-
-    fun number(value: Number, locale: Locale): String = NumberFormat.getInstance(ULocale.forLocale(locale)).format(value)
 
     /** The calendar day a timeline item belongs to (`taken_at`, else `created_at`), `YYYY-MM-DD`. */
     fun dayOf(asset: AssetResponse): String = (asset.takenAt ?: asset.createdAt).take(10)

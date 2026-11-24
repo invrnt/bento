@@ -47,6 +47,7 @@ import dev.bento.designsystem.component.SegmentOption
 import dev.bento.designsystem.component.SegmentedButtons
 import dev.bento.designsystem.component.SettingsRow
 import dev.bento.designsystem.component.SwitchRow
+import dev.bento.designsystem.format.BentoFormat
 import dev.bento.designsystem.generated.BentoIcons
 import dev.bento.designsystem.theme.BentoTheme
 import dev.bento.strings.R as StringsR
@@ -385,7 +386,7 @@ fun DetailsSheetBody(item: DriveItemResponse, location: String?, pinned: Boolean
         ListRow(headline = item.name, leading = { KindIcon(FileKinds.fileKind(item)) })
         val kindLabel = stringResource(kindLabel(FileKinds.fileKind(item)))
         Detail(stringResource(StringsR.string.files_details_kind), asset?.mimeType?.let { "$kindLabel · $it" } ?: kindLabel)
-        asset?.let { Detail(stringResource(StringsR.string.files_details_size), Sizes.format(resources, it.sizeBytes)) }
+        asset?.let { Detail(stringResource(StringsR.string.files_details_size), BentoFormat.bytes(resources, it.sizeBytes)) }
         FileDates.medium(item.updatedAt)?.let { Detail(stringResource(StringsR.string.files_details_modified), it) }
         asset?.takenAt?.let { FileDates.medium(it) }?.let { Detail(stringResource(StringsR.string.files_details_taken), it) }
         location?.let { Detail(stringResource(StringsR.string.files_details_location), it) }

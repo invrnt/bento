@@ -24,6 +24,9 @@ class OnboardingScreenshotTest {
 
     private fun shot(name: String, content: @Composable () -> Unit) = BentoScreenshots.capture(compose, "screenshots", name, content)
 
+    private fun landscape(name: String, content: @Composable () -> Unit) =
+        BentoScreenshots.captureLandscape(compose, "screenshots", name, content)
+
     private val co = PhoneNumbers.preselect("co", null)
     private val ana = TelegramAccountResponse("Ana", "+57 ••• 12", false, 1, "ana")
     private fun status(json: String) = BentoJson.decodeFromString(AccountStatusResponse.serializer(), json)
@@ -39,6 +42,10 @@ class OnboardingScreenshotTest {
     }
 
     @Test fun welcome() = shot("welcome") { WelcomeContent({}, {}, {}) }
+
+    @Test
+    @Config(qualifiers = BentoScreenshots.LANDSCAPE_QUALIFIERS)
+    fun welcomeLandscape() = landscape("welcome") { WelcomeContent({}, {}, {}) }
 
     @Test fun localSheet() = shot("local-mode-sheet") { LocalModeSheetBody({}, {}) }
 
@@ -63,6 +70,12 @@ class OnboardingScreenshotTest {
     }
 
     @Test fun code() = shot("signin-code") {
+        signIn(SignInState(view = SignInView.Code, national = "3001234567", resendSeconds = 42), clipboard = "54321")
+    }
+
+    @Test
+    @Config(qualifiers = BentoScreenshots.LANDSCAPE_QUALIFIERS)
+    fun codeLandscape() = landscape("signin-code") {
         signIn(SignInState(view = SignInView.Code, national = "3001234567", resendSeconds = 42), clipboard = "54321")
     }
 

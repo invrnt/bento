@@ -1,0 +1,613 @@
+diff --git i/apps/android/core/strings/src/main/res/values-en/strings_collections.xml w/apps/android/core/strings/src/main/res/values-en/strings_collections.xml
+index a3a8c36..6faf8a3 100644
+--- i/apps/android/core/strings/src/main/res/values-en/strings_collections.xml
++++ w/apps/android/core/strings/src/main/res/values-en/strings_collections.xml
+@@ -15,8 +15,8 @@
+     <string name="collections_videos_summary">All your videos</string>
+     <string name="collections_documents_summary">PDFs, documents and spreadsheets</string>
+     <string name="collections_phone_summary">Backed-up folders on this phone</string>
+-    <string name="collections_telegram_summary">Photos and files brought from your chats</string>
+-    <string name="collections_trash_summary">Empties itself after 30 days</string>
++    <string name="collections_telegram_summary">Photos and files imported from your chats</string>
++    <string name="collections_trash_summary">Emptied automatically after 30 days</string>
+     <string name="collections_albums_empty_title">No albums yet</string>
+     <string name="collections_albums_empty_body">Group photos from any date into an album. Photos don’t move.</string>
+     <string name="collections_album_add_photos">Add photos</string>
+diff --git i/apps/android/core/strings/src/main/res/values-en/strings_common.xml w/apps/android/core/strings/src/main/res/values-en/strings_common.xml
+index 8171495..51afdbf 100644
+--- i/apps/android/core/strings/src/main/res/values-en/strings_common.xml
++++ w/apps/android/core/strings/src/main/res/values-en/strings_common.xml
+@@ -43,11 +43,11 @@
+     <string name="common_error_storage_full">Your phone is out of space. Free up space to continue.</string>
+     <string name="common_error_session_revoked">Bento was disconnected from Telegram.</string>
+ 
+-    <string name="common_unit_bytes">%1$s B</string>
+-    <string name="common_unit_kilobytes">%1$s KB</string>
+-    <string name="common_unit_megabytes">%1$s MB</string>
+-    <string name="common_unit_gigabytes">%1$s GB</string>
+-    <string name="common_unit_terabytes">%1$s TB</string>
++    <string name="common_unit_bytes">%1$s\u00A0B</string>
++    <string name="common_unit_kilobytes">%1$s\u00A0KB</string>
++    <string name="common_unit_megabytes">%1$s\u00A0MB</string>
++    <string name="common_unit_gigabytes">%1$s\u00A0GB</string>
++    <string name="common_unit_terabytes">%1$s\u00A0TB</string>
+     <string name="common_unit_progress_of">%1$s of %2$s</string>
+ 
+     <plurals name="common_count_files">
+diff --git i/apps/android/core/strings/src/main/res/values-en/strings_designsystem.xml w/apps/android/core/strings/src/main/res/values-en/strings_designsystem.xml
+index 605f7b0..edd5098 100644
+--- i/apps/android/core/strings/src/main/res/values-en/strings_designsystem.xml
++++ w/apps/android/core/strings/src/main/res/values-en/strings_designsystem.xml
+@@ -38,5 +38,5 @@
+     <string name="ds_kind_video">Video</string>
+     <string name="ds_kind_audio">Audio</string>
+     <string name="ds_kind_archive">Archive</string>
+-    <string name="ds_kind_text">File</string>
++    <string name="ds_kind_text">Text file</string>
+ </resources>
+diff --git i/apps/android/core/strings/src/main/res/values-en/strings_devices.xml w/apps/android/core/strings/src/main/res/values-en/strings_devices.xml
+index 7b78e1c..63c4de7 100644
+--- i/apps/android/core/strings/src/main/res/values-en/strings_devices.xml
++++ w/apps/android/core/strings/src/main/res/values-en/strings_devices.xml
+@@ -12,16 +12,16 @@
+     <string name="devices_last_seen">Seen %1$s</string>
+     <string name="devices_added_on">Added on %1$s</string>
+     <string name="devices_new">New</string>
+-    <string name="devices_options">Options for \"%1$s\"</string>
++    <string name="devices_options">Options for “%1$s”</string>
+     <string name="devices_local_title">Use Bento on all your devices</string>
+     <string name="devices_local_body">Connect your Telegram to add other devices and keep them in sync.</string>
+     <string name="devices_connect">Connect my Telegram</string>
+ 
+     <string name="devices_request_title">A new device wants to join</string>
+-    <string name="devices_request_body">\"%1$s\" asked for access to your cloud. Check that it’s yours before adding it.</string>
++    <string name="devices_request_body">“%1$s” asked for access to your cloud. Check that it’s yours before adding it.</string>
+ 
+     <string name="devices_review_screen_title">Review this device</string>
+-    <string name="devices_review_title">\"%1$s\" was added to your cloud</string>
++    <string name="devices_review_title">“%1$s” was added to your cloud</string>
+     <string name="devices_review_body">It was added on %1$s from another of your devices. Do you recognize it?</string>
+     <string name="devices_review_mine">It’s mine</string>
+     <string name="devices_review_unknown">I don’t recognize it</string>
+@@ -32,7 +32,7 @@
+     <string name="devices_rename_failed">The name couldn’t be changed. Try again.</string>
+ 
+     <string name="devices_remove_action">Remove device</string>
+-    <string name="devices_remove_title">Remove \"%1$s\"?</string>
++    <string name="devices_remove_title">Remove “%1$s”?</string>
+     <string name="devices_remove_consequence_sync">It will stop syncing and its Telegram session will be closed.</string>
+     <string name="devices_remove_consequence_local">What it already downloaded stays on that device: it can’t be erased remotely.</string>
+     <string name="devices_remove_consequence_kit">Bento will change your cloud’s keys and give you a new recovery kit. The current one will stop working.</string>
+@@ -54,12 +54,12 @@
+     </plurals>
+     <string name="devices_remove_failed">The device couldn’t be removed. Try again.</string>
+     <string name="devices_remove_exclusion_invalid">The device list changed while you were reviewing it. Review it again and retry.</string>
+-    <string name="devices_removed">You removed \"%1$s\" from your cloud.</string>
++    <string name="devices_removed">You removed “%1$s” from your cloud.</string>
+     <plurals name="devices_removed_more">
+-        <item quantity="one">You removed \"%1$s\" and %2$d more device from your cloud.</item>
+-        <item quantity="other">You removed \"%1$s\" and %2$d more devices from your cloud.</item>
++        <item quantity="one">You removed “%1$s” and %2$d more device from your cloud.</item>
++        <item quantity="other">You removed “%1$s” and %2$d more devices from your cloud.</item>
+     </plurals>
+-    <string name="devices_session_open">Telegram doesn’t allow closing the session of \"%1$s\" yet. Close it from Telegram › Settings › Devices.</string>
++    <string name="devices_session_open">Telegram doesn’t allow closing the session of “%1$s” yet. Close it from Telegram › Settings › Devices.</string>
+     <string name="devices_excluded_sessions_open">The other devices you removed keep their Telegram session. Close it from Telegram › Settings › Devices.</string>
+ 
+     <string name="devices_removed_self_title">This phone was removed from your cloud</string>
+diff --git i/apps/android/core/strings/src/main/res/values-en/strings_files.xml w/apps/android/core/strings/src/main/res/values-en/strings_files.xml
+index 2e81a8a..85f1a0c 100644
+--- i/apps/android/core/strings/src/main/res/values-en/strings_files.xml
++++ w/apps/android/core/strings/src/main/res/values-en/strings_files.xml
+@@ -120,7 +120,7 @@
+     <string name="files_saved_to_phone">Saved “%1$s” to the phone</string>
+     <string name="files_save_failed">Couldn’t save to the phone.</string>
+ 
+-    <string name="files_telegram_title">Send with Telegram</string>
++    <string name="files_telegram_title">Send via Telegram</string>
+     <string name="files_telegram_search">Search chats</string>
+     <string name="files_telegram_empty">No chats found.</string>
+     <string name="files_telegram_failed">Couldn’t send. Try again.</string>
+@@ -136,8 +136,8 @@
+         <item quantity="other">Added %1$s files</item>
+     </plurals>
+     <plurals name="files_upload_failed">
+-        <item quantity="one">%1$s couldn’t be added</item>
+-        <item quantity="other">%1$s couldn’t be added</item>
++        <item quantity="one">%1$s file couldn’t be added</item>
++        <item quantity="other">%1$s files couldn’t be added</item>
+     </plurals>
+     <string name="files_upload_summary">%1$s · %2$s</string>
+     <string name="files_upload_pause">Pause</string>
+diff --git i/apps/android/core/strings/src/main/res/values-en/strings_notifications.xml w/apps/android/core/strings/src/main/res/values-en/strings_notifications.xml
+index 55b0795..e6b901f 100644
+--- i/apps/android/core/strings/src/main/res/values-en/strings_notifications.xml
++++ w/apps/android/core/strings/src/main/res/values-en/strings_notifications.xml
+@@ -15,12 +15,12 @@
+     <string name="bento_transfer_paused">Paused</string>
+     <string name="bento_transfer_pause">Pause</string>
+     <plurals name="bento_transfer_progress">
+-        <item quantity="one">%1$d of %2$d file</item>
+-        <item quantity="other">%1$d of %2$d files</item>
++        <item quantity="one">%1$s of %2$s file</item>
++        <item quantity="other">%1$s of %2$s files</item>
+     </plurals>
+     <plurals name="bento_transfer_finished_backup">
+-        <item quantity="one">Done: %d photo backed up</item>
+-        <item quantity="other">Done: %d photos backed up</item>
++        <item quantity="one">Done: %1$s photo backed up</item>
++        <item quantity="other">Done: %1$s photos backed up</item>
+     </plurals>
+     <string name="bento_attention_title">Bento needs your attention</string>
+     <string name="bento_attention_text">Open Bento to review it.</string>
+diff --git i/apps/android/core/strings/src/main/res/values-en/strings_onboarding.xml w/apps/android/core/strings/src/main/res/values-en/strings_onboarding.xml
+index e2fbbb5..6bd4791 100644
+--- i/apps/android/core/strings/src/main/res/values-en/strings_onboarding.xml
++++ w/apps/android/core/strings/src/main/res/values-en/strings_onboarding.xml
+@@ -50,12 +50,12 @@
+     <string name="onboarding_password_submit">Sign in</string>
+     <string name="onboarding_password_forgot">I forgot my password</string>
+     <string name="onboarding_qr_title">Sign in from another phone</string>
+-    <string name="onboarding_qr_body">Scan this code with Telegram on the phone where your account already is.</string>
++    <string name="onboarding_qr_body">Scan this code with Telegram on the phone where you’re already signed in.</string>
+     <string name="onboarding_qr_label">QR code to link your Telegram account</string>
+     <string name="onboarding_qr_loading">Preparing the QR code…</string>
+     <string name="onboarding_qr_step1">Open Telegram on the other phone.</string>
+     <string name="onboarding_qr_step2">Go to Settings › Devices › Link Desktop Device.</string>
+-    <string name="onboarding_qr_step3">Scan this code. It refreshes by itself.</string>
++    <string name="onboarding_qr_step3">Scan this code. It refreshes automatically.</string>
+     <string name="onboarding_qr_waiting">Waiting for you to scan the code…</string>
+     <string name="onboarding_error_code_invalid">That code isn’t right. Check it and try again.</string>
+     <string name="onboarding_error_expired">The sign-in expired. Start again.</string>
+@@ -66,7 +66,7 @@
+     <string name="onboarding_error_telegram_app_missing">Telegram couldn’t be opened. Sign in with your number.</string>
+     <string name="onboarding_error_generic">Couldn’t sign in to Telegram. Try again.</string>
+     <string name="onboarding_error_flood_title">Telegram asked to wait</string>
+-    <string name="onboarding_error_flood_body">Telegram asked to wait %1$s. We’ll try again by ourselves.</string>
++    <string name="onboarding_error_flood_body">Telegram asked to wait %1$s. We’ll try again automatically.</string>
+     <string name="onboarding_error_flood_ready">Trying again…</string>
+ 
+     <string name="onboarding_creating_title">Creating your cloud</string>
+@@ -81,7 +81,7 @@
+     <string name="onboarding_creating_failed">Your cloud couldn’t be created. Your account is untouched.</string>
+     <string name="onboarding_creating_failed_hint">Check your internet connection and try again.</string>
+ 
+-    <string name="onboarding_notifications_title">Should we tell you about the backup?</string>
++    <string name="onboarding_notifications_title">Get notified about your backup?</string>
+     <string name="onboarding_notifications_body">We’ll only tell you about backup progress and when something needs your attention.</string>
+     <string name="onboarding_notifications_allow">Allow notifications</string>
+     <string name="onboarding_notifications_denied_note">If you’d rather not get them, progress stays visible inside Bento.</string>
+@@ -90,7 +90,7 @@
+     <string name="onboarding_done_body">Everything you keep here is also in your Telegram, encrypted.</string>
+     <string name="onboarding_done_tip_share_title">Share to Bento from any app</string>
+     <string name="onboarding_done_tip_share_body">Pick Bento in the Share menu to keep photos, PDFs or any file.</string>
+-    <string name="onboarding_done_tip_inbox_title">Forward things to \"Bento · Inbox\" in Telegram</string>
++    <string name="onboarding_done_tip_inbox_title">Forward things to “Bento · Inbox” in Telegram</string>
+     <string name="onboarding_done_tip_inbox_body">Whatever you forward to that chat shows up in Bento, encrypted.</string>
+     <string name="onboarding_done_tip_search_title">Search the text inside your photos</string>
+     <string name="onboarding_done_tip_search_body">Bento reads the text in your photos and documents on the phone so you can find it when you search.</string>
+diff --git i/apps/android/core/strings/src/main/res/values-en/strings_pairing.xml w/apps/android/core/strings/src/main/res/values-en/strings_pairing.xml
+index d86ccb4..1b2f4ee 100644
+--- i/apps/android/core/strings/src/main/res/values-en/strings_pairing.xml
++++ w/apps/android/core/strings/src/main/res/values-en/strings_pairing.xml
+@@ -23,14 +23,14 @@
+     <string name="pairing_request_body">Open Bento on another device: you’ll see a notice to review this request.</string>
+     <string name="pairing_confirm_title_computer">Confirm on your computer</string>
+     <string name="pairing_confirm_title_device">Confirm on your other device</string>
+-    <string name="pairing_confirm_body_computer">Check that your computer shows these same emojis and press \"Add\" there.</string>
+-    <string name="pairing_confirm_body_device">Check that your other device shows these same emojis and press \"Add\" there.</string>
+-    <string name="pairing_confirmed_body">Press \"Add\" on your other device if you haven’t yet. This phone only accepts access from that device.</string>
++    <string name="pairing_confirm_body_computer">Check that your computer shows these same emojis and press “Add” there.</string>
++    <string name="pairing_confirm_body_device">Check that your other device shows these same emojis and press “Add” there.</string>
++    <string name="pairing_confirmed_body">Press “Add” on your other device if you haven’t yet. This phone only accepts access from that device.</string>
+     <string name="pairing_waiting_approval">Waiting for confirmation…</string>
+     <string name="pairing_receiving">Receiving access to your cloud…</string>
+     <string name="pairing_waiting_access">Waiting for access…</string>
+     <string name="pairing_match_title">Do you see the same emojis on your other device?</string>
+-    <string name="pairing_match_body">Compare them with the ones your other device shows after pressing \"Review\". If any is different, someone else answered this request.</string>
++    <string name="pairing_match_body">Compare them with the ones your other device shows after pressing “Review”. If any is different, someone else answered this request.</string>
+     <string name="pairing_match_yes">They match</string>
+     <string name="pairing_match_no">They don’t match</string>
+     <string name="pairing_confirm_failed">Couldn’t confirm. Try again.</string>
+@@ -49,7 +49,7 @@
+     <string name="pairing_telegram_waiting">Waiting for Telegram…</string>
+     <string name="pairing_telegram_use_phone">Cancel and use my number</string>
+     <string name="pairing_rejected_title">The request was declined</string>
+-    <string name="pairing_rejected_body">Your other device chose \"Not me\". If it was you, create a new code and try again.</string>
++    <string name="pairing_rejected_body">Your other device chose “Not me”. If it was you, create a new code and try again.</string>
+     <string name="pairing_expired_title">The code expired</string>
+     <string name="pairing_expired_body">Codes last a few minutes. Create a new one on your other device (Settings › Devices › Add device).</string>
+     <string name="pairing_cancelled_title">Pairing was cancelled</string>
+@@ -92,7 +92,7 @@
+ 
+     <string name="pairing_host_title">Add device</string>
+     <string name="pairing_host_loading">Preparing a code…</string>
+-    <string name="pairing_host_instructions">On the other device, open Bento, choose \"I already use Bento on another device\" and scan this code.</string>
++    <string name="pairing_host_instructions">On the other device, open Bento, choose “I already use Bento on another device” and scan this code.</string>
+     <string name="pairing_host_qr_label">QR code to add a device</string>
+     <string name="pairing_host_code_spoken">Code: %1$s</string>
+     <string name="pairing_host_expires_in">Expires in %1$s</string>
+@@ -102,22 +102,22 @@
+     <string name="pairing_host_share_title">Link to join your Bento cloud</string>
+     <string name="pairing_host_waiting">Waiting for the other device…</string>
+     <string name="pairing_host_connecting">Connecting…</string>
+-    <string name="pairing_host_approve_title">Add \"%1$s\"?</string>
++    <string name="pairing_host_approve_title">Add “%1$s”?</string>
+     <string name="pairing_host_approve_body">Check that the other device shows these same emojis.</string>
+-    <string name="pairing_host_sas_hint">If they don’t match, choose \"Not me\".</string>
++    <string name="pairing_host_sas_hint">If they don’t match, choose “Not me”.</string>
+     <string name="pairing_host_approve">Add</string>
+     <string name="pairing_host_reject">Not me</string>
+-    <string name="pairing_host_approving">Adding \"%1$s\"…</string>
+-    <string name="pairing_host_guest_login">Waiting for \"%1$s\" to sign in to Telegram…</string>
++    <string name="pairing_host_approving">Adding “%1$s”…</string>
++    <string name="pairing_host_guest_login">Waiting for “%1$s” to sign in to Telegram…</string>
+     <string name="pairing_host_completed_title">Device added</string>
+-    <string name="pairing_host_completed_body">\"%1$s\" is now part of your cloud and is downloading your library.</string>
++    <string name="pairing_host_completed_body">“%1$s” is now part of your cloud and is downloading your library.</string>
+     <string name="pairing_host_rejected_title">The device wasn’t added</string>
+     <string name="pairing_host_rejected_body">The other device has no access to your cloud.</string>
+     <string name="pairing_host_expired_title">The code expired</string>
+     <string name="pairing_host_expired_body">Create a new one when you have the other device at hand.</string>
+     <string name="pairing_host_relay_title">Quick pairing isn’t available</string>
+     <string name="pairing_host_relay_body">We couldn’t reach the service that connects your devices.</string>
+-    <string name="pairing_host_relay_fallback">On the other device, sign in to Telegram and choose \"Ask my other devices for access\". The request will appear in Devices for you to approve.</string>
++    <string name="pairing_host_relay_fallback">On the other device, sign in to Telegram and choose “Ask my other devices for access”. The request will appear in Devices for you to approve.</string>
+     <string name="pairing_host_failed_title">The device couldn’t be added</string>
+     <string name="pairing_host_start_failed">A code couldn’t be prepared. Try again.</string>
+     <string name="pairing_host_action_failed">The action couldn’t be completed. Try again.</string>
+diff --git i/apps/android/core/strings/src/main/res/values-en/strings_photos.xml w/apps/android/core/strings/src/main/res/values-en/strings_photos.xml
+index 5093087..fc8241e 100644
+--- i/apps/android/core/strings/src/main/res/values-en/strings_photos.xml
++++ w/apps/android/core/strings/src/main/res/values-en/strings_photos.xml
+@@ -5,7 +5,7 @@
+     <string name="photos_tile_photo">Photo</string>
+     <string name="photos_tile_video">Video, %1$s</string>
+     <string name="photos_tile_video_plain">Video</string>
+-    <string name="photos_tile_favorite">favorite</string>
++    <string name="photos_tile_favorite">in favorites</string>
+     <string name="photos_tile_pending">waiting to back up</string>
+     <string name="photos_tile_uploading">uploading</string>
+     <string name="photos_tile_failed">backup failed</string>
+@@ -37,13 +37,13 @@
+     <string name="photos_card_kit_body">It’s the only way to recover your cloud without another device.</string>
+     <string name="photos_card_kit_action">Save kit</string>
+     <string name="photos_card_signin_body">Your library is still here. Reconnect to sync.</string>
+-    <string name="photos_trashed_one">Moved to trash</string>
++    <string name="photos_trashed_one">Moved to the trash</string>
+     <string name="photos_favorites_added">Added to favorites</string>
+     <string name="photos_favorites_removed">Removed from favorites</string>
+     <string name="photos_added_to_album">Added to “%1$s”</string>
+     <string name="photos_moved_to_folder">Moved to “%1$s”</string>
+     <string name="photos_saved_to_phone">Saved to Pictures › Bento</string>
+-    <string name="photos_sent_telegram">Sent to %1$s</string>
++    <string name="photos_sent_telegram">Sent to “%1$s”</string>
+     <string name="photos_preparing_copy">Preparing a copy…</string>
+     <string name="photos_action_failed">That didn’t work. Try again.</string>
+     <string name="photos_album_sheet_title">Add to album</string>
+@@ -56,8 +56,8 @@
+     <string name="photos_move_here">Move here</string>
+     <string name="photos_move_root">Files</string>
+     <string name="photos_move_empty">This folder has no subfolders.</string>
+-    <string name="photos_move_open_folder">Open %1$s</string>
+-    <string name="photos_telegram_sheet_title">Send with Telegram</string>
++    <string name="photos_move_open_folder">Open “%1$s”</string>
++    <string name="photos_telegram_sheet_title">Send via Telegram</string>
+     <string name="photos_telegram_search">Search chats</string>
+     <string name="photos_telegram_empty">No chats match that name.</string>
+     <string name="photos_disclosure_title">Before you continue</string>
+@@ -65,8 +65,8 @@
+     <string name="photos_header_today">Today</string>
+     <string name="photos_header_yesterday">Yesterday</string>
+     <plurals name="photos_trashed_many">
+-        <item quantity="one">%1$s item moved to trash</item>
+-        <item quantity="other">%1$s items moved to trash</item>
++        <item quantity="one">Moved %1$s item to the trash</item>
++        <item quantity="other">Moved %1$s items to the trash</item>
+     </plurals>
+     <plurals name="photos_card_partial_title">
+         <item quantity="one">Bento can only see %1$s photo</item>
+diff --git i/apps/android/core/strings/src/main/res/values-en/strings_recovery.xml w/apps/android/core/strings/src/main/res/values-en/strings_recovery.xml
+index 64f5f4b..6cf0cc9 100644
+--- i/apps/android/core/strings/src/main/res/values-en/strings_recovery.xml
++++ w/apps/android/core/strings/src/main/res/values-en/strings_recovery.xml
+@@ -31,10 +31,10 @@
+     <string name="recovery_sheet_created">Cloud created on</string>
+     <string name="recovery_sheet_printed">Kit generated on</string>
+     <string name="recovery_sheet_keep">Keep it away from your devices. With your Telegram and this code you can recover everything.</string>
+-    <string name="recovery_sheet_how_to">To use it: open Bento on a new device, choose \"I already use Bento on another device\" › \"I don’t have the other device\", sign in to Telegram and type this code or scan the QR.</string>
++    <string name="recovery_sheet_how_to">To use it: open Bento on a new device, choose “I already use Bento on another device” › “I don’t have the other device”, sign in to Telegram and type this code or scan the QR.</string>
+     <string name="recovery_sheet_warning_title">Important:</string>
+     <string name="recovery_sheet_warning">anyone with access to your Telegram and this code can open your cloud. Don’t share it or keep it next to your phone.</string>
+-    <string name="recovery_sheet_footer">%1$s keeps no copy of this code. If you create a new one, this one stops working.</string>
++    <string name="recovery_sheet_footer">%1$s keeps no copy of this code. If you generate a new one, this one stops working.</string>
+ 
+     <string name="recovery_entry_title">Enter your recovery code</string>
+     <string name="recovery_entry_body">It’s in your Bento recovery kit: 9 groups of 4 characters.</string>
+@@ -66,13 +66,13 @@
+     <string name="recovery_rotate_title">Generate a new code?</string>
+     <string name="recovery_rotate_body_saved">Your current code will stop working and you’ll need to save the new kit.</string>
+     <string name="recovery_rotate_body_unsaved">Bento will create a new code for your kit and any previous code will stop working.</string>
+-    <string name="recovery_rotate_confirm">Create code</string>
+-    <string name="recovery_rotate_failed">A new code couldn’t be created. Try again.</string>
++    <string name="recovery_rotate_confirm">Generate code</string>
++    <string name="recovery_rotate_failed">A new code couldn’t be generated. Try again.</string>
+     <string name="recovery_verify_title">Verify code</string>
+     <string name="recovery_verify_body">Make sure the code you saved still works. Nothing is changed.</string>
+     <string name="recovery_verify_submit">Verify</string>
+     <string name="recovery_verify_valid">This code is valid for your cloud.</string>
+-    <string name="recovery_verify_invalid">This code doesn’t open your cloud. If you lost it, create a new one.</string>
++    <string name="recovery_verify_invalid">This code doesn’t open your cloud. If you lost it, generate a new one.</string>
+     <string name="recovery_verify_failed">The code couldn’t be checked. Try again.</string>
+ 
+     <string name="recovery_scanner_hint">Point at the QR code.</string>
+diff --git i/apps/android/core/strings/src/main/res/values-en/strings_viewer.xml w/apps/android/core/strings/src/main/res/values-en/strings_viewer.xml
+index 84d7b22..46d15d4 100644
+--- i/apps/android/core/strings/src/main/res/values-en/strings_viewer.xml
++++ w/apps/android/core/strings/src/main/res/values-en/strings_viewer.xml
+@@ -7,7 +7,7 @@
+     <string name="viewer_info_name">Name</string>
+     <string name="viewer_info_edit_name">Edit name</string>
+     <string name="viewer_info_size">Size</string>
+-    <string name="viewer_info_dimensions">%1$s × %2$s · %3$s MP</string>
++    <string name="viewer_info_dimensions">%1$s × %2$s · %3$s\u00A0MP</string>
+     <string name="viewer_info_duration">Length %1$s</string>
+     <string name="viewer_info_camera">Camera</string>
+     <string name="viewer_info_exposure">Exposure</string>
+diff --git i/apps/android/core/strings/src/main/res/values/strings_collections.xml w/apps/android/core/strings/src/main/res/values/strings_collections.xml
+index 56c7d0c..f12b304 100644
+--- i/apps/android/core/strings/src/main/res/values/strings_collections.xml
++++ w/apps/android/core/strings/src/main/res/values/strings_collections.xml
+@@ -82,12 +82,12 @@
+     <string name="collections_select_all">Seleccionar todo</string>
+     <plurals name="collections_trash_days_left">
+         <item quantity="one">Se eliminará en %1$s día</item>
+-        <item quantity="many">Se eliminará en %1$s días</item>
++        <item quantity="many">Se eliminará en %1$s de días</item>
+         <item quantity="other">Se eliminará en %1$s días</item>
+     </plurals>
+     <plurals name="collections_trash_empty_confirm_body">
+         <item quantity="one">Se eliminará para siempre %1$s elemento (%2$s). No se puede deshacer.</item>
+-        <item quantity="many">Se eliminarán para siempre %1$s elementos (%2$s). No se puede deshacer.</item>
++        <item quantity="many">Se eliminarán para siempre %1$s de elementos (%2$s). No se puede deshacer.</item>
+         <item quantity="other">Se eliminarán para siempre %1$s elementos (%2$s). No se puede deshacer.</item>
+     </plurals>
+     <plurals name="collections_telegram_import_count">
+@@ -102,7 +102,7 @@
+     </plurals>
+     <plurals name="collections_count_items">
+         <item quantity="one">%1$s elemento</item>
+-        <item quantity="many">%1$s elementos</item>
++        <item quantity="many">%1$s de elementos</item>
+         <item quantity="other">%1$s elementos</item>
+     </plurals>
+ </resources>
+diff --git i/apps/android/core/strings/src/main/res/values/strings_common.xml w/apps/android/core/strings/src/main/res/values/strings_common.xml
+index 43a5261..c9fdc72 100644
+--- i/apps/android/core/strings/src/main/res/values/strings_common.xml
++++ w/apps/android/core/strings/src/main/res/values/strings_common.xml
+@@ -48,11 +48,11 @@
+     <string name="common_error_session_revoked">Bento se desconectó de Telegram.</string>
+ 
+     <!-- Units: numbers are formatted with android.icu before substitution (1,5 MB). -->
+-    <string name="common_unit_bytes">%1$s B</string>
+-    <string name="common_unit_kilobytes">%1$s KB</string>
+-    <string name="common_unit_megabytes">%1$s MB</string>
+-    <string name="common_unit_gigabytes">%1$s GB</string>
+-    <string name="common_unit_terabytes">%1$s TB</string>
++    <string name="common_unit_bytes">%1$s\u00A0B</string>
++    <string name="common_unit_kilobytes">%1$s\u00A0KB</string>
++    <string name="common_unit_megabytes">%1$s\u00A0MB</string>
++    <string name="common_unit_gigabytes">%1$s\u00A0GB</string>
++    <string name="common_unit_terabytes">%1$s\u00A0TB</string>
+     <string name="common_unit_progress_of">%1$s de %2$s</string>
+ 
+     <plurals name="common_count_files">
+diff --git i/apps/android/core/strings/src/main/res/values/strings_designsystem.xml w/apps/android/core/strings/src/main/res/values/strings_designsystem.xml
+index 91f0eb0..7edfef3 100644
+--- i/apps/android/core/strings/src/main/res/values/strings_designsystem.xml
++++ w/apps/android/core/strings/src/main/res/values/strings_designsystem.xml
+@@ -41,5 +41,5 @@
+     <string name="ds_kind_video">Video</string>
+     <string name="ds_kind_audio">Audio</string>
+     <string name="ds_kind_archive">Comprimido</string>
+-    <string name="ds_kind_text">Archivo</string>
++    <string name="ds_kind_text">Archivo de texto</string>
+ </resources>
+diff --git i/apps/android/core/strings/src/main/res/values/strings_files.xml w/apps/android/core/strings/src/main/res/values/strings_files.xml
+index 1aa2458..4d9b19a 100644
+--- i/apps/android/core/strings/src/main/res/values/strings_files.xml
++++ w/apps/android/core/strings/src/main/res/values/strings_files.xml
+@@ -141,9 +141,9 @@
+         <item quantity="other">Se añadieron %1$s archivos</item>
+     </plurals>
+     <plurals name="files_upload_failed">
+-        <item quantity="one">%1$s no se pudo añadir</item>
+-        <item quantity="many">%1$s de archivos no se pudieron añadir</item>
+-        <item quantity="other">%1$s no se pudieron añadir</item>
++        <item quantity="one">No se pudo añadir %1$s archivo</item>
++        <item quantity="many">No se pudieron añadir %1$s de archivos</item>
++        <item quantity="other">No se pudieron añadir %1$s archivos</item>
+     </plurals>
+     <string name="files_upload_summary">%1$s · %2$s</string>
+     <string name="files_upload_pause">Pausar</string>
+diff --git i/apps/android/core/strings/src/main/res/values/strings_notifications.xml w/apps/android/core/strings/src/main/res/values/strings_notifications.xml
+index 61cbea2..96de5e2 100644
+--- i/apps/android/core/strings/src/main/res/values/strings_notifications.xml
++++ w/apps/android/core/strings/src/main/res/values/strings_notifications.xml
+@@ -16,14 +16,14 @@
+     <string name="bento_transfer_paused">En pausa</string>
+     <string name="bento_transfer_pause">Pausar</string>
+     <plurals name="bento_transfer_progress">
+-        <item quantity="one">%1$d de %2$d archivo</item>
+-        <item quantity="many">%1$d de %2$d de archivos</item>
+-        <item quantity="other">%1$d de %2$d archivos</item>
++        <item quantity="one">%1$s de %2$s archivo</item>
++        <item quantity="many">%1$s de %2$s de archivos</item>
++        <item quantity="other">%1$s de %2$s archivos</item>
+     </plurals>
+     <plurals name="bento_transfer_finished_backup">
+-        <item quantity="one">Listo: %d foto respaldada</item>
+-        <item quantity="many">Listo: %d de fotos respaldadas</item>
+-        <item quantity="other">Listo: %d fotos respaldadas</item>
++        <item quantity="one">Listo: %1$s foto respaldada</item>
++        <item quantity="many">Listo: %1$s de fotos respaldadas</item>
++        <item quantity="other">Listo: %1$s fotos respaldadas</item>
+     </plurals>
+     <string name="bento_attention_title">Bento necesita tu atención</string>
+     <string name="bento_attention_text">Abre Bento para revisarlo.</string>
+diff --git i/apps/android/core/strings/src/main/res/values/strings_photos.xml w/apps/android/core/strings/src/main/res/values/strings_photos.xml
+index ac1d194..893f685 100644
+--- i/apps/android/core/strings/src/main/res/values/strings_photos.xml
++++ w/apps/android/core/strings/src/main/res/values/strings_photos.xml
+@@ -5,11 +5,11 @@
+     <string name="photos_tile_photo">Foto</string>
+     <string name="photos_tile_video">Video, %1$s</string>
+     <string name="photos_tile_video_plain">Video</string>
+-    <string name="photos_tile_favorite">favorita</string>
++    <string name="photos_tile_favorite">en favoritos</string>
+     <string name="photos_tile_pending">pendiente de respaldo</string>
+     <string name="photos_tile_uploading">subiendo</string>
+     <string name="photos_tile_failed">no se pudo respaldar</string>
+-    <string name="photos_tile_selected">seleccionada</string>
++    <string name="photos_tile_selected">en la selección</string>
+     <string name="photos_tile_loading">Foto, cargando</string>
+     <string name="photos_action_open">Abrir</string>
+     <string name="photos_action_unselect">Quitar selección</string>
+@@ -43,7 +43,7 @@
+     <string name="photos_added_to_album">Añadido a «%1$s»</string>
+     <string name="photos_moved_to_folder">Movido a «%1$s»</string>
+     <string name="photos_saved_to_phone">Guardado en Imágenes › Bento</string>
+-    <string name="photos_sent_telegram">Enviado a %1$s</string>
++    <string name="photos_sent_telegram">Enviado a «%1$s»</string>
+     <string name="photos_preparing_copy">Preparando una copia…</string>
+     <string name="photos_action_failed">No se pudo completar. Inténtalo otra vez.</string>
+     <string name="photos_album_sheet_title">Añadir a álbum</string>
+@@ -56,7 +56,7 @@
+     <string name="photos_move_here">Mover aquí</string>
+     <string name="photos_move_root">Archivos</string>
+     <string name="photos_move_empty">Esta carpeta no tiene subcarpetas.</string>
+-    <string name="photos_move_open_folder">Abrir %1$s</string>
++    <string name="photos_move_open_folder">Abrir «%1$s»</string>
+     <string name="photos_telegram_sheet_title">Enviar por Telegram</string>
+     <string name="photos_telegram_search">Buscar chats</string>
+     <string name="photos_telegram_empty">No encontramos chats con ese nombre.</string>
+@@ -66,17 +66,17 @@
+     <string name="photos_header_yesterday">Ayer</string>
+     <plurals name="photos_trashed_many">
+         <item quantity="one">Se movió %1$s elemento a la papelera</item>
+-        <item quantity="many">Se movieron %1$s elementos a la papelera</item>
++        <item quantity="many">Se movieron %1$s de elementos a la papelera</item>
+         <item quantity="other">Se movieron %1$s elementos a la papelera</item>
+     </plurals>
+     <plurals name="photos_card_partial_title">
+         <item quantity="one">Bento solo ve %1$s foto</item>
+-        <item quantity="many">Bento solo ve %1$s fotos</item>
++        <item quantity="many">Bento solo ve %1$s de fotos</item>
+         <item quantity="other">Bento solo ve %1$s fotos</item>
+     </plurals>
+     <plurals name="photos_album_count">
+         <item quantity="one">%1$s elemento</item>
+-        <item quantity="many">%1$s elementos</item>
++        <item quantity="many">%1$s de elementos</item>
+         <item quantity="other">%1$s elementos</item>
+     </plurals>
+ </resources>
+diff --git i/apps/android/core/strings/src/main/res/values/strings_viewer.xml w/apps/android/core/strings/src/main/res/values/strings_viewer.xml
+index 73ae7c9..0dce052 100644
+--- i/apps/android/core/strings/src/main/res/values/strings_viewer.xml
++++ w/apps/android/core/strings/src/main/res/values/strings_viewer.xml
+@@ -7,7 +7,7 @@
+     <string name="viewer_info_name">Nombre</string>
+     <string name="viewer_info_edit_name">Editar el nombre</string>
+     <string name="viewer_info_size">Tamaño</string>
+-    <string name="viewer_info_dimensions">%1$s × %2$s · %3$s MP</string>
++    <string name="viewer_info_dimensions">%1$s × %2$s · %3$s\u00A0MP</string>
+     <string name="viewer_info_duration">Duración %1$s</string>
+     <string name="viewer_info_camera">Cámara</string>
+     <string name="viewer_info_exposure">Exposición</string>
+diff --git i/apps/android/feature/collections/src/test/kotlin/dev/bento/feature/collections/CollectionsTests.kt w/apps/android/feature/collections/src/test/kotlin/dev/bento/feature/collections/CollectionsTests.kt
+index 546c71a..d20ddab 100644
+--- i/apps/android/feature/collections/src/test/kotlin/dev/bento/feature/collections/CollectionsTests.kt
++++ w/apps/android/feature/collections/src/test/kotlin/dev/bento/feature/collections/CollectionsTests.kt
+@@ -199,10 +199,10 @@ class CollectionsUiTest {
+                 }, {}, nowMs = NOW)
+             }
+         }
+-        compose.onNodeWithText("Se eliminará en 12 días · 2,4 MB").assertExists()
+-        compose.onNodeWithText("Se eliminará hoy · 0 B").assertExists()
++        compose.onNodeWithText("Se eliminará en 12 días · 2,4\u00A0MB").assertExists()
++        compose.onNodeWithText("Se eliminará hoy · 0\u00A0B").assertExists()
+         compose.onNodeWithText("Vaciar papelera").performClick()
+-        compose.onNodeWithText("Se eliminarán para siempre 3 elementos (2,6 MB). No se puede deshacer.").assertIsDisplayed()
++        compose.onNodeWithText("Se eliminarán para siempre 3 elementos (2,6\u00A0MB). No se puede deshacer.").assertIsDisplayed()
+         compose.onAllNodesWithText("Vaciar papelera").assertCountEquals(2)
+         compose.onNodeWithText("Cancelar").performClick()
+         assertEquals(0, emptied.size)
+diff --git i/apps/android/feature/files/src/test/kotlin/dev/bento/feature/files/FilesLogicTest.kt w/apps/android/feature/files/src/test/kotlin/dev/bento/feature/files/FilesLogicTest.kt
+index a32a680..72a0742 100644
+--- i/apps/android/feature/files/src/test/kotlin/dev/bento/feature/files/FilesLogicTest.kt
++++ w/apps/android/feature/files/src/test/kotlin/dev/bento/feature/files/FilesLogicTest.kt
+@@ -79,10 +79,10 @@ class FilesLogicTest {
+     @Test
+     fun sizesUseLocaleDigits() {
+         val resources = ApplicationProvider.getApplicationContext<android.content.Context>().resources
+-        assertEquals("1,5 MB", Sizes.format(resources, 1_572_864, Locale("es")))
+-        assertEquals("812 B", Sizes.format(resources, 812, Locale("es")))
+-        assertEquals("774 MB", Sizes.format(resources, 812_000_000, Locale("es")))
+-        assertEquals("0 B", Sizes.format(resources, -4, Locale("es")))
++        assertEquals("1,5\u00A0MB", Sizes.format(resources, 1_572_864, Locale("es")))
++        assertEquals("812\u00A0B", Sizes.format(resources, 812, Locale("es")))
++        assertEquals("774\u00A0MB", Sizes.format(resources, 812_000_000, Locale("es")))
++        assertEquals("0\u00A0B", Sizes.format(resources, -4, Locale("es")))
+     }
+ 
+     @Test
+diff --git i/apps/android/feature/files/src/test/kotlin/dev/bento/feature/files/FilesUiTest.kt w/apps/android/feature/files/src/test/kotlin/dev/bento/feature/files/FilesUiTest.kt
+index 710a013..05ba25f 100644
+--- i/apps/android/feature/files/src/test/kotlin/dev/bento/feature/files/FilesUiTest.kt
++++ w/apps/android/feature/files/src/test/kotlin/dev/bento/feature/files/FilesUiTest.kt
+@@ -56,7 +56,7 @@ class FilesUiTest {
+         content(state())
+         compose.onNodeWithText("Trabajo").assertIsDisplayed()
+         compose.onNodeWithText("Declaración de renta 2025.pdf").assertExists()
+-        compose.onNodeWithText("2,3 MB", substring = true).assertExists()
++        compose.onNodeWithText("2,3\u00A0MB", substring = true).assertExists()
+         compose.onNodeWithText("Ordenado por nombre").assertExists()
+         val notes = compose.onNode(hasText("Notas de la reunión.md"), useUnmergedTree = false).fetchSemanticsNode()
+         assertEquals("Solo en este teléfono", notes.config.getOrNull(SemanticsProperties.StateDescription))
+@@ -178,7 +178,7 @@ class FilesUiTest {
+             )
+         )
+         compose.setContent { BentoTheme { UploadCard(uploads, onPause = { paused++ }, onResume = {}, onDismiss = {}) } }
+-        compose.onNodeWithText("Subiendo 2 archivos · 11,4 MB de 38,1 MB").assertExists()
++        compose.onNodeWithText("Subiendo 2 archivos · 11,4\u00A0MB de 38,1\u00A0MB").assertExists()
+         compose.onNodeWithText("Pausar").performClick()
+         compose.onNodeWithContentDescription("Ver archivos").performClick()
+         compose.onNodeWithText("Copiando…").assertExists()
+diff --git i/apps/android/feature/photos/src/test/kotlin/dev/bento/feature/photos/MediaGridUiTest.kt w/apps/android/feature/photos/src/test/kotlin/dev/bento/feature/photos/MediaGridUiTest.kt
+index a77d2cf..7146fe0 100644
+--- i/apps/android/feature/photos/src/test/kotlin/dev/bento/feature/photos/MediaGridUiTest.kt
++++ w/apps/android/feature/photos/src/test/kotlin/dev/bento/feature/photos/MediaGridUiTest.kt
+@@ -131,7 +131,7 @@ class MediaGridUiTest {
+         ).assert(descriptionContains("Video, 0:42")).assert(descriptionContains("14 de marzo de 2024"))
+         compose.onNodeWithTag(MediaTestTags.tile("p3")).assert(descriptionContains("pendiente de respaldo"))
+         compose.onNodeWithTag(MediaTestTags.tile("p5")).assert(descriptionContains("no se pudo respaldar"))
+-        compose.onNodeWithTag(MediaTestTags.tile("p6")).assert(descriptionContains("Foto")).assert(descriptionContains("favorita"))
++        compose.onNodeWithTag(MediaTestTags.tile("p6")).assert(descriptionContains("Foto")).assert(descriptionContains("en favoritos"))
+     }
+ 
+     @Test
+diff --git i/apps/android/feature/share/src/test/kotlin/dev/bento/feature/share/ShareUiTest.kt w/apps/android/feature/share/src/test/kotlin/dev/bento/feature/share/ShareUiTest.kt
+index def7e67..f3bf953 100644
+--- i/apps/android/feature/share/src/test/kotlin/dev/bento/feature/share/ShareUiTest.kt
++++ w/apps/android/feature/share/src/test/kotlin/dev/bento/feature/share/ShareUiTest.kt
+@@ -31,7 +31,7 @@ class ShareUiTest {
+     fun summaryDestinationAlbumAndSave() {
+         val log = mutableListOf<String>()
+         body(ShareFixtures.media, ShareActions(onSave = { log += "save" }, onPicker = { log += "picker:$it" }))
+-        compose.onNodeWithText("3 archivos · 17,2 MB").assertExists()
++        compose.onNodeWithText("3 archivos · 17,2\u00A0MB").assertExists()
+         compose.onNodeWithText("Recibos").performClick()
+         compose.onNodeWithText("Añadir a álbum").performClick()
+         compose.onNode(hasText("Guardar en Bento") and hasClickAction()).performClick()

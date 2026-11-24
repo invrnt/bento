@@ -1,16 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Visor (feature/viewer, agent 39): photo and video viewer, info sheet, actions. -->
 <resources>
-    <string name="viewer_label">Photo viewer</string>
     <string name="viewer_position">%1$s of %2$s</string>
     <string name="viewer_info">Details</string>
     <string name="viewer_info_name">Name</string>
     <string name="viewer_info_edit_name">Edit name</string>
     <string name="viewer_info_size">Size</string>
-    <string name="viewer_info_dimensions">%1$s × %2$s · %3$s MP</string>
+    <string name="viewer_info_dimensions">%1$s × %2$s · %3$s\u00A0MP</string>
     <string name="viewer_info_duration">Length %1$s</string>
     <string name="viewer_info_camera">Camera</string>
-    <string name="viewer_info_exposure">Exposure</string>
     <string name="viewer_info_location">Location</string>
     <string name="viewer_info_open_maps">Open in Maps</string>
     <string name="viewer_info_folder">Folder</string>
@@ -45,6 +43,7 @@
     <string name="viewer_chooser_use_as">Use as</string>
     <string name="viewer_chooser_share">Share</string>
     <string name="viewer_controls_show">Show controls</string>
+    <string name="viewer_controls_hide">Hide controls</string>
     <string name="viewer_close">Close viewer</string>
     <string name="viewer_open_activity">See activity</string>
     <string name="viewer_loading_original">Loading the original…</string>

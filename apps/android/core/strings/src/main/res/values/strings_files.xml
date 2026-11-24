@@ -24,11 +24,9 @@
     <string name="files_badge_local_only">Solo en este teléfono</string>
     <string name="files_badge_uploading">Subiendo a tu nube</string>
     <string name="files_badge_failed">No se pudo subir; se reintentará</string>
-    <string name="files_badge_processing">Preparando vista previa</string>
 
     <string name="files_layout_grid">Ver como cuadrícula</string>
     <string name="files_layout_list">Ver como lista</string>
-    <string name="files_sort">Ordenar</string>
     <string name="files_sort_title">Ordenar esta carpeta</string>
     <string name="files_sort_name">Nombre</string>
     <string name="files_sort_modified">Fecha de modificación</string>
@@ -65,7 +63,6 @@
     <string name="files_menu_offline_remove">Quitar de sin conexión</string>
     <string name="files_menu_unfavorite">Quitar de favoritos</string>
     <string name="files_menu_details">Detalles</string>
-    <string name="files_menu_more">Más acciones</string>
     <string name="files_trashed">Se movió «%1$s» a la papelera</string>
     <plurals name="files_trashed_many">
         <item quantity="one">Se movió %1$s elemento a la papelera</item>
@@ -82,7 +79,6 @@
     <string name="files_pinned">«%1$s» estará disponible sin conexión</string>
     <string name="files_unpinned">«%1$s» ya no se guarda sin conexión</string>
     <string name="files_favorited">Se añadió «%1$s» a favoritos</string>
-    <string name="files_action_failed">No se pudo completar la acción. Inténtalo otra vez.</string>
 
     <string name="files_rename_title">Renombrar</string>
     <string name="files_rename_label">Nuevo nombre</string>
@@ -92,7 +88,6 @@
     <string name="files_move_here">Mover aquí</string>
     <string name="files_move_search">Buscar carpetas</string>
     <string name="files_move_recent">Recientes</string>
-    <string name="files_move_all">Carpetas</string>
     <string name="files_move_no_folders">No hay carpetas aquí.</string>
     <string name="files_move_into_self">Una carpeta no puede moverse dentro de sí misma.</string>
     <string name="files_move_failed">No se pudo mover. Inténtalo otra vez.</string>
@@ -141,9 +136,9 @@
         <item quantity="other">Se añadieron %1$s archivos</item>
     </plurals>
     <plurals name="files_upload_failed">
-        <item quantity="one">%1$s no se pudo añadir</item>
-        <item quantity="many">%1$s de archivos no se pudieron añadir</item>
-        <item quantity="other">%1$s no se pudieron añadir</item>
+        <item quantity="one">No se pudo añadir %1$s archivo</item>
+        <item quantity="many">No se pudieron añadir %1$s de archivos</item>
+        <item quantity="other">No se pudieron añadir %1$s archivos</item>
     </plurals>
     <string name="files_upload_summary">%1$s · %2$s</string>
     <string name="files_upload_pause">Pausar</string>
@@ -158,23 +153,16 @@
     <string name="files_upload_row_duplicate">Ya estaba en tu nube</string>
     <string name="files_upload_row_failed">No se pudo leer. Vuelve a compartirlo.</string>
 
-    <string name="files_pdf_loading">Abriendo el PDF…</string>
     <string name="files_pdf_failed">No se pudo abrir este PDF.</string>
     <string name="files_pdf_page_counter">Página %1$s de %2$s</string>
     <string name="files_pdf_pages">Páginas</string>
     <string name="files_pdf_go_to_page">Ir a la página %1$s</string>
     <string name="files_pdf_search">Buscar en el documento</string>
     <string name="files_pdf_search_close">Cerrar búsqueda</string>
-    <plurals name="files_pdf_matches">
-        <item quantity="one">%1$s coincidencia</item>
-        <item quantity="many">%1$s de coincidencias</item>
-        <item quantity="other">%1$s coincidencias</item>
-    </plurals>
     <string name="files_pdf_match_position">%1$s de %2$s</string>
     <string name="files_pdf_no_matches">Sin coincidencias</string>
     <string name="files_pdf_next">Siguiente coincidencia</string>
     <string name="files_pdf_previous">Coincidencia anterior</string>
-    <string name="files_pdf_no_text">Este PDF no tiene texto que se pueda buscar.</string>
 
     <string name="files_text_loading">Abriendo…</string>
     <string name="files_text_monospace">Monoespaciado</string>
@@ -189,6 +177,5 @@
     <string name="files_tree_title">Carpetas</string>
     <string name="files_tree_expand">Mostrar subcarpetas de «%1$s»</string>
     <string name="files_tree_collapse">Ocultar subcarpetas de «%1$s»</string>
-    <string name="files_detail_placeholder">Elige un archivo para ver sus detalles.</string>
     <string name="files_drop_here">Suelta para subir aquí</string>
 </resources>

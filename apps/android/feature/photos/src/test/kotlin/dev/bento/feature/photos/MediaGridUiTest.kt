@@ -12,6 +12,7 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -131,7 +132,7 @@ class MediaGridUiTest {
         ).assert(descriptionContains("Video, 0:42")).assert(descriptionContains("14 de marzo de 2024"))
         compose.onNodeWithTag(MediaTestTags.tile("p3")).assert(descriptionContains("pendiente de respaldo"))
         compose.onNodeWithTag(MediaTestTags.tile("p5")).assert(descriptionContains("no se pudo respaldar"))
-        compose.onNodeWithTag(MediaTestTags.tile("p6")).assert(descriptionContains("Foto")).assert(descriptionContains("favorita"))
+        compose.onNodeWithTag(MediaTestTags.tile("p6")).assert(descriptionContains("Foto")).assert(descriptionContains("en favoritos"))
     }
 
     @Test
@@ -221,7 +222,7 @@ class PhotosContentTest {
         compose.onNodeWithTag(MediaTestTags.SelectionBar).assertIsDisplayed()
         compose.onNodeWithText("3 seleccionados", useUnmergedTree = true).assertExists()
         compose.onNodeWithTag(dev.bento.designsystem.component.BentoTestTags.FloatingActionBar).assertIsDisplayed()
-        compose.onNodeWithText("Seleccionar todo").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Seleccionar todo").assertIsDisplayed()
     }
 
     @Test

@@ -95,5 +95,35 @@ class StringResourceParityTest {
             assertTrue("Never \"OK\" on a button", !Regex(">\\s*OK\\s*<").containsMatchIn(text))
             assertTrue("Use ’ instead of an escaped straight apostrophe", !text.contains("\\'"))
         }
+        for (text in File(res, "values-en").listFiles().orEmpty().filter { it.name.startsWith("strings") }.map { it.readText() }) {
+            assertTrue("Use “…” instead of escaped straight quotes in English", !text.contains("\\\""))
+        }
+    }
+
+    /** CLDR `many` in Spanish (1 000 000, 2 000 000, …) needs "de" before the noun: "1.000.000 de fotos". */
+    @Test
+    fun spanishManyFormsSayDe() {
+        // Quantities that can never reach a million.
+        val exempt = setOf("ds_code_progress")
+        val factory = DocumentBuilderFactory.newInstance()
+        val files = File(res, "values").listFiles { f -> f.name.startsWith("strings") && f.extension == "xml" }.orEmpty()
+        for (file in files) {
+            val plurals = factory.newDocumentBuilder().parse(file).documentElement.getElementsByTagName("plurals")
+            for (i in 0 until plurals.length) {
+                val plural = plurals.item(i) as Element
+                val name = plural.getAttribute("name")
+                if (name in exempt) continue
+                val items = plural.getElementsByTagName("item")
+                val byQuantity = (0 until items.length).associate { idx ->
+                    (items.item(idx) as Element).let { it.getAttribute("quantity") to it.textContent }
+                }
+                val many = byQuantity["many"].orEmpty()
+                for (match in Regex("(%\\d\\$[sd]) (\\p{L}+)").findAll(byQuantity["other"].orEmpty())) {
+                    val (placeholder, word) = match.destructured
+                    if (word == "de") continue
+                    assertTrue("$name: many needs \"$placeholder de $word\" (got \"$many\")", many.contains("$placeholder de "))
+                }
+            }
+        }
     }
 }

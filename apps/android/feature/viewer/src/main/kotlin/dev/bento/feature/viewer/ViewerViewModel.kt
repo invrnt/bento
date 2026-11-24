@@ -194,7 +194,7 @@ class ViewerViewModel @AssistedInject constructor(
                 _info.value = (_info.value?.takeIf { it.assetId == asset.id } ?: ViewerInfo(asset.id)).copy(pinned = now)
                 if (now) _message.value = UiText(StringsR.string.viewer_offline_saved)
             } catch (error: ApiException) {
-                _message.value = UiText(StringsR.string.photos_action_failed)
+                _message.value = UiText(StringsR.string.common_error_generic)
             }
         }
     }

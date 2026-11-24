@@ -22,7 +22,6 @@
     <string name="search_date_this_month">Este mes</string>
     <string name="search_date_last_year">El año pasado</string>
     <string name="search_date_range">%1$s – %2$s</string>
-    <string name="search_date_pick">Elegir fechas…</string>
     <string name="search_date_apply">Aplicar</string>
 
     <string name="search_filter_kind">Tipo</string>

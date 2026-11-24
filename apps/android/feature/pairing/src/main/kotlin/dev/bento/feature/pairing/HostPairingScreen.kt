@@ -173,7 +173,7 @@ fun HostPairingContent(
                 Spacer(Modifier.height(12.dp))
                 Callout(
                     tone = CalloutTone.Danger,
-                    body = stringResource(StringsR.string.pairing_host_action_failed),
+                    body = stringResource(StringsR.string.common_error_generic),
                     announce = BentoAnnounce.Assertive
                 )
             }

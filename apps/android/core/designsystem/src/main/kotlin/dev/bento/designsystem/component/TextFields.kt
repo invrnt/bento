@@ -41,11 +41,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.hideFromAccessibility
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextRange
@@ -74,49 +77,66 @@ private fun FieldFrame(
     field: @Composable () -> Unit
 ) {
     val c = BentoTheme.colors
-    Column(modifier.alpha(if (enabled) 1f else DISABLED_ALPHA), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(modifier.alpha(if (enabled) 1f else DISABLED_ALPHA)) {
         // The field node carries label, hint and error for TalkBack; the visible copies are not read twice.
         if (!hideLabel) {
             Text(
                 label,
                 color = c.ink,
                 style = BentoTheme.typography.label,
-                modifier = Modifier.semantics {
+                modifier = Modifier.padding(bottom = MESSAGE_GAP).semantics {
                     hideFromAccessibility()
                 }
             )
         }
         field()
-        when {
-            error != null -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                BentoIcon(
-                    BentoIcons.CircleAlert,
-                    contentDescription = null,
-                    tint = c.dangerInk,
-                    size = BentoIconSize.Dense,
-                    modifier = Modifier.padding(top = 1.dp)
-                )
-                Text(
-                    error,
-                    color = c.dangerInk,
-                    style = BentoTheme.typography.metadata,
-                    modifier = Modifier.semantics {
-                        hideFromAccessibility()
-                    }
-                )
+        // Codes auto-submit on the last character, so focus never moves when the error appears: this always-present
+        // live region announces it (the field node keeps it as error() for swipe navigation).
+        Box(
+            Modifier.testTag(BentoTestTags.FieldMessage).semantics {
+                liveRegion = LiveRegionMode.Assertive
+                if (error != null) contentDescription = error
             }
+        ) {
+            FieldMessage(error, hint)
+        }
+    }
+}
 
-            hint != null -> Text(
-                hint,
-                color = c.inkMuted,
+@Composable
+private fun FieldMessage(error: String?, hint: String?) {
+    val c = BentoTheme.colors
+    when {
+        error != null -> Row(Modifier.padding(top = MESSAGE_GAP), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            BentoIcon(
+                BentoIcons.CircleAlert,
+                contentDescription = null,
+                tint = c.dangerInk,
+                size = BentoIconSize.Dense,
+                modifier = Modifier.padding(top = 1.dp)
+            )
+            Text(
+                error,
+                color = c.dangerInk,
                 style = BentoTheme.typography.metadata,
                 modifier = Modifier.semantics {
                     hideFromAccessibility()
                 }
             )
         }
+
+        hint != null -> Text(
+            hint,
+            color = c.inkMuted,
+            style = BentoTheme.typography.metadata,
+            modifier = Modifier.padding(top = MESSAGE_GAP).semantics {
+                hideFromAccessibility()
+            }
+        )
     }
 }
+
+private val MESSAGE_GAP = 6.dp
 
 @Composable
 private fun fieldBorder(focused: Boolean, error: Boolean): Pair<Color, Dp> {

@@ -196,7 +196,7 @@ class MediaActions @Inject constructor(
             try {
                 block()
             } catch (error: ApiException) {
-                send(MediaEvent.Message(UiText(StringsR.string.photos_action_failed)))
+                send(MediaEvent.Message(UiText(StringsR.string.common_error_generic)))
             }
         }
     }
@@ -207,11 +207,11 @@ class MediaActions @Inject constructor(
             try {
                 block()
             } catch (error: ApiException) {
-                send(MediaEvent.Message(UiText(StringsR.string.photos_action_failed)))
+                send(MediaEvent.Message(UiText(StringsR.string.common_error_generic)))
             } catch (error: IOException) {
-                send(MediaEvent.Message(UiText(StringsR.string.photos_action_failed)))
+                send(MediaEvent.Message(UiText(StringsR.string.common_error_generic)))
             } catch (error: IllegalStateException) {
-                send(MediaEvent.Message(UiText(StringsR.string.photos_action_failed)))
+                send(MediaEvent.Message(UiText(StringsR.string.common_error_generic)))
             } finally {
                 _busy.value = false
             }

@@ -22,7 +22,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
@@ -44,6 +43,7 @@ import dev.bento.designsystem.component.ErrorState
 import dev.bento.designsystem.component.FloatingActionBar
 import dev.bento.designsystem.component.LoadingState
 import dev.bento.designsystem.component.StatusAvatar
+import dev.bento.designsystem.format.pluralCountResource
 import dev.bento.designsystem.generated.BentoIcons
 import dev.bento.designsystem.theme.BentoTheme
 import dev.bento.strings.R as StringsR
@@ -355,7 +355,7 @@ fun PhotosCardView(card: PhotosCard, navigation: PhotosNavigation, onDismissBack
         )
 
         is PhotosCard.PartialAccess -> AttentionCard(
-            title = pluralStringResource(StringsR.plurals.photos_card_partial_title, card.visible, card.visible),
+            title = pluralCountResource(StringsR.plurals.photos_card_partial_title, card.visible),
             body = stringResource(StringsR.string.photos_card_partial_body),
             actionLabel = stringResource(StringsR.string.photos_card_partial_action),
             onAction = navigation.openBackupSettings,

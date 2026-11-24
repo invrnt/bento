@@ -7,8 +7,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -34,12 +36,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
@@ -56,6 +65,7 @@ import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
 import dev.bento.designsystem.component.BentoIconButton
 import dev.bento.designsystem.component.BentoIconButtonVariant
+import dev.bento.designsystem.component.bentoFocusRing
 import dev.bento.designsystem.generated.BentoIcons
 import dev.bento.designsystem.theme.BentoShapes
 import dev.bento.designsystem.theme.BentoTheme
@@ -166,8 +176,9 @@ fun rememberTabletopFold(): FoldingFeature? {
 }
 
 /**
- * A video page: the thumbnail stays until the first frame is rendered (no black flash), tap toggles the controls,
- * the scrubber seeks (TalkBack can set it), mute toggle, PiP when leaving during playback, tabletop split.
+ * A video page: the thumbnail stays until the first frame is rendered (no black flash), tap (or the custom action)
+ * toggles the controls, ±10 s buttons and the scrubber seek (TalkBack can set it, arrow keys step it), mute toggle,
+ * PiP when leaving during playback, tabletop split.
  */
 @OptIn(UnstableApi::class)
 @Suppress("LongMethod", "LongParameterList")
@@ -177,14 +188,26 @@ fun VideoPage(
     active: Boolean,
     aspect: Float,
     controlsVisible: Boolean,
+    contentDescription: String,
     onTap: () -> Unit,
     poster: @Composable () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val pip = rememberInPictureInPicture()
     val fold = rememberTabletopFold()
+    val toggleLabel = controlsToggleLabel(controlsVisible)
+    val tap by rememberUpdatedState(onTap)
+    val pageSemantics = Modifier.semantics {
+        this.contentDescription = contentDescription
+        customActions = listOf(
+            CustomAccessibilityAction(toggleLabel) {
+                tap()
+                true
+            }
+        )
+    }
     if (player == null || !active) {
-        Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) { poster() }
+        Box(modifier.fillMaxSize().then(pageSemantics), contentAlignment = Alignment.Center) { poster() }
         return
     }
     val presentation = rememberPresentationState(player)
@@ -203,34 +226,63 @@ fun VideoPage(
         surface(modifier.fillMaxSize())
         return
     }
-    Box(modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures(onTap = { onTap() }) }) {
+    Box(modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures(onTap = { tap() }) }.then(pageSemantics)) {
         val split = fold?.bounds?.top?.takeIf { it > 0 }
         if (split != null) {
             Column(Modifier.fillMaxSize()) {
                 surface(Modifier.fillMaxWidth().height(with(androidx.compose.ui.platform.LocalDensity.current) { split.toDp() }))
-                Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.Center) {
+                    TransportButtons(player, playback, Modifier.align(Alignment.CenterHorizontally))
                     VideoControls(player, playback, Modifier.fillMaxWidth())
                 }
             }
         } else {
             surface(Modifier.fillMaxSize())
             if (controlsVisible) {
-                CenterPlayButton(player, playback, Modifier.align(Alignment.Center))
+                TransportButtons(player, playback, Modifier.align(Alignment.Center))
                 VideoControls(player, playback, Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 88.dp))
             }
         }
     }
 }
 
+/** The "Mostrar/Ocultar controles" custom action label: the non-gesture way to toggle the chrome (TalkBack, Switch Access). */
 @Composable
-private fun CenterPlayButton(player: Player, playback: PlaybackUi, modifier: Modifier = Modifier) {
-    BentoIconButton(
-        icon = if (playback.playing) BentoIcons.Pause else BentoIcons.Play,
-        contentDescription = stringResource(if (playback.playing) StringsR.string.viewer_pause else StringsR.string.viewer_play),
-        onClick = { if (player.isPlaying) player.pause() else player.play() },
-        variant = BentoIconButtonVariant.Overlay,
-        modifier = modifier
-    )
+internal fun controlsToggleLabel(visible: Boolean): String =
+    stringResource(if (visible) StringsR.string.viewer_controls_hide else StringsR.string.viewer_controls_show)
+
+/** Seek steps: ±10 s for the transport buttons, ±5 s for arrow keys on the focused scrubber. */
+internal object SeekSteps {
+    const val BUTTON_MS = 10_000L
+    const val KEY_MS = 5_000L
+
+    fun clamp(target: Long, durationMs: Long): Long = if (durationMs > 0) target.coerceIn(0L, durationMs) else target.coerceAtLeast(0L)
+}
+
+/** −10 s · play/pause · +10 s: the button path for seeking (keyboard, Switch Access). */
+@Composable
+internal fun TransportButtons(player: Player, playback: PlaybackUi, modifier: Modifier = Modifier) {
+    val seekBy: (Long) -> Unit = { delta -> player.seekTo(SeekSteps.clamp(player.currentPosition + delta, playback.durationMs)) }
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.CenterVertically) {
+        BentoIconButton(
+            icon = BentoIcons.RotateCcw,
+            contentDescription = stringResource(StringsR.string.viewer_seek_back),
+            onClick = { seekBy(-SeekSteps.BUTTON_MS) },
+            variant = BentoIconButtonVariant.Overlay
+        )
+        BentoIconButton(
+            icon = if (playback.playing) BentoIcons.Pause else BentoIcons.Play,
+            contentDescription = stringResource(if (playback.playing) StringsR.string.viewer_pause else StringsR.string.viewer_play),
+            onClick = { if (player.isPlaying) player.pause() else player.play() },
+            variant = BentoIconButtonVariant.Overlay
+        )
+        BentoIconButton(
+            icon = BentoIcons.RotateCw,
+            contentDescription = stringResource(StringsR.string.viewer_seek_forward),
+            onClick = { seekBy(SeekSteps.BUTTON_MS) },
+            variant = BentoIconButtonVariant.Overlay
+        )
+    }
 }
 
 /** Time · scrubber · duration · mute · PiP. */
@@ -297,10 +349,22 @@ fun Scrubber(positionMs: Long, durationMs: Long, onSeek: (Long) -> Unit, modifie
     val label = stringResource(StringsR.string.viewer_seek)
     val state = stringResource(StringsR.string.viewer_position, MediaFormat.duration(positionMs), MediaFormat.duration(durationMs))
     val updatedSeek by rememberUpdatedState(onSeek)
+    val interaction = remember { MutableInteractionSource() }
     BoxWithConstraints(
         modifier
             .heightIn(min = 48.dp)
             .testTag(ViewerTestTags.Scrubber)
+            .bentoFocusRing(interaction, BentoShapes.full)
+            .onKeyEvent { event ->
+                val delta = when (event.key) {
+                    Key.DirectionLeft -> -SeekSteps.KEY_MS
+                    Key.DirectionRight -> SeekSteps.KEY_MS
+                    else -> return@onKeyEvent false
+                }
+                if (event.type == KeyEventType.KeyDown && durationMs > 0) updatedSeek(SeekSteps.clamp(positionMs + delta, durationMs))
+                true
+            }
+            .focusable(interactionSource = interaction)
             .semantics {
                 contentDescription = label
                 stateDescription = state

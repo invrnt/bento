@@ -31,10 +31,10 @@
     <string name="recovery_sheet_created">Cloud created on</string>
     <string name="recovery_sheet_printed">Kit generated on</string>
     <string name="recovery_sheet_keep">Keep it away from your devices. With your Telegram and this code you can recover everything.</string>
-    <string name="recovery_sheet_how_to">To use it: open Bento on a new device, choose \"I already use Bento on another device\" › \"I don’t have the other device\", sign in to Telegram and type this code or scan the QR.</string>
+    <string name="recovery_sheet_how_to">To use it: open Bento on a new device, choose “I already use Bento on another device” › “I don’t have the other device”, sign in to Telegram and type this code or scan the QR.</string>
     <string name="recovery_sheet_warning_title">Important:</string>
     <string name="recovery_sheet_warning">anyone with access to your Telegram and this code can open your cloud. Don’t share it or keep it next to your phone.</string>
-    <string name="recovery_sheet_footer">%1$s keeps no copy of this code. If you create a new one, this one stops working.</string>
+    <string name="recovery_sheet_footer">%1$s keeps no copy of this code. If you generate a new one, this one stops working.</string>
 
     <string name="recovery_entry_title">Enter your recovery code</string>
     <string name="recovery_entry_body">It’s in your Bento recovery kit: 9 groups of 4 characters.</string>
@@ -66,13 +66,13 @@
     <string name="recovery_rotate_title">Generate a new code?</string>
     <string name="recovery_rotate_body_saved">Your current code will stop working and you’ll need to save the new kit.</string>
     <string name="recovery_rotate_body_unsaved">Bento will create a new code for your kit and any previous code will stop working.</string>
-    <string name="recovery_rotate_confirm">Create code</string>
-    <string name="recovery_rotate_failed">A new code couldn’t be created. Try again.</string>
+    <string name="recovery_rotate_confirm">Generate code</string>
+    <string name="recovery_rotate_failed">A new code couldn’t be generated. Try again.</string>
     <string name="recovery_verify_title">Verify code</string>
     <string name="recovery_verify_body">Make sure the code you saved still works. Nothing is changed.</string>
     <string name="recovery_verify_submit">Verify</string>
     <string name="recovery_verify_valid">This code is valid for your cloud.</string>
-    <string name="recovery_verify_invalid">This code doesn’t open your cloud. If you lost it, create a new one.</string>
+    <string name="recovery_verify_invalid">This code doesn’t open your cloud. If you lost it, generate a new one.</string>
     <string name="recovery_verify_failed">The code couldn’t be checked. Try again.</string>
 
     <string name="recovery_scanner_hint">Point at the QR code.</string>

@@ -18,10 +18,12 @@ import androidx.media3.exoplayer.ExoPlayer
 import dev.bento.designsystem.component.BentoSnackbarHostState
 import dev.bento.designsystem.theme.BentoMediaTheme
 import dev.bento.designsystem.theme.BentoTheme
+import dev.bento.feature.photos.LandscapeVariant
 import dev.bento.feature.photos.MediaSamples
 import dev.bento.feature.photos.MediaTestHarness
 import dev.bento.feature.photos.ScreenState
 import dev.bento.feature.photos.captureVariants
+import dev.bento.testing.BentoScreenshots
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -29,6 +31,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
+import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -105,18 +108,40 @@ class ViewerScreenshotTest(private val state: ScreenState) {
                     }
                 }
             },
-            ScreenState("viewer-video-controls") {
-                val context = LocalContext.current
-                val player = remember { ExoPlayer.Builder(context).build() }
-                BentoMediaTheme(reducedMotion = true) {
-                    Box(Modifier.fillMaxSize().background(BentoTheme.colors.black), contentAlignment = Alignment.BottomCenter) {
-                        VideoControls(
-                            player,
-                            PlaybackUi(playing = true, positionMs = 12_000, durationMs = 42_000, muted = false, buffering = false)
-                        )
-                    }
-                }
-            }
+            ScreenState("viewer-video-controls") { VideoControlsSample() }
         ).map { arrayOf<Any>(it) }
     }
+}
+
+@Composable
+private fun VideoControlsSample() {
+    val context = LocalContext.current
+    val player = remember { ExoPlayer.Builder(context).build() }
+    val playback = PlaybackUi(playing = true, positionMs = 12_000, durationMs = 42_000, muted = false, buffering = false)
+    BentoMediaTheme(reducedMotion = true) {
+        Box(Modifier.fillMaxSize().background(BentoTheme.colors.black)) {
+            TransportButtons(player, playback, Modifier.align(Alignment.Center))
+            VideoControls(player, playback, Modifier.align(Alignment.BottomCenter))
+        }
+    }
+}
+
+/** Journey 7 viewer on a phone on its side (`screenshots/<state>/landscape.png`). */
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(qualifiers = BentoScreenshots.LANDSCAPE_QUALIFIERS)
+class ViewerLandscapeScreenshotTest {
+    @get:Rule
+    val compose = createComposeRule()
+
+    @org.junit.Before
+    fun utc() {
+        java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"))
+    }
+
+    @Test
+    fun photo() = compose.captureVariants(ScreenState("viewer-photo") { Viewer(page = 0) }, listOf(LandscapeVariant))
+
+    @Test
+    fun videoControls() = compose.captureVariants(ScreenState("viewer-video-controls") { VideoControlsSample() }, listOf(LandscapeVariant))
 }

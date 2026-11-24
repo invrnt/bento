@@ -33,7 +33,6 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalResources
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
@@ -63,6 +62,9 @@ import dev.bento.designsystem.component.ListRow
 import dev.bento.designsystem.component.ProgressBar
 import dev.bento.designsystem.component.SelectionCheck
 import dev.bento.designsystem.component.Thumbnail
+import dev.bento.designsystem.component.bentoFocusRing
+import dev.bento.designsystem.format.BentoFormat
+import dev.bento.designsystem.format.pluralCountResource
 import dev.bento.designsystem.generated.BentoIcons
 import dev.bento.designsystem.theme.BentoElevation
 import dev.bento.designsystem.theme.BentoShapes
@@ -103,7 +105,7 @@ fun SheetFrame(modifier: Modifier = Modifier, content: @Composable ColumnScope.(
 fun itemSupporting(item: DriveItemResponse): String {
     val resources = LocalResources.current
     val date = FileDates.medium(item.updatedAt).orEmpty()
-    val first = item.asset?.let { Sizes.format(resources, it.sizeBytes) } ?: stringResource(StringsR.string.files_folder)
+    val first = item.asset?.let { BentoFormat.bytes(resources, it.sizeBytes) } ?: stringResource(StringsR.string.files_folder)
     return if (date.isEmpty()) first else stringResource(StringsR.string.files_item_supporting, first, date)
 }
 
@@ -248,6 +250,7 @@ fun FileTile(
             .combinedClickable(interaction, ripple(), role = Role.Button, onLongClick = {
                 callbacks.onSelect(item)
             }) { callbacks.onOpen(item) }
+            .bentoFocusRing(interaction, BentoShapes.lg)
             .itemSemantics(item, callbacks, badges)
             .semantics(mergeDescendants = true) { if (selected) this.selected = true }
             .padding(8.dp),
@@ -372,8 +375,8 @@ fun UploadCard(
     val title = uploadTitle(state)
     val bytes = stringResource(
         StringsR.string.common_unit_progress_of,
-        Sizes.format(resources, state.doneBytes),
-        Sizes.format(resources, state.totalBytes)
+        BentoFormat.bytes(resources, state.doneBytes),
+        BentoFormat.bytes(resources, state.totalBytes)
     )
     Column(
         modifier
@@ -438,7 +441,7 @@ private fun UploadRows(rows: List<UploadRow>) {
                         style = BentoTheme.typography.metadata
                     )
                 }
-                row.sizeBytes?.let { Text(Sizes.format(resources, it), color = c.inkSubtle, style = BentoTheme.typography.metadata) }
+                row.sizeBytes?.let { Text(BentoFormat.bytes(resources, it), color = c.inkSubtle, style = BentoTheme.typography.metadata) }
             }
         }
     }
@@ -446,9 +449,9 @@ private fun UploadRows(rows: List<UploadRow>) {
 
 @Composable
 private fun uploadTitle(state: UploadsState): String = when {
-    state.active -> pluralStringResource(StringsR.plurals.files_upload_title, state.pendingCount, state.pendingCount)
-    state.failedCount > 0 -> pluralStringResource(StringsR.plurals.files_upload_failed, state.failedCount, state.failedCount)
-    else -> state.rows.count { it.status != UploadStatus.Failed }.let { pluralStringResource(StringsR.plurals.files_upload_done, it, it) }
+    state.active -> pluralCountResource(StringsR.plurals.files_upload_title, state.pendingCount)
+    state.failedCount > 0 -> pluralCountResource(StringsR.plurals.files_upload_failed, state.failedCount)
+    else -> state.rows.count { it.status != UploadStatus.Failed }.let { pluralCountResource(StringsR.plurals.files_upload_done, it) }
 }
 
 private fun rowStatus(status: UploadStatus): Int = when (status) {

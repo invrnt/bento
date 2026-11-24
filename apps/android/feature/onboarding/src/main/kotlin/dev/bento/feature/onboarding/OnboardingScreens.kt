@@ -289,8 +289,9 @@ private fun Compartment(label: String, done: Boolean) {
     val c = BentoTheme.colors
     val status =
         stringResource(if (done) StringsR.string.onboarding_creating_step_done else StringsR.string.onboarding_creating_step_working)
+    val description = stringResource(StringsR.string.common_label_value, label, status)
     Row(
-        Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = "$label. $status" },
+        Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = description },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {

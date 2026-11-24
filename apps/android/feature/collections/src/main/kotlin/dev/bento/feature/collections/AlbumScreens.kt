@@ -19,7 +19,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -36,6 +35,7 @@ import dev.bento.designsystem.component.EmptyState
 import dev.bento.designsystem.component.ErrorState
 import dev.bento.designsystem.component.FloatingActionBar
 import dev.bento.designsystem.component.LoadingState
+import dev.bento.designsystem.format.pluralCountResource
 import dev.bento.designsystem.generated.BentoIcons
 import dev.bento.designsystem.theme.BentoTheme
 import dev.bento.feature.photos.Disclosure
@@ -255,7 +255,7 @@ fun LibraryPickerRoute(albumId: String?, albumTitle: String?, navigation: Collec
             Column(Modifier.fillMaxSize()) {
                 CollectionTopBar(
                     title = if (selection.active) {
-                        pluralStringResource(StringsR.plurals.common_count_selected, selection.count, selection.count)
+                        pluralCountResource(StringsR.plurals.common_count_selected, selection.count)
                     } else {
                         stringResource(StringsR.string.collections_picker_title)
                     },

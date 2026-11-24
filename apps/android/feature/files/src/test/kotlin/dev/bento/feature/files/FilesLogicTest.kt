@@ -1,6 +1,7 @@
 package dev.bento.feature.files
 
 import androidx.test.core.app.ApplicationProvider
+import dev.bento.designsystem.format.BentoFormat
 import java.time.LocalDateTime
 import java.util.Locale
 import org.junit.Assert.assertEquals
@@ -79,10 +80,10 @@ class FilesLogicTest {
     @Test
     fun sizesUseLocaleDigits() {
         val resources = ApplicationProvider.getApplicationContext<android.content.Context>().resources
-        assertEquals("1,5 MB", Sizes.format(resources, 1_572_864, Locale("es")))
-        assertEquals("812 B", Sizes.format(resources, 812, Locale("es")))
-        assertEquals("774 MB", Sizes.format(resources, 812_000_000, Locale("es")))
-        assertEquals("0 B", Sizes.format(resources, -4, Locale("es")))
+        assertEquals("1,5\u00A0MB", BentoFormat.bytes(resources, 1_500_000, Locale("es")))
+        assertEquals("812\u00A0B", BentoFormat.bytes(resources, 812, Locale("es")))
+        assertEquals("812\u00A0MB", BentoFormat.bytes(resources, 812_000_000, Locale("es")))
+        assertEquals("0\u00A0B", BentoFormat.bytes(resources, -4, Locale("es")))
     }
 
     @Test

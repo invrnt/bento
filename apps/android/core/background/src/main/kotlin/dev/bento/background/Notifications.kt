@@ -12,6 +12,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import dev.bento.designsystem.R as DesignR
+import dev.bento.designsystem.format.BentoFormat
 import dev.bento.engine.bridge.EngineEvent
 import dev.bento.strings.R as StringsR
 
@@ -86,8 +87,8 @@ object BentoNotifications {
             else -> context.resources.getQuantityString(
                 StringsR.plurals.bento_transfer_progress,
                 progress.total,
-                progress.done,
-                progress.total
+                BentoFormat.count(context.resources, progress.done),
+                BentoFormat.count(context.resources, progress.total)
             )
         }
         val builder = NotificationCompat.Builder(context, CHANNEL_TRANSFERS)
@@ -115,7 +116,7 @@ object BentoNotifications {
 
     fun backupSummary(context: Context, count: Int): Notification = NotificationCompat.Builder(context, CHANNEL_TRANSFERS)
         .setSmallIcon(DesignR.drawable.ic_stat_bento)
-        .setContentTitle(context.resources.getQuantityString(StringsR.plurals.bento_transfer_finished_backup, count, count))
+        .setContentTitle(BentoFormat.plural(context.resources, StringsR.plurals.bento_transfer_finished_backup, count))
         .setAutoCancel(true)
         .setContentIntent(openApp(context))
         .build()

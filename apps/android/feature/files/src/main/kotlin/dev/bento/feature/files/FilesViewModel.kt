@@ -461,7 +461,7 @@ class FilesViewModel @Inject constructor(
             } catch (error: ApiException) {
                 undos.forEach { runCatching { it.undo() } }
                 load(quiet = true)
-                message(UiText.of(StringsR.string.files_action_failed), danger = true)
+                message(UiText.of(StringsR.string.common_error_generic), danger = true)
             }
         }
     }
@@ -525,7 +525,7 @@ class FilesViewModel @Inject constructor(
                 message(UiText.of(if (pinned) StringsR.string.files_pinned else StringsR.string.files_unpinned, asset.filename))
             } catch (error: ApiException) {
                 preferences.setPinned(asset.id, !pinned)
-                message(UiText.of(StringsR.string.files_action_failed), danger = true)
+                message(UiText.of(StringsR.string.common_error_generic), danger = true)
             }
         }
     }
@@ -545,7 +545,7 @@ class FilesViewModel @Inject constructor(
                 if (favorite) message(UiText.of(StringsR.string.files_favorited, asset.filename))
             } catch (error: ApiException) {
                 replaceLocal(item)
-                message(UiText.of(StringsR.string.files_action_failed), danger = true)
+                message(UiText.of(StringsR.string.common_error_generic), danger = true)
             }
         }
     }

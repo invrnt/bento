@@ -36,6 +36,7 @@ import dev.bento.designsystem.component.BentoTextField
 import dev.bento.designsystem.component.ListRow
 import dev.bento.designsystem.component.SegmentOption
 import dev.bento.designsystem.component.SegmentedButtons
+import dev.bento.designsystem.format.BentoFormat
 import dev.bento.designsystem.generated.BentoIcons
 import dev.bento.designsystem.theme.BentoTheme
 import dev.bento.feature.photos.MediaFormat
@@ -164,7 +165,7 @@ fun ViewerInfoContent(asset: AssetResponse, info: ViewerInfo?, callbacks: InfoCa
 }
 
 private fun sizeLine(asset: AssetResponse, context: android.content.Context, locale: Locale): String {
-    val parts = mutableListOf(MediaFormat.bytes(context, asset.sizeBytes, locale))
+    val parts = mutableListOf(BentoFormat.bytes(context.resources, asset.sizeBytes, locale))
     val w = asset.width ?: 0
     val h = asset.height ?: 0
     if (w > 0 && h > 0) {

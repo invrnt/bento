@@ -179,7 +179,7 @@ fun AddToAlbumSheetContent(
         when (data) {
             SheetData.Loading -> LoadingState(Modifier.fillMaxWidth().padding(24.dp))
 
-            SheetData.Failed -> Callout(tone = CalloutTone.Danger, body = stringResource(StringsR.string.photos_action_failed))
+            SheetData.Failed -> Callout(tone = CalloutTone.Danger, body = stringResource(StringsR.string.common_error_generic))
 
             is SheetData.Ready -> if (data.items.isEmpty()) {
                 Text(
@@ -324,7 +324,7 @@ fun MoveToFolderSheetContent(
             when (folders) {
                 SheetData.Loading -> LoadingState(Modifier.fillMaxWidth().padding(24.dp))
 
-                SheetData.Failed -> Callout(tone = CalloutTone.Danger, body = stringResource(StringsR.string.photos_action_failed))
+                SheetData.Failed -> Callout(tone = CalloutTone.Danger, body = stringResource(StringsR.string.common_error_generic))
 
                 is SheetData.Ready -> if (folders.items.isEmpty()) {
                     Text(

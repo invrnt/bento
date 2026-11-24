@@ -3,19 +3,35 @@ package dev.bento.feature.viewer
 import android.graphics.Bitmap
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.test.swipeLeft
 import androidx.exifinterface.media.ExifInterface
+import androidx.media3.common.ForwardingPlayer
+import androidx.media3.exoplayer.ExoPlayer
 import androidx.test.core.app.ApplicationProvider
 import dev.bento.designsystem.component.BentoSnackbarHostState
 import dev.bento.designsystem.theme.BentoMediaTheme
@@ -226,5 +242,114 @@ class ViewerContentTest {
         compose.onNodeWithText("Se movió a la papelera").assertExists()
         compose.onNodeWithText("Deshacer").performClick()
         await { harness.transport.count("POST /api/trash/restore") == 1 }
+    }
+
+    private fun toggleAction(page: String, label: String) {
+        val node = compose.onNode(
+            hasTestTag(ViewerTestTags.page(page)).or(hasAnyAncestor(hasTestTag(ViewerTestTags.page(page))))
+                .and(hasCustomAction(label)),
+            useUnmergedTree = true
+        )
+        val action = node.fetchSemanticsNode().config[SemanticsActions.CustomActions].first { it.label == label }
+        compose.runOnUiThread { action.action() }
+        compose.mainClock.advanceTimeBy(500)
+    }
+
+    @Test
+    fun `the controls custom action hides and restores the chrome on a photo and on a video (TalkBack, Switch Access)`() {
+        compose.setContent { Viewer(harness(), initialPage = 3) }
+        await { current.isNotEmpty() }
+        toggleAction("p4", "Ocultar controles")
+        compose.onNodeWithTag(ViewerTestTags.Actions).assertDoesNotExist()
+        toggleAction("p4", "Mostrar controles")
+        compose.onNodeWithTag(ViewerTestTags.Actions).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a video page exposes the same controls toggle`() {
+        compose.setContent { Viewer(harness(), initialPage = 1) }
+        await { current.isNotEmpty() }
+        toggleAction("p2", "Ocultar controles")
+        compose.onNodeWithTag(ViewerTestTags.Actions).assertDoesNotExist()
+        toggleAction("p2", "Mostrar controles")
+        compose.onNodeWithTag(ViewerTestTags.Actions).assertIsDisplayed()
+    }
+}
+
+private fun hasCustomAction(label: String) = SemanticsMatcher("has custom action \"$label\"") { node ->
+    node.config.getOrElseNullable(SemanticsActions.CustomActions) { null }?.any { it.label == label } == true
+}
+
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(qualifiers = "es-w411dp-h891dp-xxhdpi")
+class VideoSeekTest {
+    @get:Rule
+    val compose = createComposeRule()
+
+    @Test
+    fun `the scrubber is a focusable progress range, set-progress seeks and arrow keys step 5 s`() {
+        val seeks = mutableListOf<Long>()
+        var position by mutableLongStateOf(12_000L)
+        compose.setContent {
+            BentoMediaTheme(reducedMotion = true) {
+                Scrubber(positionMs = position, durationMs = 42_000, onSeek = {
+                    seeks += it
+                    position = it
+                })
+            }
+        }
+        val scrubber = compose.onNodeWithTag(ViewerTestTags.Scrubber)
+        scrubber.assert(SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf("Posición de reproducción")))
+        scrubber.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "0:12 de 0:42"))
+        val range = scrubber.fetchSemanticsNode().config[SemanticsProperties.ProgressBarRangeInfo]
+        assertEquals(12f / 42f, range.current, 0.001f)
+        assertEquals(0f..1f, range.range)
+        scrubber.performSemanticsAction(SemanticsActions.SetProgress) { it(0.5f) }
+        assertEquals(21_000L, seeks.last())
+        scrubber.requestFocus()
+        scrubber.assertIsFocused()
+        scrubber.performKeyInput { pressKey(Key.DirectionRight) }
+        assertEquals(26_000L, seeks.last())
+        scrubber.performKeyInput { pressKey(Key.DirectionLeft) }
+        scrubber.performKeyInput { pressKey(Key.DirectionLeft) }
+        assertEquals(16_000L, seeks.last())
+    }
+
+    @Test
+    fun `the transport buttons seek 10 s back and forward, clamped to the video`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val seeks = mutableListOf<Long>()
+        val exo = ExoPlayer.Builder(context).build()
+        val player = object : ForwardingPlayer(exo) {
+            var at = 35_000L
+            override fun getCurrentPosition(): Long = at
+            override fun seekTo(positionMs: Long) {
+                seeks += positionMs
+                at = positionMs
+            }
+        }
+        compose.setContent {
+            BentoMediaTheme(reducedMotion = true) {
+                TransportButtons(
+                    player,
+                    PlaybackUi(playing = false, positionMs = 35_000, durationMs = 42_000, muted = false, buffering = false)
+                )
+            }
+        }
+        compose.onNodeWithContentDescription("Avanzar 10 segundos").performClick()
+        assertEquals(42_000L, seeks.last())
+        compose.onNodeWithContentDescription("Retroceder 10 segundos").performClick()
+        compose.onNodeWithContentDescription("Retroceder 10 segundos").performClick()
+        assertEquals(22_000L, seeks.last())
+        compose.onNodeWithContentDescription("Reproducir").assertExists()
+        exo.release()
+    }
+
+    @Test
+    fun `seek targets clamp to the duration`() {
+        assertEquals(0L, SeekSteps.clamp(-3_000, 42_000))
+        assertEquals(42_000L, SeekSteps.clamp(50_000, 42_000))
+        assertEquals(50_000L, SeekSteps.clamp(50_000, 0))
     }
 }

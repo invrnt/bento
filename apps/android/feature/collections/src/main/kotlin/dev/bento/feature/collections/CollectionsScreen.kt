@@ -24,7 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
@@ -42,6 +41,7 @@ import dev.bento.designsystem.component.EmptyState
 import dev.bento.designsystem.component.ListRow
 import dev.bento.designsystem.component.SectionHeader
 import dev.bento.designsystem.component.StatusAvatar
+import dev.bento.designsystem.format.pluralCountResource
 import dev.bento.designsystem.generated.BentoIcons
 import dev.bento.designsystem.theme.BentoShapes
 import dev.bento.designsystem.theme.BentoTheme
@@ -265,7 +265,7 @@ fun AlbumCard(album: AlbumResponse, onClick: () -> Unit, modifier: Modifier = Mo
             modifier = Modifier.padding(top = 8.dp, start = 2.dp)
         )
         Text(
-            pluralStringResource(StringsR.plurals.photos_album_count, count, count),
+            pluralCountResource(StringsR.plurals.photos_album_count, count),
             color = c.inkMuted,
             style = BentoTheme.typography.metadata,
             modifier = Modifier.padding(start = 2.dp, bottom = 4.dp)

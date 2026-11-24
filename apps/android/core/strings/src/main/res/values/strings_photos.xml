@@ -5,12 +5,11 @@
     <string name="photos_tile_photo">Foto</string>
     <string name="photos_tile_video">Video, %1$s</string>
     <string name="photos_tile_video_plain">Video</string>
-    <string name="photos_tile_favorite">favorita</string>
+    <string name="photos_tile_favorite">en favoritos</string>
     <string name="photos_tile_pending">pendiente de respaldo</string>
     <string name="photos_tile_uploading">subiendo</string>
     <string name="photos_tile_failed">no se pudo respaldar</string>
-    <string name="photos_tile_selected">seleccionada</string>
-    <string name="photos_tile_loading">Foto, cargando</string>
+    <string name="photos_tile_selected">en la selección</string>
     <string name="photos_action_open">Abrir</string>
     <string name="photos_action_unselect">Quitar selección</string>
     <string name="photos_action_favorite_add">Añadir a favoritos</string>
@@ -20,7 +19,6 @@
     <string name="photos_action_unselect_day">Quitar la selección del %1$s</string>
     <string name="photos_density_more">Ver más fotos por fila</string>
     <string name="photos_density_less">Ver fotos más grandes</string>
-    <string name="photos_density_month">Vista por meses</string>
     <string name="photos_fast_scroller">Desplazamiento rápido por fecha</string>
     <string name="photos_grid_label">Fotos y videos por fecha</string>
     <string name="photos_empty_title">Tus fotos aparecerán aquí</string>
@@ -43,9 +41,8 @@
     <string name="photos_added_to_album">Añadido a «%1$s»</string>
     <string name="photos_moved_to_folder">Movido a «%1$s»</string>
     <string name="photos_saved_to_phone">Guardado en Imágenes › Bento</string>
-    <string name="photos_sent_telegram">Enviado a %1$s</string>
+    <string name="photos_sent_telegram">Enviado a «%1$s»</string>
     <string name="photos_preparing_copy">Preparando una copia…</string>
-    <string name="photos_action_failed">No se pudo completar. Inténtalo otra vez.</string>
     <string name="photos_album_sheet_title">Añadir a álbum</string>
     <string name="photos_album_new">Nuevo álbum</string>
     <string name="photos_album_name_label">Nombre del álbum</string>
@@ -56,7 +53,7 @@
     <string name="photos_move_here">Mover aquí</string>
     <string name="photos_move_root">Archivos</string>
     <string name="photos_move_empty">Esta carpeta no tiene subcarpetas.</string>
-    <string name="photos_move_open_folder">Abrir %1$s</string>
+    <string name="photos_move_open_folder">Abrir «%1$s»</string>
     <string name="photos_telegram_sheet_title">Enviar por Telegram</string>
     <string name="photos_telegram_search">Buscar chats</string>
     <string name="photos_telegram_empty">No encontramos chats con ese nombre.</string>
@@ -66,17 +63,17 @@
     <string name="photos_header_yesterday">Ayer</string>
     <plurals name="photos_trashed_many">
         <item quantity="one">Se movió %1$s elemento a la papelera</item>
-        <item quantity="many">Se movieron %1$s elementos a la papelera</item>
+        <item quantity="many">Se movieron %1$s de elementos a la papelera</item>
         <item quantity="other">Se movieron %1$s elementos a la papelera</item>
     </plurals>
     <plurals name="photos_card_partial_title">
         <item quantity="one">Bento solo ve %1$s foto</item>
-        <item quantity="many">Bento solo ve %1$s fotos</item>
+        <item quantity="many">Bento solo ve %1$s de fotos</item>
         <item quantity="other">Bento solo ve %1$s fotos</item>
     </plurals>
     <plurals name="photos_album_count">
         <item quantity="one">%1$s elemento</item>
-        <item quantity="many">%1$s elementos</item>
+        <item quantity="many">%1$s de elementos</item>
         <item quantity="other">%1$s elementos</item>
     </plurals>
 </resources>

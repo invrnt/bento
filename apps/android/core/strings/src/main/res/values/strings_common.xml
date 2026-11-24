@@ -48,11 +48,13 @@
     <string name="common_error_session_revoked">Bento se desconectó de Telegram.</string>
 
     <!-- Units: numbers are formatted with android.icu before substitution (1,5 MB). -->
-    <string name="common_unit_bytes">%1$s B</string>
-    <string name="common_unit_kilobytes">%1$s KB</string>
-    <string name="common_unit_megabytes">%1$s MB</string>
-    <string name="common_unit_gigabytes">%1$s GB</string>
-    <string name="common_unit_terabytes">%1$s TB</string>
+    <string name="common_unit_bytes">%1$s\u00A0B</string>
+    <string name="common_unit_kilobytes">%1$s\u00A0KB</string>
+    <string name="common_unit_megabytes">%1$s\u00A0MB</string>
+    <string name="common_unit_gigabytes">%1$s\u00A0GB</string>
+    <string name="common_unit_terabytes">%1$s\u00A0TB</string>
+    <string name="common_metadata_pair">%1$s · %2$s</string>
+    <string name="common_label_value">%1$s: %2$s</string>
     <string name="common_unit_progress_of">%1$s de %2$s</string>
 
     <plurals name="common_count_files">

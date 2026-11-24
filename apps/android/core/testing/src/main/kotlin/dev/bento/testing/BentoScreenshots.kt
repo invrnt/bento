@@ -23,6 +23,10 @@ import dev.bento.designsystem.theme.BentoTheme
  * Screenshot variants every feature screen state is rendered in (design-system/android.md §9): light, dark,
  * 200 % font, compact (320 dp) and expanded (840 dp). Run under `@Config(qualifiers = QUALIFIERS)`
  * so the largest variant fits; each variant is a fixed-size frame.
+ *
+ * [landscape] (891 × 411 dp, a phone on its side) is captured with [captureLandscape] from a test annotated
+ * `@Config(qualifiers = LANDSCAPE_QUALIFIERS)`, so the configuration really is landscape; the release gate needs it
+ * for journeys 1, 7 and 8 (testing/android-journeys.md §17).
  */
 object BentoScreenshots {
     data class Variant(val name: String, val dark: Boolean, val fontScale: Float, val width: Int, val height: Int)
@@ -35,14 +39,30 @@ object BentoScreenshots {
         Variant("expanded", dark = true, fontScale = 1f, width = 840, height = 720)
     )
 
+    val landscape: Variant = Variant("landscape", dark = false, fontScale = 1f, width = 891, height = 411)
+
     const val QUALIFIERS: String = "es-w840dp-h1800dp-hdpi"
+    const val LANDSCAPE_QUALIFIERS: String = "es-w891dp-h411dp-land-hdpi"
     private const val TAG = "bento-screenshot"
 
     /**
      * Renders [content] once and captures every variant to `<directory>/<name>/<variant>.png`.
      * Animations are frozen (manual clock) so goldens are stable.
      */
-    fun capture(rule: ComposeContentTestRule, directory: String, name: String, content: @Composable () -> Unit) {
+    fun capture(rule: ComposeContentTestRule, directory: String, name: String, content: @Composable () -> Unit) =
+        capture(rule, directory, name, variants, content)
+
+    /** Captures only [landscape] to `<directory>/<name>/landscape.png`; the test must run under [LANDSCAPE_QUALIFIERS]. */
+    fun captureLandscape(rule: ComposeContentTestRule, directory: String, name: String, content: @Composable () -> Unit) =
+        capture(rule, directory, name, listOf(landscape), content)
+
+    private fun capture(
+        rule: ComposeContentTestRule,
+        directory: String,
+        name: String,
+        variants: List<Variant>,
+        content: @Composable () -> Unit
+    ) {
         var variant by mutableStateOf(variants.first())
         rule.mainClock.autoAdvance = false
         rule.setContent {

@@ -124,7 +124,6 @@
     <string name="pairing_host_relay_fallback">En el otro dispositivo, inicia sesión en Telegram y elige «Pedir acceso a mis otros dispositivos». La solicitud aparecerá en Dispositivos para que la apruebes.</string>
     <string name="pairing_host_failed_title">No se pudo añadir el dispositivo</string>
     <string name="pairing_host_start_failed">No se pudo preparar un código. Inténtalo otra vez.</string>
-    <string name="pairing_host_action_failed">No se pudo completar la acción. Inténtalo otra vez.</string>
     <string name="pairing_host_new_code">Generar otro código</string>
     <string name="pairing_host_done">Listo</string>
 
