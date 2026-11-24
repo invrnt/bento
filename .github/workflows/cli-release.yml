@@ -1,0 +1,195 @@
+name: CLI release
+
+on:
+  push:
+    tags: ["cli-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cli-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Resolve CLI version
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Read version from apps/api/pyproject.toml
+        id: version
+        shell: bash
+        run: |
+          version="$(python3 -c 'import tomllib; print(tomllib.load(open("apps/api/pyproject.toml", "rb"))["project"]["version"])')"
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            if [ "$GITHUB_REF_NAME" != "cli-v$version" ]; then
+              echo "Tag $GITHUB_REF_NAME does not match apps/api/pyproject.toml version $version (expected cli-v$version)."
+              exit 1
+            fi
+            git fetch --no-tags origin main
+            git merge-base --is-ancestor "$(git rev-list -n 1 "$GITHUB_REF")" origin/main
+          else
+            version="$version+${GITHUB_SHA::7}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: ${{ matrix.id }} CLI
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux builds use the oldest supported runner so the bundle runs on older glibc
+          # (Debian 12, Ubuntu 22.04, Raspberry Pi OS bookworm).
+          - id: linux-x64
+            runner: ubuntu-22.04
+            deb_arch: amd64
+          - id: linux-arm64
+            runner: ubuntu-22.04-arm
+            deb_arch: arm64
+          - id: macos-x64
+            runner: macos-15-intel
+          - id: macos-arm64
+            runner: macos-15
+          - id: windows-x64
+            runner: windows-2025
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Set up Node.js 24 (build configuration validator)
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - name: Cache CLI build inputs
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: |
+            ~/.cache/uv
+            ~/Library/Caches/uv
+            ~/.cache/pyinstaller
+            ~/Library/Application Support/pyinstaller
+            ~/AppData/Local/uv/cache
+            ~/AppData/Local/pyinstaller
+          key: cli-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/api/uv.lock', 'apps/api/packaging/**', 'apps/api/src/**') }}
+      - name: Install uv
+        run: python -m pip install --disable-pip-version-check uv==0.12.5
+      - name: Install locked dependencies
+        run: uv sync --project apps/api --frozen --extra dev --extra desktop
+      - name: Test the CLI
+        shell: bash
+        run: (cd apps/api && uv run pytest tests/cli)
+      - name: Write build configuration (release tags get Telegram credentials)
+        shell: bash
+        env:
+          BENTO_TELEGRAM_API_ID: ${{ github.ref_type == 'tag' && secrets.BENTO_TELEGRAM_API_ID || '' }}
+          BENTO_TELEGRAM_API_HASH: ${{ github.ref_type == 'tag' && secrets.BENTO_TELEGRAM_API_HASH || '' }}
+          BENTO_RELAY_URL: ${{ vars.BENTO_RELAY_URL }}
+          BENTO_PUBLIC_SITE_URL: ${{ vars.BENTO_PUBLIC_SITE_URL }}
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            node apps/desktop/scripts/write-build-config.mjs --require-telegram
+          else
+            node apps/desktop/scripts/write-build-config.mjs
+          fi
+      - name: Build standalone CLI and archive
+        shell: bash
+        run: >
+          uv run --project apps/api --frozen --extra desktop python apps/api/scripts/build_cli.py
+          --output dist/cli
+          --build-config apps/desktop/resources/build-config.json
+          --archive dist/cli-release
+          --version "$VERSION"
+      - name: Smoke test the frozen CLI
+        shell: bash
+        env:
+          STORAGE_BACKEND: local
+          BENTO_LANG: en
+        run: |
+          set -euxo pipefail
+          bento="dist/cli/bento/bento"
+          if [ "$RUNNER_OS" = "Windows" ]; then bento="dist/cli/bento/bento.exe"; fi
+          export BENTO_HOME="$RUNNER_TEMP/bento-cli-smoke"
+          export BENTO_DESKTOP_USER_DATA="$RUNNER_TEMP/no-desktop"
+          "$bento" --version
+          "$bento" commands --json > "$RUNNER_TEMP/commands.json"
+          python -c 'import json, sys; catalog = json.load(open(sys.argv[1])); assert catalog, "empty catalog"' "$RUNNER_TEMP/commands.json"
+          "$bento" --json daemon start
+          "$bento" --json daemon status
+          "$bento" --json daemon stop
+      - name: Build and smoke test the Debian package
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          deb_version="${VERSION/+/~}"
+          scripts/install/build_deb.sh dist/cli/bento "$deb_version" dist/cli-release "${{ matrix.deb_arch }}"
+          deb="dist/cli-release/bento-cli_${deb_version}_${{ matrix.deb_arch }}.deb"
+          sudo dpkg -i "$deb"
+          /usr/bin/bento --version
+          sudo dpkg -r bento-cli
+          (cd dist/cli-release && sha256sum "$(basename "$deb")" > "$(basename "$deb").sha256")
+      - name: Upload CLI artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: bento-cli-${{ matrix.id }}
+          if-no-files-found: error
+          retention-days: 14
+          path: dist/cli-release/**
+
+  publish:
+    name: Publish CLI release
+    if: github.ref_type == 'tag'
+    needs: [version, build]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Download CLI artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: bento-cli-*
+          path: dist/cli-artifacts
+          merge-multiple: true
+      - name: Verify per-asset checksums and write SHA256SUMS
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist/cli-artifacts
+          sha256sum --check --strict -- *.sha256
+          cat -- *.sha256 | sort -k2 > SHA256SUMS
+          rm -- *.sha256
+          printf '%s\n' "$VERSION" > VERSION
+          cp ../../scripts/install/install.sh ../../scripts/install/install.ps1 .
+          ls -l
+      - name: Create GitHub release
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Never marked "latest": that stays the desktop release. The installers find `cli-v*` tags.
+          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release create "$GITHUB_REF_NAME" --verify-tag --latest=false --generate-notes --title "Bento CLI $VERSION"
+          fi
+          gh release upload "$GITHUB_REF_NAME" --clobber dist/cli-artifacts/*

@@ -32,6 +32,18 @@ Comprueba la descarga con el archivo `SHA256SUMS-*` del release: [cómo hacerlo]
 
 Guías: [español](docs/user/es/README.md) · [English](docs/user/en/README.md).
 
+## Bento en la terminal
+
+Para asistentes de IA (Claude Code, Codex…) que ordenan tus archivos por ti, y para servidores sin pantalla (Debian, Ubuntu, Raspberry Pi, macOS, Windows):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/invrnt/bento/main/scripts/install/install.sh | sh
+bento setup                     # conecta Telegram o crea tu nube
+bento join K7Q2-MXR9-T4WA       # o une este equipo con el código de Ajustes › Dispositivos › Añadir dispositivo
+```
+
+Después, pídele a tu asistente: «usa `bento` (lee primero `bento guide`) para poner los archivos de `~/Descargas` en su sitio en mi Bento». Guía: [Bento en la terminal](docs/user/es/cli.md) · [Bento in the terminal](docs/user/en/cli.md) · [desarrollo](docs/dev/cli.md).
+
 ## Privacidad en resumen
 
 - Todo lo que sale de tu equipo va cifrado con AES-256-GCM: contenido, nombres, carpetas, fechas, ubicación, texto reconocido y la lista de cambios entre equipos.
@@ -186,6 +198,10 @@ Do not commit API hashes, Telegram sessions, wrapping keys or anything under `da
 The packaged Electron app is the recommended path for end users: it includes the web UI plus native API/worker sidecars and requires no Docker, Python, Node or `.env`. See [installation and first run](docs/desktop/install-first-run.md), [settings, backup and recovery](docs/desktop/settings-recovery.md) and [release and signing](docs/desktop/releasing.md).
 
 Stable desktop releases follow GitHub Flow from short-lived `feature/*` or `fix/*` branches into `main`. Maintainers use the manual **Desktop version bump PR** workflow for a stable SemVer `patch`, `minor` or `major`; after the version PR and four-platform native validation pass, an immutable matching `vX.Y.Z` tag builds the signed release. Release tags are blocked unless the Windows installer is signed and both macOS architectures are signed and notarized. Pull requests publish short-lived artifacts whose names include `unsigned`; those are for testing, not distribution.
+
+### CLI
+
+`bento` (`apps/api/src/bento/interfaces/cli`) is a thin HTTP client of the local API with JSON output for agents and a headless daemon mode. From source: `uv run --project apps/api bento --help`. Standalone build: `uv run --project apps/api --extra desktop python apps/api/scripts/build_cli.py --output dist/cli --archive dist/cli-release`; releases come from `cli-v*` tags through `.github/workflows/cli-release.yml`. See the [CLI developer guide](docs/dev/cli.md).
 
 ### Release checks
 

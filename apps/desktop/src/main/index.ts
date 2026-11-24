@@ -21,6 +21,7 @@ import {
 import { ActivityMonitor } from "./activity";
 import { WindowLifecycle } from "./background";
 import { BootstrapStore } from "./bootstrap";
+import { CliEndpointFile } from "./cli-endpoint";
 import { buildConfigRedactions, loadBuildConfig, sidecarRuntimeEnvironment, UPDATE_PUBLIC_KEY_FIELD } from "./build-config";
 import { applicationMenuTemplate, debuggingSwitches } from "./debugging";
 import { argumentsFromAdditionalData, DEEP_LINK_SCHEME, userArguments } from "./deep-links";
@@ -39,7 +40,7 @@ import { RendererEventQueue } from "./renderer-events";
 import { LEGACY_SECRET_SETTING_KEYS, SecureSecretStore } from "./secrets";
 import { SendToUploader } from "./send-to";
 import { SettingsTransaction } from "./settings-transaction";
-import { resolveSidecarCommand, SidecarSupervisor } from "./sidecars";
+import { ApiEndpoint, resolveSidecarCommand, SidecarSupervisor } from "./sidecars";
 import { handleSquirrelEvent, squirrelEvent, squirrelStubExecutable, squirrelUpdateExecutable } from "./squirrel";
 import { TrayController, trayModel } from "./tray";
 import { UpdateScheduler } from "./update-scheduler";
@@ -67,6 +68,7 @@ const navigation = new RendererEventQueue<NavigateRequest>(IPC_CHANNELS.navigate
 let strings: MainStrings = createStrings([]);
 let mainWindow: BrowserWindow | null = null;
 let supervisor: SidecarSupervisor | null = null;
+let cliEndpoint: CliEndpointFile | null = null;
 let windowLifecycle: WindowLifecycle | null = null;
 let quitting = false;
 let startHidden = false;
@@ -115,7 +117,9 @@ if (refusedSwitches.length) {
     }
     event.preventDefault();
     quitting = true;
-    void supervisor.stop().finally(() => app.exit(0));
+    void supervisor.stop()
+      .finally(() => cliEndpoint?.remove())
+      .finally(() => app.exit(0));
   });
   app.on("window-all-closed", () => app.quit());
   startHidden = launches.arguments(launchArguments).hidden;
@@ -164,6 +168,16 @@ async function startDesktop(): Promise<void> {
     log,
   });
   const sidecars = supervisor;
+  // The local `bento` CLI discovers the running app through this file (never the renderer token).
+  const endpointFile = new CliEndpointFile({
+    directory: desktopData,
+    pid: process.pid,
+    appVersion: app.getVersion(),
+    warn: (message, context) => log.write("warn", message, context),
+  });
+  cliEndpoint = endpointFile;
+  await endpointFile.remove();
+  sidecars.on("api-endpoint", (endpoint: ApiEndpoint | null) => { void endpointFile.update(endpoint); });
   registerBentoProtocol(protocol, path.join(app.getAppPath(), "dist", "renderer"), sidecars);
   lockDownSession();
   // Development keeps Electron's default menu (reload, developer tools).

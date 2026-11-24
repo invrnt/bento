@@ -23,10 +23,19 @@ interface SpawnedProcess {
 /** The API sidecar binds 127.0.0.1:0 itself and reports the port with exactly this stdout line. */
 export const API_READY_PREFIX = "BENTO_API_READY ";
 export const DESKTOP_API_TOKEN_ENV = "BENTO_DESKTOP_API_TOKEN";
+/** Per-launch token for non-browser local clients (the `bento` CLI); never the renderer token. */
+export const DESKTOP_CLI_TOKEN_ENV = "BENTO_DESKTOP_CLI_TOKEN";
 export const SIDECAR_PATH_ENV = "BENTO_SIDECAR_PATH";
 /** Never inherited by sidecars; main sets the token for the API process only. */
-const STRIPPED_SIDECAR_ENVIRONMENT = [DEVICE_WRAPPING_KEY_ENV, DESKTOP_API_TOKEN_ENV, SIDECAR_PATH_ENV, "API_PORT"] as const;
-const TOKEN_HISTORY = 8;
+const STRIPPED_SIDECAR_ENVIRONMENT = [DEVICE_WRAPPING_KEY_ENV, DESKTOP_API_TOKEN_ENV, DESKTOP_CLI_TOKEN_ENV, SIDECAR_PATH_ENV, "API_PORT"] as const;
+/** Two tokens (renderer + CLI) per API launch. */
+const TOKEN_HISTORY = 16;
+
+/** The authenticated API a local CLI may use; `null` while no API is ready. */
+export interface ApiEndpoint {
+  port: number;
+  cliToken: string;
+}
 
 export interface SidecarSupervisorOptions {
   command: LaunchCommand;
@@ -53,6 +62,8 @@ export class SidecarSupervisor extends EventEmitter {
   /** 0 until the running API announced its port; reset as soon as that API is going away. */
   private apiPort = 0;
   private token = "";
+  private cliToken = "";
+  private endpointValue: ApiEndpoint | null = null;
   private issuedTokens: string[] = [];
   private stopping = false;
   private stateValue: LifecycleState = "starting";
@@ -85,6 +96,11 @@ export class SidecarSupervisor extends EventEmitter {
 
   get status(): { state: LifecycleState; recoveryMode: boolean } {
     return { state: this.stateValue, recoveryMode: this.stateValue === "recovery" };
+  }
+
+  /** The ready API for local CLI clients; emitted as `api-endpoint` (or `null` when it goes away). */
+  get apiEndpoint(): ApiEndpoint | null {
+    return this.endpointValue;
   }
 
   /** Per-launch API tokens issued by this process, for log redaction. */
@@ -129,7 +145,7 @@ export class SidecarSupervisor extends EventEmitter {
   async stop(): Promise<void> {
     this.stopping = true;
     this.setState("stopping");
-    this.apiPort = 0;
+    this.apiGone();
     await Promise.all([this.terminate(this.worker), this.terminate(this.api)]);
     this.worker = null;
     this.api = null;
@@ -146,7 +162,7 @@ export class SidecarSupervisor extends EventEmitter {
         const oldApi = this.api;
         this.worker = null;
         this.api = null;
-        this.apiPort = 0;
+        this.apiGone();
         await this.terminate(oldWorker);
         await this.terminate(oldApi);
         this.stopping = wasStopping;
@@ -210,12 +226,14 @@ export class SidecarSupervisor extends EventEmitter {
   }
 
   private async startApiAndWait(token: string): Promise<void> {
-    this.apiPort = 0;
+    this.apiGone();
     this.token = token;
+    const cliToken = this.issueToken();
+    this.cliToken = cliToken;
     let announce: (port: number) => void = () => undefined;
     const announced = new Promise<number>((resolve) => { announce = resolve; });
     // The API receives its token only through its environment and binds its own loopback port.
-    const api = this.launch("api", [], { [DESKTOP_API_TOKEN_ENV]: token }, (line) => {
+    const api = this.launch("api", [], { [DESKTOP_API_TOKEN_ENV]: token, [DESKTOP_CLI_TOKEN_ENV]: cliToken }, (line) => {
       const port = parseApiReadyLine(line);
       if (port !== null) announce(port);
     });
@@ -235,6 +253,7 @@ export class SidecarSupervisor extends EventEmitter {
       if (api.exitCode !== null) throw new Error("Desktop API exited during startup");
       try {
         await this.verify();
+        this.apiAnnounced(port, cliToken);
         return;
       } catch {
         await this.delay(100);
@@ -242,6 +261,20 @@ export class SidecarSupervisor extends EventEmitter {
     }
     await this.terminate(api);
     throw new Error("Timed out waiting for authenticated desktop API readiness");
+  }
+
+  private apiAnnounced(port: number, cliToken: string): void {
+    if (this.apiPort !== port || this.cliToken !== cliToken) return;
+    this.endpointValue = { port, cliToken };
+    this.emit("api-endpoint", this.endpointValue);
+  }
+
+  /** The running API is going away: stop using its port and withdraw it from CLI discovery. */
+  private apiGone(): void {
+    this.apiPort = 0;
+    if (this.endpointValue === null) return;
+    this.endpointValue = null;
+    this.emit("api-endpoint", null);
   }
 
   private environment(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
@@ -301,7 +334,7 @@ export class SidecarSupervisor extends EventEmitter {
   private monitor(kind: "api" | "worker", child: SpawnedProcess): void {
     child.on("exit", () => {
       // A dead API's port can be taken by anyone; stop sending the token there at once.
-      if (kind === "api" && this.api === child) this.apiPort = 0;
+      if (kind === "api" && this.api === child) this.apiGone();
       if (!this.stopping && (kind === "api" ? this.api === child : this.worker === child)) void this.recoverFromCrash(kind);
     });
   }
