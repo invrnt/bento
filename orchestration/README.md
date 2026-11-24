@@ -57,11 +57,12 @@ Assumption: the repository is currently empty, so agents must create a new Docke
 - Seed data, doctor script, docs, release hardening.
 - Telegram-first program (Stages 14-17): MTProto account login, encrypted vault, multi-device sync, QR/code pairing via relay, automatic backup, end-user product polish. See `execution/telegram-first-program.md`.
 - CLI program (Stage 18): agent-first `bento` CLI, headless daemon, desktop discovery, cross-platform packaging. See `execution/cli-program.md`.
+- Android program (Stages 19-22): native Kotlin/Compose app embedding the backend as a full vault device, with camera-roll backup, share target, and scan-to-join. See `execution/android-program.md`.
 
 ## Non-Goals
 
 - No product implementation code belongs in `/orchestration`.
 - No microservices; the only hosted component is the stateless pairing relay (`apps/relay`).
 - No GPU-required mode.
-- No public links, native mobile app, OS files-on-demand, shared family vaults (specified as deferred in `product/telegram-first-experience.md`), advanced multiuser auth, facial recognition, audio transcription, automatic captions, long-video deep indexing, PostgreSQL, or Qdrant.
+- No public links, iOS app, OS files-on-demand, shared family vaults (specified as deferred in `product/telegram-first-experience.md`), advanced multiuser auth, facial recognition, audio transcription, automatic captions, long-video deep indexing, PostgreSQL, or Qdrant.
 - No external cloud AI services.

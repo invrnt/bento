@@ -46,3 +46,24 @@ Run agents in this order. Agents listed in the same stage may run in parallel on
 ## Stage 10
 
 15. `15-release-hardening-agent.md`
+
+## Stage 19 (Android feasibility gate)
+
+34. `34-android-spike-agent.md`
+
+## Stage 20 (Android foundations, parallel)
+
+35. `35-android-backend-agent.md`
+36. `36-android-platform-agent.md`
+37. `37-android-design-system-agent.md`
+
+## Stage 21 (Android features, parallel)
+
+38. `38-android-onboarding-trust-agent.md`
+39. `39-android-photos-agent.md`
+40. `40-android-files-search-share-agent.md`
+41. `41-android-backup-settings-agent.md`
+
+## Stage 22 (Android release)
+
+42. `42-android-release-agent.md`
