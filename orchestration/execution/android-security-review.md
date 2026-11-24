@@ -11,22 +11,22 @@ This review found **no high** findings and **3 medium** findings (SEC-01, SEC-02
 
 ## Findings
 
-| ID | Sev | Title | Owner path | Evidence |
-| --- | --- | --- | --- | --- |
-| SEC-01 | medium | Bearer token lives for the whole process; it is reused across API restarts and sent to whatever listens on the old port | `apps/android/core/engine`, `apps/api/src/bento/interfaces/android/engine.py` | `BentoEngine.kt:51,111-117,175-190,234-241`; `engine.py:171-177`; `BentoHttp.kt:61-68` |
-| SEC-02 | medium | Pillow 11.0.0 in the APK (PSD out-of-bounds writes) parses untrusted shared files with every format plugin enabled | `apps/android/python-wheels`, `apps/api/src/bento/adapters/media` | `requirements-android.txt` (`pillow==11.0.0`); `adapters/media/metadata.py:80-87`; `generator.py:54` |
-| SEC-03 | medium | App lock and the recents-preview hiding (`setRecentsScreenshotEnabled(false)`) are not implemented | `apps/android/feature/settings` (in progress), `app` | `product/android.md:195,208`; no `BiometricPrompt`/`setRecentsScreenshotEnabled` in the tree |
-| SEC-04 | low | Decrypted copies in `cacheDir/share` can outlive the 1 h TTL, and URI grants are never revoked | `feature/files`, `feature/photos` | `ContentFiles.kt:79-82`; `FilesModule.kt:69`; `MediaExporter.kt:32-44,97-100` |
-| SEC-05 | low | A malformed `%` escape in a `bento://join` or App Link crashes `MainActivity` | `app` | `DeepLinks.kt:27-30`; `MainActivity.kt:44,61,64-68` |
-| SEC-06 | low | Redaction patterns miss pairing codes, phone numbers without `+`, login codes and 2FA passwords; warm-up logs reach logcat before redaction is installed | `apps/api/src/bento/interfaces/android` | `redaction.py:23-47`; `engine.py:122-140` vs `203-211` |
-| SEC-07 | low | starlette 0.46.2 (CVE-2025-62727 Range DoS, CVE-2025-54121), reachable only after bearer auth | `apps/api` (`uv.lock`), `python-wheels` | `requirements-android.txt` (`starlette==0.46.2`) |
-| SEC-08 | low | FLAG_SECURE missing on the guest pairing-code entry and on the Telegram login-code step | `feature/pairing`, `feature/onboarding` | `JoinScreen.kt:249`; `TelegramSignIn.kt:332` |
-| SEC-09 | low | No tapjacking protection on high-value confirmations (approve a pairing device, recovery) | `feature/pairing`, `feature/recovery` | `HostPairingScreen.kt:138`; no `filterTouchesWhenObscured`/`setHideOverlayWindows` in the tree |
-| SEC-10 | low | The App Links host silently defaults to `bento.example`, and the `bento://` scheme can be claimed by any app | `app`, backend pairing link | `app/build.gradle.kts:20`; `AndroidManifest.xml:64-83` |
-| SEC-11 | low | When the Keystore key is lost, the app regenerates it next to an unreadable `wrapping.bin`, then fails to start in a permanent loop with no recovery UX | `core/engine` | `KeystoreKeyWrapping.kt:32-39,80` |
-| SEC-12 | low | Other apps can open unlimited connections to the loopback API (no `limit_concurrency`) | `interfaces/android/engine.py` | `engine.py:331-336` |
-| SEC-13 | low | `MainActivity` keeps the default `taskAffinity` with `singleTask` (task-hijacking class) | `app` | `AndroidManifest.xml:54-60` |
-| I-1..I-10 | info | Verified controls and notes (see below) | — | — |
+| ID | Sev | Title | Owner path | Evidence | Status |
+| --- | --- | --- | --- | --- | --- |
+| SEC-01 | medium | Bearer token lives for the whole process; it is reused across API restarts and sent to whatever listens on the old port | `apps/android/core/engine`, `apps/api/src/bento/interfaces/android/engine.py` | `BentoEngine.kt:51,111-117,175-190,234-241`; `engine.py:171-177`; `BentoHttp.kt:61-68` | fixed (`bfb2aad`, `0604475`) |
+| SEC-02 | medium | Pillow 11.0.0 in the APK (PSD out-of-bounds writes) parses untrusted shared files with every format plugin enabled | `apps/android/python-wheels`, `apps/api/src/bento/adapters/media` | `requirements-android.txt` (`pillow==11.0.0`); `adapters/media/metadata.py:80-87`; `generator.py:54` | fixed (`c3a03ba`) |
+| SEC-03 | medium | App lock and the recents-preview hiding (`setRecentsScreenshotEnabled(false)`) are not implemented | `apps/android/feature/settings` (in progress), `app` | `product/android.md:195,208`; no `BiometricPrompt`/`setRecentsScreenshotEnabled` in the tree | open: agent 41 (`feature/settings`) |
+| SEC-04 | low | Decrypted copies in `cacheDir/share` can outlive the 1 h TTL, and URI grants are never revoked | `feature/files`, `feature/photos` | `ContentFiles.kt:79-82`; `FilesModule.kt:69`; `MediaExporter.kt:32-44,97-100` | fixed (`4e2a2fd`) |
+| SEC-05 | low | A malformed `%` escape in a `bento://join` or App Link crashes `MainActivity` | `app` | `DeepLinks.kt:27-30`; `MainActivity.kt:44,61,64-68` | fixed (`da2c21d`) |
+| SEC-06 | low | Redaction patterns miss pairing codes, phone numbers without `+`, login codes and 2FA passwords; warm-up logs reach logcat before redaction is installed | `apps/api/src/bento/interfaces/android` | `redaction.py:23-47`; `engine.py:122-140` vs `203-211` | fixed (`bfb2aad`) |
+| SEC-07 | low | starlette 0.46.2 (CVE-2025-62727 Range DoS, CVE-2025-54121), reachable only after bearer auth | `apps/api` (`uv.lock`), `python-wheels` | `requirements-android.txt` (`starlette==0.46.2`) | fixed (`c3a03ba`) |
+| SEC-08 | low | FLAG_SECURE missing on the guest pairing-code entry and on the Telegram login-code step | `feature/pairing`, `feature/onboarding` | `JoinScreen.kt:249`; `TelegramSignIn.kt:332` | fixed (`7f3f522`) |
+| SEC-09 | low | No tapjacking protection on high-value confirmations (approve a pairing device, recovery) | `feature/pairing`, `feature/recovery` | `HostPairingScreen.kt:138`; no `filterTouchesWhenObscured`/`setHideOverlayWindows` in the tree | fixed (`7f3f522`) |
+| SEC-10 | low | The App Links host silently defaults to `bento.example`, and the `bento://` scheme can be claimed by any app | `app`, backend pairing link | `app/build.gradle.kts:20`; `AndroidManifest.xml:64-83` | fixed (`da2c21d`) |
+| SEC-11 | low | When the Keystore key is lost, the app regenerates it next to an unreadable `wrapping.bin`, then fails to start in a permanent loop with no recovery UX | `core/engine` | `KeystoreKeyWrapping.kt:32-39,80` | fixed (`0604475`) |
+| SEC-12 | low | Other apps can open unlimited connections to the loopback API (no `limit_concurrency`) | `interfaces/android/engine.py` | `engine.py:331-336` | fixed (`bfb2aad`) |
+| SEC-13 | low | `MainActivity` keeps the default `taskAffinity` with `singleTask` (task-hijacking class) | `app` | `AndroidManifest.xml:54-60` | fixed (`da2c21d`) |
+| I-1..I-10 | info | Verified controls and notes (see below) | — | — | — |
 
 ### SEC-01 (medium): the API token is per process, not per engine start
 
@@ -241,6 +241,25 @@ declaring `taskAffinity="dev.bento.app"` can try StrandHogg-style task injection
 
 Fix: `android:taskAffinity=""` on `MainActivity`. Check that predictive back and the share hand-off still work.
 
+## Fixes (Stage 22f)
+
+| ID | Fix | Regression tests |
+| --- | --- | --- |
+| SEC-01 | Fresh `ApiCredentials(token, serverKey)` on every `start_api`; `configure` takes no token; Ready leaves before stop/probe; `X-Bento-Nonce`/`X-Bento-Proof` HMAC server proof, unverified answers dropped and the API restarted with new credentials (`android-runtime.md` §2.1) | `SecurityReviewFindingsTest` (5), `BentoHttpTest` `SEC-01 …` (3, shared vector), `test_start_api_rotates_credentials_and_proves_the_server`, `test_sec01_server_proof_*` |
+| SEC-02 | Pillow 13.0.0 cross-built for both ABIs (`python-wheels/build_pillow.sh`, libjpeg-turbo 3.2.1 static, system zlib); desktop `pillow>=13,<14`; `Image.open(formats=open_formats())` (JPEG, MPO, PNG, WEBP, GIF, TIFF, HEIF, AVIF) in metadata and thumbnails | `test_sec02_android_pillow_has_the_psd_fixes`, `test_sec02_psd_is_never_parsed_by_metadata_or_thumbnails` |
+| SEC-04 | Prune revokes FileProvider grants before deleting; `ShareCacheJanitor` every 10 min and on app stop; reused exporter copies refresh their TTL; PDF reader copies already discarded (verified) | `ContentFilesPruneTest` |
+| SEC-05 | `DeepLinks` never throws (malformed escapes, >2048 chars, 16-param cap), `/join/` accepted; `handleLink` guarded | `DeepLinksTest` (`SEC-05 …`, trailing slash) |
+| SEC-06 | `redaction.register/unregister`; pairing codes (all formats), join-link `c=`, phones with/without `+`, login codes, 2FA passwords; `install_early` in `warm_up` buffers redacted records (nothing reaches `lastResort`). Registering live codes from `application/pairing.py` and the Telegram login adapter is left to their owners (API ready) | `test_sec06_*` (5) |
+| SEC-07 | FastAPI 0.165.0, Starlette 1.10.0 (floor `>=1.3.1`: all 0.x/1.0 have open advisories) | `test_sec07_starlette_has_the_range_fix` + full backend suite |
+| SEC-08 | `SecureWindow()` in the join code entry and the Telegram login-code step | covered by existing `SecureWindow` tests |
+| SEC-09 | `ObscuredTouchGuard`: `filterTouchesWhenObscured` (sheet-aware) + `setHideOverlayWindows` on API 31+ on pairing approval, device removal sheet, recovery kit and recovery entry | `RecoveryUiTest.sec09GuardFiltersObscuredTouchesUntilTheLastGuardLeaves` |
+| SEC-10 | `:app:verifyReleaseSiteHost` fails `packageRelease`/`bundleRelease` without a real host and matching https URL; host share uses `webLink` when the backend has `site_url` (verified, `HostPairingScreen.kt:271`); links only prefill (verified) | build check (manual: `assembleRelease` without the properties fails) |
+| SEC-11 | `DeviceKeyLostException`, `Degraded(KEY_LOST)` with no retry, "Restablecer este teléfono" (`DeviceReset`), `fsync` before rename | `KeystoreKeyWrappingTest` `SEC-11 …` (3), `BentoEngineTest` `SEC-11 …` |
+| SEC-12 | uvicorn `limit_concurrency=64`, backlog 64, `timeout_keep_alive=5` | `test_sec12_loopback_uvicorn_limits_connections` |
+| SEC-13 | `MainActivity` `taskAffinity=""` | emulator check below |
+
+Not fixed here: SEC-03 (agent 41, `feature/settings`). `cryptography==42.0.8` on Android remains a Chaquopy deviation with OSV advisories (bundled-OpenSSL and binary-curve issues; Bento's AES-GCM/X25519/HKDF use is not affected as far as reviewed) — rebuild it like Pillow in a follow-up.
+
 ## Verified controls (info)
 
 - **I-1 Loopback API.**
@@ -306,10 +325,7 @@ Fix: `android:taskAffinity=""` on `MainActivity`. Check that predictive back and
 
 ## Tests added
 
-| File | Status today |
+| File | Status |
 | --- | --- |
-| `apps/android/core/testing/src/test/kotlin/dev/bento/testing/security/SecurityReviewFindingsTest.kt` | 2 tests for SEC-01. **Intentionally failing** until SEC-01 is fixed. Not compiled or run here (no Gradle). The first `./gradlew :core:testing:testDebugUnitTest` should show 2 assertion failures, not compile errors. |
-| `apps/api/tests/unit/android/test_security_review_findings.py` | 4 `xfail(strict=True)` (SEC-02, SEC-06 ×2, SEC-07) and 2 passing guards. `uv run --extra dev pytest -q -p no:cacheprovider tests/unit/android/test_security_review_findings.py` exits 0 (`xxxx..`). |
-
-When a finding is fixed, remove its `xfail` marker (strict mode turns a fix into an XPASS failure) or make the
-Kotlin test green.
+| `apps/android/core/testing/src/test/kotlin/dev/bento/testing/security/SecurityReviewFindingsTest.kt` | 5 SEC-01 regression tests, passing (`./gradlew check`). |
+| `apps/api/tests/unit/android/test_security_review_findings.py` | xfails removed: SEC-02 ×2, SEC-06 ×5, SEC-07, SEC-01 proof ×2, SEC-12 and the 2 guards, all passing. |
