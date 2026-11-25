@@ -84,7 +84,7 @@ emulator_run() {
   if [[ -z "$serial" ]]; then
     log "booting AVD $AVD"
     "$emu" -avd "$AVD" -no-window -no-audio -no-snapshot-save -no-boot-anim -gpu swiftshader_indirect \
-      >"${LOCAL_CI_STEP_LOG:-/dev/null}.emulator" 2>&1 &
+      >"${LOCAL_CI_STEP_LOG:-${TMPDIR:-/tmp}/bento-local-ci-emulator}.emulator" 2>&1 &
     started=1
     local t=0
     until [[ "$("$adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; do
