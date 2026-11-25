@@ -4,7 +4,7 @@
   "private": true,
   "description": "Static public website for Bento, deployed to Cloudflare Pages",
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "AGPL-3.0-only",
   "engines": {
     "node": ">=22"
   },

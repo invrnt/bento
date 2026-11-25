@@ -2,6 +2,7 @@
 name = "bento-api"
 version = "0.1.0"
 description = "Bento local-first API and worker package."
+license = "AGPL-3.0-only"
 requires-python = ">=3.12"
 # Android (Chaquopy, Python 3.13, `sys_platform == "android"`) installs the `android` profile below instead of the
 # desktop-only parts of this list (`orchestration/architecture/android-runtime.md` §4/§4.1).

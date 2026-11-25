@@ -18,7 +18,7 @@ Bento lo ofrece [[COMPLETAR: nombre legal del responsable]], con domicilio en [[
 
 Bento es una aplicación de escritorio que guarda tu biblioteca de fotos y archivos en tus equipos y, si conectas tu cuenta de Telegram, una copia cifrada en canales privados de esa cuenta para sincronizar tus dispositivos. Bento usa la API de Telegram y no está afiliado a Telegram ni respaldado por Telegram.
 
-El software se ofrece bajo [[COMPLETAR: licencia del software y precio, si lo hay]]. Los componentes de terceros conservan sus propias licencias, que se detallan en los [avisos de terceros](avisos-de-terceros.md).
+El software se ofrece bajo la [GNU Affero General Public License v3.0](https://github.com/invrnt/bento/blob/main/LICENSE) (AGPL-3.0-only). Bento es gratuito. Los componentes de terceros conservan sus propias licencias, que se detallan en los [avisos de terceros](avisos-de-terceros.md).
 
 ## 4. Tu cuenta de Telegram
 
