@@ -89,7 +89,7 @@ Installs to `/opt/bento-cli` with a `/usr/bin/bento` symlink. The bundle is froz
 
 - `scripts/install/install.sh` (POSIX `sh`, Linux/macOS): detects OS/arch, downloads `bento-cli-<version>-<os>-<arch>.tar.gz` and `SHA256SUMS`, verifies the SHA-256, installs to `~/.local/share/bento-cli/app` (or `$XDG_DATA_HOME/bento-cli/app`) by swapping the directory, symlinks `~/.local/bin/bento` and prints `bento setup` as the next step. Never uses `sudo`.
 - `scripts/install/install.ps1` (Windows): same flow into `%LOCALAPPDATA%\Bento CLI\app` and adds it to the user `PATH`. Windows on Arm uses the x64 build.
-- Variables: `BENTO_CLI_VERSION` (default: newest `cli-v*` GitHub release), `BENTO_CLI_BASE_URL` (default `https://github.com/invrnt/bento/releases/download/cli-v<version>`; a custom base must serve the archives, `SHA256SUMS` and, without `BENTO_CLI_VERSION`, a `VERSION` file), `BENTO_INSTALL_DIR`, `BENTO_BIN_DIR` (sh only).
+- Variables: `BENTO_CLI_VERSION` (default: the latest Bento release, `releases/latest`), `BENTO_CLI_BASE_URL` (default `https://github.com/invrnt/bento/releases/download/v<version>`; a custom base must serve the archives, `SHA256SUMS` and, without `BENTO_CLI_VERSION`, a `VERSION` file), `BENTO_INSTALL_DIR`, `BENTO_BIN_DIR` (sh only).
 
 Local test of the installer against a build:
 
@@ -98,9 +98,15 @@ cat dist/cli-release/*.sha256 > dist/cli-release/SHA256SUMS
 HOME="$(mktemp -d)" BENTO_CLI_VERSION=0.1.0 BENTO_CLI_BASE_URL="file://$PWD/dist/cli-release" sh scripts/install/install.sh
 ```
 
-### Release workflow
+### Releases
 
-`.github/workflows/cli-release.yml` runs on `workflow_dispatch` and on tags `cli-v*` (the desktop release uses `v*`, so they never collide):
+CLI archives, the `.deb` packages and both installers are assets of the product release `vX.Y.Z`, built locally by
+`scripts/release/bento-release` (`--only cli` on each platform; smoke test `--version` and daemon
+start/status/stop) and listed in its signed `SHA256SUMS`. The installers read `releases/latest`, which is
+always the product release. `cli-v*` tags are retired (none was ever published). See [releasing](releasing.md).
+
+The dormant `.github/workflows/cli-release.yml` (manual-only since Actions has no billing) documents the former
+matrix:
 
 | Matrix id | Runner | Notes |
 |---|---|---|
@@ -110,7 +116,7 @@ HOME="$(mktemp -d)" BENTO_CLI_VERSION=0.1.0 BENTO_CLI_BASE_URL="file://$PWD/dist
 | `macos-arm64` | `macos-15` | |
 | `windows-x64` | `windows-2025` | `.zip` |
 
-Each job runs `pytest tests/cli`, writes the build configuration (Telegram credentials from secrets only on tags, with `--require-telegram`), builds the archive, and smoke-tests the frozen binary: `bento --version`, `bento commands --json`, `bento daemon start/status/stop` with `STORAGE_BACKEND=local` in a throwaway `BENTO_HOME`. On a tag, the tag must equal `cli-v<apps/api version>` and point to a commit on `main`; the `publish` job verifies every `.sha256`, writes `SHA256SUMS` and `VERSION`, and creates the GitHub release with `--latest=false` (the “latest” release stays the desktop app) including both installers. Dispatch runs only upload workflow artifacts (version `<x.y.z>+<sha>`).
+Each job runs `pytest tests/cli`, writes the build configuration (Telegram credentials from secrets only on tags, with `--require-telegram`), builds the archive, and smoke-tests the frozen binary: `bento --version`, `bento commands --json`, `bento daemon start/status/stop` with `STORAGE_BACKEND=local` in a throwaway `BENTO_HOME`. Dispatch runs only upload workflow artifacts (version `<x.y.z>+<sha>`).
 
 Linux builds use Ubuntu 22.04 runners (glibc 2.35) so the bundle runs on Debian 12, Ubuntu 22.04+ and Raspberry Pi OS bookworm. macOS binaries are not yet signed or notarized: when downloaded through a browser, Gatekeeper may block them (`xattr -d com.apple.quarantine`); the `curl | sh` installer is not affected.
 

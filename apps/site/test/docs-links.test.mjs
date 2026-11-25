@@ -122,7 +122,7 @@ describe("documentation links", () => {
   });
 
   it("keeps Spanish and English user guides and legal documents in parity", async () => {
-    for (const [directory, count] of [["docs/user", 14], ["docs/legal", 3]]) {
+    for (const [directory, count] of [["docs/user", 15], ["docs/legal", 3]]) {
       const es = (await readdir(path.join(repoRoot, directory, "es"))).filter((name) => name.endsWith(".md"));
       const en = (await readdir(path.join(repoRoot, directory, "en"))).filter((name) => name.endsWith(".md"));
       assert.equal(es.length, count, `${directory}/es`);

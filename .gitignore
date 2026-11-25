@@ -20,3 +20,4 @@ dist/desktop/
 dist/cli/
 dist/cli-release/
 .claude/worktrees/
+/dist/release/

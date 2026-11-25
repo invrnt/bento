@@ -2,6 +2,10 @@
 
 # Bento
 
+[![Licencia: AGPL-3.0-only](https://img.shields.io/badge/license-AGPL--3.0--only-blue.svg)](LICENSE)
+[![SemVer](https://img.shields.io/badge/versioning-SemVer%202.0.0-informational.svg)](docs/dev/releasing.md#versions-and-tags)
+[![Keep a Changelog](https://img.shields.io/badge/changelog-Keep%20a%20Changelog-orange.svg)](CHANGELOG.md)
+
 **Tu nube privada, sin límite de espacio, guardada en tu Telegram.**
 
 Bento respalda tus fotos y archivos en tu propia cuenta de Telegram, cifrados antes de salir de tu equipo, y los mantiene en orden en todos tus dispositivos. Sin bots, sin servidores de Bento y sin configurar nada técnico.
@@ -16,11 +20,11 @@ Descarga la [última versión](https://github.com/invrnt/bento/releases/latest):
 
 | Sistema | Archivo |
 | --- | --- |
-| Windows x64 | Instalador firmado `Bento-<versión> Setup.exe` |
+| Windows x64 | Instalador firmado `Bento-<versión>-Setup.exe` |
 | macOS 13 o posterior (Apple silicon o Intel) | `.dmg` firmado y notarizado de tu procesador |
 | Ubuntu 22.04 x64 y sistemas basados en Debian | Paquete `.deb` (también hay un `.zip` portátil) |
 
-Comprueba la descarga con el archivo `SHA256SUMS-*` del release: [cómo hacerlo](docs/desktop/install-first-run.md).
+Comprueba la descarga con el `SHA256SUMS` firmado de cada versión: [cómo hacerlo](docs/user/es/verificar-descargas.md). Los cambios de cada versión están en el [registro de cambios](CHANGELOG.md).
 
 ## Bento para Android
 
@@ -75,11 +79,15 @@ Más: [Privacidad y seguridad](docs/user/es/privacidad-y-seguridad.md) · [Polí
 
 Bento es software libre bajo la [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0-only). Puedes usarlo, estudiarlo, modificarlo y redistribuirlo; si distribuyes una versión modificada, o la ofreces como servicio en red (por ejemplo el relay), debes publicar su código bajo la misma licencia.
 
+## Participar
+
+Lee la [guía para contribuir](CONTRIBUTING.md) y el [código de conducta](CODE_OF_CONDUCT.md). Los problemas de seguridad se reportan en privado, nunca en un issue público: [política de seguridad](SECURITY.md).
+
 ## English
 
 Bento is your private cloud, with no storage limit, kept in your own Telegram account. It encrypts your photos and files on your computer or Android phone before backing them up, keeps them in order across all your devices, and adds a new device with a single code. The Android app ([guide](docs/user/en/android.md)) installs from a signed APK in the GitHub releases (Android 10+) and backs up the camera roll. Telegram only sees content-free metadata: that you use Bento, sizes, times and sessions. Telegram does not contractually guarantee unlimited storage, and losing every device **and** the recovery kit means losing access. Bento uses the Telegram API and is not affiliated with Telegram.
 
-Read the [English guides](docs/user/en/README.md), [privacy and security](docs/user/en/privacy-and-security.md) and the [privacy policy](docs/legal/en/privacy.md).
+Read the [English guides](docs/user/en/README.md), [privacy and security](docs/user/en/privacy-and-security.md), the [privacy policy](docs/legal/en/privacy.md) and how to [verify your downloads](docs/user/en/verify-downloads.md). Changes per version: [CHANGELOG](CHANGELOG.md). Contributing: [CONTRIBUTING](CONTRIBUTING.md), [Code of Conduct](CODE_OF_CONDUCT.md); report vulnerabilities privately as described in [SECURITY](SECURITY.md).
 
 Bento is free software under the [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0-only).
 
@@ -214,7 +222,7 @@ Do not commit API hashes, Telegram sessions, wrapping keys or anything under `da
 
 The packaged Electron app is the recommended path for end users: it includes the web UI plus native API/worker sidecars and requires no Docker, Python, Node or `.env`. See [installation and first run](docs/desktop/install-first-run.md), [settings, backup and recovery](docs/desktop/settings-recovery.md) and [release and signing](docs/desktop/releasing.md).
 
-Stable desktop releases follow GitHub Flow from short-lived `feature/*` or `fix/*` branches into `main`. Maintainers use the manual **Desktop version bump PR** workflow for a stable SemVer `patch`, `minor` or `major`; after the version PR and four-platform native validation pass, an immutable matching `vX.Y.Z` tag builds the signed release. Release tags are blocked unless the Windows installer is signed and both macOS architectures are signed and notarized. Pull requests publish short-lived artifacts whose names include `unsigned`; those are for testing, not distribution.
+Releases are built locally with `scripts/release/bento-release` (GitHub Actions does not run for this repository): one product version in [`VERSION`](VERSION), the signed tag `vX.Y.Z` for desktop, CLI and backend, `android-vX.Y.Z` for Android, a signed `SHA256SUMS` and CycloneDX SBOMs per release. Windows and macOS packages are built and signed on those systems and imported. See [releasing](docs/dev/releasing.md).
 
 ### Android
 
@@ -222,9 +230,11 @@ Stable desktop releases follow GitHub Flow from short-lived `feature/*` or `fix/
 
 ### CLI
 
-`bento` (`apps/api/src/bento/interfaces/cli`) is a thin HTTP client of the local API with JSON output for agents and a headless daemon mode. From source: `uv run --project apps/api bento --help`. Standalone build: `uv run --project apps/api --extra desktop python apps/api/scripts/build_cli.py --output dist/cli --archive dist/cli-release`; releases come from `cli-v*` tags through `.github/workflows/cli-release.yml`. See the [CLI developer guide](docs/dev/cli.md).
+`bento` (`apps/api/src/bento/interfaces/cli`) is a thin HTTP client of the local API with JSON output for agents and a headless daemon mode. From source: `uv run --project apps/api bento --help`. Standalone build: `uv run --project apps/api --extra desktop python apps/api/scripts/build_cli.py --output dist/cli --archive dist/cli-release`; release archives ship in the product release `vX.Y.Z` ([releasing](docs/dev/releasing.md)). See the [CLI developer guide](docs/dev/cli.md).
 
 ### Release checks
+
+The full local gate is `scripts/local-ci.sh --full` ([local integration](orchestration/execution/local-integration.md)); the release runbook is [docs/dev/releasing.md](docs/dev/releasing.md). Individually:
 
 - `make test`
 - `npm --prefix apps/relay test`
@@ -252,6 +262,6 @@ Bento’s identity (“Todo en su lugar”), palette, typography, shapes, motion
 - FastAPI `0.115.x`, SQLAlchemy `2.x`, Alembic `1.x`, Uvicorn `0.34.x`, pytest `8.x`.
 - Telethon `1.x` (MTProto), cryptography `46.x` (AES-256-GCM, X25519, HKDF), spake2 `0.9.x`, segno `1.x`, websockets, watchdog.
 - Node 22, Vite `6.x`, React `19.x`, TypeScript `5.x`, Tailwind CSS `4.x`, Vitest `3.x`.
-- Desktop CI/release: Node 24, Python 3.12, Electron `43.4.1`, Electron Forge `7.11.2` and PyInstaller `6.22.2`, built natively rather than cross-compiled.
+- Desktop release: Node 24, Python 3.12, Electron `43.4.1`, Electron Forge `7.11.2` and PyInstaller `6.22.2`, built natively rather than cross-compiled.
 - Relay: Cloudflare Workers with SQLite-backed Durable Objects (Workers Free plan compatible). Site: Cloudflare Pages, no runtime dependencies, deployed with Wrangler `4.151.3` through `npx`.
 - Docker Compose V2 with healthcheck-aware `depends_on` and `develop.watch` support.

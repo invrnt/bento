@@ -4,9 +4,9 @@
 #   curl -fsSL https://raw.githubusercontent.com/invrnt/bento/main/scripts/install/install.sh | sh
 #
 # Environment:
-#   BENTO_CLI_VERSION   version to install (e.g. 0.1.0); default: the newest `cli-v*` release
+#   BENTO_CLI_VERSION   version to install (e.g. 0.1.0); default: the latest Bento release (`vX.Y.Z`)
 #   BENTO_CLI_BASE_URL  where the release assets live; default:
-#                       https://github.com/invrnt/bento/releases/download/cli-v<version>
+#                       https://github.com/invrnt/bento/releases/download/v<version>
 #                       (a custom base must serve the archives, SHA256SUMS and, without
 #                       BENTO_CLI_VERSION, a VERSION file)
 #   BENTO_INSTALL_DIR   default: ${XDG_DATA_HOME:-$HOME/.local/share}/bento-cli
@@ -79,9 +79,10 @@ detect_arch() {
 
 latest_version() {
   api_file="$WORK/releases.json"
-  fetch "https://api.github.com/repos/$REPOSITORY/releases?per_page=50" "$api_file" \
-    || fail "could not list releases; set BENTO_CLI_VERSION"
-  version="$(grep -o '"tag_name": *"cli-v[^"]*"' "$api_file" | head -n 1 | sed 's/.*"cli-v\([^"]*\)"/\1/')"
+  # releases/latest is the product release; Android releases are published with --latest=false.
+  fetch "https://api.github.com/repos/$REPOSITORY/releases/latest" "$api_file" \
+    || fail "could not read the latest release; set BENTO_CLI_VERSION"
+  version="$(grep -o '"tag_name": *"v[0-9][^"]*"' "$api_file" | head -n 1 | sed 's/.*"v\([^"]*\)"/\1/')"
   [ -n "$version" ] || fail "no CLI release found; set BENTO_CLI_VERSION"
   printf '%s' "$version"
 }
@@ -108,7 +109,7 @@ if [ -n "$BASE_URL" ]; then
   fi
 else
   [ -n "$VERSION" ] || VERSION="$(latest_version)"
-  BASE_URL="https://github.com/$REPOSITORY/releases/download/cli-v$VERSION"
+  BASE_URL="https://github.com/$REPOSITORY/releases/download/v${VERSION#v}"
 fi
 VERSION="${VERSION#v}"
 case "$VERSION" in

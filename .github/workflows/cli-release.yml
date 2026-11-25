@@ -1,8 +1,13 @@
+# DORMANT, manual-only. GitHub Actions has no billing for this repository, so this workflow no longer runs
+# on pushes, pull requests, tags or schedules (it was a required check; see docs/dev/releasing.md#github-actions).
+# The local gate scripts/local-ci.sh and the local release tool scripts/release/bento-release replace it.
+# It is kept, unchanged apart from its triggers, so it can be re-enabled when billing returns: restore the
+# `on:` block from git history (commit before "Local release process").
+# Superseded: the CLI now ships in the product release vX.Y.Z; `cli-v*` tags are retired. A dispatch only
+# uploads workflow artifacts.
 name: CLI release
 
 on:
-  push:
-    tags: ["cli-v*"]
   workflow_dispatch:
 
 permissions:

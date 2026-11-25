@@ -50,7 +50,7 @@ Both home pages declare Open Graph and Twitter card tags with a 1200×630 image 
 
 ## Download links
 
-Desktop release files carry the version in their names (for example `Bento-0.2.0 Setup.exe`), so GitHub’s `releases/latest/download/<name>` cannot give permanent links. By default every download button opens the [latest release page](https://github.com/invrnt/bento/releases/latest), which always works.
+Desktop release files carry the version in their names (for example `Bento-0.2.0-Setup.exe`), so GitHub’s `releases/latest/download/<name>` cannot give permanent links. By default every download button opens the [latest release page](https://github.com/invrnt/bento/releases/latest), which always works.
 
 After a release is published, you can point the buttons at the exact files. Copy the file names from the release page into `site.config.json`:
 
@@ -60,7 +60,7 @@ After a release is published, you can point the buttons at the exact files. Copy
   "release": {
     "tag": "v0.2.0",
     "assets": {
-      "windows-x64": "Bento-0.2.0 Setup.exe",
+      "windows-x64": "Bento-0.2.0-Setup.exe",
       "macos-arm64": "Bento-0.2.0-arm64.dmg",
       "macos-x64": "Bento-0.2.0-x64.dmg",
       "linux-x64-deb": "bento_0.2.0_amd64.deb",

@@ -9,9 +9,13 @@ reads that manifest. **Everything builds, signs and verifies locally**: there is
 
 - Tag `android-vX.Y.Z` (each part below 1000). `versionName = X.Y.Z`, `versionCode = X·10⁶ + Y·10³ + Z`
   (e.g. 1.2.3 → 1002003). Both APKs of a release share the versionCode.
-- `app/build.gradle.kts` takes `-PbentoVersion=X.Y.Z`, else the exact `android-v*` tag at HEAD, else `0.1.0`.
-- Android releases are separate from desktop `vX.Y.Z` releases and are created with `--latest=false`, because the
-  desktop updater reads `releases/latest`.
+- `app/build.gradle.kts` takes `-PbentoVersion=X.Y.Z`, else the exact `android-v*` tag at HEAD, else the
+  repository's `VERSION` file (the product version, see [releasing](releasing.md#versions-and-tags)).
+- Android releases are separate GitHub releases from the product `vX.Y.Z` release and are created with
+  `--latest=false`, because the desktop updater reads `releases/latest`. They share the product version line.
+- `scripts/release/bento-release build` runs this script (`--dry-run` unless `--release`), collects its assets
+  into `dist/release/X.Y.Z/android-vX.Y.Z/`, adds the Gradle SBOM and a signed `SHA256SUMS`, and publishes with
+  `bento-release publish --channel android`. Running `release.sh` directly still works.
 
 ## One-time owner setup
 

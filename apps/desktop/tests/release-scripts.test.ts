@@ -105,43 +105,7 @@ describe("release metadata scripts", () => {
     await expect(run(process.execPath, [script, "v0.1.0-rc.1"])).rejects.toThrow();
   });
 
-  it.each([
-    ["patch", "0.1.1"],
-    ["minor", "0.2.0"],
-    ["major", "1.0.0"],
-  ])("bumps %s consistently in package and lock metadata", async (kind, expectedVersion) => {
-    const root = await mkdtemp(path.join(tmpdir(), "bento-version-"));
-    try {
-      await createVersionFixture(root);
-      await run(process.execPath, [path.join(desktopRoot, "scripts", "bump-version.mjs"), kind, root]);
-      const packageJson = JSON.parse(await readFile(path.join(root, "apps/desktop/package.json"), "utf8"));
-      const lock = JSON.parse(await readFile(path.join(root, "apps/desktop/package-lock.json"), "utf8"));
-      expect(packageJson.version).toBe(expectedVersion);
-      expect(lock.version).toBe(expectedVersion);
-      expect(lock.packages[""].version).toBe(expectedVersion);
-      for (const filename of [
-        "apps/api/pyproject.toml",
-        "apps/api/uv.lock",
-        "apps/api/src/bento/__init__.py",
-        "apps/api/src/bento/infrastructure/settings.py",
-        "apps/api/src/bento/domain/settings_registry.py",
-      ]) expect(await readFile(path.join(root, filename), "utf8")).toContain(expectedVersion);
-    } finally {
-      await rm(root, { recursive: true, force: true });
-    }
-  });
-
-  it("refuses to bump inconsistent package and lock versions", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "bento-version-mismatch-"));
-    try {
-      await createVersionFixture(root);
-      await writeFile(path.join(root, "apps/desktop/package-lock.json"), `${JSON.stringify({ version: "0.0.9", packages: { "": { version: "0.0.9" } } })}\n`);
-      await expect(run(process.execPath, [path.join(desktopRoot, "scripts", "bump-version.mjs"), "patch", root])).rejects.toThrow();
-      expect(JSON.parse(await readFile(path.join(root, "apps/desktop/package.json"), "utf8")).version).toBe("0.1.0");
-    } finally {
-      await rm(root, { recursive: true, force: true });
-    }
-  });
+  // Version bumps moved to scripts/release (bento-release version bump); tested in scripts/release/tests.
 
   it.each([
     ["linux", "x64", ["bento_0.1.0_amd64.deb", "Bento-0.1.0-linux-x64.zip"]],
@@ -269,20 +233,4 @@ async function generateManifest(root: string, platform: string, arch: string): P
     "--commit", "a".repeat(40),
   ]);
   return JSON.parse(await readFile(path.join(root, `bento-update-${platform}-${arch}.json`), "utf8")) as UpdateManifest;
-}
-
-async function createVersionFixture(root: string): Promise<void> {
-  const files: Record<string, string> = {
-    "apps/desktop/package.json": `${JSON.stringify({ version: "0.1.0" })}\n`,
-    "apps/desktop/package-lock.json": `${JSON.stringify({ version: "0.1.0", packages: { "": { version: "0.1.0" } } })}\n`,
-    "apps/api/pyproject.toml": "[project]\nname = \"bento-api\"\nversion = \"0.1.0\"\n",
-    "apps/api/uv.lock": "[[package]]\nname = \"bento-api\"\nversion = \"0.1.0\"\nsource = { editable = \".\" }\n",
-    "apps/api/src/bento/__init__.py": "__version__ = \"0.1.0\"\n",
-    "apps/api/src/bento/infrastructure/settings.py": "class Settings:\n    app_version: str = \"0.1.0\"\n",
-    "apps/api/src/bento/domain/settings_registry.py": "entry = _field(\"app_version\", (\"APP_VERSION\",), \"advanced\", Type.STRING, \"0.1.0\", editable=False)\n",
-  };
-  for (const [filename, contents] of Object.entries(files)) {
-    await mkdir(path.dirname(path.join(root, filename)), { recursive: true });
-    await writeFile(path.join(root, filename), contents);
-  }
 }

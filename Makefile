@@ -1,4 +1,4 @@
-.PHONY: dev up watch down logs doctor seed test setup backend-install frontend-install desktop-install backend-test frontend-test desktop-test desktop-build desktop-package desktop-make desktop-smoke desktop-verify desktop-release-artifacts smoke e2e two-devices pre-commit-install pre-commit pre-push
+.PHONY: dev up watch down logs doctor seed test setup backend-install frontend-install desktop-install backend-test frontend-test desktop-test desktop-build desktop-package desktop-make desktop-smoke desktop-verify desktop-release-artifacts smoke e2e two-devices pre-commit-install pre-commit pre-push release-check release-dry-run
 
 dev: up
 
@@ -82,3 +82,11 @@ pre-commit: backend-install
 
 pre-push: backend-install frontend-install
 	uv run --project apps/api pre-commit run --all-files --hook-stage pre-push
+
+release-check:
+	scripts/release/bento-release version check
+	scripts/release/bento-release changelog check
+	cd scripts/release/tests && python3 -m unittest -q
+
+release-dry-run:
+	scripts/release/bento-release build

@@ -1,0 +1,75 @@
+name: Bug report · Reportar un error
+description: Something in Bento does not work as it should. Algo en Bento no funciona como debería.
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Puedes escribir en español o en inglés.
+
+        **Security problems go to a [private report](https://github.com/invrnt/bento/security/advisories/new), never here.**
+        Do not paste Telegram login codes, sessions, recovery kits, join codes or API keys, and remove personal
+        file names or paths from logs and screenshots.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component · Componente
+      options:
+        - Desktop app (Windows, macOS, Linux)
+        - Android app
+        - bento CLI
+        - Sync, pairing or Telegram connection
+        - Public site or /join page
+        - Self-hosted or developer setup (Docker, local API)
+        - Other / not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Bento version · Versión
+      description: "Ajustes › Acerca de, `bento --version`, or the release tag (e.g. v0.1.0, android-v0.1.0). For source builds, the commit."
+      placeholder: v0.1.0
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Operating system and device · Sistema y dispositivo
+      placeholder: Windows 11 x64 / macOS 15 Apple silicon / Ubuntu 24.04 / Android 15 Pixel 8
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened? · ¿Qué pasó?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce · Pasos para reproducirlo
+      placeholder: |
+        1. …
+        2. …
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots · Registros o capturas
+      description: Optional. Bento redacts secrets in its logs, but check before pasting.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: This is not a security vulnerability (those go to a private report).
+          required: true
+        - label: I removed codes, keys, sessions and personal data from this report.
+          required: true

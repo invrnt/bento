@@ -6,7 +6,7 @@ Guía para usuarios, paso a paso: [Primeros pasos](../user/es/primeros-pasos.md)
 
 ## Antes de instalar
 
-Descarga únicamente un release de producción y el archivo `SHA256SUMS-<plataforma>`. Cada línea usa el nombre final plano del archivo descargado, por lo que puede verificarse desde una sola carpeta sin reconstruir rutas internas de CI. Los artefactos de validación que incluyen `unsigned` en el nombre no están destinados a usuarios finales.
+Descarga únicamente un release de producción y el archivo `SHA256SUMS-<plataforma>` (o el `SHA256SUMS` general, firmado: [verificar tus descargas](../user/es/verificar-descargas.md) explica cómo comprobar también la firma). Cada línea usa el nombre final plano del archivo descargado, por lo que puede verificarse desde una sola carpeta sin reconstruir rutas internas de CI. Los artefactos de validación que incluyen `unsigned` en el nombre no están destinados a usuarios finales.
 
 Comprueba el hash desde la carpeta de descargas:
 
@@ -20,7 +20,7 @@ Si descargas todos los archivos listados para ese destino, también puedes ejecu
 En Windows usa PowerShell y compara el resultado con la línea del instalador:
 
 ```powershell
-Get-FileHash '.\Bento-<version> Setup.exe' -Algorithm SHA256
+Get-FileHash '.\Bento-<version>-Setup.exe' -Algorithm SHA256
 ```
 
 ## Windows x64

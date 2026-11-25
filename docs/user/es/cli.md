@@ -21,7 +21,7 @@ curl -fsSL https://raw.githubusercontent.com/invrnt/bento/main/scripts/install/i
 
 Se instala solo para tu usuario (en `~/.local/share/bento-cli`) y no pide contraseña de administrador. Antes de instalar, comprueba que la descarga es la auténtica (su huella SHA-256); si no coincide, no instala nada. Si al final te dice que añadas `~/.local/bin` a tu `PATH`, copia la línea que te muestra y abre otra terminal.
 
-**Debian, Ubuntu y Raspberry Pi OS (paquete `.deb`).** Si prefieres un paquete del sistema, descarga `bento-cli_<versión>_amd64.deb` (o `_arm64.deb` para Raspberry Pi y otros equipos ARM) de la [página de versiones](https://github.com/invrnt/bento/releases) (busca las que empiezan por `cli-v`) e instálalo:
+**Debian, Ubuntu y Raspberry Pi OS (paquete `.deb`).** Si prefieres un paquete del sistema, descarga `bento-cli_<versión>_amd64.deb` (o `_arm64.deb` para Raspberry Pi y otros equipos ARM) de la [página de versiones](https://github.com/invrnt/bento/releases) e instálalo:
 
 ```sh
 sudo apt install ./bento-cli_0.1.0_amd64.deb

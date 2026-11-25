@@ -13,6 +13,7 @@ Everything a maintainer needs to build, configure and ship the Telegram-first Be
 | [Launch checklist](launch-checklist.md) | Owner actions before the first public release: credentials, relay, signing key, legal review. |
 | [Android release](android-release.md) | Local signed APK builds, the Android update-manifest entry, the dry run and the in-app updater. |
 | [CLI](cli.md) | The `bento` command: profiles, daemon, desktop discovery, packaging and tests. |
+| [Releasing](releasing.md) | Versions and tags, the changelog, the local release tool, signing, SBOMs, Windows/macOS builds, publishing. |
 
 Related:
 
@@ -24,11 +25,12 @@ Related:
 
 | Variable | Kind | Used by | Where to set it |
 |---|---|---|---|
-| `BENTO_TELEGRAM_API_ID` | secret | API and worker (Telethon) | GitHub Actions secret; local env for dev |
-| `BENTO_TELEGRAM_API_HASH` | secret | API and worker (Telethon) | GitHub Actions secret; local env for dev |
-| `BENTO_RELAY_URL` | public | Pairing (host and guest) | GitHub Actions variable; local env for dev |
-| `BENTO_PUBLIC_SITE_URL` | public | Pairing dialog web link (`/join#…`) | GitHub Actions variable; local env for dev |
-| `BENTO_UPDATE_PUBLIC_KEY` | public | Desktop and Android updaters (Ed25519 manifest signatures) | GitHub Actions variable; Android: local env for `apps/android/scripts/release.sh` |
-| `BENTO_UPDATE_SIGNING_KEY` | secret | Release workflow (signs update manifests) | GitHub Actions secret |
+| `BENTO_TELEGRAM_API_ID` | secret | API and worker (Telethon) | [release environment](releasing.md#release-environment); local env for dev |
+| `BENTO_TELEGRAM_API_HASH` | secret | API and worker (Telethon) | release environment; local env for dev |
+| `BENTO_RELAY_URL` | public | Pairing (host and guest) | release environment; local env for dev |
+| `BENTO_PUBLIC_SITE_URL` | public | Pairing dialog web link (`/join#…`) | release environment; local env for dev |
+| `BENTO_UPDATE_PUBLIC_KEY` | public | Desktop and Android updaters (Ed25519 manifest signatures) | release environment |
+| `BENTO_UPDATE_SIGNING_KEY_FILE` | secret (path) | `bento-release` and `release.sh` (sign update manifests) | release environment |
+| `BENTO_RELEASE_SIGNING_KEY` | secret (path) | `bento-release` (signs `SHA256SUMS`) | release environment |
 
 Desktop builds write these into `resources/build-config.json` at package time and pass them to the sidecars as environment variables; absent values are omitted. Without Telegram credentials, sign-in reports `telegram_not_available`; without a relay URL, pairing uses the Telegram Sync-channel fallback; without a site URL, the pairing dialog shows no web link.

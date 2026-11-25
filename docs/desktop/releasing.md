@@ -1,5 +1,12 @@
 # Release de escritorio
 
+> **Proceso vigente:** los releases se construyen y publican en local con `scripts/release/bento-release`
+> ([docs/dev/releasing.md](../dev/releasing.md)). GitHub Actions no tiene facturación: los workflows citados abajo
+> quedaron en modo manual (`workflow_dispatch`) y sin uso; `desktop-version-bump.yml` y `bump-version.mjs` se
+> eliminaron (la versión se sube con `bento-release version bump`). Siguen vigentes en este documento la matriz de
+> destinos, la firma de código de macOS/Windows, la configuración de compilación y la firma de los manifiestos
+> del updater, que el proceso local reutiliza.
+
 ## Flujo de ramas y versiones
 
 Bento usa GitHub Flow: `main` es la única rama permanente; cada cambio nace en una rama corta `feature/<tema>` o `fix/<tema>`, pasa por pull request y se integra solo con los checks requeridos en verde. No existen ramas `beta`/`stable` ni canales de prerelease. Los releases usan SemVer estable `MAJOR.MINOR.PATCH` y tags inmutables `vMAJOR.MINOR.PATCH`:
@@ -10,7 +17,7 @@ Bento usa GitHub Flow: `main` es la única rama permanente; cada cambio nace en 
 
 Mientras Bento permanezca en `0.y.z`, un cambio incompatible puede avanzar `minor`, pero debe documentar migración y recuperación. Se favorecen releases pequeños y frecuentes; nunca se reutiliza ni mueve un tag publicado.
 
-Desde Actions, ejecuta **Desktop version bump PR** sobre `main` y elige `patch`, `minor` o `major`. El workflow sincroniza la versión del host Electron y del sidecar Python, abre `release/vX.Y.Z` y despacha la validación nativa requerida sobre ese commit. El dispatch es explícito porque GitHub no vuelve a disparar workflows a partir de un pull request creado con `GITHUB_TOKEN`; la concurrencia por rama evita trabajo duplicado en reintentos. Un reintento reutiliza la rama solo si contiene exactamente los archivos de versión esperados con metadata idéntica y reutiliza su PR abierto. Si la rama difiere o contiene archivos adicionales, falla sin forzar ni sobrescribir historia.
+(Histórico, sin uso mientras Actions esté apagado.) Desde Actions se ejecutaba **Desktop version bump PR** sobre `main` eligiendo `patch`, `minor` o `major`. El workflow sincroniza la versión del host Electron y del sidecar Python, abre `release/vX.Y.Z` y despacha la validación nativa requerida sobre ese commit. El dispatch es explícito porque GitHub no vuelve a disparar workflows a partir de un pull request creado con `GITHUB_TOKEN`; la concurrencia por rama evita trabajo duplicado en reintentos. Un reintento reutiliza la rama solo si contiene exactamente los archivos de versión esperados con metadata idéntica y reutiliza su PR abierto. Si la rama difiere o contiene archivos adicionales, falla sin forzar ni sobrescribir historia.
 
 Después de que el PR pase revisión, la matriz nativa y se integre en `main`:
 
