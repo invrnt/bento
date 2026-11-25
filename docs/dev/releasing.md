@@ -281,9 +281,8 @@ they bumped fewer files than `bento-release version bump` and would leave the ma
 `cli-release.yml` is superseded (`cli-v*` tags are retired). Never dispatch `desktop-release.yml` for a version
 released locally.
 
-Owner action: branch protection on `main` still requires the native checks. While Actions is off, either remove
-those required checks (keeping pull requests and the local-CI evidence as the gate) or merge as an admin; see
-`orchestration/execution/local-integration.md`.
+Branch protection on `main` was removed on 2026-11-24 while Actions is off: changes land as squash-merged pull
+requests with the local-CI summary as the gate; see `orchestration/execution/local-integration.md` §6.
 
 ## Verifying a release (maintainer)
 

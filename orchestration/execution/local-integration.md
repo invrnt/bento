@@ -120,6 +120,8 @@ If a merge's smoke fails, fix it in a follow-up commit on `feature/android` (or 
 
 ## 6. Reaching `main` without CI (owner decision)
 
+**Decision (2026-11-24):** the owner removed the branch protection on `main`. Work reaches `main` as a squash-merged PR whose body carries the `scripts/local-ci.sh` summary; the local gate is the only required check. The options below are kept for when protection or Actions billing returns.
+
 Current protection on `main` (github.com/invrnt/bento): PR required, four required native checks (`linux-x64`, `windows-x64`, `macos-x64`, `macos-arm64` "unsigned package", strict/up-to-date), linear history (squash or rebase), admins enforced, 0 approvals. Without Actions billing those four checks can never report. The PR would also queue the workflows, which then fail or never start. As configured, no PR can merge, including the owner's own.
 
 Options (the owner chooses; none has been changed):
