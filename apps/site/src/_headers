@@ -24,3 +24,6 @@
 
 /assets/photos/*
   Cache-Control: public, max-age=604800
+
+/assets/social/*
+  Cache-Control: public, max-age=86400

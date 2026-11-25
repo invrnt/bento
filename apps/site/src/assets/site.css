@@ -2649,12 +2649,7 @@ main {
   position: absolute;
   inset: 24%;
   border-radius: 0.3em;
-  background:
-    linear-gradient(oklch(0.2 0 0), oklch(0.2 0 0)) 0 0 / 28% 28% no-repeat,
-    linear-gradient(oklch(0.2 0 0), oklch(0.2 0 0)) 100% 0 / 28% 28% no-repeat,
-    linear-gradient(oklch(0.2 0 0), oklch(0.2 0 0)) 0 100% / 28% 28% no-repeat,
-    repeating-conic-gradient(oklch(0.22 0 0) 0 25%, oklch(0.96 0 0) 0 50%) 0 0 / 18% 18%,
-    oklch(0.96 0 0);
+  background: oklch(0.96 0 0) url("/assets/qr.svg") center / 100% no-repeat;
   box-shadow: 0 0 0 0.35em oklch(0.96 0 0);
   filter: blur(0.4px);
   rotate: -6deg;
@@ -2985,92 +2980,37 @@ main {
 
 .furo {
   position: absolute;
-  top: 12cqh;
+  top: 10cqh;
   left: 50%;
-  width: min(74cqw, 86cqh);
+  width: min(64cqw, 74cqh);
   translate: -54% 0;
-  overflow: visible;
 }
 
+.furo-art {
+  position: relative;
+  display: block;
+  aspect-ratio: 800 / 678;
+  background: url("/assets/photos/furoshiki.webp") center / contain no-repeat;
+  background-image: image-set(url("/assets/photos/furoshiki.avif") type("image/avif"), url("/assets/photos/furoshiki.webp") type("image/webp"));
+  clip-path: inset(0 0 0 0);
+  transition: clip-path 1100ms var(--ease-in-out), transform 1100ms var(--ease-spring);
+}
+
+.motion .stage:not([data-active="3"]) .furo-art {
+  clip-path: inset(100% 0 0 0);
+  transform: translateY(6%);
+}
+
+/* The image has no baked-in shadow, so it sits on the stage in both themes. */
 .furo-shadow {
-  fill: oklch(0.2 0.02 70 / 0.18);
-  filter: blur(3px);
-}
-
-.furo-cloth {
-  fill: var(--cloth);
-}
-
-
-[id^="seigaiha"] path {
-  stroke: var(--wave);
-  stroke-width: 0.9;
-  fill: none;
-}
-
-.furo-flap {
-  fill: var(--cloth-deep);
-  opacity: 0.55;
-}
-
-.furo-fold {
-  fill: none;
-  stroke: oklch(0 0 0 / 0.22);
-  stroke-width: 1.4;
-  stroke-linecap: round;
-}
-
-.furo-hem {
-  fill: none;
-  stroke: oklch(1 0 0 / 0.22);
-  stroke-width: 1.2;
-  stroke-linecap: round;
-}
-
-.furo-ear {
-  fill: var(--cloth);
-  stroke: var(--cloth-deep);
-  stroke-width: 1.2;
-}
-
-.furo-ear-line {
-  fill: none;
-  stroke: oklch(1 0 0 / 0.25);
-  stroke-width: 1.2;
-  stroke-linecap: round;
-}
-
-.furo-tie {
-  fill: var(--cloth-deep);
-  stroke: oklch(1 0 0 / 0.14);
-  stroke-width: 1;
-}
-
-.furo-tie-line {
-  fill: none;
-  stroke: oklch(0 0 0 / 0.3);
-  stroke-width: 1.2;
-  stroke-linecap: round;
-}
-
-.furo-body {
-  clip-path: inset(0 round 0);
-  transition: clip-path 1100ms var(--ease-in-out);
-}
-
-.motion .stage:not([data-active="3"]) .furo-body {
-  clip-path: inset(100% 0 0);
-}
-
-.furo-knot {
-  transform-box: fill-box;
-  transform-origin: 50% 90%;
-  transition: transform 800ms var(--ease-spring) 900ms, opacity 300ms 900ms;
-}
-
-.motion .stage:not([data-active="3"]) .furo-knot {
-  opacity: 0;
-  transform: scale(0.2);
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: -3%;
+  height: 8%;
+  border-radius: 50%;
+  background: oklch(0.15 0.03 268 / 0.35);
+  filter: blur(10px);
 }
 
 .kit-thread {
@@ -3976,15 +3916,7 @@ main {
   padding: 5px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background:
-    linear-gradient(oklch(0.235 0.012 70), oklch(0.235 0.012 70)) 5px 5px / 14px 14px no-repeat,
-    linear-gradient(oklch(0.235 0.012 70), oklch(0.235 0.012 70)) calc(100% - 5px) 5px / 14px 14px no-repeat,
-    linear-gradient(oklch(0.235 0.012 70), oklch(0.235 0.012 70)) 5px calc(100% - 5px) / 14px 14px no-repeat,
-    repeating-linear-gradient(90deg, oklch(1 0 0) 0 3px, transparent 3px 7px, oklch(1 0 0) 7px 9px, transparent 9px 16px) 5px 5px / 100% 100%,
-    repeating-linear-gradient(0deg, oklch(1 0 0) 0 2px, transparent 2px 6px, oklch(1 0 0) 6px 10px, transparent 10px 13px) 5px 5px / 100% 100%,
-    repeating-conic-gradient(oklch(0.235 0.012 70) 0 25%, transparent 0 50%) 5px 5px / 6px 6px,
-    oklch(1 0 0);
-  background-clip: padding-box, padding-box, padding-box, content-box, content-box, content-box, padding-box;
+  background: oklch(1 0 0) url("/assets/qr.svg") center / 46px no-repeat;
 }
 
 .device .emoji-row {
@@ -4613,13 +4545,110 @@ mark {
   display: grid;
   gap: 20px;
   align-items: center;
+  align-content: space-between;
 }
 
 @media (min-width: 560px) {
   .tile-trash {
     grid-template-columns: auto 1fr;
-    gap: 28px;
+    column-gap: 28px;
   }
+
+  .trash-demo {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Trash: what you deleted, and how long each item can still come back. */
+.trash-demo {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border-radius: var(--radius-xl);
+  background: var(--sunken);
+  font-size: 0.8125rem;
+}
+
+.td-title {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 4px 4px;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+
+.td-title small {
+  color: var(--ink-subtle);
+  font-size: inherit;
+  font-weight: 500;
+}
+
+.td-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: var(--raised);
+}
+
+.td-row:not(:first-of-type) {
+  opacity: 0.72;
+}
+
+.td-thumb {
+  flex-shrink: 0;
+  width: 26px;
+  height: 32px;
+  font-size: 8px;
+}
+
+.td-thumb.th-page {
+  padding: 0.55em 0.45em;
+}
+
+.td-thumb.th-beach {
+  width: 32px;
+}
+
+.td-name {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.td-name,
+.td-name small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.td-name small {
+  color: var(--ink-subtle);
+  font-size: 0.85em;
+  font-weight: 500;
+}
+
+.td-days {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--sunken);
+  color: var(--ink-muted);
+  font-size: 0.85em;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.td-soon .td-days {
+  background: var(--warning-soft);
+  color: var(--warning-ink);
+}
+
+.trash-demo .undo-toast {
+  margin-top: 4px;
 }
 
 .trash-ring {

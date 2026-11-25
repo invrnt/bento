@@ -12,7 +12,9 @@ export async function build({
   output = path.join(root, "dist"),
   config,
 } = {}) {
-  const resolvedConfig = validateConfig(config ?? JSON.parse(await readFile(path.join(root, "site.config.json"), "utf8")));
+  const rawConfig = config ?? JSON.parse(await readFile(path.join(root, "site.config.json"), "utf8"));
+  const resolvedConfig = validateConfig(rawConfig);
+  const origin = validateOrigin(rawConfig.origin ?? null);
   await rm(output, { recursive: true, force: true });
   const files = await walk(source);
   for (const file of files) {
@@ -21,7 +23,7 @@ export async function build({
     await mkdir(path.dirname(target), { recursive: true });
     if (file.endsWith(".html")) {
       const html = await readFile(file, "utf8");
-      await writeFile(target, minifyHtml(applyRelease(html, resolvedConfig)), "utf8");
+      await writeFile(target, minifyHtml(applyOrigin(applyRelease(html, resolvedConfig), origin)), "utf8");
     } else if (file.endsWith(".css")) {
       await writeFile(target, minifyCss(await readFile(file, "utf8")), "utf8");
     } else {
@@ -29,6 +31,21 @@ export async function build({
     }
   }
   return { output, files: files.length, release: resolvedConfig.release?.tag ?? null };
+}
+
+// Link previews (Open Graph) need absolute URLs. Until the public domain is set in
+// site.config.json ("origin"), the share meta tags keep root-relative paths.
+function validateOrigin(origin) {
+  if (origin === null) return null;
+  if (typeof origin !== "string" || !/^https:\/\/[a-z0-9.-]+(?::\d+)?$/u.test(origin)) {
+    throw new Error('site.config.json: origin must look like "https://example.com" (no trailing slash) or be null');
+  }
+  return origin;
+}
+
+function applyOrigin(html, origin) {
+  if (origin === null) return html;
+  return html.replace(/(<meta (?:property|name)="(?:og:image|og:url|twitter:image)" content=")\//gu, `$1${origin}/`);
 }
 
 async function walk(directory) {

@@ -14,7 +14,7 @@
 | `src/assets/motion.js` | Progressive enhancement for every page: header behaviour, scroll-linked effects, reveals and the home-page demos. Sets `html.motion` only without `prefers-reduced-motion`; without it (or without JavaScript) everything renders in its final, still state. |
 | `src/assets/fonts/` | Geist and Geist Mono (Latin subset) with their OFL licenses. |
 | `src/_headers` | Content-Security-Policy and other response headers for Pages. |
-| `site.config.json` | Repository and (optionally) the exact release whose files the download buttons point to. |
+| `site.config.json` | Repository, the public `origin` for link previews, and (optionally) the exact release whose files the download buttons point to. |
 | `scripts/` | `build.mjs` (copy and conservative minify), `serve.mjs` (local preview with the real headers), `check-placeholders.mjs` (publishing guard). |
 | `test/` | `node:test` suites. |
 | `wrangler.jsonc` | Pages project name, output directory and compatibility date. |
@@ -38,9 +38,13 @@ npm --prefix apps/site test        # builds dist/ and runs every check
 npm --prefix apps/site run preview # http://127.0.0.1:8788 with the same _headers
 ```
 
-The tests cover: internal links and anchors, es/en parity and alternates, the absence of external requests and inline code, the CSP and privacy headers, accessibility basics (language, title, one `h1`, skip link, labelled navigation, hidden decorative SVGs), the Telegram API disclosure on every page, the join-code parser and the `/join` page states, the release-link rewrite and the placeholder guard. They also check every relative link and heading anchor in `README.md` and `docs/**`.
+The tests cover: internal links and anchors, es/en parity and alternates, the absence of external requests and inline code, the CSP and privacy headers, accessibility basics (language, title, one `h1`, skip link, labelled navigation, hidden decorative SVGs), the Telegram API disclosure on every page, the join-code parser and the `/join` page states, the release-link rewrite, the link-preview tags and the placeholder guard. They also check every relative link and heading anchor in `README.md` and `docs/**`.
 
 Try `/join` locally with `http://127.0.0.1:8788/join/#v=1&c=K7Q2-MXR9-T4WA`.
+
+## Link previews
+
+Both home pages declare Open Graph and Twitter card tags with a 1200×630 image (`src/assets/social/og-es.jpg`, `og-en.jpg`). Link previews need absolute URLs, so once the public domain is decided set it in `site.config.json`, for example `"origin": "https://bento.example"` (https, no trailing slash). The build then turns the `og:url`, `og:image` and `twitter:image` paths into absolute URLs. With `"origin": null` they stay root-relative, which some apps resolve and others ignore.
 
 ## Download links
 

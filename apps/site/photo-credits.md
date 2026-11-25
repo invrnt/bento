@@ -20,3 +20,5 @@ Each one is cropped and compressed to a small AVIF with a WebP fallback (`avifen
 | `food` | food-plate-rucola-salad | pixellaphoto | CC0 1.0 | https://www.flickr.com/photos/137643065@N06/23699968653 |
 | `cake` | Project 365 #52: 210211 Happy Birthday Em! | comedy_nose | Public Domain Mark 1.0 | https://www.flickr.com/photos/23408922@N07/5466447418 |
 | `flowers` | 00127 | alankaplan2 | Public Domain Mark 1.0 | https://www.flickr.com/photos/140463622@N08/47532398941 |
+
+`furoshiki.avif` / `furoshiki.webp` (story step 3) is an original illustration generated for this site, not a stock photo; its contact shadow was removed so it sits on both themes.
