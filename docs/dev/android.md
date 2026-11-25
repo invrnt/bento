@@ -38,8 +38,8 @@ Passed with `-P<name>=<value>` or in `~/.gradle/gradle.properties`:
 |---|---|---|
 | `bentoBuildPython` | — (required) | Host CPython 3.13 for Chaquopy. |
 | `bentoAbis` | `x86_64` (`gradle.properties`) | `arm64-v8a,x86_64` to build both (releases). |
-| `bentoSiteUrl` / `bentoSiteHost` | empty / `bento.example` | Public site origin (`https://<domain>`) for pairing links, and its host for the verified App Link intent filter. Release builds must use the production domain that serves `/.well-known/assetlinks.json` (see [site](site.md#android-app-links-and-downloads)). |
-| `bentoRelayUrl` | unset | Pairing relay (`ws://127.0.0.1:8788` for the e2e harness). |
+| `bentoSiteUrl` / `bentoSiteHost` | empty / `bento.example` | Public site origin (`https://<domain>`) for pairing links, and its host for the verified App Link intent filter and the `https://<host>/join` links the app accepts. Release builds must use the production domain that serves `/.well-known/assetlinks.json` (see [site](site.md#android-app-links-and-downloads)). |
+| `bentoRelayUrl` | unset | Pairing relay. Debug builds also take `relay_url` from `files/dev-options.json`, which the e2e harness writes, so it needs no relay flag. |
 | `bentoTelegramApiId` / `bentoTelegramApiHash` | unset | Telegram credentials ([how to get them](telegram-credentials.md)); never commit them. |
 
 ## Build and check
@@ -75,19 +75,18 @@ The journeys of [testing/android-journeys.md](../../orchestration/testing/androi
 
 | Harness | Journeys | Host side |
 |---|---|---|
-| [feature/pairing/e2e](../../apps/android/feature/pairing/e2e/README.md) | 1-4, 13-15 (first run, join by code and by App Link, recovery, phone as host, removal, session revoked) | `trust_host.py`: fake cloud :8790, relay double :8788, two headless desktops :8791/:8792 |
-| [feature/files/e2e](../../apps/android/feature/files/e2e/README.md) | 6, 8, 9 (share to Bento, Archivos, search of desktop OCR) | `files_host.py`: fake cloud :8790, one headless desktop :8791 |
+| [feature/pairing/e2e](../../apps/android/feature/pairing/e2e/README.md) | 1-4, 13-15 (first run, join by code and by App Link, recovery, phone as host, removal, session revoked) | `trust_host.py`: fake cloud, relay double, two headless desktops |
+| [feature/files/e2e](../../apps/android/feature/files/e2e/README.md) | 6, 8, 9 (share to Bento, Archivos, search of desktop OCR) | `files_host.py`: fake cloud, one headless desktop |
 
 ```sh
 cd apps/android
-./gradlew :app:assembleDebug :app:assembleDebugAndroidTest -PbentoRelayUrl=ws://127.0.0.1:8788 \
-  -PbentoSiteUrl=https://bento.example -PbentoBuildPython=$PY
+./gradlew :app:assembleDebug :app:assembleDebugAndroidTest -PbentoBuildPython=$PY
 flock "$HOME/.cache/bento-android-emulator.lock" feature/pairing/e2e/run_journeys.sh             # all, es-ES
 flock "$HOME/.cache/bento-android-emulator.lock" feature/pairing/e2e/run_journeys.sh j03_joinByAppLink
 APP_LOCALE=en-US flock "$HOME/.cache/bento-android-emulator.lock" feature/files/e2e/run_journeys.sh j90_englishFiles
 ```
 
-Each script boots the AVD headless, starts its host harness with `uv`, maps the ports with `adb reverse`, clears the app before every journey and pulls in-app screenshots under `apps/android/build/<harness>-journeys/`. Use the `flock` so only one run owns the emulator at a time. Other suites: `./gradlew :app:connectedDebugAndroidTest :smoke:connectedCheck` (process-death and cold-start smoke) and the Fotos journeys and Macrobenchmarks in [feature/photos/README.md](../../apps/android/feature/photos/README.md).
+Each script boots the AVD headless, starts its host harness with `uv`, maps the ports with `adb reverse`, clears the app before every journey and pulls in-app screenshots under `apps/android/build/<harness>-journeys/`. Use the `flock` so only one run owns the emulator at a time. The phone always uses loopback :8788 (relay), :8790 (fake cloud) and :8791/:8792 (desktops); the host side binds free ports (or `BENTO_E2E_RELAY_PORT`, `BENTO_E2E_FAKE_PORT`, `BENTO_E2E_DESKTOP_PORT`, `BENTO_E2E_DESKTOP2_PORT`) and `adb reverse` maps one onto the other, so a port already taken on the machine does not matter. The host processes are stopped on any exit, including a failed run or Ctrl-C. Other suites: `./gradlew :app:connectedDebugAndroidTest :smoke:connectedCheck` (process-death and cold-start smoke) and the Fotos journeys and Macrobenchmarks in [feature/photos/README.md](../../apps/android/feature/photos/README.md).
 
 To try the App Link by hand on the emulator:
 
@@ -131,4 +130,4 @@ The certificate must never change for the life of the app: Android only installs
 - **Chaquopy: `buildPython` not found or wrong version:** pass `-PbentoBuildPython` with an absolute path to CPython 3.13.
 - **Wheels missing (`No matching distribution` while Chaquopy installs requirements):** run `python-wheels/build_all.sh`.
 - **Emulator `PANIC: Unknown AVD name`:** set `ANDROID_AVD_HOME` to where the AVD lives, or pass `AVD=<name>` to the e2e scripts.
-- **e2e host never prints `…_READY`:** read `build/<harness>-journeys/host.out`; usually `uv` cannot resolve the backend or a port (8788-8792) is taken.
+- **e2e host never prints `…_READY`:** read `build/<harness>-journeys/host.out`; usually `uv` cannot resolve the backend, or an explicit `BENTO_E2E_*_PORT` is taken.

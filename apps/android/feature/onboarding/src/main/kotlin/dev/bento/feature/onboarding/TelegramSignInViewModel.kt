@@ -92,10 +92,15 @@ class TelegramSignInViewModel @Inject constructor(private val login: LoginReposi
         _state.update {
             it.copy(country = PhoneNumbers.preselect(simIso, networkIso), view = if (phoneFirst) SignInView.Phone else it.view)
         }
+        val viewAtStart = _state.value.view
         viewModelScope.launch {
-            when (val result = attempt { login.status() }) {
-                is Outcome.Ok -> apply(result.value, initial = !phoneFirst)
-                is Outcome.Err -> _state.update { it.copy(loading = false) }
+            val result = attempt { login.status() }
+            // The engine can take a while on a cold start: once the person picked a way in or sent something, this
+            // first read is stale and must not send them back to the options (or drop the code step).
+            val stale = _state.value.view != viewAtStart || lastAction != null
+            when {
+                result is Outcome.Ok && !stale -> apply(result.value, initial = !phoneFirst)
+                else -> _state.update { it.copy(loading = false) }
             }
         }
     }

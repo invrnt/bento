@@ -9,7 +9,9 @@ Journey 9 needs a desktop-indexed image. The OCR *engine* of that desktop is the
 `OCR_TEXT` for every image (RapidOCR models are not installed on CI hosts); thumbnails, the OCR job, the search index,
 the encrypted sync to the phone and the phone's search are all real.
 
-Usage: `uv run --project apps/api python files_host.py --root <dir>`; prints `FILES_HOST_READY {json}`.
+Usage: `uv run --project apps/api python files_host.py --root <dir> [--fake-port N --desktop-port N]`; prints
+`FILES_HOST_READY {json}`. `run_journeys.sh` picks free host ports and maps the phone's fixed ones onto them. Sidecar
+process groups are listed in `<root>/pgids` for the runner; on any exit this process stops them itself.
 """
 
 from __future__ import annotations
@@ -24,8 +26,6 @@ import urllib.request
 from pathlib import Path
 
 API_ROOT = Path(__file__).resolve().parents[4] / "api"
-FAKE_PORT = 8790
-DESKTOP_PORT = 8791
 OCR_TEXT = "Factura de luz noviembre 2026"
 
 # The worker, with only the OCR engine swapped for the mock (patched before anything imports it).
@@ -39,14 +39,35 @@ sys.exit(main(["worker"]))
 """
 
 
-def run(args: list[str], env: dict[str, str], log: Path) -> subprocess.Popen[bytes]:
-    return subprocess.Popen(
+def run(args: list[str], env: dict[str, str], log: Path, pgids: Path) -> subprocess.Popen[bytes]:
+    process = subprocess.Popen(
         ["uv", "run", "--quiet", "--project", str(API_ROOT), *args],
         env=env,
         stdout=log.open("ab"),
         stderr=subprocess.STDOUT,
         start_new_session=True,
     )
+    with pgids.open("a") as file:
+        file.write(f"{process.pid}\n")
+    return process
+
+
+def stop_all(processes: list[subprocess.Popen[bytes]]) -> None:
+    for process in processes:
+        if process.poll() is None:
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+    deadline = time.monotonic() + 10
+    for process in processes:
+        try:
+            process.wait(max(0.1, deadline - time.monotonic()))
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
 
 
 def wait_for(url: str, timeout: float = 90) -> None:
@@ -63,41 +84,50 @@ def wait_for(url: str, timeout: float = 90) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", required=True, type=Path)
-    root: Path = parser.parse_args().root
+    parser.add_argument("--fake-port", type=int, default=8790)
+    parser.add_argument("--desktop-port", type=int, default=8791)
+    args = parser.parse_args()
+    root: Path = args.root
+    fake_port, desktop_port = args.fake_port, args.desktop_port
     root.mkdir(parents=True, exist_ok=True)
-    base = {k: v for k, v in os.environ.items() if not k.startswith("BENTO_")}
-    processes = [run(["bento-sidecar", "fake-telegram-serve", "--dir", str(root / "cloud"), "--port", str(FAKE_PORT)], base, root / "fake.log")]
-    data = root / "desktop"
-    data.mkdir(exist_ok=True)
-    env = {
-        **base,
-        "BENTO_RUNTIME_MODE": "headless",
-        "ENVIRONMENT": "development",
-        "DATA_DIR": str(data),
-        "STORAGE_BACKEND": "fake",
-        "BENTO_FAKE_TELEGRAM_URL": f"http://127.0.0.1:{FAKE_PORT}",
-        "BENTO_FAKE_TELEGRAM_MANUAL_LOGIN": "1",
-        "BENTO_DEVICE_NAME": "Portátil de Ana",
-        "EMBEDDINGS_PROVIDER": "disabled",
-        "OCR_PROVIDER": "mock",
-    }
-    migrate = run(["bento-sidecar", "migrate"], env, root / "desktop.log")
-    migrate.wait()
-    processes.append(run(["bento-sidecar", "api", "--port", str(DESKTOP_PORT)], env, root / "desktop.log"))
-    processes.append(run(["python", "-c", WORKER], env, root / "desktop.log"))
-    wait_for(f"http://127.0.0.1:{DESKTOP_PORT}/api/health")
-    print("FILES_HOST_READY " + json.dumps({"fake": FAKE_PORT, "desktop": DESKTOP_PORT, "ocr_text": OCR_TEXT}), flush=True)
+    pgids = root / "pgids"
+    pgids.write_text("")
+    processes: list[subprocess.Popen[bytes]] = []
 
-    def stop(*_: object) -> None:
-        for process in processes:
-            if process.poll() is None:
-                os.killpg(process.pid, signal.SIGTERM)
+    def on_signal(*_: object) -> None:
         raise SystemExit(0)
 
-    signal.signal(signal.SIGTERM, stop)
-    signal.signal(signal.SIGINT, stop)
-    while True:
-        time.sleep(1)
+    signal.signal(signal.SIGTERM, on_signal)
+    signal.signal(signal.SIGINT, on_signal)
+    signal.signal(signal.SIGHUP, on_signal)
+    try:
+        base = {k: v for k, v in os.environ.items() if not k.startswith("BENTO_")}
+        cloud = ["bento-sidecar", "fake-telegram-serve", "--dir", str(root / "cloud"), "--port", str(fake_port)]
+        processes.append(run(cloud, base, root / "fake.log", pgids))
+        data = root / "desktop"
+        data.mkdir(exist_ok=True)
+        env = {
+            **base,
+            "BENTO_RUNTIME_MODE": "headless",
+            "ENVIRONMENT": "development",
+            "DATA_DIR": str(data),
+            "STORAGE_BACKEND": "fake",
+            "BENTO_FAKE_TELEGRAM_URL": f"http://127.0.0.1:{fake_port}",
+            "BENTO_FAKE_TELEGRAM_MANUAL_LOGIN": "1",
+            "BENTO_DEVICE_NAME": "Portátil de Ana",
+            "EMBEDDINGS_PROVIDER": "disabled",
+            "OCR_PROVIDER": "mock",
+        }
+        run(["bento-sidecar", "migrate"], env, root / "desktop.log", pgids).wait()
+        processes.append(run(["bento-sidecar", "api", "--port", str(desktop_port)], env, root / "desktop.log", pgids))
+        processes.append(run(["python", "-c", WORKER], env, root / "desktop.log", pgids))
+        wait_for(f"http://127.0.0.1:{desktop_port}/api/health")
+        print("FILES_HOST_READY " + json.dumps({"fake": fake_port, "desktop": desktop_port, "ocr_text": OCR_TEXT}), flush=True)
+        while all(process.poll() is None for process in processes):
+            time.sleep(1)
+        raise SystemExit("a sidecar exited; see the host logs")
+    finally:
+        stop_all(processes)
 
 
 if __name__ == "__main__":

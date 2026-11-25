@@ -2,7 +2,7 @@
 
 Instrumented journeys of `orchestration/testing/android-journeys.md` owned by agent 41
 (`app/src/androidTest/.../BackupJourneysTest.kt`), driven through the real UI against the embedded engine and a
-fresh remote fake Telegram cloud per journey (`bento-sidecar fake-telegram-serve` on :8790 behind `adb reverse`).
+fresh remote fake Telegram cloud per journey (`bento-sidecar fake-telegram-serve` on a free host port, or `BENTO_E2E_FAKE_PORT`, seen by the phone as :8790 through `adb reverse`).
 Every journey starts from a cleared app, creates a new cloud through onboarding and inserts its own camera-roll photos
 (unique JPEGs in `DCIM/Camera`, the default "Camera" bucket).
 

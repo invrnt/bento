@@ -36,7 +36,7 @@ class EngineConfigFactory(private val context: Context, private val build: Engin
             storageBackend = if (tools) debug["storage_backend"] ?: "fake" else "telegram",
             telegramApiId = build.telegramApiId?.takeIf { it.isNotBlank() },
             telegramApiHash = build.telegramApiHash?.takeIf { it.isNotBlank() },
-            relayUrl = build.relayUrl?.takeIf { it.isNotBlank() },
+            relayUrl = DebugOptions.relayUrl(debug, build.relayUrl),
             siteUrl = build.siteUrl?.takeIf { it.isNotBlank() },
             appVersion = build.appVersion,
             deviceNameDefault = android.os.Build.MODEL ?: "Android",
@@ -88,7 +88,8 @@ object MigrationAssets {
 }
 
 /**
- * Debug builds only. `filesDir/dev-options.json` (written by tests with `run-as`) tunes the fake backend;
+ * Debug builds only. `filesDir/dev-options.json` (written by tests with `run-as`) tunes the fake backend and can
+ * point pairing at the e2e harness's relay double (`relay_url`), so any debug APK runs the multi-device journeys;
  * `noBackupFilesDir/dev-endpoint.json` exposes port + token to the `:smoke` instrumentation, which runs in
  * another process. Neither file exists in release builds.
  *
@@ -106,6 +107,10 @@ object DebugOptions {
             .orEmpty()
         return mapOf("fake_cloud_dir" to File(context.filesDir, "fake-cloud").absolutePath) + options
     }
+
+    /** `relay_url` from the debug options wins over the build's `-PbentoRelayUrl`; blank means none. */
+    fun relayUrl(debug: Map<String, String>, built: String?): String? =
+        debug["relay_url"]?.takeIf { it.isNotBlank() } ?: built?.takeIf { it.isNotBlank() }
 
     fun publishEndpoint(context: Context, ready: EngineState.Ready) {
         val payload = buildJsonObject {

@@ -14,8 +14,10 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.printToLog
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
@@ -57,8 +59,15 @@ internal class Journey(val compose: ComposeTestRule) {
         try {
             compose.waitUntil(timeoutMs) { compose.onAllNodes(matcher, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
         } catch (timeout: ComposeTimeoutException) {
-            throw AssertionError("Timed out waiting for $matcher", timeout)
+            dumpScreen("timeout")
+            throw AssertionError("Timed out waiting for ${matcher.description}", timeout)
         }
+    }
+
+    /** What was on screen when a step failed: the semantics tree in logcat (BentoJourney) and a screenshot. */
+    private fun dumpScreen(what: String) {
+        runCatching { compose.onRoot(useUnmergedTree = true).printToLog("BentoJourney", maxDepth = 64) }
+        runCatching { capture("$what-${System.currentTimeMillis()}") }
     }
 
     fun tap(text: String, timeoutMs: Long = 60_000) {
@@ -68,7 +77,12 @@ internal class Journey(val compose: ComposeTestRule) {
 
     fun type(fieldDescription: String, value: String) {
         waitFor(hasContentDescription(fieldDescription, substring = true))
-        compose.onNode(hasContentDescription(fieldDescription, substring = true)).performTextInput(value)
+        try {
+            compose.onNode(hasContentDescription(fieldDescription, substring = true)).performTextInput(value)
+        } catch (failure: AssertionError) {
+            dumpScreen("type")
+            throw failure
+        }
     }
 
     fun description(prefix: String): String {

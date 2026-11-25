@@ -124,8 +124,8 @@ class MainActivity : ComponentActivity() {
     /** Links come from any app or page: a bad one is ignored, never a crash (SEC-05). */
     private fun handleLink(intent: Intent?) {
         if (intent?.action != Intent.ACTION_VIEW) return
-        val siteHost = BuildConfig.SITE_URL.removePrefix("https://").substringBefore('/').ifEmpty { null }
-        val route = runCatching { DeepLinks.parse(intent.dataString, siteHost) }.getOrNull() ?: return
+        // The manifest's App Link host (release builds check it matches -PbentoSiteUrl, SEC-10).
+        val route = runCatching { DeepLinks.parse(intent.dataString, BuildConfig.SITE_HOST.ifEmpty { null }) }.getOrNull() ?: return
         navigator.navigate(route)
     }
 }

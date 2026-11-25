@@ -39,7 +39,10 @@ android {
         versionName = bentoVersion
         ndk { abiFilters += abis }
         // App Links host for https://<site>/join (owner action: production site_url domain).
-        manifestPlaceholders["bentoSiteHost"] = providers.gradleProperty("bentoSiteHost").getOrElse("bento.example")
+        val siteHost = providers.gradleProperty("bentoSiteHost").getOrElse("bento.example")
+        manifestPlaceholders["bentoSiteHost"] = siteHost
+        // DeepLinks accepts https links for the host the App Link filter above routes to the app.
+        buildConfigField("String", "SITE_HOST", "\"$siteHost\"")
         buildConfigField("String", "TELEGRAM_API_ID", "\"${providers.gradleProperty("bentoTelegramApiId").getOrElse("")}\"")
         buildConfigField("String", "TELEGRAM_API_HASH", "\"${providers.gradleProperty("bentoTelegramApiHash").getOrElse("")}\"")
         buildConfigField("String", "RELAY_URL", "\"${providers.gradleProperty("bentoRelayUrl").getOrElse("")}\"")
