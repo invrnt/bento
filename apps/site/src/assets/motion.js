@@ -280,6 +280,22 @@ if (system) {
   }
 }
 
+// Hero: the box unwraps itself once at least part of it is on screen.
+for (const stage of doc.querySelectorAll(".hero-stage")) {
+  const query = stage.querySelector(".hb-query > span");
+  const word = query?.textContent ?? "";
+  if (query && motion) query.textContent = "";
+  onceVisible(stage, async () => {
+    stage.classList.add("is-open");
+    if (!query || !motion) return;
+    await wait(2900);
+    for (let index = 1; index <= word.length; index += 1) {
+      query.textContent = word.slice(0, index);
+      await wait(85);
+    }
+  }, { threshold: 0.3 });
+}
+
 // Pointer effects: a gentle tilt on the hero box and a soft light that follows the cursor.
 for (const element of doc.querySelectorAll("[data-tilt]")) {
   element.addEventListener("pointermove", (event) => {

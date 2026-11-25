@@ -14,6 +14,8 @@ const types = {
   ".js": "text/javascript; charset=utf-8",
   ".svg": "image/svg+xml",
   ".woff2": "font/woff2",
+  ".avif": "image/avif",
+  ".webp": "image/webp",
   ".txt": "text/plain; charset=utf-8",
 };
 const rules = parseHeaders(await readFile(path.join(dist, "_headers"), "utf8"));
