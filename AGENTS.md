@@ -27,6 +27,12 @@ These rules apply to every implementation agent.
 - Agents in the same stage may run in parallel only with non-overlapping owned paths.
 - Later stages start only after prior stages are merged and green.
 
+## Public Domain
+
+- The product's public domain is `https://bentocloud.app`. Use it for everything public: the landing site (`apps/site`, `"origin"` in `apps/site/site.config.json`), `BENTO_PUBLIC_SITE_URL` (pairing `/join#…` links) and any new public URL.
+- Do not invent other domains or subdomains; the hosted relay keeps its own Workers URL until the owner decides otherwise.
+- Tests keep using `bento.example` (reserved for examples), never the real domain.
+
 ## Dependencies
 
 - Backend: Python, FastAPI, SQLAlchemy 2, Alembic, Pydantic, Telethon 1.x (MTProto), cryptography, spake2, segno, watchdog, websockets, Uvicorn, pytest.

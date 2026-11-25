@@ -44,7 +44,7 @@ Try `/join` locally with `http://127.0.0.1:8788/join/#v=1&c=K7Q2-MXR9-T4WA`.
 
 ## Link previews
 
-Both home pages declare Open Graph and Twitter card tags with a 1200×630 image (`src/assets/social/og-es.jpg`, `og-en.jpg`). Link previews need absolute URLs, so once the public domain is decided set it in `site.config.json`, for example `"origin": "https://bento.example"` (https, no trailing slash). The build then turns the `og:url`, `og:image` and `twitter:image` paths into absolute URLs. With `"origin": null` they stay root-relative, which some apps resolve and others ignore.
+Both home pages declare Open Graph and Twitter card tags with a 1200×630 image (`src/assets/social/og-es.jpg`, `og-en.jpg`). Link previews need absolute URLs, so `site.config.json` sets `"origin": "https://bentocloud.app"` (https, no trailing slash). The build then turns the `og:url`, `og:image` and `twitter:image` paths into absolute URLs. With `"origin": null` they stay root-relative, which some apps resolve and others ignore.
 
 ## Download links
 

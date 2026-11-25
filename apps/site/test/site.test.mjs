@@ -363,7 +363,10 @@ describe("link previews", () => {
       const meta = Object.fromEntries(page.tags.filter((tag) => tag.name === "meta" && (tag.attrs.property || tag.attrs.name)).map((tag) => [tag.attrs.property ?? tag.attrs.name, tag.attrs.content]));
       for (const key of ["og:title", "og:description", "og:image", "og:image:alt", "twitter:card"]) assert.ok(meta[key], `${page.urlPath}: ${key}`);
       assert.equal(meta["twitter:image"], meta["og:image"]);
-      assert.ok(await resolveInternal(meta["og:image"]), `${page.urlPath}: missing ${meta["og:image"]}`);
+      const { origin } = JSON.parse(await readFile(path.join(root, "site.config.json"), "utf8"));
+      const image = origin && meta["og:image"].startsWith(`${origin}/`) ? meta["og:image"].slice(origin.length) : meta["og:image"];
+      assert.ok(image.startsWith("/"), `${page.urlPath}: share image must be on this site, got ${meta["og:image"]}`);
+      assert.ok(await resolveInternal(image), `${page.urlPath}: missing ${image}`);
     }
   });
 
