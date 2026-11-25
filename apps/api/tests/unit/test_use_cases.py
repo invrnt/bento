@@ -267,6 +267,8 @@ class FakeFolders:
         folder_id: str | None,
         cursor: str | None = None,
         limit: int = 50,
+        sort: Any = None,
+        order: Any = None,
     ) -> tuple[tuple[DriveItem, ...], str | None]:
         return (), None
 

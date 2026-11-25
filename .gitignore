@@ -14,4 +14,9 @@ apps/desktop/out/
 apps/desktop/resources/sidecars/*-*/
 dist/desktop/
 
-data/
+/data/
+
+# CLI build output
+dist/cli/
+dist/cli-release/
+.claude/worktrees/

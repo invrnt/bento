@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Protocol
 
 from bento.domain.assets import Asset
-from bento.domain.drive import DriveItem, Folder
+from bento.domain.drive import DriveItem, DriveSort, Folder, SortOrder
 from bento.domain.photos import Album, TimelineGroup
 
 
@@ -44,6 +44,8 @@ class FolderRepositoryPort(Protocol):
         folder_id: str | None,
         cursor: str | None = None,
         limit: int = 50,
+        sort: DriveSort | None = None,
+        order: SortOrder | None = None,
     ) -> tuple[tuple[DriveItem, ...], str | None]: ...
 
 

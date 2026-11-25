@@ -127,3 +127,67 @@ def test_desktop_token_is_read_from_the_process_private_holder(tmp_path) -> None
 
     assert client.get("/api/health", headers={"Origin": ORIGIN}).status_code == 401
     assert client.get("/api/health", headers={"Origin": ORIGIN, "Authorization": f"Bearer {TOKEN}"}).status_code == 200
+
+
+CLI_TOKEN = "desktop-cli-token-with-more-than-32-characters"
+
+
+def _desktop_cli_client(tmp_path) -> TestClient:
+    data_dir = tmp_path / "data"
+    (data_dir / "db").mkdir(parents=True)
+    migrated_session_factory(data_dir / "db")
+    app = create_app(
+        Settings(data_dir=str(data_dir), runtime_mode="desktop"),
+        desktop_environ={**ENVIRON, "BENTO_DESKTOP_CLI_TOKEN": CLI_TOKEN},
+    )
+    return TestClient(app)
+
+
+def test_cli_token_is_accepted_only_without_an_origin(tmp_path) -> None:
+    client = _desktop_cli_client(tmp_path)
+    cli = {"Authorization": f"Bearer {CLI_TOKEN}"}
+
+    assert client.get("/api/health", headers=cli).status_code == 200
+    assert client.post("/api/drive/folders/ensure", headers=cli, json={"path": "/CLI"}).status_code == 200
+    for origin in (ORIGIN, "bento://hostile", "null"):
+        rejected = client.get("/api/health", headers={**cli, "Origin": origin})
+        assert rejected.status_code == 403, origin
+        assert rejected.json()["detail"]["code"] == "desktop_origin_rejected"
+
+    missing = client.get("/api/health")
+    assert missing.status_code == 401 and missing.headers["www-authenticate"] == "Bearer"
+    assert client.get("/api/health", headers={"Authorization": "Bearer incorrect"}).status_code == 401
+    # The renderer token is not valid without its exact origin.
+    assert client.get("/api/health", headers={"Authorization": f"Bearer {TOKEN}"}).status_code == 401
+    # The renderer path is unchanged.
+    assert client.get("/api/health", headers={"Origin": ORIGIN, "Authorization": f"Bearer {TOKEN}"}).status_code == 200
+    assert client.get("/api/health", headers={"Origin": ORIGIN}).status_code == 401
+
+
+def test_without_cli_token_requests_without_origin_stay_rejected(tmp_path) -> None:
+    client = _desktop_client(tmp_path)
+
+    assert client.get("/api/health", headers={"Authorization": f"Bearer {CLI_TOKEN}"}).status_code == 403
+    assert client.get("/api/health", headers={"Authorization": f"Bearer {TOKEN}"}).status_code == 403
+
+
+def test_short_cli_token_refuses_to_start(tmp_path) -> None:
+    with pytest.raises(RuntimeError, match="BENTO_DESKTOP_CLI_TOKEN"):
+        create_app(
+            Settings(data_dir=str(tmp_path), runtime_mode="desktop"),
+            desktop_environ={**ENVIRON, "BENTO_DESKTOP_CLI_TOKEN": "short"},
+        )
+
+
+def test_cli_token_is_read_from_the_process_private_holder(tmp_path) -> None:
+    data_dir = tmp_path / "data"
+    (data_dir / "db").mkdir(parents=True)
+    migrated_session_factory(data_dir / "db")
+    process_secrets.clear()
+    process_secrets.adopt_environment_secrets(("BENTO_DESKTOP_CLI_TOKEN",), {"BENTO_DESKTOP_CLI_TOKEN": CLI_TOKEN})
+    try:
+        app = create_app(Settings(data_dir=str(data_dir), runtime_mode="desktop"), desktop_environ=ENVIRON)
+    finally:
+        process_secrets.clear()
+
+    assert TestClient(app).get("/api/health", headers={"Authorization": f"Bearer {CLI_TOKEN}"}).status_code == 200

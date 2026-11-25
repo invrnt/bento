@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Notification channels and notifications posted by core/background (product/android.md §9). -->
+<resources>
+    <string name="bento_channel_transfers">Respaldo y transferencias</string>
+    <string name="bento_channel_transfers_description">Progreso de respaldos y transferencias largas.</string>
+    <string name="bento_channel_attention">Necesita tu atención</string>
+    <string name="bento_channel_attention_description">Cosas que necesitan que hagas algo, como volver a conectar Telegram.</string>
+    <string name="bento_channel_devices">Dispositivos</string>
+    <string name="bento_channel_devices_description">Dispositivos que quieren unirse o que se añadieron a tu nube.</string>
+    <string name="bento_transfer_title_backup">Respaldando fotos</string>
+    <string name="bento_transfer_title_upload">Subiendo archivos</string>
+    <string name="bento_transfer_title_download">Descargando archivos</string>
+    <string name="bento_transfer_title_import">Importando archivos</string>
+    <string name="bento_transfer_title_generic">Transfiriendo archivos</string>
+    <string name="bento_transfer_preparing">Preparando…</string>
+    <string name="bento_transfer_paused">En pausa</string>
+    <string name="bento_transfer_pause">Pausar</string>
+    <plurals name="bento_transfer_progress">
+        <item quantity="one">%1$s de %2$s archivo</item>
+        <item quantity="many">%1$s de %2$s de archivos</item>
+        <item quantity="other">%1$s de %2$s archivos</item>
+    </plurals>
+    <plurals name="bento_transfer_finished_backup">
+        <item quantity="one">Listo: %1$s foto respaldada</item>
+        <item quantity="many">Listo: %1$s de fotos respaldadas</item>
+        <item quantity="other">Listo: %1$s fotos respaldadas</item>
+    </plurals>
+    <string name="bento_attention_title">Bento necesita tu atención</string>
+    <string name="bento_attention_text">Abre Bento para revisarlo.</string>
+    <string name="bento_device_request_title">Un dispositivo nuevo quiere unirse</string>
+    <string name="bento_device_added_title">Se añadió «%1$s»</string>
+    <string name="bento_device_review_text">Toca para revisarlo.</string>
+</resources>

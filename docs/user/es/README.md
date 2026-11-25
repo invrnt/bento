@@ -10,6 +10,7 @@ English: [Bento guides](../en/README.md).
 - [Conectar tu Telegram](conectar-telegram.md): con un código QR o con tu número de teléfono.
 - [Añadir un dispositivo](anadir-dispositivo.md): tu biblioteca en otro equipo con un código.
 - [Kit de recuperación](kit-de-recuperacion.md): la llave de repuesto de tu nube.
+- [Bento para Android](android.md): instalar, unir el teléfono, respaldar el carrete y liberar espacio.
 
 ## Cada día
 
@@ -17,6 +18,7 @@ English: [Bento guides](../en/README.md).
 - [Bandeja de Telegram](bandeja-de-telegram.md): manda cosas a Bento desde el móvil.
 - [Compartir e importar](compartir-e-importar.md): enviar copias por Telegram y traer lo que ya tienes allí.
 - [Papelera y espacio en el equipo](papelera-y-espacio.md): recuperar lo borrado y controlar cuánto ocupa Bento.
+- [Bento desde la terminal](cli.md): el comando `bento` para servidores, scripts y agentes de IA.
 
 ## Confianza y ayuda
 

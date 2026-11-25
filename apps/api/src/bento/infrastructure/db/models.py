@@ -75,6 +75,8 @@ class AlbumModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cover_asset_id: Mapped[str | None] = mapped_column(String(64))
+    """Device-local (not a synced `album` field)."""
 
 
 class AlbumAssetModel(Base):
@@ -337,11 +339,16 @@ class BackupSourceModel(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_scan_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error_code: Mapped[str | None] = mapped_column(String(64))
+    kind: Mapped[str] = mapped_column(String(16), nullable=False, default="folder", server_default="folder")
+    bucket_id: Mapped[str | None] = mapped_column(String(64))
 
 
 class BackupFileModel(Base):
     __tablename__ = "backup_files"
-    __table_args__ = (Index("ix_backup_files_state", "state"),)
+    __table_args__ = (
+        Index("ix_backup_files_state", "state"),
+        Index("ix_backup_files_source_key", "source_id", "source_key"),
+    )
 
     source_id: Mapped[str] = mapped_column(ForeignKey("backup_sources.id", ondelete="CASCADE"), primary_key=True)
     relative_path: Mapped[str] = mapped_column(String(4096), primary_key=True)
@@ -352,6 +359,7 @@ class BackupFileModel(Base):
     state: Mapped[str] = mapped_column(String(16), nullable=False)
     error_code: Mapped[str | None] = mapped_column(String(64))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    source_key: Mapped[str | None] = mapped_column(String(64))
 
 
 class UploadSessionModel(Base):
@@ -383,6 +391,7 @@ class CacheEntryModel(Base):
     path: Mapped[str] = mapped_column(String(4096), nullable=False)
     size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
     last_accessed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    pinned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("0"))
 
 
 class InboxItemModel(Base):
@@ -394,3 +403,29 @@ class InboxItemModel(Base):
     error_code: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ContentImportModel(Base):
+    """Android fd imports (`api/android-endpoints.md` §4), kept across process restarts. Device-local."""
+
+    __tablename__ = "content_imports"
+    __table_args__ = (Index("ix_content_imports_finished_at", "finished_at"),)
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    owner: Mapped[str] = mapped_column(String(64), nullable=False)
+    """Process that runs it; another process's unfinished import lost its fds."""
+    folder_id: Mapped[str | None] = mapped_column(String(64))
+    album_id: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ContentImportItemModel(Base):
+    __tablename__ = "content_import_items"
+
+    import_id: Mapped[str] = mapped_column(ForeignKey("content_imports.id", ondelete="CASCADE"), primary_key=True)
+    client_index: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    asset_id: Mapped[str | None] = mapped_column(String(64))
+    error_code: Mapped[str | None] = mapped_column(String(64))

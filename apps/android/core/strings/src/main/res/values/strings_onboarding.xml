@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- feature/onboarding (agent 38): first run, Telegram sign-in, cloud creation, reconnect (product/android.md §4.1, §11). -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="es">
+    <!-- Bienvenida -->
+    <string name="onboarding_welcome_title">Tu nube privada, en orden.</string>
+    <string name="onboarding_welcome_point_space">Sin límite de espacio, en tu propio Telegram</string>
+    <string name="onboarding_welcome_point_encrypted">Cifrado en tu teléfono antes de salir</string>
+    <string name="onboarding_welcome_point_devices">Tus fotos y archivos en todos tus dispositivos</string>
+    <string name="onboarding_welcome_start">Empezar</string>
+    <string name="onboarding_welcome_join">Ya uso Bento en otro dispositivo</string>
+    <string name="onboarding_welcome_local">Usar solo en este teléfono</string>
+    <string name="onboarding_local_title">¿Usar Bento solo en este teléfono?</string>
+    <string name="onboarding_local_body">Tus fotos y archivos se quedan en este teléfono: no se sincroniza con otros dispositivos ni se respalda en tu nube.</string>
+    <string name="onboarding_local_later">Puedes conectar tu Telegram más tarde desde Ajustes.</string>
+    <string name="onboarding_local_confirm">Usar solo en este teléfono</string>
+    <string name="onboarding_local_cancel">Volver</string>
+    <string name="onboarding_not_now">Ahora no</string>
+
+    <!-- Conecta tu Telegram -->
+    <string name="onboarding_signin_title">Conecta tu Telegram</string>
+    <string name="onboarding_signin_body">Bento guardará tu nube cifrada en tu propia cuenta. Tus mensajes no se tocan.</string>
+    <string name="onboarding_signin_telegram_note">Telegram te pedirá confirmar el inicio de sesión de Bento.</string>
+    <string name="onboarding_signin_no_telegram_app">No encontramos la app de Telegram en este teléfono. Inicia sesión con tu número o con un código QR.</string>
+    <string name="onboarding_signin_waiting_telegram">Esperando la confirmación en Telegram…</string>
+    <string name="onboarding_signin_reopen_telegram">Abrir Telegram otra vez</string>
+    <string name="onboarding_signin_use_phone">Usar mi número de teléfono</string>
+    <string name="onboarding_signin_show_qr">Mostrar código QR</string>
+    <string name="onboarding_phone_title">Tu número de Telegram</string>
+    <string name="onboarding_phone_body">Usa el número con el que entras a Telegram. Te enviaremos un código a tu app de Telegram.</string>
+    <string name="onboarding_phone_country_code">Código %1$s</string>
+    <string name="onboarding_phone_country_change">Cambiar país</string>
+    <string name="onboarding_phone_country_title">País</string>
+    <string name="onboarding_phone_country_search">Buscar país o código</string>
+    <string name="onboarding_phone_label">Número de teléfono</string>
+    <string name="onboarding_phone_placeholder">300 123 4567</string>
+    <string name="onboarding_phone_hint">Sin el %1$s; ya lo añadimos.</string>
+    <string name="onboarding_phone_submit">Enviar código</string>
+    <string name="onboarding_code_title">Escribe el código</string>
+    <string name="onboarding_code_body">Te enviamos un código a tu app de Telegram (%1$s).</string>
+    <string name="onboarding_code_body_sms">Te enviamos un código por SMS al %1$s.</string>
+    <string name="onboarding_code_body_call">Telegram te llamará al %1$s para darte el código.</string>
+    <string name="onboarding_code_body_email">Te enviamos un código al correo de tu cuenta de Telegram (%1$s).</string>
+    <string name="onboarding_code_label">Código de Telegram</string>
+    <string name="onboarding_code_hint">Llega a Telegram, en tus otros dispositivos, o por SMS. Seguimos en cuanto escribas el último número.</string>
+    <string name="onboarding_code_paste">Pegar %1$s</string>
+    <string name="onboarding_code_checking">Comprobando el código…</string>
+    <string name="onboarding_code_open_telegram">Abrir Telegram</string>
+    <string name="onboarding_code_change_number">Cambiar número</string>
+    <string name="onboarding_code_resend">Reenviar código</string>
+    <string name="onboarding_code_resend_in">Reenviar en %1$s</string>
+    <string name="onboarding_password_title">Verificación en dos pasos</string>
+    <string name="onboarding_password_body">Tu cuenta tiene verificación en dos pasos. Escribe la contraseña que creaste en Telegram.</string>
+    <string name="onboarding_password_label">Contraseña de Telegram</string>
+    <string name="onboarding_password_hint">Pista: %1$s</string>
+    <string name="onboarding_password_submit">Iniciar sesión</string>
+    <string name="onboarding_password_forgot">Olvidé mi contraseña</string>
+    <string name="onboarding_qr_title">Inicia sesión desde otro teléfono</string>
+    <string name="onboarding_qr_body">Escanea este código con Telegram en el teléfono donde ya tienes tu cuenta.</string>
+    <string name="onboarding_qr_label">Código QR para vincular tu cuenta de Telegram</string>
+    <string name="onboarding_qr_loading">Preparando el código QR…</string>
+    <string name="onboarding_qr_step1">Abre Telegram en el otro teléfono.</string>
+    <string name="onboarding_qr_step2">Ve a Ajustes › Dispositivos › Vincular dispositivo.</string>
+    <string name="onboarding_qr_step3">Escanea este código. Se renueva solo.</string>
+    <string name="onboarding_qr_waiting">Esperando a que escanees el código…</string>
+    <string name="onboarding_error_code_invalid">El código no es correcto. Revísalo e inténtalo otra vez.</string>
+    <string name="onboarding_error_expired">El inicio de sesión caducó. Empieza otra vez.</string>
+    <string name="onboarding_error_password_invalid">La contraseña no es correcta. Inténtalo otra vez.</string>
+    <string name="onboarding_error_phone_invalid">Ese número no parece válido. Revisa el país y el número.</string>
+    <string name="onboarding_error_network">No hay conexión con Telegram. Comprueba tu internet e inténtalo otra vez.</string>
+    <string name="onboarding_error_not_available">Esta versión de Bento no puede conectarse a Telegram. Puedes usar Bento solo en este teléfono.</string>
+    <string name="onboarding_error_telegram_app_missing">No se pudo abrir Telegram. Inicia sesión con tu número.</string>
+    <string name="onboarding_error_generic">No se pudo iniciar sesión en Telegram. Inténtalo otra vez.</string>
+    <string name="onboarding_error_flood_title">Telegram pidió esperar</string>
+    <string name="onboarding_error_flood_body">Telegram pidió esperar %1$s. Lo intentaremos solo.</string>
+    <string name="onboarding_error_flood_ready">Lo estamos intentando otra vez…</string>
+
+    <!-- Creando tu nube -->
+    <string name="onboarding_creating_title">Creando tu nube</string>
+    <string name="onboarding_checking_title">Comprobando tu nube…</string>
+    <string name="onboarding_checking_body">Vemos qué cambió mientras este teléfono estaba desconectado.</string>
+    <string name="onboarding_creating_body">Esto tarda unos segundos.</string>
+    <string name="onboarding_connected_as">Conectado como %1$s</string>
+    <string name="onboarding_creating_channels">Canales privados en tu Telegram</string>
+    <string name="onboarding_creating_keys">Claves de cifrado en este teléfono</string>
+    <string name="onboarding_creating_device">Este teléfono en tu nube</string>
+    <string name="onboarding_creating_step_working">en marcha</string>
+    <string name="onboarding_creating_step_done">listo</string>
+    <string name="onboarding_creating_step_pending">pendiente</string>
+    <string name="onboarding_creating_step_failed">no se pudo</string>
+    <string name="onboarding_creating_step_count">%1$s de %2$s</string>
+    <string name="onboarding_creating_slow">Telegram va lento, sigue en marcha…</string>
+    <string name="onboarding_creating_failed">No se pudo crear tu nube. Tu cuenta sigue intacta.</string>
+    <string name="onboarding_creating_failed_hint">Comprueba tu conexión a internet e inténtalo otra vez.</string>
+
+    <!-- Avisos -->
+    <string name="onboarding_notifications_title">¿Te avisamos del respaldo?</string>
+    <string name="onboarding_notifications_body">Solo te avisaremos del progreso del respaldo y si algo necesita tu atención.</string>
+    <string name="onboarding_notifications_allow">Permitir avisos</string>
+    <string name="onboarding_notifications_denied_note">Si prefieres no recibirlos, el progreso seguirá visible dentro de Bento.</string>
+
+    <!-- Listo -->
+    <string name="onboarding_done_title">Listo</string>
+    <string name="onboarding_done_body">Todo lo que guardes aquí estará también en tu Telegram, cifrado.</string>
+    <string name="onboarding_done_tip_share_title">Comparte a Bento desde cualquier app</string>
+    <string name="onboarding_done_tip_share_body">Elige Bento en el menú Compartir para guardar fotos, PDF o cualquier archivo.</string>
+    <string name="onboarding_done_tip_inbox_title">Reenvía cosas a «Bento · Bandeja» en Telegram</string>
+    <string name="onboarding_done_tip_inbox_body">Lo que reenvíes a ese chat aparecerá en Bento, cifrado.</string>
+    <string name="onboarding_done_tip_search_title">Busca por texto dentro de tus fotos</string>
+    <string name="onboarding_done_tip_search_body">Bento lee el texto de tus fotos y documentos en el teléfono para que lo encuentres al buscar.</string>
+    <string name="onboarding_done_tip_position">Consejo %1$d de %2$d</string>
+    <string name="onboarding_done_open">Ir a mis fotos</string>
+
+    <!-- Sesión cerrada (§11) -->
+    <string name="onboarding_reconnect_title">Bento se desconectó de Telegram</string>
+    <string name="onboarding_reconnect_body">La sesión de Bento en tu Telegram se cerró. Tu biblioteca sigue en este teléfono.</string>
+    <string name="onboarding_reconnect_note">Vuelve a conectar tu Telegram para seguir sincronizando y respaldando. Mientras tanto puedes ver todo lo que ya está aquí.</string>
+    <string name="onboarding_reconnect_later">Seguir viendo mi biblioteca</string>
+    <string name="onboarding_reconnect_signin_title">Vuelve a conectar tu Telegram</string>
+    <string name="onboarding_reconnect_signin_body">Usa la misma cuenta de Telegram que en tus otros dispositivos.</string>
+</resources>

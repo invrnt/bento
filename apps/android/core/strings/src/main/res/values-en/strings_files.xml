@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="files_title">Files</string>
+    <string name="files_account">Account and activity</string>
+    <string name="files_breadcrumbs">Path: %1$s</string>
+    <string name="files_path_menu">Show the full path</string>
+    <string name="files_up">Up one level</string>
+    <string name="files_empty_title">This folder is empty</string>
+    <string name="files_empty_body">Upload files or create a folder with “New”.</string>
+    <string name="files_root_empty_title">Your cloud is ready</string>
+    <string name="files_root_empty_body">Upload your first files with “New”. They are encrypted before they leave the phone.</string>
+    <string name="files_load_failed">This folder couldn’t be opened.</string>
+    <string name="files_offline_banner">Offline. You see what this phone already has; changes are sent when you’re back.</string>
+    <string name="files_truncated">Showing the first %1$s items. Use search to find the rest.</string>
+    <string name="files_folder">Folder</string>
+    <plurals name="files_folder_items">
+        <item quantity="one">%1$s item</item>
+        <item quantity="other">%1$s items</item>
+    </plurals>
+    <string name="files_item_supporting">%1$s · %2$s</string>
+    <string name="files_item_options">Options for “%1$s”</string>
+    <string name="files_open_folder">Open folder</string>
+    <string name="files_open_file">Open</string>
+    <string name="files_search_here">Search this folder</string>
+
+    <string name="files_badge_offline">Available offline</string>
+    <string name="files_badge_on_device">On this phone</string>
+    <string name="files_badge_local_only">Only on this phone</string>
+    <string name="files_badge_uploading">Uploading to your cloud</string>
+    <string name="files_badge_failed">Couldn’t upload; will retry</string>
+
+    <string name="files_layout_grid">View as grid</string>
+    <string name="files_layout_list">View as list</string>
+    <string name="files_sort_title">Sort this folder</string>
+    <string name="files_sort_name">Name</string>
+    <string name="files_sort_modified">Date modified</string>
+    <string name="files_sort_size">Size</string>
+    <string name="files_sort_type">Type</string>
+    <string name="files_sort_ascending">Ascending</string>
+    <string name="files_sort_descending">Descending</string>
+    <string name="files_sort_remembered">Bento remembers the order of each folder.</string>
+    <string name="files_sort_current">Sorted by %1$s</string>
+
+    <string name="files_new">New</string>
+    <string name="files_new_title">Add to “%1$s”</string>
+    <string name="files_new_upload_files">Upload files</string>
+    <string name="files_new_upload_media">Upload photos or videos</string>
+    <string name="files_new_upload_folder">Upload a folder</string>
+    <string name="files_new_upload_folder_hint">Its folders are recreated here.</string>
+    <string name="files_new_scan">Scan document</string>
+    <string name="files_new_scan_hint">Saved as a PDF in this folder.</string>
+    <string name="files_new_folder">New folder</string>
+    <string name="files_new_folder_label">Folder name</string>
+    <string name="files_new_folder_default">New folder</string>
+    <string name="files_new_folder_create">Create</string>
+    <string name="files_new_folder_failed">The folder couldn’t be created. Try again.</string>
+    <string name="files_new_folder_exists">There’s already a folder with that name here.</string>
+    <string name="files_new_folder_empty">Type a name.</string>
+    <string name="files_new_folder_created">Created “%1$s”</string>
+    <string name="files_scan_prefix">Scan</string>
+    <string name="files_scan_unavailable">The document scanner isn’t available on this phone.</string>
+    <string name="files_folder_upload_started">Uploading the folder “%1$s”…</string>
+    <string name="files_folder_upload_truncated">The folder is very large: its first %1$s files will be uploaded.</string>
+    <string name="files_folder_upload_failed">That folder couldn’t be read.</string>
+
+    <string name="files_menu_offline">Available offline</string>
+    <string name="files_menu_offline_remove">Remove from offline</string>
+    <string name="files_menu_unfavorite">Remove from favorites</string>
+    <string name="files_menu_details">Details</string>
+    <string name="files_trashed">Moved “%1$s” to the trash</string>
+    <plurals name="files_trashed_many">
+        <item quantity="one">Moved %1$s item to the trash</item>
+        <item quantity="other">Moved %1$s items to the trash</item>
+    </plurals>
+    <string name="files_moved">Moved to “%1$s”</string>
+    <plurals name="files_moved_many">
+        <item quantity="one">Moved %1$s item to “%2$s”</item>
+        <item quantity="other">Moved %1$s items to “%2$s”</item>
+    </plurals>
+    <string name="files_renamed">Renamed to “%1$s”</string>
+    <string name="files_pinned">“%1$s” will be available offline</string>
+    <string name="files_unpinned">“%1$s” is no longer kept offline</string>
+    <string name="files_favorited">Added “%1$s” to favorites</string>
+
+    <string name="files_rename_title">Rename</string>
+    <string name="files_rename_label">New name</string>
+    <string name="files_rename_failed">Couldn’t rename. Try again.</string>
+
+    <string name="files_move_title">Move to…</string>
+    <string name="files_move_here">Move here</string>
+    <string name="files_move_search">Search folders</string>
+    <string name="files_move_recent">Recent</string>
+    <string name="files_move_no_folders">No folders here.</string>
+    <string name="files_move_into_self">A folder can’t be moved into itself.</string>
+    <string name="files_move_failed">Couldn’t move. Try again.</string>
+    <string name="files_move_open">Open “%1$s”</string>
+
+    <string name="files_details_title">Details</string>
+    <string name="files_details_kind">Type</string>
+    <string name="files_details_size">Size</string>
+    <string name="files_details_modified">Modified</string>
+    <string name="files_details_taken">Photo date</string>
+    <string name="files_details_location">Location</string>
+    <string name="files_details_state">Status</string>
+    <string name="files_details_offline">Offline</string>
+    <string name="files_state_remote">Saved in your cloud</string>
+    <string name="files_state_local_only">Only on this phone for now</string>
+    <string name="files_state_uploading">Uploading to your cloud</string>
+    <string name="files_state_failed">Couldn’t upload; will retry on its own</string>
+    <string name="files_state_offline_on">Kept on this phone so it opens offline</string>
+    <string name="files_state_offline_off">Downloaded when you open it</string>
+
+    <string name="files_disclosure_title">Before you continue</string>
+    <string name="files_disclosure_continue">Continue</string>
+    <string name="files_preparing">Decrypting “%1$s”…</string>
+    <string name="files_open_with_none">There’s no app to open this file.</string>
+    <string name="files_offline_title">Not available offline</string>
+    <string name="files_offline_body">“%1$s” isn’t saved on this phone. Mark it “Available offline” to open it anywhere.</string>
+    <string name="files_open_failed">The file couldn’t be opened. Try again.</string>
+    <string name="files_saved_to_phone">Saved “%1$s” to the phone</string>
+    <string name="files_save_failed">Couldn’t save to the phone.</string>
+
+    <string name="files_telegram_title">Send via Telegram</string>
+    <string name="files_telegram_search">Search chats</string>
+    <string name="files_telegram_empty">No chats found.</string>
+    <string name="files_telegram_failed">Couldn’t send. Try again.</string>
+    <string name="files_telegram_sent">Sent to “%1$s”</string>
+    <string name="files_telegram_unavailable">Connect your Telegram to send files.</string>
+
+    <plurals name="files_upload_title">
+        <item quantity="one">Uploading %1$s file</item>
+        <item quantity="other">Uploading %1$s files</item>
+    </plurals>
+    <plurals name="files_upload_done">
+        <item quantity="one">Added %1$s file</item>
+        <item quantity="other">Added %1$s files</item>
+    </plurals>
+    <plurals name="files_upload_failed">
+        <item quantity="one">%1$s file couldn’t be added</item>
+        <item quantity="other">%1$s files couldn’t be added</item>
+    </plurals>
+    <string name="files_upload_summary">%1$s · %2$s</string>
+    <string name="files_upload_pause">Pause</string>
+    <string name="files_upload_resume">Resume</string>
+    <string name="files_upload_paused">Paused. It resumes whenever you want.</string>
+    <string name="files_upload_expand">Show files</string>
+    <string name="files_upload_collapse">Hide files</string>
+    <string name="files_upload_dismiss">Hide</string>
+    <string name="files_upload_row_queued">Waiting</string>
+    <string name="files_upload_row_copying">Copying…</string>
+    <string name="files_upload_row_done">Done</string>
+    <string name="files_upload_row_duplicate">Already in your cloud</string>
+    <string name="files_upload_row_failed">Couldn’t be read. Share it again.</string>
+
+    <string name="files_pdf_failed">This PDF couldn’t be opened.</string>
+    <string name="files_pdf_page_counter">Page %1$s of %2$s</string>
+    <string name="files_pdf_pages">Pages</string>
+    <string name="files_pdf_go_to_page">Go to page %1$s</string>
+    <string name="files_pdf_search">Search in the document</string>
+    <string name="files_pdf_search_close">Close search</string>
+    <string name="files_pdf_match_position">%1$s of %2$s</string>
+    <string name="files_pdf_no_matches">No matches</string>
+    <string name="files_pdf_next">Next match</string>
+    <string name="files_pdf_previous">Previous match</string>
+
+    <string name="files_text_loading">Opening…</string>
+    <string name="files_text_monospace">Monospace</string>
+    <string name="files_text_too_large">It’s too large to view here. Open it with another app.</string>
+
+    <string name="files_audio_play">Play</string>
+    <string name="files_audio_pause">Pause</string>
+    <string name="files_audio_close">Close the player</string>
+    <string name="files_audio_failed">“%1$s” couldn’t be played.</string>
+    <string name="files_audio_position">%1$s of %2$s</string>
+
+    <string name="files_tree_title">Folders</string>
+    <string name="files_tree_expand">Show subfolders of “%1$s”</string>
+    <string name="files_tree_collapse">Hide subfolders of “%1$s”</string>
+    <string name="files_drop_here">Drop to upload here</string>
+</resources>

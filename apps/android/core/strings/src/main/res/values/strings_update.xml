@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- core/update (agent 42a): in-app updater card and the Ajustes › Acerca de row (product/android.md §2). -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="es">
+    <string name="update_available_title">Hay una versión nueva</string>
+    <string name="update_available_body">Bento %1$s está lista para descargar (%2$s). Tus fotos y archivos no cambian.</string>
+    <string name="update_download">Descargar</string>
+    <string name="update_not_now">Ahora no</string>
+    <string name="update_downloading_title">Descargando Bento %1$s</string>
+    <string name="update_downloading_body">Puedes seguir usando Bento mientras tanto.</string>
+    <string name="update_downloading_label">Descarga de la actualización</string>
+    <string name="update_cancel">Cancelar</string>
+    <string name="update_ready_title">Lista para instalar</string>
+    <string name="update_ready_body">Bento %1$s se descargó y se verificó. Android te pedirá confirmar la instalación.</string>
+    <string name="update_cancelled_body">Bento %1$s no se instaló. Puedes instalarla cuando quieras.</string>
+    <string name="update_install">Instalar</string>
+    <string name="update_permission_title">Permite instalar la actualización</string>
+    <string name="update_permission_body">Android necesita que permitas a Bento instalar apps. Actívalo en Ajustes y vuelve aquí.</string>
+    <string name="update_permission_action">Abrir Ajustes</string>
+    <string name="update_installing_title">Instalando Bento %1$s</string>
+    <string name="update_installing_body">Confirma la instalación en la ventana de Android.</string>
+    <string name="update_failed_title">No se pudo actualizar</string>
+    <string name="update_retry">Reintentar</string>
+    <string name="update_failed_network">No hay conexión. Lo intentaremos de nuevo más tarde.</string>
+    <string name="update_failed_signature">No se pudo verificar la firma de la actualización, así que no se descargó. Tu versión actual sigue intacta.</string>
+    <string name="update_failed_manifest">La información de la actualización no es válida, así que no se descargó. Tu versión actual sigue intacta.</string>
+    <string name="update_failed_incompatible">Esta versión necesita una versión de Android más reciente.</string>
+    <string name="update_failed_checksum">El archivo descargado no coincide con la versión firmada y se borró.</string>
+    <string name="update_failed_signer">La actualización no está firmada por Bento y se borró.</string>
+    <string name="update_failed_storage">No hay espacio suficiente en el teléfono para la actualización.</string>
+    <string name="update_failed_install">Android no pudo instalar la actualización.</string>
+
+    <string name="update_row_title">Actualizaciones</string>
+    <string name="update_row_unavailable">Esta compilación no busca actualizaciones</string>
+    <string name="update_row_check">Buscar actualizaciones</string>
+    <string name="update_row_checking">Buscando actualizaciones…</string>
+    <string name="update_row_up_to_date">Tienes la versión más reciente</string>
+    <string name="update_row_available">Hay una versión nueva: %1$s</string>
+    <string name="update_row_downloading">Descargando %1$s · %2$s</string>
+    <string name="update_row_downloading_unknown">Descargando %1$s…</string>
+    <string name="update_row_ready">Bento %1$s está lista para instalar</string>
+    <string name="update_row_installing">Esperando tu confirmación</string>
+    <string name="update_row_version">Versión %1$s</string>
+</resources>

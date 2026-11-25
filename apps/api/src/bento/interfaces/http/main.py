@@ -8,7 +8,7 @@ from bento.adapters.sync import configure_change_capture
 from bento.infrastructure.settings import Settings, get_settings, settings_database_path
 from bento.interfaces.desktop.routes import router as desktop_router
 from bento.interfaces.desktop.security import DesktopSecurityConfig, DesktopSecurityMiddleware
-from bento.interfaces.http.request_guard import LocalRequestGuard, allowed_hosts_from_environ
+from bento.interfaces.http.request_guard import LocalRequestGuard, allowed_hosts_from_environ, api_token_from_environ
 from bento.interfaces.http.routes import router
 
 
@@ -16,10 +16,15 @@ def create_app(
     settings: Settings | None = None,
     *,
     desktop_environ: Mapping[str, str] | None = None,
+    guard_environ: Mapping[str, str] | None = None,
+    openapi: bool = True,
 ) -> FastAPI:
+    """`guard_environ` replaces `os.environ` for the headless request guard (embedded hosts pass their own
+    configuration); `openapi=False` serves no schema or docs (the schema is exported at build time)."""
     resolved_settings = settings or get_settings()
     configure_change_capture(resolved_settings.storage_backend != "local")
-    app = FastAPI(title=resolved_settings.app_name, version=resolved_settings.app_version)
+    schema = {} if openapi else {"openapi_url": None, "docs_url": None, "redoc_url": None}
+    app = FastAPI(title=resolved_settings.app_name, version=resolved_settings.app_version, **schema)
     app.state.settings = resolved_settings
     app.state.settings_database_path = settings_database_path(resolved_settings)
 
@@ -31,7 +36,12 @@ def create_app(
         app.add_middleware(DesktopSecurityMiddleware, config=security)
     else:
         # Inside CORS, so the web client can still read these rejections.
-        app.add_middleware(LocalRequestGuard, allowed_hosts=allowed_hosts_from_environ(os.environ))
+        guard = os.environ if guard_environ is None else guard_environ
+        app.add_middleware(
+            LocalRequestGuard,
+            allowed_hosts=allowed_hosts_from_environ(guard),
+            api_token=api_token_from_environ(guard),
+        )
 
     app.add_middleware(
         CORSMiddleware,
@@ -45,7 +55,12 @@ def create_app(
     return app
 
 
-app = create_app()
+def __getattr__(name: str) -> FastAPI:
+    # `uvicorn bento.interfaces.http.main:app` keeps working, but importing this module no longer builds an app
+    # (and reads settings) as a side effect.
+    if name == "app":
+        return create_app()
+    raise AttributeError(name)
 
 
 def main() -> None:

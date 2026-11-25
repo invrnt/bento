@@ -14,15 +14,15 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, TextIO
 
-from alembic import command
-from alembic.config import Config
-from sqlalchemy.engine import URL
-
 from bento.adapters.security.key_store import WRAPPING_KEY_ENV
-from bento.infrastructure import process_secrets
+from bento.infrastructure import parent_watch, process_secrets
 from bento.infrastructure.child_processes import resolve_executable
-from bento.infrastructure.settings import Settings, get_settings, settings_database_path
-from bento.interfaces.desktop.security import TOKEN_ENV
+from bento.infrastructure.db.migrate import DATA_DIR_LAYOUT, bundle_root, run_migrations
+from bento.infrastructure.loopback import LOOPBACK_HOSTS as _LOOPBACK_HOSTS
+from bento.infrastructure.loopback import bind_loopback_listener
+from bento.infrastructure.settings import Settings, get_settings
+from bento.interfaces.desktop.security import CLI_TOKEN_ENV, TOKEN_ENV
+from bento.interfaces.http.request_guard import API_TOKEN_ENV
 
 if TYPE_CHECKING:
     import uvicorn
@@ -31,17 +31,17 @@ if TYPE_CHECKING:
 # written once the server accepts connections on the loopback socket it bound itself.
 READY_PREFIX = "BENTO_API_READY "
 
-# Same layout `make setup` creates (see scripts/doctor), so `make doctor` accepts launcher-created data directories.
-DATA_DIR_LAYOUT = ("db", "cache", "uploads", "models", "journal", "config")
-_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1"})
-_LISTEN_BACKLOG = 2048
+__all__ = ["DATA_DIR_LAYOUT", "READY_PREFIX", "announce_ready", "bind_loopback_listener", "main"]
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     multiprocessing.freeze_support()
     # Before anything else runs: per-launch secrets must not stay where child processes inherit them.
-    process_secrets.adopt_environment_secrets((TOKEN_ENV, WRAPPING_KEY_ENV))
+    process_secrets.adopt_environment_secrets((TOKEN_ENV, CLI_TOKEN_ENV, API_TOKEN_ENV, WRAPPING_KEY_ENV))
     arguments = _parser().parse_args(argv)
+    if arguments.command in ("api", "worker"):
+        # Long-running sidecars must not outlive the desktop host (crash, kill, lost session).
+        parent_watch.start_parent_watch()
     if arguments.command == "api":
         return _run_api(arguments)
     if arguments.command == "worker":
@@ -50,6 +50,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_migrations()
     if arguments.command == "probe":
         return _run_probe(arguments)
+    if arguments.command == "fake-telegram-serve":
+        return _run_fake_telegram_serve(arguments)
     raise AssertionError(f"Unhandled command: {arguments.command}")
 
 
@@ -60,6 +62,11 @@ def _parser() -> argparse.ArgumentParser:
     api = subparsers.add_parser("api", help="run the local Bento API")
     api.add_argument("--host", help=argparse.SUPPRESS)
     api.add_argument("--port", type=int, help="headless only; the desktop API always binds an OS-assigned port")
+    api.add_argument(
+        "--ephemeral",
+        action="store_true",
+        help="headless only: bind an OS-assigned loopback port and print BENTO_API_READY {\"port\":N}",
+    )
     subparsers.add_parser("worker", help="run the Bento background worker")
     subparsers.add_parser("migrate", help="upgrade the local database schema")
 
@@ -69,6 +76,13 @@ def _parser() -> argparse.ArgumentParser:
         choices=("runtime", "writable-directory", "model-file", "ffmpeg", "ocr", "telegram"),
     )
     probe.add_argument("--path")
+
+    fake = subparsers.add_parser(
+        "fake-telegram-serve", help="development only: serve a fake Telegram cloud directory over HTTP"
+    )
+    fake.add_argument("--dir", required=True, help="fake cloud directory (shared with local processes)")
+    fake.add_argument("--port", type=int, default=0, help="TCP port (0: OS-assigned, printed on stdout)")
+    fake.add_argument("--host", default="127.0.0.1", help="bind address (an emulator reaches the host as 10.0.2.2)")
     return parser
 
 
@@ -84,6 +98,13 @@ def _run_api(arguments: argparse.Namespace) -> int:
             raise SystemExit("desktop API must bind to an explicit loopback address")
         if arguments.port is not None:
             raise SystemExit("desktop API binds an ephemeral port chosen by the operating system")
+        _serve_desktop_api(create_app(settings), host)
+        return 0
+    if arguments.ephemeral:
+        if arguments.port is not None:
+            raise SystemExit("--ephemeral binds a port chosen by the operating system; do not pass --port")
+        if host not in _LOOPBACK_HOSTS:
+            raise SystemExit("--ephemeral API must bind to an explicit loopback address")
         _serve_desktop_api(create_app(settings), host)
         return 0
     port = arguments.port if arguments.port is not None else settings.api_port
@@ -112,23 +133,6 @@ def _serve_desktop_api(app: object, host: str) -> None:
         raise SystemExit(3)
 
 
-def bind_loopback_listener(host: str) -> socket.socket:
-    if host not in _LOOPBACK_HOSTS:
-        raise ValueError("Only loopback listeners are allowed")
-    listener = socket.socket(socket.AF_INET6 if ":" in host else socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        exclusive = getattr(socket, "SO_EXCLUSIVEADDRUSE", None)
-        if exclusive is not None:
-            # Windows: forbid any other socket from binding the same address and port.
-            listener.setsockopt(socket.SOL_SOCKET, exclusive, 1)
-        listener.bind((host, 0))
-        listener.listen(_LISTEN_BACKLOG)
-    except BaseException:
-        listener.close()
-        raise
-    return listener
-
-
 def announce_ready(port: int, stream: TextIO | None = None) -> None:
     target = sys.stdout if stream is None else stream
     target.write(f"{READY_PREFIX}{json.dumps({'port': port}, separators=(',', ':'))}\n")
@@ -155,18 +159,24 @@ def _run_worker() -> int:
 
 
 def _run_migrations() -> int:
-    settings = get_settings()
-    database_path = settings_database_path(settings)
-    database_path.parent.mkdir(parents=True, exist_ok=True)
-    for child in DATA_DIR_LAYOUT:
-        (Path(settings.data_dir) / child).mkdir(parents=True, exist_ok=True)
-    config = Config(str(_bundle_root() / "alembic.ini"))
-    config.set_main_option("script_location", str(_bundle_root() / "migrations"))
-    config.set_main_option(
-        "sqlalchemy.url",
-        URL.create("sqlite+pysqlite", database=str(database_path)).render_as_string(hide_password=False),
-    )
-    command.upgrade(config, "head")
+    run_migrations(get_settings(), migrations_dir=_bundle_root() / "migrations")
+    return 0
+
+
+def _run_fake_telegram_serve(arguments: argparse.Namespace) -> int:
+    if os.environ.get("ENVIRONMENT", "local") == "production":
+        raise SystemExit("fake-telegram-serve is not available in production")
+    if not 0 <= arguments.port <= 65535:
+        raise SystemExit("port must be between 0 and 65535")
+    from bento.adapters.fake_telegram.remote import serve
+
+    def ready(port: int) -> None:
+        print(f"BENTO_FAKE_TELEGRAM_READY {json.dumps({'port': port}, separators=(',', ':'))}", flush=True)
+
+    try:
+        serve(Path(arguments.dir).expanduser(), host=arguments.host, port=arguments.port, on_ready=ready)
+    except KeyboardInterrupt:
+        pass
     return 0
 
 
@@ -248,10 +258,7 @@ def _failed(probe: str, code: str) -> dict[str, str]:
 
 
 def _bundle_root() -> Path:
-    frozen_root = getattr(sys, "_MEIPASS", None)
-    if frozen_root is not None:
-        return Path(frozen_root)
-    return Path(__file__).resolve().parents[4]
+    return bundle_root()
 
 
 if __name__ == "__main__":

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- BentoLoader as an animated vector (brand.md §3): splash icon animation and AnimatedImageVector source.
+     Geometry matches BrandMark on a 32-unit grid, centered in the 108 dp splash/adaptive canvas. -->
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt">
+    <aapt:attr name="android:drawable">
+        <vector android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+            <group android:translateX="30" android:translateY="30" android:scaleX="1.5" android:scaleY="1.5">
+                <path android:pathData="M9.5,1.75 H22.5 A7.75,7.75 0 0 1 30.25,9.5 V22.5 A7.75,7.75 0 0 1 22.5,30.25 H9.5 A7.75,7.75 0 0 1 1.75,22.5 V9.5 A7.75,7.75 0 0 1 9.5,1.75 Z" android:strokeColor="@color/bento_line_strong" android:strokeWidth="1.5" />
+                <path android:name="tall" android:pathData="M8,5 H11.5 A3.5,3.5 0 0 1 15,8.5 V23.5 A3.5,3.5 0 0 1 11.5,27 H8 A3.5,3.5 0 0 1 4.5,23.5 V8.5 A3.5,3.5 0 0 1 8,5 Z" android:fillColor="@color/bento_ink_subtle" android:fillAlpha="0.25" />
+                <path android:name="top" android:pathData="M20.5,5 H24 A3.5,3.5 0 0 1 27.5,8.5 V11.5 A3.5,3.5 0 0 1 24,15 H20.5 A3.5,3.5 0 0 1 17,11.5 V8.5 A3.5,3.5 0 0 1 20.5,5 Z" android:fillColor="@color/bento_ink_subtle" android:fillAlpha="0.25" />
+                <path android:name="bottom" android:pathData="M20.5,17 H24 A3.5,3.5 0 0 1 27.5,20.5 V23.5 A3.5,3.5 0 0 1 24,27 H20.5 A3.5,3.5 0 0 1 17,23.5 V20.5 A3.5,3.5 0 0 1 20.5,17 Z" android:fillColor="@color/bento_ink_subtle" android:fillAlpha="0.25" />
+                <path android:name="ume" android:pathData="M19.5,22 A2.75,2.75 0 1 0 25,22 A2.75,2.75 0 1 0 19.5,22 Z" android:fillColor="@color/bento_shu" android:fillAlpha="0.25" />
+            </group>
+        </vector>
+    </aapt:attr>
+    <target android:name="tall">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:duration="1400" android:repeatCount="infinite" android:repeatMode="restart" android:interpolator="@android:interpolator/linear">
+                <propertyValuesHolder android:propertyName="fillAlpha">
+                    <keyframe android:fraction="0.0000" android:value="0.2500" />
+                    <keyframe android:fraction="0.3500" android:value="1.0000" />
+                    <keyframe android:fraction="1.0000" android:value="0.2500" />
+                </propertyValuesHolder>
+            </objectAnimator>
+        </aapt:attr>
+    </target>
+    <target android:name="top">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:duration="1400" android:repeatCount="infinite" android:repeatMode="restart" android:interpolator="@android:interpolator/linear">
+                <propertyValuesHolder android:propertyName="fillAlpha">
+                    <keyframe android:fraction="0.0000" android:value="0.3984" />
+                    <keyframe android:fraction="0.1286" android:value="0.2500" />
+                    <keyframe android:fraction="0.4786" android:value="1.0000" />
+                    <keyframe android:fraction="1.0000" android:value="0.3984" />
+                </propertyValuesHolder>
+            </objectAnimator>
+        </aapt:attr>
+    </target>
+    <target android:name="bottom">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:duration="1400" android:repeatCount="infinite" android:repeatMode="restart" android:interpolator="@android:interpolator/linear">
+                <propertyValuesHolder android:propertyName="fillAlpha">
+                    <keyframe android:fraction="0.0000" android:value="0.5467" />
+                    <keyframe android:fraction="0.2571" android:value="0.2500" />
+                    <keyframe android:fraction="0.6071" android:value="1.0000" />
+                    <keyframe android:fraction="1.0000" android:value="0.5467" />
+                </propertyValuesHolder>
+            </objectAnimator>
+        </aapt:attr>
+    </target>
+    <target android:name="ume">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:duration="1400" android:repeatCount="infinite" android:repeatMode="restart" android:interpolator="@android:interpolator/linear">
+                <propertyValuesHolder android:propertyName="fillAlpha">
+                    <keyframe android:fraction="0.0000" android:value="0.6951" />
+                    <keyframe android:fraction="0.3857" android:value="0.2500" />
+                    <keyframe android:fraction="0.3857" android:value="0.2500" />
+                    <keyframe android:fraction="0.7357" android:value="1.0000" />
+                    <keyframe android:fraction="1.0000" android:value="0.6951" />
+                </propertyValuesHolder>
+            </objectAnimator>
+        </aapt:attr>
+    </target>
+</animated-vector>

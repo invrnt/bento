@@ -77,6 +77,8 @@ describe("authenticated sidecar lifecycle", () => {
       DATA_DIR: "/tmp/bento-test-data",
       BENTO_DESKTOP_ORIGIN: BENTO_ORIGIN,
     });
+    // Every sidecar learns the host PID so it can stop itself if the host dies.
+    for (const launch of launches) expect(launch.env.BENTO_PARENT_PID).toBe(String(process.pid));
     expect(launches[1]?.env).not.toHaveProperty("API_PORT");
     expect(Object.values(launches[1]!.env)).not.toContain("legacy-secret");
     expect(launches[1]?.env.BENTO_DESKTOP_API_TOKEN).toBe("unguessable-per-launch-token-1234567890");
@@ -410,7 +412,11 @@ describe("authenticated sidecar lifecycle", () => {
     await vi.waitFor(() => expect(supervisor.status.state).toBe("ready"));
     const tokens = launches.filter((launch) => launch.command === "api").map((launch) => launch.env.BENTO_DESKTOP_API_TOKEN);
     expect(new Set(tokens).size).toBe(2);
-    expect(supervisor.redactionValues()).toEqual(tokens);
+    // Each launch also issues a CLI token; every issued token is redacted.
+    const apiLaunches = launches.filter((launch) => launch.command === "api");
+    const issuedTokens = apiLaunches.flatMap((launch) => [launch.env.BENTO_DESKTOP_API_TOKEN, launch.env.BENTO_DESKTOP_CLI_TOKEN]);
+    expect(new Set(issuedTokens).size).toBe(4);
+    expect(supervisor.redactionValues()).toEqual(issuedTokens);
   });
 
   it("redacts sidecar output line by line, even when a secret is split across chunks", async () => {
@@ -482,5 +488,72 @@ describe("authenticated sidecar lifecycle", () => {
     } finally {
       for (const key of Object.keys(inherited)) delete process.env[key];
     }
+  });
+
+  it("issues a separate per-launch CLI token to the API only and announces the endpoint while ready", async () => {
+    let counter = 0;
+    const launches: Array<{ command: string; args: string[]; child: FakeChild; env: NodeJS.ProcessEnv }> = [];
+    const lines: string[] = [];
+    const supervisor: SidecarSupervisor = new SidecarSupervisor({
+      command: { executable: "bento-sidecar", prefixArguments: [] },
+      dataDir: "/tmp/bento-test-data",
+      randomToken: () => `per-launch-token-${String(++counter).padStart(2, "0")}-abcdefghijklmnopqrstuvwxyz`,
+      fetch: async () => jsonResponse({ status: "ready" }),
+      delay: async () => undefined,
+      log: new RedactingLog((line) => lines.push(line), () => supervisor.redactionValues()),
+      spawnProcess: (_executable, arguments_, options) => {
+        const child = new FakeChild();
+        const command = arguments_[0] ?? "";
+        launches.push({ command, args: arguments_.slice(1), child, env: options.env });
+        sidecarBehaviour(command, child);
+        return child;
+      },
+    });
+    const endpoints: unknown[] = [];
+    supervisor.on("api-endpoint", (endpoint) => endpoints.push(endpoint));
+    process.env.BENTO_DESKTOP_CLI_TOKEN = "inherited-cli-token-000000000000000000";
+    try {
+      await supervisor.start();
+    } finally {
+      delete process.env.BENTO_DESKTOP_CLI_TOKEN;
+    }
+    const api = launches.find((launch) => launch.command === "api")!;
+    const cliToken = api.env.BENTO_DESKTOP_CLI_TOKEN!;
+    expect(cliToken.length).toBeGreaterThanOrEqual(32);
+    expect(cliToken).not.toBe(api.env.BENTO_DESKTOP_API_TOKEN);
+    for (const launch of launches.filter((candidate) => candidate.command !== "api")) {
+      expect(launch.env).not.toHaveProperty("BENTO_DESKTOP_CLI_TOKEN");
+    }
+    expect(api.args.join(" ")).not.toContain(cliToken);
+    expect(supervisor.apiEndpoint).toEqual({ port: API_PORT, cliToken });
+    expect(endpoints).toEqual([{ port: API_PORT, cliToken }]);
+    expect(supervisor.redactionValues()).toContain(cliToken);
+
+    api.child.stdout.write(`diagnostic ${cliToken}\n`);
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(lines.some((line) => line.includes("diagnostic"))).toBe(true);
+    expect(lines.join("\n")).not.toContain(cliToken);
+
+    await supervisor.restart(["api"]);
+    const restarted = launches.filter((launch) => launch.command === "api")[1]!;
+    const nextToken = restarted.env.BENTO_DESKTOP_CLI_TOKEN!;
+    expect(nextToken).not.toBe(cliToken);
+    expect(endpoints).toEqual([{ port: API_PORT, cliToken }, null, { port: API_PORT, cliToken: nextToken }]);
+
+    await supervisor.stop();
+    expect(supervisor.apiEndpoint).toBeNull();
+    expect(endpoints.at(-1)).toBeNull();
+  });
+
+  it("withdraws the CLI endpoint as soon as the API crashes", async () => {
+    const { launches, supervisor } = setup();
+    const endpoints: unknown[] = [];
+    supervisor.on("api-endpoint", (endpoint) => endpoints.push(endpoint));
+    await supervisor.start();
+    launches[1]!.child.exit(1);
+    expect(endpoints).toHaveLength(2);
+    expect(endpoints[1]).toBeNull();
+    expect(supervisor.apiEndpoint).toBeNull();
+    await supervisor.stop();
   });
 });

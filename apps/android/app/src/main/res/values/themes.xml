@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Launch window: token tray background and the BentoLoader animation, then Theme.Bento. -->
+    <style name="Theme.Bento.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/bento_tray</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/avd_bento_loader</item>
+        <item name="postSplashScreenTheme">@style/Theme.Bento</item>
+    </style>
+</resources>

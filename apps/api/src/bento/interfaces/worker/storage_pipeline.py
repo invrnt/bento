@@ -53,7 +53,8 @@ class StoragePipelineJobHandler:
             if result.deferred:
                 raise StorageUnavailableError(StorageBackend.TELEGRAM.value)
         elif job.type == JobType.CACHE_EVICT:
-            await self.components.cache.evict(max_bytes=self.components.cache_max_bytes)
+            low_storage = bool(job.payload.get("low_storage"))
+            await self.components.cache.evict(max_bytes=0 if low_storage else self.components.cache_max_bytes)
         else:
             raise RuntimeError(f"No storage pipeline handler for {job.type.value}")
 

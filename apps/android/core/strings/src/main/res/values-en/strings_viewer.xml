@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Visor (feature/viewer, agent 39): photo and video viewer, info sheet, actions. -->
+<resources>
+    <string name="viewer_position">%1$s of %2$s</string>
+    <string name="viewer_info">Details</string>
+    <string name="viewer_info_name">Name</string>
+    <string name="viewer_info_edit_name">Edit name</string>
+    <string name="viewer_info_size">Size</string>
+    <string name="viewer_info_dimensions">%1$s × %2$s · %3$s\u00A0MP</string>
+    <string name="viewer_info_duration">Length %1$s</string>
+    <string name="viewer_info_camera">Camera</string>
+    <string name="viewer_info_location">Location</string>
+    <string name="viewer_info_open_maps">Open in Maps</string>
+    <string name="viewer_info_folder">Folder</string>
+    <string name="viewer_info_folder_open">Open folder</string>
+    <string name="viewer_info_albums">Albums</string>
+    <string name="viewer_info_storage">Where it is</string>
+    <string name="viewer_storage_remote">In your cloud · encrypted</string>
+    <string name="viewer_storage_local">On this phone · will upload on Wi-Fi</string>
+    <string name="viewer_storage_uploading">Uploading…</string>
+    <string name="viewer_storage_failed">Upload failed · see activity</string>
+    <string name="viewer_info_offline">Offline use</string>
+    <string name="viewer_availability_pinned">Available offline</string>
+    <string name="viewer_availability_on_device">Opens offline: it is on this phone</string>
+    <string name="viewer_availability_online">The original needs a connection</string>
+    <string name="viewer_info_taken">Date</string>
+    <string name="viewer_action_use_as">Use as…</string>
+    <string name="viewer_action_details">Details</string>
+    <string name="viewer_action_offline">Available offline</string>
+    <string name="viewer_action_offline_off">Remove from offline</string>
+    <string name="viewer_action_speed">Playback speed</string>
+    <string name="viewer_speed_normal">Normal</string>
+    <string name="viewer_offline_title">You need a connection to see the original</string>
+    <string name="viewer_offline_hint">Turn on “Available offline” to see it next time.</string>
+    <string name="viewer_offline_saved">It’ll be available offline</string>
+    <string name="viewer_error_open">This item couldn’t be opened.</string>
+    <string name="viewer_rename_title">Rename</string>
+    <string name="viewer_play">Play</string>
+    <string name="viewer_pause">Pause</string>
+    <string name="viewer_mute">Mute</string>
+    <string name="viewer_unmute">Unmute</string>
+    <string name="viewer_pip">Picture-in-picture</string>
+    <string name="viewer_seek">Playback position</string>
+    <string name="viewer_seek_back">Back 10 seconds</string>
+    <string name="viewer_seek_forward">Forward 10 seconds</string>
+    <string name="viewer_chooser_open_with">Open with</string>
+    <string name="viewer_chooser_use_as">Use as</string>
+    <string name="viewer_chooser_share">Share</string>
+    <string name="viewer_controls_show">Show controls</string>
+    <string name="viewer_controls_hide">Hide controls</string>
+    <string name="viewer_close">Close viewer</string>
+    <string name="viewer_open_activity">See activity</string>
+    <string name="viewer_loading_original">Loading the original…</string>
+</resources>

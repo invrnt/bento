@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug-only developer tools; not part of the product dictionary. -->
+<resources>
+    <string name="debug_kitchen_sink" translatable="false">Kitchen sink</string>
+</resources>

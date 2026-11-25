@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="common_action_undo">Undo</string>
+    <string name="common_action_retry">Retry</string>
+    <string name="common_action_cancel">Cancel</string>
+    <string name="common_action_close">Close</string>
+    <string name="common_action_save">Save</string>
+    <string name="common_action_continue">Continue</string>
+    <string name="common_action_back">Back</string>
+    <string name="common_action_delete">Delete</string>
+    <string name="common_action_delete_forever">Delete forever</string>
+    <string name="common_action_share">Share</string>
+    <string name="common_action_select">Select</string>
+    <string name="common_action_select_all">Select all</string>
+    <string name="common_action_rename">Rename</string>
+    <string name="common_action_move">Move</string>
+    <string name="common_action_download">Download to phone</string>
+    <string name="common_action_save_to_phone">Save to phone</string>
+    <string name="common_action_send_telegram">Send via Telegram…</string>
+    <string name="common_action_open_with">Open with…</string>
+    <string name="common_action_add_to_album">Add to album</string>
+    <string name="common_action_favorite">Favorite</string>
+    <string name="common_action_copy">Copy</string>
+    <string name="common_action_pause_backup">Pause backup</string>
+    <string name="common_action_resume">Resume</string>
+    <string name="common_action_reconnect">Reconnect</string>
+    <string name="common_action_free_space">Free up space</string>
+    <string name="common_action_review">Review</string>
+    <string name="common_action_new">New</string>
+    <string name="common_action_search_bento">Search Bento</string>
+
+    <string name="common_state_loading">Loading…</string>
+    <string name="common_state_saving">Saving…</string>
+    <string name="common_state_uploading">Uploading…</string>
+    <string name="common_state_all_synced">All up to date</string>
+    <string name="common_state_offline">Offline. It will resume on its own.</string>
+    <string name="common_state_paused">Backup paused</string>
+
+    <string name="common_error_title">The action couldn’t be completed</string>
+    <string name="common_error_generic">The action couldn’t be completed. Try again.</string>
+    <string name="common_error_network">No connection. We’ll try again when it’s back.</string>
+    <string name="common_error_flood_wait">Telegram asked to wait %1$s.</string>
+    <string name="common_error_storage_full">Your phone is out of space. Free up space to continue.</string>
+    <string name="common_error_session_revoked">Bento was disconnected from Telegram.</string>
+
+    <string name="common_unit_bytes">%1$s\u00A0B</string>
+    <string name="common_unit_kilobytes">%1$s\u00A0KB</string>
+    <string name="common_unit_megabytes">%1$s\u00A0MB</string>
+    <string name="common_unit_gigabytes">%1$s\u00A0GB</string>
+    <string name="common_unit_terabytes">%1$s\u00A0TB</string>
+    <string name="common_metadata_pair">%1$s · %2$s</string>
+    <string name="common_label_value">%1$s: %2$s</string>
+    <string name="common_unit_progress_of">%1$s of %2$s</string>
+
+    <plurals name="common_count_files">
+        <item quantity="one">%1$s file</item>
+        <item quantity="other">%1$s files</item>
+    </plurals>
+    <plurals name="common_count_photos">
+        <item quantity="one">%1$s photo</item>
+        <item quantity="other">%1$s photos</item>
+    </plurals>
+    <plurals name="common_count_selected">
+        <item quantity="one">%1$s selected</item>
+        <item quantity="other">%1$s selected</item>
+    </plurals>
+    <plurals name="common_count_devices">
+        <item quantity="one">%1$s device</item>
+        <item quantity="other">%1$s devices</item>
+    </plurals>
+    <plurals name="common_duration_minutes">
+        <item quantity="one">%1$s minute</item>
+        <item quantity="other">%1$s minutes</item>
+    </plurals>
+    <plurals name="common_duration_seconds">
+        <item quantity="one">%1$s second</item>
+        <item quantity="other">%1$s seconds</item>
+    </plurals>
+
+    <string name="common_plaintext_share">An unencrypted copy will be shared.</string>
+    <string name="common_plaintext_telegram">Telegram will receive an unencrypted copy in that chat.</string>
+    <string name="common_plaintext_open_with">The other app will receive an unencrypted copy.</string>
+    <string name="common_plaintext_save_to_phone">An unencrypted copy will be saved on your phone, outside Bento.</string>
+    <string name="common_plaintext_dont_show_again">Don’t show again</string>
+
+    <string name="common_telegram_connect">Connect your Telegram account</string>
+    <string name="common_telegram_api_notice">Bento uses the Telegram API and is not affiliated with Telegram.</string>
+    <string name="common_telegram_continue">Continue with Telegram</string>
+</resources>

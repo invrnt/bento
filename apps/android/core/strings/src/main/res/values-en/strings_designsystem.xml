@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ds_loading">Loading…</string>
+    <string name="ds_password_show">Show password</string>
+    <string name="ds_password_hide">Hide password</string>
+    <string name="ds_more_options">More options</string>
+    <string name="ds_dismiss">Dismiss</string>
+    <string name="ds_clear_selection">Clear selection</string>
+    <string name="ds_sheet_handle">Drag to resize or close</string>
+    <string name="ds_sas_label">Verification emojis: %1$s</string>
+    <string name="ds_qr_label">QR code</string>
+    <string name="ds_favorite_add">Add to favorites</string>
+    <string name="ds_favorite_remove">Remove from favorites</string>
+    <plurals name="ds_code_progress">
+        <item quantity="one">%1$d of %2$d character</item>
+        <item quantity="other">%1$d of %2$d characters</item>
+    </plurals>
+    <string name="ds_code_complete">Code complete</string>
+    <string name="ds_avatar_label">Account and activity for %1$s. %2$s</string>
+    <string name="ds_avatar_idle">All up to date</string>
+    <string name="ds_avatar_syncing">Syncing</string>
+    <string name="ds_avatar_syncing_progress">Syncing, %1$s</string>
+    <string name="ds_avatar_attention">Something needs your attention</string>
+    <string name="ds_avatar_offline">Offline</string>
+    <string name="ds_avatar_paused">Backup paused</string>
+    <string name="ds_kind_folder">Folder</string>
+    <string name="ds_kind_pdf">PDF</string>
+    <string name="ds_kind_doc">Document</string>
+    <string name="ds_kind_sheet">Spreadsheet</string>
+    <string name="ds_kind_slides">Presentation</string>
+    <string name="ds_kind_image">Image</string>
+    <string name="ds_kind_video">Video</string>
+    <string name="ds_kind_audio">Audio</string>
+    <string name="ds_kind_archive">Archive</string>
+    <string name="ds_kind_text">Text file</string>
+</resources>

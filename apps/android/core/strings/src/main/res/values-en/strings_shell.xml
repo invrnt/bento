@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shell_nav_photos">Photos</string>
+    <string name="shell_nav_files">Files</string>
+    <string name="shell_nav_collections">Collections</string>
+    <string name="shell_placeholder_destination">Screen pending: %1$s</string>
+    <string name="shell_engine_starting">Getting your cloud ready…</string>
+    <string name="shell_engine_problem">Bento had a problem starting. It will retry on its own.</string>
+    <string name="shell_key_lost_title">This phone lost its key</string>
+    <string name="shell_key_lost_body">Android deleted the key that protected Bento’s data on this phone, so it can no longer be read. Your files are still in your Telegram. Reset this phone and link it again, or use your recovery kit.</string>
+    <string name="shell_key_lost_action">Reset this phone</string>
+    <string name="shell_key_lost_confirm_title">Reset this phone?</string>
+    <string name="shell_key_lost_confirm_body">Bento’s local data on this phone is deleted; what is in your Telegram is not touched.</string>
+    <string name="shell_key_lost_confirm">Reset</string>
+    <string name="shell_key_lost_failed">This phone could not be reset. Try again.</string>
+</resources>

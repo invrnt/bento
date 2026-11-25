@@ -1,6 +1,8 @@
 // Download links default to the GitHub "latest release" page, which always resolves.
 // When site.config.json names a published release, anchors marked with
 // data-asset / data-checksums are pointed at the exact release files instead.
+// The optional `android` block (scripts/lib/android.mjs) is validated here too.
+import { validateAndroidConfig } from "./android.mjs";
 
 export const ASSET_IDS = Object.freeze([
   "windows-x64",
@@ -23,8 +25,9 @@ const REPOSITORY = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u;
 export function validateConfig(config) {
   if (!config || typeof config !== "object") throw new Error("site.config.json must be an object");
   if (!REPOSITORY.test(config.repository ?? "")) throw new Error("site.config.json: repository must look like owner/name");
+  const android = config.android === undefined ? null : validateAndroidConfig(config.android);
   const release = config.release ?? null;
-  if (release === null) return { repository: config.repository, release: null };
+  if (release === null) return { repository: config.repository, release: null, android };
   if (!TAG.test(release.tag ?? "")) throw new Error("site.config.json: release.tag must be a stable tag such as v1.2.3");
   const assets = release.assets ?? {};
   for (const id of ASSET_IDS) {
@@ -36,7 +39,7 @@ export function validateConfig(config) {
   for (const key of Object.keys(assets)) {
     if (!ASSET_IDS.includes(key)) throw new Error(`site.config.json: unknown release asset "${key}"`);
   }
-  return { repository: config.repository, release: { tag: release.tag, assets: { ...assets } } };
+  return { repository: config.repository, release: { tag: release.tag, assets: { ...assets } }, android };
 }
 
 export function releaseUrl(repository, tag, filename) {

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from bento.adapters.backup.pipeline import job_payload_value
@@ -15,11 +15,14 @@ from bento.application.activity import (
     THROUGHPUT_WINDOW_SECONDS,
     ActivitySnapshot,
     FailedBackupSource,
+    FailedImport,
     FailedInboxItem,
     FailedUpload,
     NewDevice,
 )
+from bento.application.content_imports import PROCESS_OWNER
 from bento.domain.backup import BackupFileState
+from bento.domain.imports import IMPORT_INTERRUPTED, UNFINISHED_ITEM_STATUSES, ImportItemStatus
 from bento.domain.jobs import JobStatus, JobType
 from bento.domain.storage import BlobKind, StorageBackend
 from bento.infrastructure.db.engine import session_scope
@@ -27,6 +30,8 @@ from bento.infrastructure.db.models import (
     BackupFileModel,
     BackupSourceModel,
     BlobRefModel,
+    ContentImportItemModel,
+    ContentImportModel,
     DeviceModel,
     InboxItemModel,
     JobModel,
@@ -100,6 +105,7 @@ class SQLiteActivitySource:
                 failed_backups=self._failed_backups(session),
                 failed_inbox=self._failed_inbox(session),
                 new_devices=self._new_devices(session),
+                failed_imports=self._failed_imports(session),
             )
 
     def _progress(self, session: Session, job: JobModel) -> int:
@@ -202,6 +208,39 @@ class SQLiteActivitySource:
                 introduced_by=row.introduced_by,
             )
             for row in rows
+        )
+
+    def _failed_imports(self, session: Session) -> tuple[FailedImport, ...]:
+        """Finished, undismissed imports with failed items, plus unfinished ones of an earlier process (their
+        fds are gone; the import service fails those items on its first use)."""
+        rows = session.execute(
+            select(ContentImportModel.id, ContentImportItemModel.status, ContentImportItemModel.error_code)
+            .join(ContentImportItemModel, ContentImportItemModel.import_id == ContentImportModel.id)
+            .where(
+                ContentImportModel.dismissed_at.is_(None),
+                or_(
+                    and_(ContentImportModel.finished_at.is_not(None), ContentImportItemModel.status == ImportItemStatus.FAILED.value),
+                    and_(
+                        ContentImportModel.finished_at.is_(None),
+                        ContentImportModel.owner != PROCESS_OWNER,
+                        ContentImportItemModel.status.in_(UNFINISHED_ITEM_STATUSES),
+                    ),
+                ),
+            )
+            .order_by(ContentImportModel.created_at.desc(), ContentImportModel.id)
+        ).all()
+        codes: dict[str, dict[str, int]] = {}
+        for import_id, status, error_code in rows:
+            code = IMPORT_INTERRUPTED if status in UNFINISHED_ITEM_STATUSES else (error_code or "import_failed")
+            per_import = codes.setdefault(import_id, {})
+            per_import[code] = per_import.get(code, 0) + 1
+        return tuple(
+            FailedImport(
+                import_id=import_id,
+                failed_items=sum(counts.values()),
+                error_code=max(sorted(counts), key=lambda code: counts[code]),
+            )
+            for import_id, counts in list(codes.items())[:MAX_ATTENTION_PER_KIND]
         )
 
     def _failed_inbox(self, session: Session) -> tuple[FailedInboxItem, ...]:

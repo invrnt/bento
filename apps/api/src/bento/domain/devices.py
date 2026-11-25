@@ -9,6 +9,7 @@ class DevicePlatform(StrEnum):
     LINUX = "linux"
     MACOS = "macos"
     WINDOWS = "windows"
+    ANDROID = "android"
     OTHER = "other"
 
 

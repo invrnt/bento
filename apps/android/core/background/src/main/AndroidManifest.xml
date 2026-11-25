@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.RUN_USER_INITIATED_JOBS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+    <application>
+        <!-- User-initiated data transfer jobs (Android 14+). -->
+        <service
+            android:name="dev.bento.background.TransferJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+        <!-- Android 13 and older: the same transfers as a dataSync foreground service. -->
+        <service
+            android:name="dev.bento.background.TransferForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+        <!-- Expedited WorkManager runs on Android 11 and older run as this FGS: it transfers data. -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
+        <receiver
+            android:name="dev.bento.background.TransferActionReceiver"
+            android:exported="false" />
+        <!-- Quick Settings tile "Respaldo de Bento" (agent 41): tap pauses/resumes, long-press opens Ajustes › Respaldo. -->
+        <service
+            android:name="dev.bento.background.BackupTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_stat_bento"
+            android:label="@string/activity_tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="true" />
+        </service>
+        <!-- Launcher shortcuts `Subir fotos` / `Escanear documento`: picker or scanner, then the share-to-Bento sheet. -->
+        <activity
+            android:name="dev.bento.background.ShortcutActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Bento.Translucent" />
+    </application>
+</manifest>

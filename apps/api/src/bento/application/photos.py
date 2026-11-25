@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from bento.domain.assets import Asset
-from bento.domain.errors import AlbumNotFoundError, AssetNotFoundError
+from bento.domain.errors import AlbumNotFoundError, AssetNotFoundError, ValidationFailedError
 from bento.domain.photos import Album, TimelineGroup
 from bento.ports.repositories import AlbumRepositoryPort, AssetRepositoryPort, ClockPort
 
@@ -29,6 +29,15 @@ class CreateAlbumCommand:
 class AddAlbumAssetCommand:
     album_id: str
     asset_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class UpdateAlbumCommand:
+    album_id: str
+    title: str | None = None
+    cover_asset_id: str | None = None
+    set_cover: bool = False
+    """`cover_asset_id` applies only when set (`None` then clears the cover)."""
 
 
 class PhotosUseCases:
@@ -86,6 +95,26 @@ class PhotosUseCases:
         updated = album.remove_asset(command.asset_id, self._clock.now())
         await self._albums.save(updated)
         return updated
+
+    async def update_album(self, command: UpdateAlbumCommand) -> Album:
+        """Rename (synced through the album's `title`) and/or choose the cover (device-local)."""
+        album = await self._require_album(command.album_id)
+        if command.title is None and not command.set_cover:
+            raise ValidationFailedError("Album update requires title or cover_asset_id")
+        now = self._clock.now()
+        if command.title is not None:
+            album = album.rename(command.title.strip(), now)
+        if command.set_cover:
+            album = album.with_cover(command.cover_asset_id, now)
+        await self._albums.save(album)
+        return album
+
+    async def delete_album(self, album_id: str) -> Album:
+        """Deletes the album only (synced through `deleted_at`); its photos stay in the library."""
+        album = await self._require_album(album_id)
+        deleted = album.mark_deleted(self._clock.now())
+        await self._albums.save(deleted)
+        return deleted
 
     async def _require_album(self, album_id: str) -> Album:
         album = await self._albums.get(album_id)

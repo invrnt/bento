@@ -59,7 +59,7 @@ Fallback without relay: after Telegram sign-in the new device offers `Pedir acce
 
 ## Deferred (specified, not in this program)
 
-- **Mobile app** with camera-roll backup (React Native or Capacitor + TDLib/Telethon bridge), reusing the sync and pairing protocols; scan-to-join from the phone.
+- **Mobile app**: Android is now specified in `product/android.md` (Stages 19-22, native Compose + embedded backend). iOS remains deferred.
 - **Files on demand in the OS file manager** (Windows Cloud Files API, macOS File Provider, Linux FUSE).
 - **Public links** for non-Telegram recipients (needs a proxy that never sees keys: key in URL fragment, ciphertext served via a short-lived download proxy).
 - **Shared family vaults** (multiple Telegram accounts as channel admins, per-member device grants).

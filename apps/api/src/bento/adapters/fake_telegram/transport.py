@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
+from collections.abc import Callable
 from pathlib import Path
 
 from bento.adapters.fake_telegram import store
@@ -37,10 +38,16 @@ class FakeVaultTransport:
         dialogs = await self._session.call(self._cloud.dialogs)
         return discover_vault_layouts(_candidates(dialogs))
 
-    async def create_vault(self, vault_id: str) -> VaultLayout:
+    async def create_vault(
+        self, vault_id: str, *, on_channel: Callable[[VaultChannelRole], None] | None = None
+    ) -> VaultLayout:
         if parse_channel_marker(channel_marker(VaultChannelRole.SYNC, vault_id)) != (VaultChannelRole.SYNC, vault_id):
             raise ValidationFailedError("Vault ids look like vlt_<id>", {"vault_id": vault_id})
-        return await self._session.call(self._create_vault, vault_id)
+        layout = await self._session.call(self._create_vault, vault_id)
+        if on_channel is not None:
+            for role in VaultChannelRole:
+                on_channel(role)
+        return layout
 
     async def read_header_text(self, layout: VaultLayout) -> str | None:
         chat, messages = await self._session.call(self._cloud.read_chat, layout.sync_channel_id)
@@ -98,7 +105,7 @@ class FakeVaultTransport:
         baseline: dict[int, int] = {}
         signatures: dict[int, tuple[int, int, int] | None] = {}
         for channel_id in channels:
-            signatures[channel_id] = store.stat_signature(self._cloud.chat_log_path(channel_id))
+            signatures[channel_id] = await self._session.run(self._cloud.chat_signature, channel_id)
             current = await self._session.run(self._cloud.last_message_id, channel_id)
             baseline[channel_id] = self._seen.get(channel_id, current)
             if current > baseline[channel_id]:
@@ -108,7 +115,7 @@ class FakeVaultTransport:
         while (remaining := deadline - loop.time()) > 0:
             await asyncio.sleep(min(self._session.options.poll_interval_seconds, remaining))
             for channel_id in channels:
-                signature = store.stat_signature(self._cloud.chat_log_path(channel_id))
+                signature = await self._session.run(self._cloud.chat_signature, channel_id)
                 if signature == signatures[channel_id]:
                     continue
                 signatures[channel_id] = signature

@@ -28,7 +28,7 @@ from bento.adapters.backup.repositories import (
     SQLiteFolderLookup,
 )
 from bento.adapters.backup.scanner import LocalFolderScanner
-from bento.adapters.backup.suggestions import OsBackupSuggestions
+from bento.adapters.backup.media import LocalMediaStaging, SQLiteMediaBackupCatalog
 from bento.adapters.backup.trash import SQLiteTrashRepository
 from bento.adapters.jobs import SQLiteJobQueue
 from bento.adapters.manifest import SQLiteManifestJournal
@@ -40,11 +40,12 @@ from bento.adapters.search.sqlite_vec import SQLiteVecSearchIndex
 from bento.adapters.storage.cache import CachedBlobPathResolver, CachedBlobSourceMaterializer, SQLiteBlobCache
 from bento.adapters.storage.local_blob_store import LocalBlobStoreAdapter
 from bento.adapters.storage.maintenance import LocalEphemeralCache, SQLiteStorageInventory
+from bento.adapters.sync.store import SQLiteSyncStateStore
 from bento.application.activity import ActivityService
 from bento.application.backup import BackupService
 from bento.application.content import FULL_FETCH_THRESHOLD_BYTES, AssetContentService
 from bento.application.drive import DriveUseCases
-from bento.application.ingestion import AssetFileQueryService, AssetIngestionService
+from bento.application.ingestion import AssetFileQueryService, AssetIngestionService, IndexingPolicy
 from bento.application.storage_maintenance import StorageMaintenanceService
 from bento.application.storage_pipeline import RemoteStoreProvider, StoragePipelineService
 from bento.application.trash import TrashService
@@ -55,6 +56,7 @@ from bento.domain.settings import SettingSource
 from bento.domain.storage import StorageBackend
 from bento.domain.sync import SyncStatus
 from bento.domain.vault import VaultStatus
+from bento.infrastructure import services
 from bento.infrastructure.db.clock import SystemClock
 from bento.infrastructure.db.engine import create_app_session_factory
 from bento.infrastructure.settings import Settings
@@ -92,12 +94,14 @@ class StoragePipelineComponents:
     maintenance: StorageMaintenanceService
 
     async def request_cache_eviction(self) -> bool:
-        """Enqueue `cache_evict` when cached originals exceed `cache_max_gb`."""
-        if not await self.cache.over_budget(self.cache_max_bytes):
+        """Enqueue `cache_evict` when cached originals exceed `cache_max_gb`, or when the device reports less than
+        10 % free space (then every evictable original goes; pinned and not-yet-uploaded ones never do)."""
+        low_storage = services.get_device_conditions(self.settings).snapshot().low_storage
+        if not low_storage and not await self.cache.over_budget(self.cache_max_bytes):
             return False
         if await self.backup_jobs.has_waiting(JobType.CACHE_EVICT):
             return False
-        await self.jobs.enqueue(type=JobType.CACHE_EVICT, priority=7, payload={})
+        await self.jobs.enqueue(type=JobType.CACHE_EVICT, priority=7, payload={"low_storage": low_storage} if low_storage else {})
         return True
 
 
@@ -193,6 +197,9 @@ def build_storage_pipeline(
         blob_refs=blob_refs,
         metadata_extractor=LocalUploadMetadataExtractor(),
         remote_uploads=pipeline,
+        indexing=IndexingPolicy.from_providers(
+            ocr_provider=settings.ocr_provider, embeddings_provider=settings.embeddings_provider
+        ),
     )
     drive = DriveUseCases(assets=assets, folders=folders, manifest=manifest, clock=clock)
     policy = SQLiteBackupPolicyRepository(factory, clock, locked=_locked_backup_settings(settings))
@@ -200,7 +207,7 @@ def build_storage_pipeline(
         sources=SQLiteBackupSourceRepository(factory),
         files=SQLiteBackupFileRepository(factory),
         policy=policy,
-        suggestions=OsBackupSuggestions(),
+        suggestions=services.get_backup_suggestions(settings),
         scanner=LocalFolderScanner(),
         jobs=jobs,
         job_state=backup_jobs,
@@ -210,6 +217,11 @@ def build_storage_pipeline(
         ingestion=ingestion,
         folders=SQLiteFolderLookup(factory),
         folder_creator=drive,
+        media=services.get_media_library(settings),
+        media_staging=LocalMediaStaging(data_dir / "uploads" / "phone"),
+        media_catalog=SQLiteMediaBackupCatalog(factory),
+        device_name=_device_name(settings),
+        notifier=services.get_notifier(settings),
     )
     trash = TrashService(
         catalog=SQLiteTrashRepository(factory, clock, retention_days=settings.trash_retention_days),
@@ -230,6 +242,8 @@ def build_storage_pipeline(
         downloads=content.tracker,
         sync_status=_sync_status(settings),
         vault_status=_vault_status(settings),
+        notifier=services.get_notifier(settings),
+        announced=SQLiteSyncStateStore(factory),
     )
 
     maintenance = StorageMaintenanceService(
@@ -268,6 +282,12 @@ def build_storage_pipeline(
     )
     holder["components"] = components
     return components
+
+
+def _device_name(settings: Settings) -> str:
+    from bento.infrastructure.mtproto.wiring import device_description
+
+    return device_description(settings).name
 
 
 def _locked_backup_settings(settings: Settings) -> dict[str, object]:

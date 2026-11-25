@@ -14,6 +14,8 @@ class Album:
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None
+    cover_asset_id: str | None = None
+    """Chosen on this device (not synced); always a member, `None` lets clients pick one."""
 
     def __post_init__(self) -> None:
         if not self.id.strip():
@@ -32,7 +34,13 @@ class Album:
         return replace(self, asset_ids=self.asset_ids | {asset_id}, updated_at=at)
 
     def remove_asset(self, asset_id: str, at: datetime) -> Album:
-        return replace(self, asset_ids=self.asset_ids - {asset_id}, updated_at=at)
+        cover = None if self.cover_asset_id == asset_id else self.cover_asset_id
+        return replace(self, asset_ids=self.asset_ids - {asset_id}, cover_asset_id=cover, updated_at=at)
+
+    def with_cover(self, asset_id: str | None, at: datetime) -> Album:
+        if asset_id is not None and asset_id not in self.asset_ids:
+            raise ValidationFailedError("The cover must be a photo of the album", {"asset_id": asset_id})
+        return replace(self, cover_asset_id=asset_id, updated_at=at)
 
     def mark_deleted(self, at: datetime) -> Album:
         return replace(self, deleted_at=at, updated_at=at)

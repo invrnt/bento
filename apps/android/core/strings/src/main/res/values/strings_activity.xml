@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Cuenta y actividad, Quick Settings tile, launcher shortcuts and notification copy (agent 41; product/android.md §7-§8). -->
+<resources>
+    <!-- Quick Settings tile -->
+    <string name="activity_tile_label">Respaldo de Bento</string>
+    <string name="activity_tile_on">Respaldo activo</string>
+    <string name="activity_tile_paused">Respaldo en pausa</string>
+    <string name="activity_tile_off">Respaldo apagado</string>
+    <!-- Launcher shortcuts (long-press the icon) -->
+    <string name="activity_shortcut_search">Buscar</string>
+    <string name="activity_shortcut_search_long">Buscar en Bento</string>
+    <string name="activity_shortcut_upload_photos">Subir fotos</string>
+    <string name="activity_shortcut_upload_photos_long">Subir fotos o videos</string>
+    <string name="activity_shortcut_scan">Escanear</string>
+    <string name="activity_shortcut_scan_long">Escanear documento</string>
+    <string name="activity_shortcut_add_device">Añadir dispositivo</string>
+    <string name="activity_shortcut_add_device_long">Añadir un dispositivo</string>
+    <!-- Notifications: content and actions per Notifier event -->
+    <plurals name="activity_notif_progress">
+        <item quantity="one">%1$s de %2$s archivo</item>
+        <item quantity="many">%1$s de %2$s de archivos</item>
+        <item quantity="other">%1$s de %2$s archivos</item>
+    </plurals>
+    <string name="activity_notif_bytes">%1$s de %2$s</string>
+    <string name="activity_notif_summary_text">Tus fotos están cifradas en tu nube.</string>
+    <string name="activity_notif_signin_title">Bento se desconectó de Telegram</string>
+    <string name="activity_notif_signin_text">Vuelve a conectar para seguir respaldando. Tu biblioteca sigue aquí.</string>
+    <string name="activity_notif_kit_title">Guarda tu kit de recuperación</string>
+    <string name="activity_notif_kit_text">Sin el kit no podrás recuperar tu nube si pierdes tus dispositivos.</string>
+    <string name="activity_notif_removed_title">Este teléfono se quitó de tu nube</string>
+    <string name="activity_notif_removed_text">Tu biblioteca queda en solo lectura. Puedes volver a unirte.</string>
+    <string name="activity_notif_storage_title">El teléfono no tiene espacio</string>
+    <string name="activity_notif_storage_text">Bento dejó de guardar copias. Libera espacio para seguir.</string>
+    <plurals name="activity_notif_failed_title">
+        <item quantity="one">%d archivo no se pudo subir</item>
+        <item quantity="many">%d archivos no se pudieron subir</item>
+        <item quantity="other">%d archivos no se pudieron subir</item>
+    </plurals>
+    <string name="activity_notif_failed_text">Revísalo en Bento para reintentar.</string>
+    <string name="activity_notif_new_device_title">Se añadió un dispositivo a tu nube</string>
+    <string name="activity_notif_request_text">«%1$s» pide unirse a tu nube. Toca para revisarlo.</string>
+    <string name="activity_action_save_kit">Guardar kit</string>
+    <!-- Cuenta y actividad sheet and Actividad screen -->
+    <string name="activity_sheet_title">Cuenta y actividad</string>
+    <string name="activity_title">Actividad</string>
+    <string name="activity_account_fallback">Tu cuenta</string>
+    <string name="activity_trash">Papelera</string>
+    <string name="activity_status_up_to_date">Todo al día ✓</string>
+    <string name="activity_status_starting">Abriendo tu nube…</string>
+    <string name="activity_status_syncing">Sincronizando…</string>
+    <string name="activity_status_offline">Sin conexión — se reanudará solo</string>
+    <plurals name="activity_status_flood_wait">
+        <item quantity="one">Telegram pidió esperar %d min</item>
+        <item quantity="many">Telegram pidió esperar %d min</item>
+        <item quantity="other">Telegram pidió esperar %d min</item>
+    </plurals>
+    <plurals name="activity_status_uploading">
+        <item quantity="one">Subiendo %d archivo</item>
+        <item quantity="many">Subiendo %d de archivos</item>
+        <item quantity="other">Subiendo %d archivos</item>
+    </plurals>
+    <plurals name="activity_status_downloading">
+        <item quantity="one">Descargando %d archivo</item>
+        <item quantity="many">Descargando %d de archivos</item>
+        <item quantity="other">Descargando %d archivos</item>
+    </plurals>
+    <string name="activity_status_with_eta">%1$s · %2$s</string>
+    <plurals name="activity_status_attention">
+        <item quantity="one">%d cosa necesita tu atención</item>
+        <item quantity="many">%d cosas necesitan tu atención</item>
+        <item quantity="other">%d cosas necesitan tu atención</item>
+    </plurals>
+    <plurals name="activity_transfer_uploads">
+        <item quantity="one">Subiendo %d archivo</item>
+        <item quantity="many">Subiendo %d de archivos</item>
+        <item quantity="other">Subiendo %d archivos</item>
+    </plurals>
+    <plurals name="activity_transfer_downloads">
+        <item quantity="one">Descargando %d archivo</item>
+        <item quantity="many">Descargando %d de archivos</item>
+        <item quantity="other">Descargando %d archivos</item>
+    </plurals>
+    <string name="activity_backup_row">Respaldo del teléfono</string>
+    <string name="activity_expand">Ver detalles</string>
+    <string name="activity_collapse">Ocultar detalles</string>
+    <string name="activity_attention_title">Necesita tu atención</string>
+    <string name="activity_attention_upload_failed">Un archivo no se pudo subir</string>
+    <string name="activity_attention_upload_failed_body">Lo intentamos varias veces. Puedes reintentarlo ahora.</string>
+    <plurals name="activity_attention_backup_failed">
+        <item quantity="one">%1$d foto de «%2$s» no se pudo respaldar</item>
+        <item quantity="many">%1$d de fotos de «%2$s» no se pudieron respaldar</item>
+        <item quantity="other">%1$d fotos de «%2$s» no se pudieron respaldar</item>
+    </plurals>
+    <string name="activity_attention_sync_error">No se pudo sincronizar</string>
+    <string name="activity_attention_sync_error_body">Tus cambios están guardados en este teléfono y se enviarán al reintentar.</string>
+    <string name="activity_attention_kit_stale">El kit que guardaste ya no sirve: genera uno nuevo.</string>
+    <string name="activity_attention_new_device_body">Si no lo reconoces, quítalo de tu nube.</string>
+    <string name="activity_attention_inbox_failed">Algo de la Bandeja no se pudo importar</string>
+    <string name="activity_attention_inbox_failed_body">Sigue en Telegram; puedes reenviarlo otra vez.</string>
+    <plurals name="activity_attention_clock_ahead">
+        <item quantity="one">La hora del teléfono va %d min adelantada</item>
+        <item quantity="many">La hora del teléfono va %d min adelantada</item>
+        <item quantity="other">La hora del teléfono va %d min adelantada</item>
+    </plurals>
+    <plurals name="activity_attention_clock_behind">
+        <item quantity="one">La hora del teléfono va %d min atrasada</item>
+        <item quantity="many">La hora del teléfono va %d min atrasada</item>
+        <item quantity="other">La hora del teléfono va %d min atrasada</item>
+    </plurals>
+    <string name="activity_attention_clock_body">Activa la fecha y hora automáticas en los ajustes del teléfono.</string>
+    <string name="activity_import_failed_title">«%1$s» no llegó a Bento</string>
+    <string name="activity_import_unreadable">La otra app ya no deja leerlo. Compártelo otra vez.</string>
+    <string name="activity_import_interrupted">Se interrumpió al cerrarse Bento. Compártelo otra vez.</string>
+    <string name="activity_import_failed">No se pudo guardar. Inténtalo otra vez.</string>
+    <string name="activity_action_dismiss">Quitar</string>
+    <string name="activity_empty_title">Nada pendiente</string>
+    <string name="activity_empty_body">Todo está en tu nube y al día.</string>
+</resources>

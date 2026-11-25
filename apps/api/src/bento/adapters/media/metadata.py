@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import math
 import mimetypes
+import numbers
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from bento.adapters.media.image_formats import open_formats
 from bento.application.ingestion.metadata import ExtractedUploadMetadata, sanitize_filename
 
 
@@ -84,13 +87,22 @@ def _extract_image_exif(source_path: Path) -> tuple[datetime | None, dict[str, A
         return None, None
 
     try:
-        with Image.open(source_path) as image:
+        with Image.open(source_path, formats=open_formats()) as image:
             raw_exif = image.getexif()
             if not raw_exif:
                 return None, None
             mapped: dict[str, Any] = {}
-            for key, value in raw_exif.items():
-                tag_name = ExifTags.TAGS.get(key, str(key))
+            # Camera fields (DateTimeOriginal, exposure, lens) live in the Exif sub-IFD, not in IFD0.
+            entries = [
+                (ExifTags.TAGS.get(key, str(key)), value)
+                for key, value in (*raw_exif.items(), *raw_exif.get_ifd(ExifTags.IFD.Exif).items())
+                if key not in (ExifTags.Base.ExifOffset, ExifTags.Base.GPSInfo)
+            ]
+            entries.extend(
+                (ExifTags.GPSTAGS.get(key, f"GPS{key}"), value)
+                for key, value in raw_exif.get_ifd(ExifTags.IFD.GPSInfo).items()
+            )
+            for tag_name, value in entries:
                 serializable = _json_safe_exif_value(value)
                 if serializable is not None:
                     mapped[tag_name] = serializable
@@ -101,8 +113,14 @@ def _extract_image_exif(source_path: Path) -> tuple[datetime | None, dict[str, A
 
 
 def _json_safe_exif_value(value: object) -> Any | None:
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
     if isinstance(value, (str, int, float, bool)) or value is None:
         return value
+    if isinstance(value, numbers.Rational):  # Pillow's IFDRational (exposure, f-number, GPS degrees)
+        if not value.denominator:
+            return None
+        return float(value)
     if isinstance(value, bytes):
         return value[:64].hex()
     if isinstance(value, tuple):

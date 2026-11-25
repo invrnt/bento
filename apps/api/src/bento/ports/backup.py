@@ -1,9 +1,17 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Protocol
+from collections.abc import Callable, Iterator
+from typing import BinaryIO, Protocol
 
-from bento.domain.backup import BackupFile, BackupPolicy, BackupSource, BackupSuggestion
+from bento.domain.backup import (
+    BackupFile,
+    BackupPolicy,
+    BackupSource,
+    BackupSuggestion,
+    MediaAccess,
+    MediaBucket,
+    MediaItem,
+)
 
 
 class BackupSourceRepositoryPort(Protocol):
@@ -46,3 +54,23 @@ class FolderWatcherPort(Protocol):
 
 class BackupSuggestionsPort(Protocol):
     def suggestions(self) -> tuple[BackupSuggestion, ...]: ...
+
+
+class MediaLibraryPort(Protocol):
+    """The phone's media library (Android MediaStore) as a backup source (`api/android-endpoints.md` §3)."""
+
+    def access(self) -> MediaAccess: ...
+
+    def buckets(self) -> tuple[MediaBucket, ...]: ...
+
+    def scan(self, bucket_id: str) -> Iterator[MediaItem]:
+        """Every visible item of the bucket (pending and trashed items excluded), paged by the adapter."""
+        ...
+
+    def existing(self, media_ids: tuple[str, ...]) -> frozenset[str]:
+        """The subset of `media_ids` still present."""
+        ...
+
+    def open(self, item: MediaItem, *, require_original: bool) -> BinaryIO:
+        """A readable binary file over the item's content (adopted fd; closing it closes the fd)."""
+        ...

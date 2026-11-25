@@ -68,13 +68,16 @@ def create_fake_telegram_runtime(
     environ: Mapping[str, str] | None = None,
     clock: Callable[[], float] | None = None,
     device_model: Callable[[], Awaitable[str]] | None = None,
+    remote_cloud: Any = None,
 ) -> TelegramRuntime:
-    """An uncached fake runtime; call twice with different key stores to simulate two devices in one process.
+    """An uncached fake runtime (`remote_cloud`: a `RemoteFakeTelegramCloud` replacing the directory); call twice with different key stores to simulate two devices in one process.
 
     `device_model` makes the instance announce that name at sign-in (as MTProto does with `Bento (<suffix>)`).
     """
     resolved = options or FakeTelegramOptions.from_environ(os.environ if environ is None else environ)
-    cloud = FakeTelegramCloud(directory) if clock is None else FakeTelegramCloud(directory, clock=clock)
+    cloud: Any = remote_cloud
+    if cloud is None:
+        cloud = FakeTelegramCloud(directory) if clock is None else FakeTelegramCloud(directory, clock=clock)
     session = FakeTelegramSession(cloud, key_store, resolved, device_model=device_model)
     return TelegramRuntime(
         account=FakeTelegramAccount(session),
@@ -86,14 +89,29 @@ def create_fake_telegram_runtime(
 
 def approve_fake_telegram_logins(settings: Settings) -> int:
     """Approve every pending QR login of the configured fake cloud (blocking; dev route and tests)."""
-    return FakeTelegramCloud(fake_telegram_directory(settings)).approve_pending_logins()
+    return fake_telegram_cloud(settings).approve_pending_logins()
+
+
+def fake_telegram_cloud(settings: Settings) -> Any:
+    """The configured fake cloud: `fake-telegram-serve` at `fake_telegram_url`, else the shared directory."""
+    url = settings.fake_telegram_url.strip()
+    if url:
+        from bento.adapters.fake_telegram.remote import RemoteFakeTelegramCloud
+
+        return RemoteFakeTelegramCloud(url, Path(settings.data_dir) / "cache" / "fake-telegram-remote")
+    return FakeTelegramCloud(fake_telegram_directory(settings))
 
 
 def _create_runtime(settings: Settings, key_store: KeyStorePort) -> TelegramRuntime:
     if settings.storage_backend == "fake":
         options = FakeTelegramOptions.from_environ(os.environ, app_name=f"{settings.app_name} {settings.app_version}")
+        remote = fake_telegram_cloud(settings) if settings.fake_telegram_url.strip() else None
         return create_fake_telegram_runtime(
-            fake_telegram_directory(settings), key_store, options=options, device_model=bento_device_model(key_store)
+            fake_telegram_directory(settings),
+            key_store,
+            options=options,
+            device_model=bento_device_model(key_store),
+            remote_cloud=remote,
         )
     try:
         module: Any = importlib.import_module(MTPROTO_RUNTIME_MODULE)
@@ -121,5 +139,7 @@ def bento_device_model(key_store: KeyStorePort) -> Callable[[], Awaitable[str]]:
 
 def _cache_key(settings: Settings) -> tuple[str, ...]:
     if settings.storage_backend == "fake":
+        if settings.fake_telegram_url.strip():
+            return ("fake-remote", settings.fake_telegram_url.strip(), str(Path(settings.data_dir).resolve()))
         return ("fake", str(fake_telegram_directory(settings).resolve()))
     return (settings.storage_backend, str(Path(settings.data_dir).resolve()))

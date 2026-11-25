@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ajustes: every section of product/android.md §9, app lock, storage on this phone (agent 41). -->
+<resources>
+    <string name="settings_title">Ajustes</string>
+    <string name="settings_account_this_phone">Este teléfono</string>
+    <string name="settings_account_local">Solo en este teléfono</string>
+    <string name="settings_account_usage">%1$s en tu nube · %2$s</string>
+    <!-- Sections -->
+    <string name="settings_section_general">General</string>
+    <string name="settings_section_general_summary">Tema, idioma y bloqueo de la app</string>
+    <string name="settings_section_backup">Respaldo del teléfono</string>
+    <string name="settings_section_backup_summary">Carpetas, Wi-Fi y liberar espacio</string>
+    <string name="settings_section_storage">Espacio en este teléfono</string>
+    <string name="settings_section_storage_summary">Caché y elementos sin conexión</string>
+    <string name="settings_section_account">Cuenta y nube</string>
+    <string name="settings_section_account_summary">Telegram y kit de recuperación</string>
+    <string name="settings_section_devices">Dispositivos</string>
+    <string name="settings_section_devices_summary">Tus dispositivos y añadir uno nuevo</string>
+    <string name="settings_section_search">Búsqueda</string>
+    <string name="settings_section_search_summary">Texto en fotos y documentos</string>
+    <string name="settings_section_telegram">Telegram</string>
+    <string name="settings_section_telegram_summary">Bandeja, importar y enviar</string>
+    <string name="settings_section_advanced">Avanzado</string>
+    <string name="settings_section_advanced_summary">Diagnóstico, emparejamiento y restablecer</string>
+    <string name="settings_section_about">Acerca de</string>
+    <string name="settings_section_about_summary">Versión, privacidad y licencias</string>
+    <!-- General -->
+    <string name="settings_theme">Tema</string>
+    <string name="settings_theme_system">Automático</string>
+    <string name="settings_theme_light">Claro</string>
+    <string name="settings_theme_dark">Oscuro</string>
+    <string name="settings_language">Idioma</string>
+    <string name="settings_language_system">Del sistema</string>
+    <string name="settings_language_system_summary">Se elige en los ajustes del teléfono.</string>
+    <string name="settings_lock">Bloqueo de la app</string>
+    <string name="settings_lock_summary">Huella, rostro o el PIN del teléfono.</string>
+    <string name="settings_lock_unavailable">Configura un bloqueo de pantalla en el teléfono para usarlo.</string>
+    <string name="settings_lock_after">Bloquear después de</string>
+    <string name="settings_lock_immediately">Al salir</string>
+    <string name="settings_lock_1min">1 min</string>
+    <string name="settings_lock_5min">5 min</string>
+    <string name="settings_lock_15min">15 min</string>
+    <string name="settings_hide_recents">Ocultar contenido en apps recientes</string>
+    <string name="settings_hide_recents_summary">Funciona con el bloqueo de la app.</string>
+    <string name="settings_lock_background_note">Con la app bloqueada, el respaldo y la sincronización siguen funcionando.</string>
+    <string name="settings_lock_prompt_title">Bento</string>
+    <string name="settings_lock_prompt_subtitle">Confirma que eres tú para activar el bloqueo.</string>
+    <string name="settings_lock_prompt_unlock">Desbloquea para ver tu nube.</string>
+    <string name="settings_lock_locked_title">Bento está bloqueado</string>
+    <string name="settings_lock_locked_body">Tus fotos siguen respaldándose.</string>
+    <string name="settings_lock_unlock">Desbloquear</string>
+    <!-- Cuenta y nube -->
+    <string name="settings_telegram_account">Cuenta de Telegram</string>
+    <string name="settings_sign_out">Cerrar sesión en este teléfono</string>
+    <string name="settings_sign_out_summary">Tu nube y tus otros dispositivos no cambian.</string>
+    <string name="settings_sign_out_title">¿Cerrar sesión en este teléfono?</string>
+    <string name="settings_sign_out_consequence">Este teléfono deja de sincronizar y respaldar hasta que vuelvas a conectar Telegram. Tu nube y tus otros dispositivos siguen igual.</string>
+    <string name="settings_recovery">Kit de recuperación</string>
+    <string name="settings_recovery_open">Ver, generar o verificar el kit</string>
+    <string name="settings_recovery_saved">Guardado</string>
+    <string name="settings_recovery_pending">Aún no lo guardaste</string>
+    <string name="settings_recovery_stale">Genera uno nuevo: el guardado ya no sirve</string>
+    <!-- Búsqueda -->
+    <string name="settings_ocr">Texto en fotos y documentos</string>
+    <string name="settings_ocr_summary">Se lee en el teléfono, solo mientras carga y no lo usas.</string>
+    <string name="settings_ocr_explain">Bento lee el texto de tus fotos y PDF en este teléfono para que puedas buscarlo. Nada sale del teléfono sin cifrar. El cambio se aplica la próxima vez que se abra Bento.</string>
+    <!-- Telegram -->
+    <string name="settings_inbox">Bandeja</string>
+    <string name="settings_inbox_title">«Bento · Bandeja»</string>
+    <string name="settings_inbox_body">Reenvía cualquier cosa a «Bento · Bandeja» desde Telegram y aparecerá en Bento.</string>
+    <string name="settings_import_telegram">Importar de Telegram</string>
+    <string name="settings_import_telegram_summary">Fotos y archivos de tus chats</string>
+    <string name="settings_send_telegram">Enviar por Telegram</string>
+    <string name="settings_send_telegram_body">Envía una copia a un chat. Telegram recibe esa copia sin cifrar.</string>
+    <!-- Avanzado -->
+    <string name="settings_diagnostic">Exportar diagnóstico</string>
+    <string name="settings_diagnostic_summary">Un archivo de texto sin datos personales ni claves.</string>
+    <string name="settings_diagnostic_saved">Diagnóstico guardado.</string>
+    <string name="settings_relay">Servidor de emparejamiento</string>
+    <string name="settings_relay_default">Predeterminado</string>
+    <string name="settings_relay_help">Solo se usa mientras emparejas un dispositivo y nunca ve tus datos sin cifrar. Se aplica la próxima vez que se abra Bento.</string>
+    <string name="settings_relay_field">Dirección del servidor</string>
+    <string name="settings_relay_invalid">Usa una dirección wss://</string>
+    <string name="settings_relay_restore">Usar el predeterminado</string>
+    <string name="settings_storage_mode">Modo de almacenamiento</string>
+    <string name="settings_storage_mode_telegram">Tu Telegram, cifrado</string>
+    <string name="settings_storage_mode_local">Solo en este teléfono</string>
+    <string name="settings_storage_mode_fake">Nube de prueba (desarrollo)</string>
+    <string name="settings_reset">Restablecer Bento en este teléfono</string>
+    <string name="settings_reset_summary">Borra los datos y claves de este teléfono.</string>
+    <string name="settings_reset_consequence">Se borran de este teléfono la biblioteca, las claves y la sesión de Telegram. Para volver a usar Bento tendrás que unirte de nuevo.</string>
+    <string name="settings_reset_stays">Tu nube y tus otros dispositivos no cambian.</string>
+    <string name="settings_reset_word">RESTABLECER</string>
+    <string name="settings_reset_type">Escribe %1$s para confirmar</string>
+    <string name="settings_reset_confirm">Restablecer este teléfono</string>
+    <!-- Acerca de -->
+    <string name="settings_version">Versión</string>
+    <string name="settings_privacy">Privacidad</string>
+    <string name="settings_privacy_encrypted">Todo se cifra en tu teléfono antes de salir.</string>
+    <string name="settings_privacy_telegram">Telegram solo guarda datos cifrados: no puede ver tus fotos ni tus archivos.</string>
+    <string name="settings_privacy_relay">El servidor de emparejamiento solo se usa al añadir un dispositivo y tampoco ve tus datos.</string>
+    <string name="settings_privacy_nothing_else">Sin anuncios, sin analíticas, sin otros servidores.</string>
+    <string name="settings_licenses">Licencias de código abierto</string>
+    <string name="settings_terms">Términos</string>
+    <!-- Espacio en este teléfono -->
+    <string name="storage_usage_summary">%1$s usados de %2$s</string>
+    <string name="storage_part_thumbs">Miniaturas</string>
+    <string name="storage_part_cache">Originales en caché</string>
+    <string name="storage_part_offline">Disponibles sin conexión</string>
+    <plurals name="storage_offline_count">
+        <item quantity="one">%d elemento disponible sin conexión</item>
+        <item quantity="many">%d elementos disponibles sin conexión</item>
+        <item quantity="other">%d elementos disponibles sin conexión</item>
+    </plurals>
+    <string name="storage_cache_limit">Límite de caché</string>
+    <string name="storage_cache_limit_help">Se reduce solo cuando al teléfono le queda menos del 10 % libre.</string>
+    <string name="storage_clear">Vaciar caché</string>
+    <string name="storage_clear_summary">Las copias en caché se vuelven a descargar al abrirlas.</string>
+    <string name="storage_clear_title">¿Vaciar la caché?</string>
+    <string name="storage_clear_consequence">Se borran las copias en caché de este teléfono. Lo disponible sin conexión y lo que aún no se subió se queda.</string>
+    <string name="storage_cleared">Se liberaron %1$s.</string>
+    <string name="storage_offline_title">Disponibles sin conexión</string>
+    <string name="storage_offline_empty">Marca archivos como «Disponible sin conexión» en Archivos para verlos sin internet.</string>
+    <string name="storage_offline_remove">Quitar «%1$s» sin conexión</string>
+</resources>

@@ -22,7 +22,6 @@ grep -rn "\[\[COMPLETAR" docs apps/site/src README.md
 
 - Nombre legal, domicilio y correos de contacto (general, privacidad y seguridad).
 - Fecha de entrada en vigor.
-- Licencia del software y precio, si lo hay.
 - Ley aplicable, tribunales competentes y autoridad de protección de datos.
 - Bases jurídicas, garantías para transferencias internacionales y plazo de conservación de los registros del relay.
 - Origen y licencia del modelo de búsqueda inteligente.

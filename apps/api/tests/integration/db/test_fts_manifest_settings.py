@@ -110,3 +110,45 @@ def test_settings_repository_merges_defaults_and_stored_values(tmp_path: Path) -
         assert public.data_paths == {"db": "data/db", "journal": "data/journal"}
 
     asyncio.run(scenario())
+
+
+def test_manifest_append_adds_one_line_without_reexporting(tmp_path: Path) -> None:
+    """Regression: every append used to rewrite the whole journal, so ingest slowed linearly with library size."""
+
+    async def scenario() -> None:
+        manifest = SQLiteManifestJournal(migrated_session_factory(tmp_path), FixedClock(), tmp_path / "journal")
+        target = tmp_path / "journal" / "manifest-events.jsonl"
+        for index in range(3):
+            await manifest.append(
+                type=ManifestEventType.ASSET_CREATED,
+                entity_type=ManifestEntityType.ASSET,
+                entity_id=f"asset_{index}",
+                payload={"n": index},
+            )
+        rows = [json.loads(line) for line in target.read_text(encoding="utf-8").splitlines()]
+        assert [row["entity_id"] for row in rows] == ["asset_0", "asset_1", "asset_2"]
+
+        exports: list[None] = []
+        original = manifest._export_all
+        manifest._export_all = lambda: exports.append(None) or original()  # type: ignore[method-assign]
+        await manifest.append(
+            type=ManifestEventType.FOLDER_CREATED,
+            entity_type=ManifestEntityType.FOLDER,
+            entity_id="folder_1",
+            payload={},
+        )
+        assert exports == []  # the mirror exists: one appended line, no full re-export
+        appended = target.read_text(encoding="utf-8")
+        await manifest.export_jsonl()
+        assert target.read_text(encoding="utf-8") == appended  # incremental mirror == full export
+
+        target.unlink()
+        await manifest.append(
+            type=ManifestEventType.FOLDER_CREATED,
+            entity_type=ManifestEntityType.FOLDER,
+            entity_id="folder_2",
+            payload={},
+        )
+        assert len(target.read_text(encoding="utf-8").splitlines()) == 5  # a missing mirror is rebuilt whole
+
+    asyncio.run(scenario())

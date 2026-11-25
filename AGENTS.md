@@ -33,6 +33,7 @@ These rules apply to every implementation agent.
 - Relay: Cloudflare Workers + SQLite-backed Durable Objects, TypeScript, Wrangler, Vitest.
 - Worker: same backend package, SQLite persistent queue, controlled concurrency, retry/backoff.
 - Frontend: React + Vite, TypeScript, Tailwind, TanStack Query, virtualized grid/list.
+- Android: Kotlin, Jetpack Compose + Material 3 (Bento tokens, no dynamic color), Chaquopy embedding the same backend package, Hilt, Navigation 3, Paging 3, WorkManager, OkHttp + kotlinx.serialization (DTOs generated from OpenAPI), Coil 3, Media3, CameraX + ML Kit (bundled, on-device), Roborazzi, Macrobenchmark. See `orchestration/architecture/android-runtime.md`.
 - IA Lite: RapidOCR, local Jina v5 omni nano GGUF via isolated llama.cpp server/wrapper, mock and disabled providers.
 - Media: ffmpeg, Pillow or pyvips, pypdfium2 or equivalent.
 - Do not introduce a new framework, state library, ORM, queue, vector DB, or design system without updating orchestration docs first.

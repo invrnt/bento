@@ -196,3 +196,39 @@ def test_telegram_login_failed_falls_back_to_the_guest_qr(tmp_path: Path) -> Non
             await relay.stop()
 
     asyncio.run(scenario())
+
+
+def test_guest_can_sign_in_with_a_phone_code_while_pairing_waits_for_telegram(tmp_path: Path) -> None:
+    from bento.adapters.fake_telegram import FAKE_LOGIN_CODE
+    from bento.domain.account import LoginStep
+
+    async def scenario() -> None:
+        relay = RelayDouble()
+        host, guest = await _devices(tmp_path, relay)
+        host.account.accept_error = TelegramAccountError("telegram_network", "Network down")
+        try:
+            hosted = await host.pairing.host()
+            assert hosted.session.code is not None
+            joined = await guest.pairing.join(hosted.session.code.format())
+            await _until_both_awaiting(host, guest, hosted.session.id, joined.session.id)
+            await host.pairing.approve(hosted.session.id)
+            await wait_for_state(lambda: guest.pairing.get(joined.session.id), PairingState.NEEDS_TELEGRAM_LOGIN)
+
+            code_step = await guest.runtime.account.start_phone_login("+57 300 000 0002")
+            assert code_step.step == LoginStep.CODE_REQUIRED
+            await asyncio.sleep(FAST.login_poll_interval * 4)  # the guest keeps polling meanwhile
+            view = await guest.pairing.get(joined.session.id)
+            assert view.session.state == PairingState.NEEDS_TELEGRAM_LOGIN
+            assert view.telegram_login_url is None and not view.session.needs_telegram_qr
+            assert (await guest.runtime.account.status()).step == LoginStep.CODE_REQUIRED  # not replaced by a QR
+
+            assert (await guest.runtime.account.submit_code(FAKE_LOGIN_CODE)).authorized
+            await wait_for_state(lambda: guest.pairing.get(joined.session.id), PairingState.COMPLETED)
+            await wait_for_state(lambda: host.pairing.get(hosted.session.id), PairingState.COMPLETED)
+            assert await guest.vault.keyring() == await host.vault.keyring()
+        finally:
+            await host.pairing.close()
+            await guest.pairing.close()
+            await relay.stop()
+
+    asyncio.run(scenario())

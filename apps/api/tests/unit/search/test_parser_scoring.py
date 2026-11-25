@@ -47,3 +47,21 @@ def test_recency_score_prefers_recent_assets() -> None:
     older = recency_score(now, datetime(2025, 6, 1, tzinfo=UTC))
 
     assert recent > older
+
+
+def test_snippet_highlights_use_utf16_offsets_and_window_long_text() -> None:
+    from bento.domain.search import MatchReason, build_snippet
+
+    snippet = build_snippet("📄 Factura del CAFÉ y más café", ("café",), MatchReason.OCR_TEXT)
+    assert snippet is not None
+    utf16 = snippet.text.encode("utf-16-le")
+    marked = [utf16[start * 2 : end * 2].decode("utf-16-le") for start, end in snippet.highlights]
+    assert marked == ["CAFÉ", "café"]
+
+    long_text = ("palabra " * 50) + "objetivo" + (" relleno" * 50)
+    windowed = build_snippet(long_text, ("objetivo",), MatchReason.OCR_TEXT)
+    assert windowed is not None
+    assert windowed.text.startswith("…") and windowed.text.endswith("…") and len(windowed.text) < 220
+    start, end = windowed.highlights[0]
+    assert windowed.text[start:end] == "objetivo"
+    assert build_snippet("nada", ("otra",), MatchReason.FILENAME) is None

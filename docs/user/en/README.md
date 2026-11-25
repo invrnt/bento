@@ -12,6 +12,7 @@ Español: [Guías de Bento](../es/README.md).
 - [Connect your Telegram](connect-telegram.md): with a QR code or your phone number.
 - [Add a device](add-a-device.md): your library on another computer with one code.
 - [Recovery kit](recovery-kit.md): the spare key to your cloud.
+- [Bento for Android](android.md): install, add the phone, back up the camera roll and free up space.
 
 ## Every day
 
@@ -19,6 +20,7 @@ Español: [Guías de Bento](../es/README.md).
 - [Telegram inbox](telegram-inbox.md): send things to Bento from your phone.
 - [Share and import](share-and-import.md): send copies through Telegram and bring in what you already keep there.
 - [Trash and space on this computer](trash-and-storage.md): get deleted items back and control how much space Bento uses.
+- [Bento from the terminal](cli.md): the `bento` command for servers, scripts and AI agents.
 
 ## Trust and help
 

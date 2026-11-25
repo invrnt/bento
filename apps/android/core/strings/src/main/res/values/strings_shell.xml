@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App shell (app/): launcher label, tabs, engine status. Features own their screens' strings. -->
+<resources>
+    <string name="app_name" translatable="false">Bento</string>
+    <string name="shell_nav_photos">Fotos</string>
+    <string name="shell_nav_files">Archivos</string>
+    <string name="shell_nav_collections">Colecciones</string>
+    <string name="shell_placeholder_destination">Pantalla pendiente: %1$s</string>
+    <string name="shell_engine_starting">Preparando tu nube…</string>
+    <string name="shell_engine_problem">Bento tuvo un problema al iniciar. Se reintentará solo.</string>
+    <string name="shell_key_lost_title">Este teléfono perdió su llave</string>
+    <string name="shell_key_lost_body">Android borró la llave que protegía los datos de Bento en este teléfono y ya no se pueden leer. Tus archivos siguen en tu Telegram. Restablece este teléfono y vuelve a vincularlo, o usa tu kit de recuperación.</string>
+    <string name="shell_key_lost_action">Restablecer este teléfono</string>
+    <string name="shell_key_lost_confirm_title">¿Restablecer este teléfono?</string>
+    <string name="shell_key_lost_confirm_body">Se borran los datos locales de Bento en este teléfono; lo que está en tu Telegram no se toca.</string>
+    <string name="shell_key_lost_confirm">Restablecer</string>
+    <string name="shell_key_lost_failed">No se pudo restablecer este teléfono. Inténtalo de nuevo.</string>
+</resources>

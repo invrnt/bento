@@ -23,22 +23,32 @@ from bento.application.drive import (
 )
 from bento.application.ingestion import AssetFileQueryService, AssetIngestionService, UploadedAssetFile
 from bento.application.jobs import JobsUseCases, ListJobsQuery
-from bento.application.photos import AddAlbumAssetCommand, CreateAlbumCommand, PhotosUseCases, TimelineQuery
+from bento.application.photos import (
+    AddAlbumAssetCommand,
+    CreateAlbumCommand,
+    PhotosUseCases,
+    TimelineQuery,
+    UpdateAlbumCommand,
+)
 from bento.application.storage_maintenance import StorageMaintenanceService
 from bento.domain.assets import Asset, AssetKind, AssetMode
-from bento.domain.drive import DriveItem, Folder
+from bento.domain.drive import DriveItem, DriveSort, Folder, SortOrder
+from bento.domain.exif import summarize_exif
 from bento.domain.errors import AssetNotFoundError, DomainError, UnsupportedMediaTypeError, ValidationFailedError
 from bento.domain.jobs import Job, JobType
 from bento.domain.photos import Album, TimelineGroup
-from bento.domain.storage import BlobKind, BlobRef
+from bento.domain.storage import BlobKind, BlobRef, StorageBackend
 from bento.infrastructure.settings import Settings
 from bento.interfaces.http.routes_account import router as account_router
 from bento.interfaces.http.routes_activity import router as activity_router
+from bento.interfaces.http.routes_android import router as android_router
 from bento.interfaces.http.routes_backup import router as backup_router
 from bento.interfaces.http.routes_content import pipeline as storage_pipeline
 from bento.interfaces.http.routes_content import router as content_router
 from bento.interfaces.http.routes_dev import router as dev_router
 from bento.interfaces.http.routes_devices import router as devices_router
+from bento.interfaces.http.routes_drive_paths import router as drive_paths_router
+from bento.interfaces.http.routes_events import router as events_router
 from bento.interfaces.http.routes_pairing import router as pairing_router
 from bento.interfaces.http.routes_trash import router as trash_router
 from bento.interfaces.http.routes_search import router as search_router
@@ -61,6 +71,9 @@ router.include_router(backup_router)
 router.include_router(trash_router)
 router.include_router(activity_router)
 router.include_router(sync_router)
+router.include_router(drive_paths_router)
+router.include_router(android_router)
+router.include_router(events_router)
 
 
 class HealthResponse(BaseModel):
@@ -108,6 +121,19 @@ class StorageReclaimResponse(BaseModel):
     skipped_recent_files: int
 
 
+class ExifSummaryResponse(BaseModel):
+    camera_make: str | None = None
+    camera_model: str | None = None
+    lens_model: str | None = None
+    exposure_time_s: float | None = None
+    exposure_display: str | None = None
+    f_number: float | None = None
+    iso: int | None = None
+    focal_length_mm: float | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+
+
 class AssetResponse(BaseModel):
     id: str
     kind: str
@@ -125,6 +151,18 @@ class AssetResponse(BaseModel):
     preview_url: str | None = None
     taken_at: str | None = None
     thumbnail_url: str | None = None
+    # Timeline items only (`api/android-endpoints.md` §5): grid overlays without extra calls. `width`/`height`
+    # are those of the largest stored thumbnail (the aspect ratio the grid needs).
+    width: int | None = None
+    height: int | None = None
+    duration_ms: int | None = None
+    remote_state: str | None = None
+    thumbnail_etag: str | None = None
+    # Where the original is (`api/android-endpoints.md` §6): pinned for offline use, and openable offline.
+    offline_pinned: bool = False
+    locally_available: bool = False
+    exif: ExifSummaryResponse | None = None
+    """Parsed camera summary; absent when the file carries no usable EXIF."""
 
 
 class FolderResponse(BaseModel):
@@ -143,6 +181,8 @@ class DriveItemResponse(BaseModel):
     updated_at: str
     asset: AssetResponse | None = None
     folder: FolderResponse | None = None
+    item_count: int | None = None
+    """Folders only: live direct children (subfolders and files)."""
 
 
 class DriveBreadcrumbResponse(BaseModel):
@@ -184,6 +224,31 @@ class PhotoTimelineResponse(BaseModel):
     next_cursor: str | None
 
 
+class PhotoTimelineMonthResponse(BaseModel):
+    month: str
+    count: int
+    first_cursor: str
+
+
+class PhotoTimelineIndexResponse(BaseModel):
+    months: list[PhotoTimelineMonthResponse]
+
+
+class OfflinePinResponse(BaseModel):
+    asset_id: str
+    pinned: bool
+    downloading: bool = False
+
+
+class LocalStorageResponse(BaseModel):
+    cache_bytes: int
+    cache_files: int
+    pinned_bytes: int
+    pinned_count: int
+    cache_limit_bytes: int
+    thumbs_bytes: int
+
+
 class FavoriteRequest(BaseModel):
     favorite: bool
 
@@ -195,10 +260,17 @@ class AlbumResponse(BaseModel):
     created_at: str
     updated_at: str
     deleted_at: str | None = None
+    cover_asset_id: str | None = None
+    """Chosen on this device (not synced to other devices); `null` lets the client pick one."""
 
 
 class AlbumCreateRequest(BaseModel):
     title: str
+
+
+class AlbumPatchRequest(BaseModel):
+    title: str | None = Field(default=None, max_length=255)
+    cover_asset_id: str | None = Field(default=None, max_length=64)
 
 
 class AlbumItemRequest(BaseModel):
@@ -221,6 +293,8 @@ class JobResponse(BaseModel):
     error: str | None
     created_at: str
     updated_at: str
+    # Queued jobs held back by device conditions (Android): `offline|thermal|battery|charging|wifi`.
+    wait_reason: str | None = None
 
 
 class JobsResponse(BaseModel):
@@ -334,15 +408,21 @@ async def drive_items(
     folder_id: str | None = None,
     cursor: str | None = None,
     limit: int = 50,
+    sort: DriveSort | None = None,
+    order: SortOrder | None = None,
 ) -> DriveItemsResponse | JSONResponse:
+    """`sort` (`name|modified|size|kind`) puts folders first; without it the listing is newest first, mixed.
+    `order` defaults to `asc` (`desc` for `modified`). Keep the same `sort`/`order` across a cursor's pages."""
     try:
         dependencies = _product_dependencies(request)
         result = await dependencies.drive.list_items(
-            ListDriveItemsQuery(folder_id=folder_id, cursor=cursor, limit=_safe_limit(limit))
+            ListDriveItemsQuery(folder_id=folder_id, cursor=cursor, limit=_safe_limit(limit), sort=sort, order=order)
         )
+        items = [_drive_item_response(item) for item in result.items]
+        _apply_local_states(request, [item.asset for item in items if item.asset is not None])
         return DriveItemsResponse(
             breadcrumbs=await _drive_breadcrumbs(dependencies.folders, folder_id),
-            items=[_drive_item_response(item) for item in result.items],
+            items=items,
             next_cursor=result.next_cursor,
         )
     except DomainError as exc:
@@ -416,9 +496,28 @@ async def photos_timeline(
     try:
         dependencies = _product_dependencies(request)
         result = await dependencies.photos.timeline(TimelineQuery(cursor=cursor, limit=_safe_limit(limit)))
-        return PhotoTimelineResponse(
-            groups=[await _timeline_group_response(dependencies.assets, group) for group in result.groups],
-            next_cursor=result.next_cursor,
+        groups = [await _timeline_group_response(dependencies.assets, group) for group in result.groups]
+        details = _photo_details(request).details([asset.id for group in groups for asset in group.assets])
+        for group in groups:
+            for asset in group.assets:
+                item = details.get(asset.id)
+                if item is not None:
+                    asset.width, asset.height = item.width, item.height
+                    asset.remote_state, asset.thumbnail_etag = item.remote_state, item.thumbnail_etag
+        _apply_local_states(request, [asset for group in groups for asset in group.assets])
+        return PhotoTimelineResponse(groups=groups, next_cursor=result.next_cursor)
+    except DomainError as exc:
+        return _domain_error_response(request, exc)
+
+
+@router.get("/photos/timeline/index", response_model=PhotoTimelineIndexResponse)
+async def photos_timeline_index(request: Request) -> PhotoTimelineIndexResponse | JSONResponse:
+    """Months with photo counts and a cursor to jump to each (fast scroller): one grouped query."""
+    try:
+        assets = storage_pipeline(request).assets
+        months = await assets.photos_month_index()
+        return PhotoTimelineIndexResponse(
+            months=[PhotoTimelineMonthResponse(month=month, count=count, first_cursor=cursor) for month, count, cursor in months]
         )
     except DomainError as exc:
         return _domain_error_response(request, exc)
@@ -457,6 +556,32 @@ async def album_detail(album_id: str, request: Request) -> AlbumResponse | JSONR
         return _domain_error_response(request, exc)
 
 
+@router.patch("/photos/albums/{album_id}", response_model=AlbumResponse)
+async def update_album(album_id: str, request: Request, body: AlbumPatchRequest) -> AlbumResponse | JSONResponse:
+    """`title` renames (synced); `cover_asset_id` picks the cover among the album's photos, `null` clears it."""
+    try:
+        album = await _product_dependencies(request).photos.update_album(
+            UpdateAlbumCommand(
+                album_id=album_id,
+                title=body.title if "title" in body.model_fields_set else None,
+                cover_asset_id=body.cover_asset_id,
+                set_cover="cover_asset_id" in body.model_fields_set,
+            )
+        )
+        return _album_response(album)
+    except DomainError as exc:
+        return _domain_error_response(request, exc)
+
+
+@router.delete("/photos/albums/{album_id}", response_model=AlbumResponse)
+async def delete_album(album_id: str, request: Request) -> AlbumResponse | JSONResponse:
+    """Deletes the album on every device; its photos stay in the library."""
+    try:
+        return _album_response(await _product_dependencies(request).photos.delete_album(album_id))
+    except DomainError as exc:
+        return _domain_error_response(request, exc)
+
+
 @router.delete("/photos/albums/{album_id}/items/{asset_id}", response_model=AlbumResponse)
 async def remove_album_item(album_id: str, asset_id: str, request: Request) -> AlbumResponse | JSONResponse:
     try:
@@ -483,7 +608,7 @@ async def add_album_item(album_id: str, request: Request, body: AlbumItemRequest
 async def photo_detail(asset_id: str, request: Request) -> AssetResponse | JSONResponse:
     try:
         asset = await _asset_dependencies(request).files.get_asset(asset_id)
-        return _asset_response(asset)
+        return _apply_local_states(request, [_asset_response(asset)])[0]
     except DomainError as exc:
         return _domain_error_response(request, exc)
 
@@ -499,7 +624,7 @@ async def set_photo_favorite(asset_id: str, request: Request, body: FavoriteRequ
             raise AssetNotFoundError(asset_id)
         if asset.favorite != body.favorite:
             asset = await dependencies.photos.toggle_favorite(asset_id)
-        return _asset_response(asset)
+        return _apply_local_states(request, [_asset_response(asset)])[0]
     except DomainError as exc:
         return _domain_error_response(request, exc)
 
@@ -512,7 +637,11 @@ async def list_jobs(
 ) -> JobsResponse | JSONResponse:
     try:
         result = await _product_dependencies(request).jobs.list_jobs(ListJobsQuery(cursor=cursor, limit=_safe_limit(limit)))
-        return JobsResponse(items=[_job_response(job) for job in result.items], next_cursor=result.next_cursor)
+        items = [_job_response(job) for job in result.items]
+        reasons = _wait_reasons(request, result.items)
+        for item in items:
+            item.wait_reason = reasons.get(item.id)
+        return JobsResponse(items=items, next_cursor=result.next_cursor)
     except DomainError as exc:
         return _domain_error_response(request, exc)
 
@@ -564,7 +693,7 @@ async def upload_asset(request: Request, response: Response) -> AssetResponse | 
             temp_path.unlink(missing_ok=True)
             await upload.close()
         response.headers["X-Bento-Duplicate"] = "true" if result.duplicate else "false"
-        return _asset_response(result.asset, duplicate=result.duplicate)
+        return _apply_local_states(request, [_asset_response(result.asset, duplicate=result.duplicate)])[0]
     except DomainError as exc:
         return _domain_error_response(request, exc)
 
@@ -573,7 +702,7 @@ async def upload_asset(request: Request, response: Response) -> AssetResponse | 
 async def asset_detail(asset_id: str, request: Request) -> AssetResponse | JSONResponse:
     try:
         asset = await _asset_dependencies(request).files.get_asset(asset_id)
-        return _asset_response(asset)
+        return _apply_local_states(request, [_asset_response(asset)])[0]
     except DomainError as exc:
         return _domain_error_response(request, exc)
 
@@ -594,13 +723,75 @@ async def download_asset(asset_id: str, request: Request) -> FileResponse | JSON
 
 
 @router.get("/assets/{asset_id}/thumbnail", response_model=None)
-async def asset_thumbnail(asset_id: str, request: Request) -> FileResponse | JSONResponse:
-    """Also serves thumbnails of trashed assets (the trash lists them)."""
+async def asset_thumbnail(asset_id: str, request: Request, size: int | None = None) -> Response | JSONResponse:
+    """Also serves thumbnails of trashed assets (the trash lists them).
+
+    `size` (256, 512, 1024): the nearest stored thumbnail not smaller than requested (else the largest), with an
+    `ETag` keyed by the thumbnail id and an immutable cache lifetime."""
     try:
-        blob_ref = await storage_pipeline(request).blob_refs.latest_for_asset(asset_id, BlobKind.THUMBNAIL)
+        if size is None:
+            blob_ref = await storage_pipeline(request).blob_refs.latest_for_asset(asset_id, BlobKind.THUMBNAIL)
+            if blob_ref is None:
+                raise AssetNotFoundError(asset_id)
+            return await _file_response(request, blob_ref, media_type=_blob_media_type(blob_ref))
+        if size not in THUMBNAIL_SIZES:
+            raise ValidationFailedError("Unsupported thumbnail size", {"size": size, "allowed": list(THUMBNAIL_SIZES)})
+        blob_ref = _photo_details(request).thumbnail_for_size(asset_id, size)
         if blob_ref is None:
             raise AssetNotFoundError(asset_id)
-        return await _file_response(request, blob_ref, media_type=_blob_media_type(blob_ref))
+        etag = f'"{blob_ref.id}"'
+        cache_control = "private, max-age=31536000, immutable"
+        if etag in [value.strip() for value in request.headers.get("if-none-match", "").split(",")]:
+            return Response(status_code=304, headers={"ETag": etag, "Cache-Control": cache_control})
+        response = await _file_response(request, blob_ref, media_type=_blob_media_type(blob_ref))
+        response.headers["ETag"] = etag
+        response.headers["Cache-Control"] = cache_control
+        return response
+    except DomainError as exc:
+        return _domain_error_response(request, exc)
+
+
+@router.put("/assets/{asset_id}/offline", status_code=202, response_model=OfflinePinResponse)
+async def pin_asset_offline(asset_id: str, request: Request) -> OfflinePinResponse | JSONResponse:
+    """"Disponible sin conexión": keep the original on this device, excluded from cache eviction."""
+    try:
+        components = storage_pipeline(request)
+        asset_file = await _asset_dependencies(request).files.original_file(asset_id)
+        blob_ref = asset_file.blob_ref
+        if blob_ref.backend == StorageBackend.LOCAL:
+            return OfflinePinResponse(asset_id=asset_id, pinned=True)  # never uploaded: already local, never evicted
+        if await components.cache.set_pinned(blob_ref.id, True):
+            return OfflinePinResponse(asset_id=asset_id, pinned=True)
+        _start_pinned_download(request, blob_ref)
+        return OfflinePinResponse(asset_id=asset_id, pinned=False, downloading=True)
+    except DomainError as exc:
+        return _domain_error_response(request, exc)
+
+
+@router.delete("/assets/{asset_id}/offline", response_model=OfflinePinResponse)
+async def unpin_asset_offline(asset_id: str, request: Request) -> OfflinePinResponse | JSONResponse:
+    try:
+        asset_file = await _asset_dependencies(request).files.original_file(asset_id)
+        await storage_pipeline(request).cache.set_pinned(asset_file.blob_ref.id, False)
+        return OfflinePinResponse(asset_id=asset_id, pinned=False)
+    except DomainError as exc:
+        return _domain_error_response(request, exc)
+
+
+@router.get("/storage/local", response_model=LocalStorageResponse)
+async def local_storage(request: Request) -> LocalStorageResponse | JSONResponse:
+    try:
+        components = storage_pipeline(request)
+        cached = await components.cache.evictable_usage()
+        pinned = await components.cache.pinned_usage()
+        return LocalStorageResponse(
+            cache_bytes=cached.bytes,
+            cache_files=cached.files,
+            pinned_bytes=pinned.bytes,
+            pinned_count=pinned.files,
+            cache_limit_bytes=components.cache_max_bytes,
+            thumbs_bytes=_photo_details(request).thumbnail_bytes(),
+        )
     except DomainError as exc:
         return _domain_error_response(request, exc)
 
@@ -622,6 +813,53 @@ async def delete_asset(asset_id: str, request: Request) -> AssetResponse | JSONR
         return _asset_response(asset)
     except DomainError as exc:
         return _domain_error_response(request, exc)
+
+
+THUMBNAIL_SIZES = (256, 512, 1024)
+
+
+def _wait_reasons(request: Request, jobs: tuple[Job, ...]) -> dict[str, str]:
+    from bento.adapters.jobs.sqlite_queue import job_class
+    from bento.domain.jobs import JobStatus
+    from bento.infrastructure import services
+
+    deferral = services.get_job_eligibility(_settings(request)).current()
+    waiting = [job for job in jobs if job.status in {JobStatus.QUEUED, JobStatus.RETRYING}]
+    if deferral.empty or not waiting:
+        return {}
+    videos = _photo_details(request).video_asset_ids([job.asset_id for job in waiting if job.asset_id])
+    reasons: dict[str, str] = {}
+    for job in waiting:
+        reason = deferral.reasons.get(job_class(job, is_video=job.asset_id in videos))
+        cutoff = deferral.wifi_override_before
+        if reason is not None and not (reason.value == "wifi" and cutoff is not None and job.created_at <= cutoff):
+            reasons[job.id] = reason.value
+    return reasons
+_pin_downloads: set[Any] = set()
+
+
+def _photo_details(request: Request) -> Any:
+    from bento.adapters.repositories.photo_details import SQLitePhotoDetails
+
+    return SQLitePhotoDetails(storage_pipeline(request).session_factory)
+
+
+def _start_pinned_download(request: Request, blob_ref: BlobRef) -> None:
+    """Fetch the original into the cache in the background, then pin it (202 semantics)."""
+    import asyncio
+
+    components = storage_pipeline(request)
+
+    async def download() -> None:
+        try:
+            await components.content.blob_path(blob_ref)
+            await components.cache.set_pinned(blob_ref.id, True)
+        except Exception:  # noqa: BLE001 - the next PUT retries; nothing to report to a finished request
+            return
+
+    task = asyncio.get_running_loop().create_task(download())
+    _pin_downloads.add(task)
+    task.add_done_callback(_pin_downloads.discard)
 
 
 def _asset_dependencies(request: Request) -> AssetRouteDependencies:
@@ -779,7 +1017,25 @@ def _asset_response(asset: Asset, *, duplicate: bool = False) -> AssetResponse:
         preview_url=f"/api/assets/{asset.id}/preview?v={media_version}" if has_media else None,
         taken_at=asset.metadata.taken_at.isoformat() if asset.metadata.taken_at else None,
         thumbnail_url=f"/api/assets/{asset.id}/thumbnail?v={media_version}" if has_media else None,
+        exif=_exif_response(asset),
     )
+
+
+def _exif_response(asset: Asset) -> ExifSummaryResponse | None:
+    summary = summarize_exif(asset.metadata.exif)
+    if summary is None:
+        return None
+    return ExifSummaryResponse(**{name: getattr(summary, name) for name in ExifSummaryResponse.model_fields})
+
+
+def _apply_local_states(request: Request, responses: list[AssetResponse]) -> list[AssetResponse]:
+    """Fills `offline_pinned`/`locally_available` for a page of assets with one batched lookup."""
+    states = _photo_details(request).local_states([response.id for response in responses])
+    for response in responses:
+        state = states.get(response.id)
+        if state is not None:
+            response.offline_pinned, response.locally_available = state.offline_pinned, state.locally_available
+    return responses
 
 
 def _folder_response(folder: Folder) -> FolderResponse:
@@ -801,6 +1057,7 @@ def _drive_item_response(item: DriveItem) -> DriveItemResponse:
         updated_at=item.updated_at.isoformat(),
         asset=_asset_response(item.asset) if item.asset is not None else None,
         folder=_folder_response(item.folder) if item.folder is not None else None,
+        item_count=item.item_count,
     )
 
 
@@ -836,6 +1093,7 @@ def _album_response(album: Album) -> AlbumResponse:
         created_at=album.created_at.isoformat(),
         updated_at=album.updated_at.isoformat(),
         deleted_at=album.deleted_at.isoformat() if album.deleted_at else None,
+        cover_asset_id=album.cover_asset_id,
     )
 
 
@@ -880,9 +1138,9 @@ def _domain_error_response(request: Request, error: DomainError) -> JSONResponse
 
 
 def _status_code(error: DomainError) -> int:
-    if error.code in {"asset_not_found", "folder_not_found", "album_not_found", "job_not_found"}:
+    if error.code in {"asset_not_found", "folder_not_found", "album_not_found", "job_not_found", "path_not_found"}:
         return 404
-    if error.code in {"duplicate_asset", "invalid_folder_move", "job_not_retryable"}:
+    if error.code in {"duplicate_asset", "invalid_folder_move", "job_not_retryable", "path_ambiguous"}:
         return 409
     if error.code == "upload_too_large":
         return 413

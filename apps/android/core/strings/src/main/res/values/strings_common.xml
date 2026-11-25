@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shared Bento strings (product/android.md §13a). Spanish is the default locale; values-en must mirror every key. -->
+<resources>
+    <!-- Actions: verbs, sentence case, never "OK". -->
+    <string name="common_action_undo">Deshacer</string>
+    <string name="common_action_retry">Reintentar</string>
+    <string name="common_action_cancel">Cancelar</string>
+    <string name="common_action_close">Cerrar</string>
+    <string name="common_action_save">Guardar</string>
+    <string name="common_action_continue">Continuar</string>
+    <string name="common_action_back">Atrás</string>
+    <string name="common_action_delete">Eliminar</string>
+    <string name="common_action_delete_forever">Eliminar para siempre</string>
+    <string name="common_action_share">Compartir</string>
+    <string name="common_action_select">Seleccionar</string>
+    <string name="common_action_select_all">Seleccionar todo</string>
+    <string name="common_action_rename">Renombrar</string>
+    <string name="common_action_move">Mover</string>
+    <string name="common_action_download">Descargar al teléfono</string>
+    <string name="common_action_save_to_phone">Guardar en el teléfono</string>
+    <string name="common_action_send_telegram">Enviar por Telegram…</string>
+    <string name="common_action_open_with">Abrir con…</string>
+    <string name="common_action_add_to_album">Añadir a álbum</string>
+    <string name="common_action_favorite">Favorito</string>
+    <string name="common_action_copy">Copiar</string>
+    <string name="common_action_pause_backup">Pausar respaldo</string>
+    <string name="common_action_resume">Reanudar</string>
+    <string name="common_action_reconnect">Volver a conectar</string>
+    <string name="common_action_free_space">Liberar espacio</string>
+    <string name="common_action_review">Revisar</string>
+    <string name="common_action_new">Nuevo</string>
+    <string name="common_action_search_bento">Buscar en Bento</string>
+
+    <!-- States: ongoing states end with a typographic ellipsis. -->
+    <string name="common_state_loading">Cargando…</string>
+    <string name="common_state_saving">Guardando…</string>
+    <string name="common_state_uploading">Subiendo…</string>
+    <string name="common_state_all_synced">Todo al día</string>
+    <string name="common_state_offline">Sin conexión. Se reanudará solo.</string>
+    <string name="common_state_paused">Respaldo en pausa</string>
+
+    <!-- Errors: calm, never blaming. -->
+    <string name="common_error_title">No se pudo completar la acción</string>
+    <string name="common_error_generic">No se pudo completar la acción. Inténtalo otra vez.</string>
+    <string name="common_error_network">No hay conexión. Lo intentaremos de nuevo cuando vuelva.</string>
+    <string name="common_error_flood_wait">Telegram pidió esperar %1$s.</string>
+    <string name="common_error_storage_full">El teléfono no tiene espacio. Libera espacio para seguir.</string>
+    <string name="common_error_session_revoked">Bento se desconectó de Telegram.</string>
+
+    <!-- Units: numbers are formatted with android.icu before substitution (1,5 MB). -->
+    <string name="common_unit_bytes">%1$s\u00A0B</string>
+    <string name="common_unit_kilobytes">%1$s\u00A0KB</string>
+    <string name="common_unit_megabytes">%1$s\u00A0MB</string>
+    <string name="common_unit_gigabytes">%1$s\u00A0GB</string>
+    <string name="common_unit_terabytes">%1$s\u00A0TB</string>
+    <string name="common_metadata_pair">%1$s · %2$s</string>
+    <string name="common_label_value">%1$s: %2$s</string>
+    <string name="common_unit_progress_of">%1$s de %2$s</string>
+
+    <plurals name="common_count_files">
+        <item quantity="one">%1$s archivo</item>
+        <item quantity="many">%1$s de archivos</item>
+        <item quantity="other">%1$s archivos</item>
+    </plurals>
+    <plurals name="common_count_photos">
+        <item quantity="one">%1$s foto</item>
+        <item quantity="many">%1$s de fotos</item>
+        <item quantity="other">%1$s fotos</item>
+    </plurals>
+    <plurals name="common_count_selected">
+        <item quantity="one">%1$s seleccionado</item>
+        <item quantity="many">%1$s de seleccionados</item>
+        <item quantity="other">%1$s seleccionados</item>
+    </plurals>
+    <plurals name="common_count_devices">
+        <item quantity="one">%1$s dispositivo</item>
+        <item quantity="many">%1$s de dispositivos</item>
+        <item quantity="other">%1$s dispositivos</item>
+    </plurals>
+    <plurals name="common_duration_minutes">
+        <item quantity="one">%1$s minuto</item>
+        <item quantity="many">%1$s de minutos</item>
+        <item quantity="other">%1$s minutos</item>
+    </plurals>
+    <plurals name="common_duration_seconds">
+        <item quantity="one">%1$s segundo</item>
+        <item quantity="many">%1$s de segundos</item>
+        <item quantity="other">%1$s segundos</item>
+    </plurals>
+
+    <!-- Plaintext disclosures (product/android.md §1.4, §10): shown every time the action leaves Bento's encryption. -->
+    <string name="common_plaintext_share">Se compartirá una copia sin cifrar.</string>
+    <string name="common_plaintext_telegram">Telegram recibirá una copia sin cifrar en ese chat.</string>
+    <string name="common_plaintext_open_with">La otra app recibirá una copia sin cifrar.</string>
+    <string name="common_plaintext_save_to_phone">Se guardará una copia sin cifrar en el teléfono, fuera de Bento.</string>
+    <string name="common_plaintext_dont_show_again">No volver a mostrar</string>
+
+    <!-- Telegram terms compliance (architecture/telegram-first.md). The product name never contains "Telegram". -->
+    <string name="common_telegram_connect">Conecta tu cuenta de Telegram</string>
+    <string name="common_telegram_api_notice">Bento usa la API de Telegram y no está afiliado a Telegram.</string>
+    <string name="common_telegram_continue">Continuar con Telegram</string>
+</resources>

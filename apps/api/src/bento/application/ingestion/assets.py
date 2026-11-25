@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Protocol
 
@@ -38,6 +39,22 @@ class UploadMetadataExtractorPort(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
+class IndexingPolicy:
+    """Which index jobs new uploads queue, decided by the configured providers.
+
+    Scheduling conditions (thumbnails first, OCR waiting for charging on Android) belong to the job scheduler;
+    files obtained from Telegram are never indexed whatever this says (`Asset.ai_indexing_allowed`).
+    """
+
+    ocr: bool = False
+    embeddings: bool = False
+
+    @classmethod
+    def from_providers(cls, *, ocr_provider: str, embeddings_provider: str) -> IndexingPolicy:
+        return cls(ocr=ocr_provider != "disabled", embeddings=embeddings_provider != "disabled")
+
+
+@dataclass(frozen=True, slots=True)
 class UploadedAssetFile:
     source_path: Path
     original_filename: str
@@ -47,6 +64,8 @@ class UploadedAssetFile:
     allow_duplicate: bool = True
     folder_resolver: Callable[[AssetMode], Awaitable[str | None]] | None = None
     origin: AssetOrigin = AssetOrigin.DEVICE
+    # Capture time known to the source (MediaStore `DATE_TAKEN`) when the file itself carries none.
+    taken_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,8 +82,10 @@ class AssetIngestionService:
         blob_refs: BlobRefCatalogPort,
         metadata_extractor: UploadMetadataExtractorPort,
         remote_uploads: RemoteUploadSchedulerPort | None = None,
+        indexing: IndexingPolicy | None = None,
     ) -> None:
         self._upload = upload
+        self._indexing = indexing or IndexingPolicy()
         self._blob_refs = blob_refs
         self._metadata_extractor = metadata_extractor
         self._remote_uploads = remote_uploads
@@ -84,11 +105,11 @@ class AssetIngestionService:
                 sha256=metadata.sha256,
                 folder_id=file.folder_id,
                 mode=file.mode,
-                taken_at=metadata.taken_at,
+                taken_at=metadata.taken_at or file.taken_at,
                 exif=metadata.exif,
                 allow_duplicate=file.allow_duplicate,
-                ocr_enabled=False,
-                embeddings_enabled=False,
+                ocr_enabled=self._indexing.ocr,
+                embeddings_enabled=self._indexing.embeddings,
                 folder_resolver=file.folder_resolver,
                 origin=file.origin,
             )

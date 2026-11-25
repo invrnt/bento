@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher shortcut icon (Lucide "scan-line", ISC), drawn like the app's other icons: accent stroke on the tray color. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="@color/bento_tray"
+        android:pathData="M24,0a24,24 0,1 1,0 48a24,24 0,1 1,0 -48z" />
+    <group
+        android:translateX="12"
+        android:translateY="12">
+        <path
+            android:pathData="M3,7V5a2,2 0,0 1,2 -2h2"
+            android:strokeWidth="2"
+            android:strokeColor="@color/bento_accent"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+        <path
+            android:pathData="M17,3h2a2,2 0,0 1,2 2v2"
+            android:strokeWidth="2"
+            android:strokeColor="@color/bento_accent"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+        <path
+            android:pathData="M21,17v2a2,2 0,0 1,-2 2h-2"
+            android:strokeWidth="2"
+            android:strokeColor="@color/bento_accent"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+        <path
+            android:pathData="M7,21H5a2,2 0,0 1,-2 -2v-2"
+            android:strokeWidth="2"
+            android:strokeColor="@color/bento_accent"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+        <path
+            android:pathData="M7,12h10"
+            android:strokeWidth="2"
+            android:strokeColor="@color/bento_accent"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+    </group>
+</vector>

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fotos (feature/photos, agent 39): grid, selection, cards, shared media sheets. -->
+<resources>
+    <string name="photos_avatar_fallback">Tu cuenta</string>
+    <string name="photos_tile_photo">Foto</string>
+    <string name="photos_tile_video">Video, %1$s</string>
+    <string name="photos_tile_video_plain">Video</string>
+    <string name="photos_tile_favorite">en favoritos</string>
+    <string name="photos_tile_offline">disponible sin conexión</string>
+    <string name="photos_tile_pending">pendiente de respaldo</string>
+    <string name="photos_tile_uploading">subiendo</string>
+    <string name="photos_tile_failed">no se pudo respaldar</string>
+    <string name="photos_tile_selected">en la selección</string>
+    <string name="photos_action_open">Abrir</string>
+    <string name="photos_action_unselect">Quitar selección</string>
+    <string name="photos_action_favorite_add">Añadir a favoritos</string>
+    <string name="photos_action_favorite_remove">Quitar de favoritos</string>
+    <string name="photos_action_move_to_folder">Mover a carpeta</string>
+    <string name="photos_action_select_day">Seleccionar las fotos del %1$s</string>
+    <string name="photos_action_unselect_day">Quitar la selección del %1$s</string>
+    <string name="photos_density_more">Ver más fotos por fila</string>
+    <string name="photos_density_less">Ver fotos más grandes</string>
+    <string name="photos_fast_scroller">Desplazamiento rápido por fecha</string>
+    <string name="photos_grid_label">Fotos y videos por fecha</string>
+    <string name="photos_empty_title">Tus fotos aparecerán aquí</string>
+    <string name="photos_empty_body">Respalda las fotos de este teléfono o sube algunas para empezar.</string>
+    <string name="photos_empty_backup">Respaldar fotos del teléfono</string>
+    <string name="photos_empty_upload">Subir fotos</string>
+    <string name="photos_error_load">No pudimos cargar tus fotos. Tu biblioteca sigue a salvo.</string>
+    <string name="photos_card_backup_title">Respalda las fotos de este teléfono</string>
+    <string name="photos_card_backup_body">Se cifran antes de salir y quedan en tu nube.</string>
+    <string name="photos_card_backup_action">Respaldar fotos</string>
+    <string name="photos_card_partial_body">Elige más fotos o permite todas para respaldarlas.</string>
+    <string name="photos_card_partial_action">Permitir todas</string>
+    <string name="photos_card_kit_title">Guarda tu kit de recuperación</string>
+    <string name="photos_card_kit_body">Es la única forma de recuperar tu nube sin otro dispositivo.</string>
+    <string name="photos_card_kit_action">Guardar kit</string>
+    <string name="photos_card_signin_body">Tu biblioteca sigue aquí. Vuelve a conectar para sincronizar.</string>
+    <string name="photos_trashed_one">Se movió a la papelera</string>
+    <string name="photos_favorites_added">Se añadieron a favoritos</string>
+    <string name="photos_favorites_removed">Se quitaron de favoritos</string>
+    <string name="photos_added_to_album">Añadido a «%1$s»</string>
+    <string name="photos_moved_to_folder">Movido a «%1$s»</string>
+    <string name="photos_saved_to_phone">Guardado en Imágenes › Bento</string>
+    <string name="photos_sent_telegram">Enviado a «%1$s»</string>
+    <string name="photos_preparing_copy">Preparando una copia…</string>
+    <string name="photos_album_sheet_title">Añadir a álbum</string>
+    <string name="photos_album_new">Nuevo álbum</string>
+    <string name="photos_album_name_label">Nombre del álbum</string>
+    <string name="photos_album_name_hint">Por ejemplo, Viaje a Cartagena</string>
+    <string name="photos_album_create">Crear</string>
+    <string name="photos_album_empty">Aún no tienes álbumes. Crea el primero aquí.</string>
+    <string name="photos_move_sheet_title">Mover a carpeta</string>
+    <string name="photos_move_here">Mover aquí</string>
+    <string name="photos_move_root">Archivos</string>
+    <string name="photos_move_empty">Esta carpeta no tiene subcarpetas.</string>
+    <string name="photos_move_open_folder">Abrir «%1$s»</string>
+    <string name="photos_telegram_sheet_title">Enviar por Telegram</string>
+    <string name="photos_telegram_search">Buscar chats</string>
+    <string name="photos_telegram_empty">No encontramos chats con ese nombre.</string>
+    <string name="photos_disclosure_title">Antes de continuar</string>
+    <string name="photos_upload_started">Subiendo tus fotos. Aparecerán aquí enseguida.</string>
+    <string name="photos_header_today">Hoy</string>
+    <string name="photos_header_yesterday">Ayer</string>
+    <plurals name="photos_trashed_many">
+        <item quantity="one">Se movió %1$s elemento a la papelera</item>
+        <item quantity="many">Se movieron %1$s de elementos a la papelera</item>
+        <item quantity="other">Se movieron %1$s elementos a la papelera</item>
+    </plurals>
+    <plurals name="photos_card_partial_title">
+        <item quantity="one">Bento solo ve %1$s foto</item>
+        <item quantity="many">Bento solo ve %1$s de fotos</item>
+        <item quantity="other">Bento solo ve %1$s fotos</item>
+    </plurals>
+    <plurals name="photos_album_count">
+        <item quantity="one">%1$s elemento</item>
+        <item quantity="many">%1$s de elementos</item>
+        <item quantity="other">%1$s elementos</item>
+    </plurals>
+</resources>

@@ -68,7 +68,8 @@ from bento.application.sync.state import (
     SyncStateValues,
     format_timestamp,
 )
-from bento.domain.errors import IntegrityError, ValidationFailedError
+from bento.domain.devices import Device
+from bento.domain.errors import DomainError, IntegrityError, ValidationFailedError
 from bento.domain.security import SealPurpose, VaultKeyring
 from bento.domain.sync import (
     MAX_CLOCK_SKEW_MS,
@@ -82,6 +83,7 @@ from bento.domain.sync import (
     hlc_within,
 )
 from bento.domain.vault import SnapshotPointer, VaultHeader, canonical_json
+from bento.ports.device import NotifierPort, new_device
 from bento.ports.pairing import DeviceRepositoryPort
 from bento.ports.repositories import ClockPort
 from bento.ports.security import VaultCryptoPort
@@ -177,8 +179,11 @@ class SyncEngine:
         policy: SyncPolicy | None = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         monotonic: Callable[[], float] = time.monotonic,
+        notifier: NotifierPort | None = None,
     ) -> None:
         self._vault = vault
+        self._devices = devices
+        self._notifier = notifier
         self._transport = transport
         self._crypto = crypto
         self._outbox = outbox
@@ -434,7 +439,25 @@ class SyncEngine:
     # Pull
 
     async def pull(self, context: VaultContext) -> tuple[VaultContext, PullResult]:
-        """Process Sync messages after the cursor; returns the (possibly re-keyed) context."""
+        """Process Sync messages after the cursor; returns the (possibly re-keyed) context.
+
+        With a notifier, each device this pull introduced (Activity `new_device`) is announced (`new_device`)."""
+        if self._notifier is None:
+            return await self._pull(context)
+        before = await self._devices_to_review()
+        context, result = await self._pull(context)
+        for device in (await self._devices_to_review()).values():
+            if device.id not in before:
+                self._notifier.emit(new_device(device.id, name=device.name))
+        return context, result
+
+    async def _devices_to_review(self) -> dict[str, Device]:
+        try:
+            return {device.id: device for device in await self._devices.list() if device.needs_review}
+        except DomainError:
+            return {}
+
+    async def _pull(self, context: VaultContext) -> tuple[VaultContext, PullResult]:
         async with self._lock:
             if await self.device_removed():
                 return context, PullResult(device_removed=True)

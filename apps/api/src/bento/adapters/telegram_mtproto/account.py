@@ -37,6 +37,8 @@ class MtprotoTelegramAccount:
         self._qr_task: asyncio.Task[None] | None = None
         self._phone: str | None = None
         self._phone_code_hash: str | None = None
+        self._code_length: int | None = None
+        self._code_delivery: str | None = None
         self._password_hint: str | None = None
         self._error: tuple[str, int | None] | None = None
 
@@ -104,6 +106,7 @@ class MtprotoTelegramAccount:
             return AccountStatus(step=LoginStep.SIGNED_OUT, error_code="telegram_phone_invalid")
         self._phone = phone
         self._phone_code_hash = getattr(sent, "phone_code_hash", None)
+        self._code_length, self._code_delivery = sent_code_shape(getattr(sent, "type", None))
         self._step = LoginStep.CODE_REQUIRED
         return self._pending_status()
 
@@ -132,7 +135,12 @@ class MtprotoTelegramAccount:
                 return _error_status(LoginStep.CODE_REQUIRED, exc)
             raise
         if result is _CODE_INVALID:
-            return AccountStatus(step=LoginStep.CODE_REQUIRED, error_code="telegram_code_invalid")
+            return AccountStatus(
+                step=LoginStep.CODE_REQUIRED,
+                error_code="telegram_code_invalid",
+                code_length=self._code_length,
+                code_delivery=self._code_delivery,
+            )
         if result is _CODE_EXPIRED:
             await self._reset()
             raise TelegramAccountError("telegram_login_expired", "The login code expired", {"reason": "expired"})
@@ -317,6 +325,8 @@ class MtprotoTelegramAccount:
         self._step = LoginStep.SIGNED_OUT
         self._phone = None
         self._phone_code_hash = None
+        self._code_length = None
+        self._code_delivery = None
         self._password_hint = None
         self._error = None
 
@@ -337,10 +347,39 @@ class MtprotoTelegramAccount:
         if self._step == LoginStep.PASSWORD_REQUIRED:
             return AccountStatus(step=LoginStep.PASSWORD_REQUIRED, password_hint=self._password_hint)
         if self._step == LoginStep.CODE_REQUIRED:
-            return AccountStatus(step=LoginStep.CODE_REQUIRED)
+            return AccountStatus(
+                step=LoginStep.CODE_REQUIRED, code_length=self._code_length, code_delivery=self._code_delivery
+            )
         if self._step == LoginStep.FAILED:
             return AccountStatus(step=LoginStep.FAILED, error_code=code or "telegram_login_expired")
         return AccountStatus(step=LoginStep.SIGNED_OUT, error_code=code, retry_after_seconds=retry_after)
+
+
+_CODE_DELIVERY = {
+    "SentCodeTypeApp": "app",
+    "SentCodeTypeSms": "sms",
+    "SentCodeTypeCall": "call",
+    "SentCodeTypeFlashCall": "flash_call",
+    "SentCodeTypeMissedCall": "missed_call",
+    "SentCodeTypeEmailCode": "email",
+    "SentCodeTypeSetUpEmailRequired": "email",
+    "SentCodeTypeFragmentSms": "fragment_sms",
+    "SentCodeTypeFirebaseSms": "firebase_sms",
+    "SentCodeTypeSmsWord": "sms",
+    "SentCodeTypeSmsPhrase": "sms",
+}
+
+
+def sent_code_shape(code_type: Any) -> tuple[int | None, str | None]:
+    """`(code_length, delivery)` of Telethon's `auth.SentCode.type`. Flash/missed calls carry a pattern or a
+    prefix instead of a length; the digits to type are then the last `length` of the caller's number."""
+    if code_type is None:
+        return None, None
+    delivery = _CODE_DELIVERY.get(type(code_type).__name__)
+    length = getattr(code_type, "length", None)
+    if not isinstance(length, int) or isinstance(length, bool) or not 1 <= length <= 12:
+        length = None
+    return length, delivery
 
 
 _CODE_INVALID = object()

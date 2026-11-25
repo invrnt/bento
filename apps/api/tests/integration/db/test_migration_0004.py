@@ -224,11 +224,17 @@ def test_device_repository_maps_unknown_platforms_to_other(tmp_path: Path) -> No
     with sqlite3.connect(tmp_path / "bento.sqlite3") as connection:
         connection.execute(
             "INSERT INTO devices (id, name, platform, public_key, added_at, is_current)"
-            " VALUES ('dev_phone', 'Teléfono', 'android', 'a2V5', '2026-01-01 12:00:00', 0)"
+            " VALUES ('dev_phone', 'Teléfono', 'ios', 'a2V5', '2026-01-01 12:00:00', 0)"
+        )
+        connection.execute(
+            "INSERT INTO devices (id, name, platform, public_key, added_at, is_current)"
+            " VALUES ('dev_android', 'Pixel', 'android', 'a2V6', '2026-01-01 12:00:00', 0)"
         )
 
     device = asyncio.run(SQLiteDeviceRepository(session_factory).get("dev_phone"))
+    android = asyncio.run(SQLiteDeviceRepository(session_factory).get("dev_android"))
 
     assert device is not None
     assert device.platform == DevicePlatform.OTHER
+    assert android is not None and android.platform == DevicePlatform.ANDROID
     assert device.added_at == NOW

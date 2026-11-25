@@ -1,0 +1,35 @@
+# Builds upon detekt's default configuration; only Bento deviations are listed.
+complexity:
+  LongParameterList:
+    allowedFunctionParameters: 8
+    allowedConstructorParameters: 12
+    ignoreDefaultParameters: true
+  TooManyFunctions:
+    active: false
+  LongMethod:
+    allowedLines: 80
+naming:
+  FunctionNaming:
+    ignoreAnnotated: ['Composable', 'Test']
+  MatchingDeclarationName:
+    active: false
+style:
+  ThrowsCount:
+    max: 5
+  DestructuringDeclarationWithTooManyEntries:
+    maxDestructuringEntries: 6
+  MagicNumber:
+    active: false
+  MaxLineLength:
+    maxLineLength: 140
+  ReturnCount:
+    max: 4
+  ForbiddenComment:
+    active: false
+  UnusedPrivateProperty:
+    active: true
+exceptions:
+  TooGenericExceptionCaught:
+    active: false
+  SwallowedException:
+    active: false

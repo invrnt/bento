@@ -47,8 +47,13 @@ _vault_sessions: dict[tuple[str, ...], VaultService] = {}
 _account_services: dict[tuple[str, ...], AccountService] = {}
 _singletons: dict[str, object] = {}
 
-_PLATFORMS = {"Linux": DevicePlatform.LINUX, "Darwin": DevicePlatform.MACOS, "Windows": DevicePlatform.WINDOWS}
-_OS_LABELS = {"Linux": "Linux", "Darwin": "macOS", "Windows": "Windows"}
+_PLATFORMS = {
+    "Linux": DevicePlatform.LINUX,
+    "Darwin": DevicePlatform.MACOS,
+    "Windows": DevicePlatform.WINDOWS,
+    "Android": DevicePlatform.ANDROID,
+}
+_OS_LABELS = {"Linux": "Linux", "Darwin": "macOS", "Windows": "Windows", "Android": "Android"}
 
 
 def key_store(settings: Settings) -> KeyStorePort:
@@ -111,7 +116,7 @@ def vault_session(settings: Settings) -> VaultService:
             state=SQLiteSyncStateStore(sessions, now=clock.now),
             devices=SQLiteDeviceRepository(sessions),
             usage=SQLiteVaultUsage(sessions),
-            device=device_description(),
+            device=device_description(settings),
             clock=clock,
             backend_preference=SQLiteStorageBackendPreference(SQLiteSettingsRepository(sessions, clock)),
             sync=lambda: _sync_signal(settings),
@@ -188,12 +193,14 @@ def _sync_signal(settings: Settings) -> SyncStatusProviderPort:
     return get_sync_status_provider(settings)
 
 
-def device_description() -> DeviceDescription:
-    """Default device name `<hostname> · <OS>`; people can rename it from Dispositivos."""
-    system = platform.system()
+def device_description(settings: Settings | None = None) -> DeviceDescription:
+    """Default device name `<hostname> · <OS>` (or the host-provided `device_name`, e.g. the phone model on
+    Android, where the hostname is `localhost`); people can rename it from Dispositivos."""
+    system = "Android" if settings is not None and settings.platform == "android" else platform.system()
+    configured = (settings.device_name.strip() if settings is not None else "")[:64]
     host = socket.gethostname().split(".")[0].strip() or "Bento"
     return DeviceDescription(
-        name=f"{host} · {_OS_LABELS.get(system, system or 'Desktop')}",
+        name=configured or f"{host} · {_OS_LABELS.get(system, system or 'Desktop')}",
         platform=_PLATFORMS.get(system, DevicePlatform.OTHER),
     )
 

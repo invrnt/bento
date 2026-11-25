@@ -54,6 +54,7 @@ def create_sync_loop(settings: Settings) -> SyncLoop | None:
         publisher=adapters.publisher,
         devices=SQLiteDeviceRepository(session_factory),
         clock=clock,
+        notifier=services.get_notifier(settings),
     )
     return SyncLoop(engine=engine, vault=vault, transport=runtime.transport, state=adapters.state, clock=clock)
 

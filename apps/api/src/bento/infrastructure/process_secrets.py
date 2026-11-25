@@ -35,6 +35,18 @@ def adopt_environment_secrets(
     return tuple(adopted)
 
 
+def put(name: str, value: str) -> None:
+    """Hold `value` directly (embedded hosts hand secrets over in memory, never through the environment).
+
+    A blank value forgets `name`, matching how `adopt_environment_secrets` treats blank variables.
+    """
+    with _lock:
+        if value.strip():
+            _values[name] = value
+        else:
+            _values.pop(name, None)
+
+
 def get(name: str) -> str | None:
     with _lock:
         return _values.get(name)

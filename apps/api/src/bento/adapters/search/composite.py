@@ -13,9 +13,28 @@ from bento.application.search.parser import ParsedSearchQuery, QueryIntent, pars
 from bento.application.search.scoring import ScoreParts, fuse_scores, recency_score, weights_for_intent
 from bento.domain.assets import Asset, AssetKind, ProcessingState
 from bento.domain.indexing import EmbeddingRecord, OCRBlock
-from bento.domain.search import SearchFacet, SearchHit, SearchQuery, SearchResultType, SearchResults
+from bento.domain.search import (
+    MATCH_REASON_ORDER,
+    MatchReason,
+    SearchFacet,
+    SearchHit,
+    SearchOrigin,
+    SearchQuery,
+    SearchResults,
+    SearchResultType,
+    SearchSnippet,
+    build_snippet,
+)
 from bento.infrastructure.db.engine import session_scope
-from bento.infrastructure.db.models import AlbumModel, AssetModel, AssetTextModel, FolderModel, OCRBlockModel, ThumbnailModel
+from bento.infrastructure.db.models import (
+    AlbumAssetModel,
+    AlbumModel,
+    AssetModel,
+    AssetTextModel,
+    FolderModel,
+    OCRBlockModel,
+    ThumbnailModel,
+)
 from bento.ports.repositories import ClockPort
 from bento.ports.search import SearchIndexPort
 
@@ -45,6 +64,12 @@ class _Candidate:
     recency_score: float = 0.0
     final_score: float = 0.0
     reasons: set[str] = field(default_factory=set)
+    folder_id: str | None = None
+    mime_type: str | None = None
+    origin: str | None = None
+    has_taken_at: bool = False
+    texts: dict[str, str] = field(default_factory=dict)
+    """Matched text per internal reason (`ocr`, `filename`, `folder`, `album`), for the snippet."""
 
 
 class CompositeSearchIndex(SearchIndexPort):
@@ -93,7 +118,9 @@ class CompositeSearchIndex(SearchIndexPort):
             self._add_metadata_hits(candidates, effective, parsed, candidate_limit)
             self._add_recent_asset_hits(candidates, effective, parsed, candidate_limit)
         self._add_ocr_block_hits(candidates, effective, parsed, candidate_limit)
-        self._add_collection_hits(candidates, effective, parsed, candidate_limit)
+        if effective.origin is None:  # folders and albums have no origin
+            self._add_collection_hits(candidates, effective, parsed, candidate_limit)
+        self._add_container_hits(candidates, effective, parsed, candidate_limit)
 
         vector_available = await self._add_vector_hits(candidates, effective, candidate_limit)
         self._finalize_scores(candidates.values(), parsed, vector_available)
@@ -108,7 +135,68 @@ class CompositeSearchIndex(SearchIndexPort):
             for result_type, count in Counter(candidate.type for candidate in sorted_candidates).items()
         )
         next_cursor = str(offset + limit) if len(sorted_candidates) > offset + limit else None
-        return SearchResults(items=tuple(_hit(candidate) for candidate in page), facets=facets, next_cursor=next_cursor)
+        folder_names = self._folder_names({candidate.folder_id for candidate in page if candidate.folder_id is not None})
+        return SearchResults(
+            items=tuple(_hit(candidate, parsed.tokens, folder_names) for candidate in page),
+            facets=facets,
+            next_cursor=next_cursor,
+        )
+
+    def _folder_names(self, folder_ids: set[str]) -> dict[str, str]:
+        if not folder_ids:
+            return {}
+        with session_scope(self._session_factory) as session:
+            return dict(session.execute(select(FolderModel.id, FolderModel.name).where(FolderModel.id.in_(folder_ids))).all())
+
+    def _add_container_hits(
+        self,
+        candidates: dict[tuple[SearchResultType, str], _Candidate],
+        query: SearchQuery,
+        parsed: ParsedSearchQuery,
+        limit: int,
+    ) -> None:
+        """Files inside a folder, or photos in an album, whose name matches: `folder_name` / `album` reasons."""
+        if not parsed.tokens or query.result_type in {SearchResultType.FOLDER, SearchResultType.ALBUM, SearchResultType.OCR_BLOCK}:
+            return
+        with session_scope(self._session_factory) as session:
+            folders = [
+                (folder.id, folder.name, score)
+                for folder in session.scalars(select(FolderModel).where(FolderModel.deleted_at.is_(None)))
+                if (score := _name_match_score(folder.name, parsed.tokens)) > 0
+            ]
+            albums = [
+                (album.id, album.title, score)
+                for album in session.scalars(select(AlbumModel).where(AlbumModel.deleted_at.is_(None)))
+                if (score := _name_match_score(album.title, parsed.tokens)) > 0
+            ]
+            for folder_id, name, score in folders[:limit]:
+                for model in session.scalars(_asset_select(query).where(AssetModel.folder_id == folder_id).limit(limit)):
+                    self._add_member(session, candidates, model, query, score, "folder", name)
+            for album_id, title, score in albums[:limit]:
+                statement = (
+                    _asset_select(query)
+                    .join(AlbumAssetModel, AlbumAssetModel.asset_id == AssetModel.id)
+                    .where(AlbumAssetModel.album_id == album_id)
+                    .limit(limit)
+                )
+                for model in session.scalars(statement):
+                    self._add_member(session, candidates, model, query, score, "album", title)
+
+    def _add_member(
+        self,
+        session: Session,
+        candidates: dict[tuple[SearchResultType, str], _Candidate],
+        model: AssetModel,
+        query: SearchQuery,
+        score: float,
+        reason: str,
+        text: str,
+    ) -> None:
+        candidate = _asset_candidate(session, model, _asset_result_type(model, query.result_type))
+        candidate.metadata_score = max(candidate.metadata_score, score * 0.6)
+        candidate.reasons.add(reason)
+        candidate.texts[reason] = text
+        _merge_candidate(candidates, candidate)
 
     async def _add_text_hits(
         self,
@@ -135,11 +223,11 @@ class CompositeSearchIndex(SearchIndexPort):
                 if hit.asset_id is None:
                     continue
                 model = session.get(AssetModel, hit.asset_id)
-                if model is None or model.deleted_at is not None:
+                if model is None or model.deleted_at is not None or not _origin_matches(model.origin, query.origin):
                     continue
                 candidate = _asset_candidate(session, model, _asset_result_type(model, query.result_type))
                 candidate.text_score = max(candidate.text_score, hit.score)
-                candidate.reasons.update(_matched_sources(session, model, parsed.tokens))
+                candidate.reasons.update(_matched_sources(session, model, parsed.tokens, candidate.texts))
                 _merge_candidate(candidates, candidate)
 
     def _add_metadata_hits(
@@ -215,6 +303,11 @@ class CompositeSearchIndex(SearchIndexPort):
                     text_score=1.0,
                     metadata_score=0.2,
                     reasons={"ocr"},
+                    folder_id=asset.folder_id,
+                    mime_type=asset.mime_type,
+                    origin=asset.origin,
+                    has_taken_at=asset.taken_at is not None,
+                    texts={"ocr": block.text},
                 )
                 _merge_candidate(candidates, candidate)
 
@@ -254,6 +347,8 @@ class CompositeSearchIndex(SearchIndexPort):
                             text_score=score,
                             metadata_score=max(score, 0.1),
                             reasons={"folder"},
+                            folder_id=folder.parent_id,
+                            texts={"folder": folder.name},
                         ),
                     )
             if query.result_type in {None, SearchResultType.ALBUM} and query.folder_id is None:
@@ -278,6 +373,7 @@ class CompositeSearchIndex(SearchIndexPort):
                             text_score=score,
                             metadata_score=max(score, 0.1),
                             reasons={"album"},
+                            texts={"album": album.title},
                         ),
                     )
 
@@ -349,6 +445,7 @@ def _effective_query(query: SearchQuery, parsed: ParsedSearchQuery) -> SearchQue
         date_to=query.date_to or parsed.date_to,
         limit=query.limit,
         cursor=query.cursor,
+        origin=query.origin,
     )
 
 
@@ -375,7 +472,30 @@ def _asset_conditions(query: SearchQuery) -> list[object]:
         conditions.append(asset_date >= query.date_from)
     if query.date_to is not None:
         conditions.append(asset_date <= query.date_to)
+    if query.origin is not None:
+        conditions.append(_origin_condition(query.origin))
     return conditions
+
+
+_TELEGRAM_ORIGINS = ("telegram_inbox", "telegram_import")
+
+
+def _origin_condition(origin: SearchOrigin) -> object:
+    if origin == SearchOrigin.PEER:
+        return AssetModel.origin.is_(None)
+    if origin == SearchOrigin.TELEGRAM:
+        return AssetModel.origin.in_(_TELEGRAM_ORIGINS)
+    return AssetModel.origin == origin.value
+
+
+def _origin_matches(value: str | None, origin: SearchOrigin | None) -> bool:
+    if origin is None:
+        return True
+    if origin == SearchOrigin.PEER:
+        return value is None
+    if origin == SearchOrigin.TELEGRAM:
+        return value in _TELEGRAM_ORIGINS
+    return value == origin.value
 
 
 def _kind_filter(result_type: SearchResultType | None) -> tuple[AssetKind, ...]:
@@ -400,6 +520,11 @@ def _asset_candidate(session: Session, model: AssetModel, result_type: SearchRes
         thumbnail_url=_thumbnail_url(session, model.id),
         processing_state=ProcessingState(model.processing_state),
         updated_at=model.updated_at,
+        folder_id=model.folder_id,
+        mime_type=model.mime_type,
+        origin=model.origin,
+        has_taken_at=model.taken_at is not None,
+        texts={"filename": model.filename},
     )
 
 
@@ -438,7 +563,9 @@ def _metadata_match(model: AssetModel, parsed: ParsedSearchQuery) -> tuple[float
     return score, reasons
 
 
-def _matched_sources(session: Session, model: AssetModel, tokens: tuple[str, ...]) -> set[str]:
+def _matched_sources(
+    session: Session, model: AssetModel, tokens: tuple[str, ...], texts: dict[str, str] | None = None
+) -> set[str]:
     reasons: set[str] = set()
     if not tokens:
         return reasons
@@ -449,7 +576,10 @@ def _matched_sources(session: Session, model: AssetModel, tokens: tuple[str, ...
     ):
         lowered = text.lower()
         if any(token in lowered for token in tokens):
-            reasons.add("ocr" if source == "ocr" else "metadata")
+            reason = "ocr" if source == "ocr" else "metadata"
+            reasons.add(reason)
+            if reason == "ocr" and texts is not None:
+                texts.setdefault("ocr", text)
     if not reasons:
         reasons.add("text")
     return reasons
@@ -498,6 +628,8 @@ def _merge_candidate(candidates: dict[tuple[SearchResultType, str], _Candidate],
     existing.vector_score = max(existing.vector_score, incoming.vector_score)
     existing.metadata_score = max(existing.metadata_score, incoming.metadata_score)
     existing.reasons.update(incoming.reasons)
+    for reason, text in incoming.texts.items():
+        existing.texts.setdefault(reason, text)
 
 
 def _normalize_text_scores(candidates: list[_Candidate]) -> None:
@@ -508,7 +640,49 @@ def _normalize_text_scores(candidates: list[_Candidate]) -> None:
         candidate.text_score = min(candidate.text_score / highest, 1.0)
 
 
-def _hit(candidate: _Candidate) -> SearchHit:
+_REASON_CODES: dict[str, MatchReason] = {
+    "ocr": MatchReason.OCR_TEXT,
+    "vector": MatchReason.SEMANTIC,
+    "filename": MatchReason.FILENAME,
+    "metadata": MatchReason.METADATA,
+    "document": MatchReason.DOCUMENT_TYPE,
+    "folder": MatchReason.FOLDER_NAME,
+    "album": MatchReason.ALBUM,
+    "recent": MatchReason.RECENT,
+    "text": MatchReason.INDEXED_TEXT,
+}
+_SNIPPET_SOURCES = ("ocr", "filename", "folder", "album")
+
+
+def _match_reasons(candidate: _Candidate) -> tuple[MatchReason, ...]:
+    codes = {_REASON_CODES[reason] for reason in candidate.reasons if reason in _REASON_CODES}
+    if "date" in candidate.reasons:
+        codes.add(MatchReason.EXIF_DATE if candidate.has_taken_at else MatchReason.DATE)
+    return tuple(code for code in MATCH_REASON_ORDER if code in codes)
+
+
+def _snippet(candidate: _Candidate, tokens: tuple[str, ...]) -> SearchSnippet | None:
+    for reason in _SNIPPET_SOURCES:
+        text = candidate.texts.get(reason)
+        if reason in candidate.reasons and text:
+            snippet = build_snippet(text, tokens, _REASON_CODES[reason])
+            if snippet is not None:
+                return snippet
+    return None
+
+
+def _origin(value: str | None, candidate: _Candidate) -> SearchOrigin | None:
+    if candidate.asset_id is None:
+        return None
+    if value is None:
+        return SearchOrigin.PEER
+    try:
+        return SearchOrigin(value)
+    except ValueError:
+        return None
+
+
+def _hit(candidate: _Candidate, tokens: tuple[str, ...] = (), folder_names: dict[str, str] | None = None) -> SearchHit:
     return SearchHit(
         id=candidate.id,
         type=candidate.type,
@@ -519,6 +693,12 @@ def _hit(candidate: _Candidate) -> SearchHit:
         score=round(candidate.final_score, 6),
         reason=_reason(candidate.reasons),
         processing_state=candidate.processing_state,
+        match_reasons=_match_reasons(candidate),
+        snippet=_snippet(candidate, tokens),
+        folder_id=candidate.folder_id,
+        folder_name=(folder_names or {}).get(candidate.folder_id) if candidate.folder_id is not None else None,
+        mime_type=candidate.mime_type,
+        origin=_origin(candidate.origin, candidate),
     )
 
 
