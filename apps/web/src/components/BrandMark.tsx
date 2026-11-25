@@ -19,12 +19,21 @@ export function BrandMark({ className, title }: BrandMarkProps) {
       viewBox="0 0 32 32"
     >
       {title ? <title>{title}</title> : null}
+      <BrandMarkShapes />
+    </svg>
+  );
+}
+
+/** The mark's shapes in a 32×32 box, for drawing it inside another SVG (e.g. a QR code). */
+export function BrandMarkShapes() {
+  return (
+    <>
       <rect className="fill-ink" height="32" rx="9" width="32" />
       <rect className="fill-tray" height="22" rx="3.5" width="10.5" x="4.5" y="5" />
       <rect className="fill-tray" height="10" rx="3.5" width="10.5" x="17" y="5" />
       <rect className="fill-tray" height="10" rx="3.5" width="10.5" x="17" y="17" />
       <circle className="fill-shu" cx="22.25" cy="22" r="2.75" />
-    </svg>
+    </>
   );
 }
 

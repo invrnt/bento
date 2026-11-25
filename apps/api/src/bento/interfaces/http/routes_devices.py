@@ -15,10 +15,9 @@ from pydantic import BaseModel, Field
 from bento.application.devices import DeviceService
 from bento.domain.devices import Device
 from bento.domain.errors import DomainError
-from bento.interfaces.http.qr import QrMatrix, qr_matrix
+from bento.interfaces.http.qr import QrMatrix, recovery_qr_matrix
 from bento.interfaces.http.routes_pairing import domain_error_response, get_device_service
 
-RECOVERY_QR_PREFIX = "bento-recovery:"
 
 router = APIRouter(tags=["devices"])
 
@@ -121,7 +120,7 @@ async def remove_device(
         device=device_response(removal.device),
         telegram_session_closed=removal.telegram_session_closed,
         recovery_code=removal.recovery_code,
-        recovery_qr=qr_matrix(RECOVERY_QR_PREFIX + removal.recovery_code),
+        recovery_qr=recovery_qr_matrix(removal.recovery_code),
         removed_device_ids=[removal.device.id, *(device.id for device in removal.excluded)],
     )
 
