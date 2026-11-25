@@ -5,7 +5,7 @@
 # It never pushes, tags or publishes anything. Docs: docs/dev/android-release.md.
 #
 #   scripts/release.sh --version 1.2.3            real release (keystore + update key from the environment)
-#   scripts/release.sh --dry-run [--version 0.1.0] throwaway keystore + update key in build/release-dry-run
+#   scripts/release.sh --dry-run [--version X.Y.Z] throwaway keystore + update key in build/release-dry-run (default: VERSION)
 #   options: --abi all|arm64|universal (default all)   --out <dir>   --feed-port 8799 (dry run)
 #            --skip-build (re-verify and re-sign the APKs already in --out)
 #
@@ -67,7 +67,7 @@ if [ -z "$VERSION" ]; then
   TAG="$(git -C "$REPO_ROOT" describe --tags --exact-match --match 'android-v*' HEAD 2>/dev/null || true)"
   VERSION="${TAG#android-v}"
 fi
-if [ -z "$VERSION" ] && [ "$DRY_RUN" = 1 ]; then VERSION="0.1.0"; fi
+if [ -z "$VERSION" ] && [ "$DRY_RUN" = 1 ]; then VERSION="$(tr -d '[:space:]' < "$REPO_ROOT/VERSION")"; fi
 [[ "$VERSION" =~ ^(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})$ ]] || die "version must be X.Y.Z (pass --version or tag android-vX.Y.Z), got '$VERSION'"
 VERSION_CODE=$(( BASH_REMATCH[1] * 1000000 + BASH_REMATCH[2] * 1000 + BASH_REMATCH[3] ))
 TAG="android-v$VERSION"

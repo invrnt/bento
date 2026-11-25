@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability (private)
+    url: https://github.com/invrnt/bento/security/advisories/new
+    about: Never in a public issue. Reports go privately to the maintainers; see SECURITY.md.
+  - name: User guides · Guías de uso
+    url: https://github.com/invrnt/bento/blob/main/docs/user/README.md
+    about: Installing, connecting Telegram, adding devices, recovery kit, troubleshooting (español / English).

@@ -3,9 +3,9 @@
 #   irm https://raw.githubusercontent.com/invrnt/bento/main/scripts/install/install.ps1 | iex
 #
 # Environment:
-#   BENTO_CLI_VERSION   version to install (e.g. 0.1.0); default: the newest `cli-v*` release
+#   BENTO_CLI_VERSION   version to install (e.g. 0.1.0); default: the latest Bento release (`vX.Y.Z`)
 #   BENTO_CLI_BASE_URL  where the release assets live; default:
-#                       https://github.com/invrnt/bento/releases/download/cli-v<version>
+#                       https://github.com/invrnt/bento/releases/download/v<version>
 #   BENTO_INSTALL_DIR   default: %LOCALAPPDATA%\Bento CLI
 #
 # The archive's SHA-256 is verified before anything is installed. No administrator rights needed.
@@ -44,12 +44,12 @@ try {
     }
   } else {
     if (-not $version) {
-      $releases = Invoke-RestMethod -UseBasicParsing -Uri "https://api.github.com/repos/$Repository/releases?per_page=50"
-      $tag = $releases | Where-Object { $_.tag_name -like "cli-v*" } | Select-Object -First 1
-      if (-not $tag) { Fail "no CLI release found; set BENTO_CLI_VERSION" }
-      $version = $tag.tag_name.Substring(5)
+      # releases/latest is the product release; Android releases are published with --latest=false.
+      $latest = Invoke-RestMethod -UseBasicParsing -Uri "https://api.github.com/repos/$Repository/releases/latest"
+      if ($latest.tag_name -notmatch '^v[0-9]') { Fail "no Bento release found; set BENTO_CLI_VERSION" }
+      $version = $latest.tag_name.Substring(1)
     }
-    $baseUrl = "https://github.com/$Repository/releases/download/cli-v$($version.TrimStart('v'))"
+    $baseUrl = "https://github.com/$Repository/releases/download/v$($version.TrimStart('v'))"
   }
   $version = $version.TrimStart("v")
   if ($version -notmatch '^[0-9A-Za-z.+-]+$') { Fail "invalid version '$version'" }

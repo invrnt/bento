@@ -9,14 +9,16 @@ plugins {
 
 val abis = providers.gradleProperty("bentoAbis").get().split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
-// Release identity (agent 42): `-PbentoVersion=X.Y.Z`, else the exact `android-vX.Y.Z` tag at HEAD, else 0.1.0.
+// Release identity (agent 42): `-PbentoVersion=X.Y.Z`, else the exact `android-vX.Y.Z` tag at HEAD, else the
+// repository's VERSION file (the product version, docs/dev/releasing.md).
 // versionCode = X·10⁶ + Y·10³ + Z (same formula as core/update ManifestParser.versionCode); both APKs share it.
 val bentoVersion: String = providers.gradleProperty("bentoVersion").orNull?.trim()?.takeIf { it.isNotEmpty() }
     ?: providers.exec {
         commandLine("git", "describe", "--tags", "--exact-match", "--match", "android-v*", "HEAD")
         isIgnoreExitValue = true
     }.standardOutput.asText.get().trim().removePrefix("android-v").takeIf { it.isNotEmpty() }
-    ?: "0.1.0"
+    ?: providers.fileContents(layout.projectDirectory.file(rootProject.file("../../VERSION").path))
+        .asText.get().trim()
 val bentoVersionCode: Int = run {
     val match = Regex("^(0|[1-9]\\d{0,2})\\.(0|[1-9]\\d{0,2})\\.(0|[1-9]\\d{0,2})$").matchEntire(bentoVersion)
         ?: error("bentoVersion must be X.Y.Z with each part below 1000, got '$bentoVersion'")

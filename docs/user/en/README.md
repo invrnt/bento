@@ -25,6 +25,7 @@ Español: [Guías de Bento](../es/README.md).
 ## Trust and help
 
 - [Privacy and security](privacy-and-security.md): what is encrypted and what each party sees.
+- [Verify your downloads](verify-downloads.md): check an installer's signature and fingerprint.
 - [Frequently asked questions](faq.md).
 - [Troubleshooting](troubleshooting.md).
 

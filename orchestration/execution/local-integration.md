@@ -107,7 +107,7 @@ Rules of thumb with 2-3 GB free:
 | Report-only merges (22c, 22d reports) | `--site` (doc links) | `scripts/local-ci.sh --ref feature/android --site` |
 | End of Stage 21 (after #2) and end of Stage 22 (after #7) | Full gate + journeys | `scripts/local-ci.sh --ref feature/android --full --record …` |
 | Before a PR to `main` | Full + `--desktop-native` (the only required check reproducible here) + `--benchmarks` | `scripts/local-ci.sh --ref feature/android --full --desktop-native --benchmarks --record …` |
-| Release tag | Full + benchmarks on the tagged SHA, then §7 | as above with `--ref android-vX.Y.Z` |
+| Release tag | Full + benchmarks on the tagged SHA, then §9 | as above with `--ref vX.Y.Z` |
 
 If a merge's smoke fails, fix it in a follow-up commit on `feature/android` (or hand it back to the agent) before the next merge. Never stack merges on a red tip. If the failure can't be fixed quickly, `git reset --hard <pre-merge-sha>` the integration branch; it is local and unpublished, and rerere keeps the resolution.
 
@@ -133,6 +133,9 @@ In every option, also decide whether to disable Actions for the repo (Settings �
 The PR itself (once the owner allows it): squash of `feature/android` → `main`, with a body containing the program summary, the latest `--full --desktop-native --benchmarks` summary for the PR head, and links to the stage status in `android-program.md`.
 
 ## 7. Local release of the signed APK
+
+> Superseded for releases of record by §9: `scripts/release/bento-release` runs `apps/android/scripts/release.sh`
+> (22a's script) and publishes `android-vX.Y.Z`. The steps below remain the background for that script.
 
 Stage 22's exit gate says "built by CI from a tag". Without CI, the same steps run locally. 22a defines the exact Gradle properties and the update-manifest tooling; until it lands, take the names below as placeholders.
 
@@ -160,3 +163,18 @@ scripts/local-ci.sh --ref feature/android --full --desktop-native --benchmarks
 ```
 
 The exit code is 0 when every step passes, 1 when any step fails, and 2 for a usage error. When a step fails, the later steps of that component are recorded as `SKIP`, and the other components still run. Overrides: `BENTO_JAVA17`, `BENTO_BUILD_PYTHON`, `BENTO_ANDROID_WHEELS`, `BENTO_CI_NODE_DIR`, `ANDROID_HOME`, `ANDROID_AVD_HOME`, `BENTO_AVD`, `BENTO_EMULATOR_LOCK`, `BENTO_EMULATOR_LOCK_WAIT`, `BENTO_CI_ROOT`.
+
+## 9. Releases and the dormant workflows
+
+Releases of record are made locally with `scripts/release/bento-release` ([docs/dev/releasing.md](../../docs/dev/releasing.md)):
+one product version in `VERSION` (checked against every manifest by `--light`'s `release` component), signed tags
+`vX.Y.Z` (desktop, CLI, backend) and `android-vX.Y.Z`, a dry-run build by default into `dist/release/<version>/`,
+`SHA256SUMS` signed with `ssh-keygen -Y sign`, CycloneDX SBOMs (uv export, `@cyclonedx/cyclonedx-npm` 6.0.1, the
+CycloneDX Gradle plugin 3.6.1 through an init script), release notes from `CHANGELOG.md`, and an explicit `publish`
+step (`gh release create --draft`, inventory check, then publish). A release build requires a `PASS` entry in
+`evidence/local-ci.md` for the release commit (or for an ancestor that differs only in that file). Windows and macOS
+packages are built on those systems with the same tool and merged with `bento-release import`.
+
+`.github/workflows/*.yml` are kept but trigger only on `workflow_dispatch`, so nothing queues or fails on pushes,
+PRs, tags or schedules. `desktop-version-bump.yml` and `apps/desktop/scripts/bump-version.mjs` were removed in
+favour of `bento-release version bump`. The required-checks decision in §6 is still the owner's.

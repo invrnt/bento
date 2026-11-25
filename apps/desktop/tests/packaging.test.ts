@@ -80,7 +80,6 @@ describe("native packaging scaffold", () => {
     const repositoryRoot = path.resolve(desktopRoot, "../..");
     const native = await readFile(path.join(repositoryRoot, ".github", "workflows", "desktop-native.yml"), "utf8");
     const release = await readFile(path.join(repositoryRoot, ".github", "workflows", "desktop-release.yml"), "utf8");
-    const bump = await readFile(path.join(repositoryRoot, ".github", "workflows", "desktop-version-bump.yml"), "utf8");
     for (const workflow of [native, release]) {
       expect(workflow).toContain("ubuntu-22.04");
       expect(workflow).toContain("windows-2025");
@@ -91,9 +90,6 @@ describe("native packaging scaffold", () => {
       for (const match of workflow.matchAll(/uses:\s+[^@\s]+@([^\s]+)/gu)) {
         expect(match[1]).toMatch(/^[a-f0-9]{40}$/u);
       }
-    }
-    for (const match of bump.matchAll(/uses:\s+[^@\s]+@([^\s]+)/gu)) {
-      expect(match[1]).toMatch(/^[a-f0-9]{40}$/u);
     }
     expect(native).not.toContain("secrets.");
     expect(native).toContain("unsigned");
@@ -110,13 +106,11 @@ describe("native packaging scaffold", () => {
     expect(release).toContain("Release digest mismatch");
     expect(release).toContain('git rev-list -n 1 "$GITHUB_REF"');
     expect(release).toContain("desktop-production-release");
-    expect(bump).toContain("bump-version.mjs");
-    expect(bump).toContain("actions: write");
-    expect(bump).toContain('gh workflow run desktop-native.yml --ref "$VERSION_BRANCH"');
-    expect(bump).toContain('git ls-remote --exit-code --heads origin "$branch"');
-    expect(bump).toContain("apps/api/src/bento/domain/settings_registry.py");
-    expect(bump).toContain("Reusing open pull request");
-    expect(bump).toContain("desktop-version-bump");
+    // Actions has no billing: the workflows are dormant and must not trigger on their own (docs/dev/releasing.md).
+    for (const workflow of [native, release]) {
+      expect(workflow).toMatch(/^on:\n  workflow_dispatch:\n\n/mu);
+      expect(workflow).toContain("DORMANT, manual-only");
+    }
   });
 
   it("registers bento:// deep links and Send-to file handling in every package format", async () => {

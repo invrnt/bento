@@ -15,13 +15,14 @@
 #   --desktop-native  linux-x64 "unsigned package": make, smoke:packaged, verify:artifacts (heavy)
 #   --site            node build + node --test (includes the docs link checker)
 #   --relay           npm ci; wrangler types --check + tsc; vitest (workers pool)
+#   --release         release tool: unittest suite, version/CHANGELOG checks (scripts/release, seconds)
 #   --android-fast    generators, drift (tokens/icons/OpenAPI), ktlint, detekt, unit + Roborazzi, assembleDebug
 #   --android-full    CI "checks" job: build-logic tests, check (incl. lint), assembleDebug/Release both ABIs,
 #                     assembleDebugAndroidTest
 #   --journeys        instrumented app + smoke on the shared AVD, under the emulator flock
 #   --benchmarks      Macrobenchmark StartupBenchmark + photos journeys/benchmarks (emulator, slow)
 # Presets:
-#   --light           backend web desktop site relay
+#   --light           backend web desktop site relay release
 #   --merge           light + android-fast
 #   --full            light + android-full + journeys
 #   --auto <base>     pick components from the paths changed in <base>...<ref>
@@ -41,7 +42,7 @@
 set -uo pipefail
 
 SELF="$(readlink -f "${BASH_SOURCE[0]}")"
-COMPONENT_ORDER=(backend backend-smoke web desktop desktop-native site relay android-fast android-full journeys benchmarks)
+COMPONENT_ORDER=(backend backend-smoke release web desktop desktop-native site relay android-fast android-full journeys benchmarks)
 
 die() { printf 'local-ci: %s\n' "$*" >&2; exit 2; }
 log() { printf '[local-ci %s] %s\n' "$(date +%H:%M:%S)" "$*" >&2; }
@@ -113,11 +114,11 @@ want() { local c; for c in "$@"; do WANT[$c]=1; done; }
 while (( $# )); do
   case "$1" in
     --ref) REF="${2:?}"; shift ;;
-    --backend|--backend-smoke|--web|--desktop|--desktop-native|--site|--relay|--android-fast|--android-full|--journeys|--benchmarks)
+    --backend|--backend-smoke|--release|--web|--desktop|--desktop-native|--site|--relay|--android-fast|--android-full|--journeys|--benchmarks)
       want "${1#--}" ;;
-    --light) want backend web desktop site relay ;;
-    --merge) want backend web desktop site relay android-fast ;;
-    --full) want backend web desktop site relay android-full journeys ;;
+    --light) want backend web desktop site relay release ;;
+    --merge) want backend web desktop site relay release android-fast ;;
+    --full) want backend web desktop site relay release android-full journeys ;;
     --auto) AUTO_BASE="${2:?}"; shift ;;
     --dry-run) DRY_RUN=1 ;;
     --parallel) PARALLEL=1 ;;
@@ -143,15 +144,20 @@ if [[ -n "$AUTO_BASE" ]]; then
   BASE_SHA="$(git -C "$REPO" merge-base "$AUTO_BASE" "$SHA")" || die "cannot resolve --auto base '$AUTO_BASE'"
   while IFS= read -r p; do
     case "$p" in
-      apps/api/src/*|apps/api/migrations/*|apps/api/uv.lock) want backend android-fast ;;
+      apps/api/src/*|apps/api/migrations/*|apps/api/uv.lock) want backend android-fast release ;;
+      apps/api/pyproject.toml) want backend release ;;
       apps/api/*) want backend ;;
       apps/web/src/styles/tokens.css) want web desktop android-fast ;;
+      apps/web/package.json|apps/web/package-lock.json) want web desktop release ;;
       apps/web/*) want web desktop ;;
+      apps/desktop/package.json|apps/desktop/package-lock.json) want desktop release ;;
       apps/desktop/*) want desktop ;;
       apps/site/*|docs/*|README.md|*/README.md) want site ;;
       apps/relay/*) want relay ;;
+      apps/android/app/build.gradle.kts) want android-fast release ;;
       apps/android/*) want android-fast ;;
-      scripts/local-ci.sh|.github/*|Makefile|.pre-commit-config.yaml) want backend web desktop site relay ;;
+      scripts/release/*|VERSION|CHANGELOG.md) want release ;;
+      scripts/local-ci.sh|.github/*|Makefile|.pre-commit-config.yaml) want backend web desktop site relay release ;;
       scripts/*) want backend ;;
     esac
   done < <(git -C "$REPO" diff --name-only "$BASE_SHA" "$SHA")
@@ -214,6 +220,7 @@ detail_from_log() {
     d="node --test: $(grep -aE '^(#|ℹ) pass ' "$f" | awk '{s+=$3} END {print s+0}') pass, $(grep -aE '^(#|ℹ) fail ' "$f" | awk '{s+=$3} END {print s+0}') fail"
   fi
   [[ -z "$d" ]] && d="$(grep -aE '^BUILD (SUCCESSFUL|FAILED) in' "$f" | tail -1)"
+  [[ -z "$d" ]] && d="$(grep -aE '^Ran [0-9]+ tests? in' "$f" | tail -1)"
   if grep -aqE '^[0-9]+ tests completed' "$f"; then d="$d; $(grep -aE '^[0-9]+ tests completed' "$f" | tail -1)"; fi
   printf '%s' "${d//|//}"
 }
@@ -259,6 +266,10 @@ c_backend() {
 c_backend-smoke() {
   step backend-smoke uv-sync "$MEM_BACKEND" "" 'uv sync --project apps/api --frozen --extra dev'
   step backend-smoke pytest "$MEM_BACKEND" apps/api 'uv run --frozen pytest -p no:cacheprovider tests/smoke tests/api/android'
+}
+c_release() {
+  step release unittest "$MEM_BACKEND" scripts/release/tests 'python3 -m unittest discover -s . -p "test_*.py"'
+  step release version-check "$MEM_BACKEND" "" 'scripts/release/bento-release version check && scripts/release/bento-release changelog check'
 }
 c_web() {
   step web npm-ci "$MEM_TS" apps/web "$NPM_CI"
@@ -368,7 +379,7 @@ T_START=$SECONDS
 LANE_PY=() LANE_TS=() LANE_ANDROID=()
 for c in "${SELECTED[@]}"; do
   case "$c" in
-    backend|backend-smoke) LANE_PY+=("$c") ;;
+    backend|backend-smoke|release) LANE_PY+=("$c") ;;
     web|desktop|desktop-native|site|relay) LANE_TS+=("$c") ;;
     *) LANE_ANDROID+=("$c") ;;
   esac

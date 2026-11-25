@@ -1,0 +1,9 @@
+# Public keys allowed to sign Bento releases (SHA256SUMS.sig), in ssh-keygen ALLOWED SIGNERS format.
+# Verify a download:  ssh-keygen -Y verify -f allowed_signers -I bento-release -n bento-release -s SHA256SUMS.sig < SHA256SUMS
+# Docs: docs/dev/releasing.md (owner) and docs/user/en/verify-downloads.md (users).
+#
+# One line per key:  bento-release namespaces="bento-release" ssh-ed25519 AAAA...
+# Adding or removing a key is a reviewed commit; keep a retired key here (with valid-before="YYYYMMDD")
+# while releases signed by it are still offered.
+#
+# [[COMPLETAR: clave pública SSH Ed25519 de firma de releases del propietario; ver docs/dev/releasing.md#claves]]

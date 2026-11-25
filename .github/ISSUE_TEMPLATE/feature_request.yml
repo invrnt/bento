@@ -1,0 +1,52 @@
+name: Feature request · Proponer una mejora
+description: An idea or change for Bento. Una idea o un cambio para Bento.
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks! Puedes escribir en español o en inglés. Some things are out of scope on purpose (public links,
+        an iOS app, shared family vaults, cloud AI, GPU-only features); see `orchestration/README.md` › Non-Goals.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component · Componente
+      options:
+        - Desktop app
+        - Android app
+        - bento CLI
+        - Sync, pairing or Telegram connection
+        - Search, OCR or organization
+        - Public site or documentation
+        - Other / not sure
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem · El problema
+      description: What are you trying to do, and what makes it hard today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution · Propuesta
+      description: How it could work for you. Mockups or examples welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered · Alternativas
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Privacy and security impact · Impacto en privacidad
+      description: Would this send anything new off the device, or change what Telegram, the relay or the site can see?
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contributing
+      options:
+        - label: I would like to work on this (see CONTRIBUTING.md).

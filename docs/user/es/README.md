@@ -23,6 +23,7 @@ English: [Bento guides](../en/README.md).
 ## Confianza y ayuda
 
 - [Privacidad y seguridad](privacidad-y-seguridad.md): qué se cifra y qué ve cada parte.
+- [Verificar tus descargas](verificar-descargas.md): comprobar la firma y la huella de un instalador.
 - [Preguntas frecuentes](preguntas-frecuentes.md).
 - [Solución de problemas](solucion-de-problemas.md).
 
