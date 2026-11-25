@@ -48,4 +48,11 @@ class EngineConfigWireTest {
         )
         assertEquals(emptyMap<String, String>(), EngineConfigWire.settings(config()))
     }
+
+    @Test
+    fun `a debug relay_url option overrides the built relay`() {
+        assertEquals("ws://127.0.0.1:8788", DebugOptions.relayUrl(mapOf("relay_url" to "ws://127.0.0.1:8788"), "wss://relay.example"))
+        assertEquals("wss://relay.example", DebugOptions.relayUrl(mapOf("relay_url" to " "), "wss://relay.example"))
+        assertNull(DebugOptions.relayUrl(emptyMap(), ""))
+    }
 }

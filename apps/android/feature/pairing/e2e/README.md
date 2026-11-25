@@ -15,16 +15,18 @@ fake Telegram cloud.
 | 15 Session closed: reconnect screen over the library, sign in resumes | `j15_sessionRevoked` | phone |
 | English copy | `j90_englishCopy` (`APP_LOCALE=en-US`) | phone |
 
-`trust_host.py` runs the host side on 127.0.0.1: the remote fake cloud (`bento-sidecar fake-telegram-serve`, :8790),
-the backend's relay double (mirrors `apps/relay`, :8788) and two headless desktops (API + worker, :8791/:8792).
-`run_journeys.sh` boots the AVD headless, starts the harness, maps the ports with `adb reverse`, clears the app and
-writes `files/dev-options.json` before each journey, and pulls in-app screenshots to
-`build/trust-journeys/screens-<locale>/`.
+`trust_host.py` runs the host side on 127.0.0.1: the remote fake cloud (`bento-sidecar fake-telegram-serve`),
+the backend's relay double (mirrors `apps/relay`) and two headless desktops (API + worker). `run_journeys.sh` boots
+the AVD headless, starts the harness on free host ports (or `BENTO_E2E_{RELAY,FAKE,DESKTOP,DESKTOP2}_PORT`), maps the
+phone's fixed :8788 (relay), :8790 (fake cloud), :8791/:8792 (desktops) onto them with `adb reverse`, clears the app
+and writes `files/dev-options.json` (`relay_url`, `fake_telegram_url`) before each journey, saves each journey's app
+logcat, and pulls in-app screenshots to `build/trust-journeys/screens-<locale>/`. Any debug build works: the relay
+comes from the dev options and App Links are accepted for `bentoSiteHost` (`bento.example` by default). The host's
+sidecars are stopped on every exit, including failures and Ctrl-C.
 
 ```sh
 cd apps/android
-./gradlew :app:assembleDebug :app:assembleDebugAndroidTest -PbentoRelayUrl=ws://127.0.0.1:8788 \
-  -PbentoSiteUrl=https://bento.example -PbentoBuildPython=$(uv python find 3.13)
+./gradlew :app:assembleDebug :app:assembleDebugAndroidTest -PbentoBuildPython=$(uv python find 3.13)
 flock "$HOME/.cache/bento-android-emulator.lock" feature/pairing/e2e/run_journeys.sh            # all, es-ES
 APP_LOCALE=en-US flock "$HOME/.cache/bento-android-emulator.lock" feature/pairing/e2e/run_journeys.sh j90_englishCopy
 ```
