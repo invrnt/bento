@@ -80,14 +80,21 @@ describe("site structure", () => {
   });
 
   it("links every page to its other-language alternate", async () => {
+    const { origin } = JSON.parse(await readFile(path.join(root, "site.config.json"), "utf8"));
+    const stripOrigin = (href) => (origin && href?.startsWith(`${origin}/`) ? href.slice(origin.length) : href);
     for (const [file, page] of pages) {
       if (page.urlPath === "/404.html") continue;
       const alternates = page.tags.filter((tag) => tag.name === "link" && tag.attrs.rel === "alternate");
-      const byLang = Object.fromEntries(alternates.map((tag) => [tag.attrs.hreflang, tag.attrs.href]));
+      const byLang = Object.fromEntries(alternates.map((tag) => [tag.attrs.hreflang, stripOrigin(tag.attrs.href)]));
       const isEnglish = page.urlPath.startsWith("/en/");
       const spanish = isEnglish ? page.urlPath.slice(3) : page.urlPath;
       assert.equal(byLang.es, spanish, file);
       assert.equal(byLang.en, `/en${spanish}`, file);
+      if (!page.urlPath.endsWith("/join/")) {
+        assert.equal(byLang["x-default"], `/en${spanish}`, file);
+        const canonical = page.tags.find((tag) => tag.name === "link" && tag.attrs.rel === "canonical");
+        assert.equal(stripOrigin(canonical?.attrs.href), page.urlPath, `${file}: canonical`);
+      }
       const switcher = page.tags.find((tag) => tag.name === "a" && tag.attrs.class === "lang-switch");
       assert.equal(switcher?.attrs.href, isEnglish ? spanish : `/en${spanish}`, file);
     }
@@ -147,7 +154,12 @@ describe("links", () => {
 });
 
 describe("no external requests", () => {
-  it("loads only same-origin resources and has no inline code or styles", () => {
+  it("loads only same-origin resources and has no inline code or styles", async () => {
+    const { origin } = JSON.parse(await readFile(path.join(root, "site.config.json"), "utf8"));
+    const isSameOriginMetadataLink = (tag) =>
+      (tag.attrs.rel === "canonical" || tag.attrs.rel === "alternate")
+      && origin
+      && (tag.attrs.href ?? "").startsWith(`${origin}/`);
     const problems = [];
     for (const page of pages.values()) {
       for (const tag of page.tags) {
@@ -159,15 +171,29 @@ describe("no external requests", () => {
         }
         if (["iframe", "object", "embed", "form", "style", "base", "frame", "video", "audio"].includes(tag.name)) problems.push(`${where}: element not allowed`);
         if (tag.name === "meta" && tag.attrs["http-equiv"]) problems.push(`${where}: http-equiv not allowed`);
-        if (tag.name === "link" && !(tag.attrs.href ?? "").startsWith("/")) problems.push(`${where}: external link element`);
+        if (tag.name === "link" && !(tag.attrs.href ?? "").startsWith("/") && !isSameOriginMetadataLink(tag)) problems.push(`${where}: external link element`);
         if (tag.name === "img" && (!("alt" in tag.attrs) || !(tag.attrs.src ?? "").startsWith("/"))) problems.push(`${where}: image must be same-origin with alt`);
         if (tag.name === "script") {
-          if (!(tag.attrs.src ?? "").startsWith("/assets/")) problems.push(`${where}: script must be a same-origin file`);
-          if (tag.attrs.type !== "module") problems.push(`${where}: scripts must be modules`);
+          if (tag.attrs.type === "application/ld+json") {
+            if (tag.attrs.src) problems.push(`${where}: ld+json must not load external src`);
+          } else {
+            if (!(tag.attrs.src ?? "").startsWith("/assets/")) problems.push(`${where}: script must be a same-origin file`);
+            if (tag.attrs.type !== "module") problems.push(`${where}: scripts must be modules`);
+          }
         }
       }
-      for (const body of elementText(page.html, "script")) {
-        if (body.trim() !== "") problems.push(`${page.urlPath}: inline script`);
+      for (const match of page.html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/giu)) {
+        const isJsonLd = /type="application\/ld\+json"/iu.test(match[1]);
+        if (isJsonLd) {
+          try {
+            const parsed = JSON.parse(match[2]);
+            if (parsed["@context"] !== "https://schema.org") problems.push(`${page.urlPath}: ld+json invalid @context`);
+          } catch {
+            problems.push(`${page.urlPath}: invalid JSON-LD`);
+          }
+        } else if (match[2].trim() !== "") {
+          problems.push(`${page.urlPath}: inline script`);
+        }
       }
     }
     assert.deepEqual(problems, []);
@@ -385,6 +411,31 @@ describe("link previews", () => {
       await assert.rejects(build({ output, config: { repository: "invrnt/bento", origin: "http://bento.example/", release: null, android } }));
     } finally {
       await rm(output, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("seo", () => {
+  it("emits sitemap.xml referencing every indexable page and links it from robots.txt", async () => {
+    const { origin } = JSON.parse(await readFile(path.join(root, "site.config.json"), "utf8"));
+    assert.ok(origin, "origin must be configured");
+    const sitemap = await readFile(path.join(dist, "sitemap.xml"), "utf8");
+    for (const loc of ["/", "/en/", "/security/", "/en/security/", "/privacy/", "/en/privacy/", "/terms/", "/en/terms/"]) {
+      assert.ok(sitemap.includes(`<loc>${origin}${loc}</loc>`), `sitemap missing ${loc}`);
+    }
+    assert.ok(!sitemap.includes("/join/"), "sitemap must exclude /join/");
+    assert.ok(!sitemap.includes("/404.html"), "sitemap must exclude /404.html");
+    const robots = await readFile(path.join(dist, "robots.txt"), "utf8");
+    assert.ok(robots.includes(`Sitemap: ${origin}/sitemap.xml`));
+  });
+
+  it("includes SoftwareApplication and FAQPage JSON-LD on both home pages", () => {
+    for (const urlPath of ["/", "/en/"]) {
+      const page = [...pages.values()].find((candidate) => candidate.urlPath === urlPath);
+      const blocks = [...page.html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/gu)].map((m) => JSON.parse(m[1]));
+      const types = new Set(blocks.flatMap((doc) => (Array.isArray(doc["@graph"]) ? doc["@graph"].map((n) => n["@type"]) : [doc["@type"]])));
+      assert.ok(types.has("SoftwareApplication"), `${urlPath}: SoftwareApplication`);
+      assert.ok(types.has("FAQPage"), `${urlPath}: FAQPage`);
     }
   });
 });

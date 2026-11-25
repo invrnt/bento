@@ -7,28 +7,112 @@
 <meta name="theme-color" content="#f5f2ee" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0c0e15" media="(prefers-color-scheme: dark)">
 <meta name="referrer" content="no-referrer">
-<title>Bento · Deja de alquilar espacio para tus fotos y archivos</title>
-<meta name="description" content="Tu Google Drive y Google Fotos sin límite de espacio, cifrado en tu propia cuenta de Telegram. Gratis, código abierto, para escritorio, Android y con CLI nativa para OpenClaw y agentes de IA.">
+<title>Bento · Tu Google Drive y Google Fotos sin límites, en tu Telegram</title>
+<meta name="description" content="Deja de alquilar la nube. Convierte tu Telegram gratis en un Google Drive y Google Fotos cifrado en escritorio, Android y CLI para OpenClaw y agentes de IA.">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="/">
+<link rel="alternate" hreflang="es" href="/">
+<link rel="alternate" hreflang="en" href="/en/">
+<link rel="alternate" hreflang="x-default" href="/en/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Bento">
 <meta property="og:locale" content="es_ES">
 <meta property="og:locale:alternate" content="en_US">
 <meta property="og:url" content="/">
-<meta property="og:title" content="Bento · Deja de alquilar espacio para tus fotos y archivos">
-<meta property="og:description" content="Tu Google Drive y Google Fotos sin límite de espacio, cifrado en tu Telegram y con CLI lista para OpenClaw y tus agentes de IA.">
+<meta property="og:title" content="Bento · Tu Google Drive y Google Fotos sin límites, en tu Telegram">
+<meta property="og:description" content="Deja de alquilar la nube. Almacenamiento cifrado en tu Telegram para escritorio, Android y CLI en JSON para OpenClaw, Claude Code y Codex.">
 <meta property="og:image" content="/assets/social/og-es.jpg">
 <meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Una caja bento envuelta en un furoshiki índigo junto a la marca de Bento: tu nube privada, cifrada en tu propio Telegram.">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Bento · Tu Google Drive y Google Fotos sin límites, en tu Telegram">
+<meta name="twitter:description" content="Deja de alquilar la nube. Almacenamiento cifrado en tu Telegram para escritorio, Android y CLI en JSON para OpenClaw y agentes de IA.">
 <meta name="twitter:image" content="/assets/social/og-es.jpg">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="/assets/fonts/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/site.css">
-<link rel="alternate" hreflang="es" href="/">
-<link rel="alternate" hreflang="en" href="/en/">
 <script type="module" src="/assets/motion.js"></script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://bentocloud.app/#organization",
+      "name": "Humans Corporation S.A.S.",
+      "url": "https://bentocloud.app/",
+      "sameAs": ["https://github.com/invrnt/bento"]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://bentocloud.app/#website",
+      "url": "https://bentocloud.app/",
+      "name": "Bento",
+      "inLanguage": ["es", "en"],
+      "publisher": { "@id": "https://bentocloud.app/#organization" }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://bentocloud.app/#software",
+      "name": "Bento",
+      "url": "https://bentocloud.app/",
+      "inLanguage": "es",
+      "description": "Alternativa libre y privada a Google Drive y Google Fotos, cifrada de extremo a extremo en tu cuenta gratuita de Telegram, para escritorio, Android y CLI para agentes de IA como OpenClaw, Claude Code y Codex.",
+      "applicationCategory": "UtilitiesApplication",
+      "operatingSystem": "Windows, macOS, Linux, Android",
+      "license": "https://www.gnu.org/licenses/agpl-3.0.html",
+      "downloadUrl": "https://github.com/invrnt/bento/releases/latest",
+      "image": "https://bentocloud.app/assets/social/og-es.jpg",
+      "publisher": { "@id": "https://bentocloud.app/#organization" },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://bentocloud.app/#faqpage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "¿De verdad no tiene límite de espacio ni cuesta nada?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Telegram no cobra por espacio ni anuncia un límite total para lo que guardas en su nube, y Bento divide los archivos grandes en partes. Telegram no lo garantiza por contrato y puede cambiar sus condiciones o restringir cuentas, por lo que conviene guardar otra copia de lo irreemplazable."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Cómo conecto Bento con OpenClaw, Claude Code u otro agente de IA?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Instala la CLI de Bento en el equipo o servidor donde corre tu agente y vincúlala con bento setup o bento join. Pídele al agente que ejecute bento guide: cada comando devuelve JSON, soporta --dry-run, evita duplicados y manda borrados a la papelera de 30 días."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Qué puede ver Telegram?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Telegram ve que usas Bento, el tamaño y la hora de cada parte cifrada y las sesiones de tus equipos. No puede ver el contenido, los nombres, las fechas de tus fotos, su ubicación ni tus búsquedas."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Hay app para móvil?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Sí en Android (Android 10 o posterior, desde el APK firmado en GitHub), con respaldo automático de cámara, búsqueda por texto y bloqueo con huella. En iPhone puedes reenviar archivos a Bento · Bandeja desde Telegram."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
 </head>
 <body class="home">
 <a class="skip-link" href="#contenido">Saltar al contenido</a>
