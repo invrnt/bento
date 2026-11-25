@@ -10,12 +10,11 @@ from pydantic import BaseModel
 from bento.application.vault import VaultService
 from bento.domain.errors import DomainError, ValidationFailedError
 from bento.domain.vault import VaultStatus
-from bento.interfaces.http.qr import QrMatrix, qr_matrix
+from bento.interfaces.http.qr import QrMatrix, recovery_qr_matrix
 from bento.interfaces.http.routes_account import domain_error_response
 
 router = APIRouter(prefix="/vault")
 
-RECOVERY_QR_PREFIX = "bento-recovery:"
 _NO_STORE = {"Cache-Control": "no-store"}
 
 
@@ -88,7 +87,7 @@ async def create_vault(request: Request, response: Response) -> Any:
         return CreatedVaultResponse(
             vault=vault_status_response(created.status),
             recovery_code=created.recovery_code,
-            recovery_qr=recovery_qr(created.recovery_code),
+            recovery_qr=recovery_qr_matrix(created.recovery_code),
         )
 
     response.headers.update(_NO_STORE)
@@ -104,7 +103,7 @@ async def unlock_vault(request: Request, body: RecoveryCodeRequest) -> Any:
 async def rotate_recovery_code(request: Request, response: Response) -> Any:
     async def rotate(vault: VaultService) -> RecoveryCodeResponse:
         code = await vault.rotate_recovery_code()
-        return RecoveryCodeResponse(recovery_code=code, recovery_qr=recovery_qr(code))
+        return RecoveryCodeResponse(recovery_code=code, recovery_qr=recovery_qr_matrix(code))
 
     response.headers.update(_NO_STORE)
     return await _respond(request, rotate)
@@ -155,11 +154,6 @@ def vault_status_response(status: VaultStatus) -> VaultStatusResponse:
             else None
         ),
     )
-
-
-def recovery_qr(recovery_code: str) -> QrMatrix:
-    """The kit's QR (`bento-recovery:<code>`), drawn by the renderer like every other QR."""
-    return qr_matrix(f"{RECOVERY_QR_PREFIX}{recovery_code}")
 
 
 async def _status_payload(pending: Any) -> VaultStatusResponse:

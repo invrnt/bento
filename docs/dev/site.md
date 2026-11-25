@@ -11,15 +11,20 @@
 | `src/404.html` | Not-found page. Its presence also stops Pages from treating the site as a single-page app. |
 | `src/assets/site.css` | Styles. Tokens mirror `apps/web/src/styles/tokens.css`; light/dark follows `prefers-color-scheme`. |
 | `src/assets/join-code.js`, `src/assets/join.js`, `src/assets/platform.js` | Pairing-code parser, the `/join` page behaviour and the Android/desktop switch (progressive enhancement). |
+| `src/assets/motion.js` | Progressive enhancement for every page: header behaviour, scroll-linked effects, reveals and the home-page demos. Sets `html.motion` only without `prefers-reduced-motion`; without it (or without JavaScript) everything renders in its final, still state. |
 | `src/assets/android/` | Phone screenshots for `/android/` (WebP from the Roborazzi goldens, see below). |
 | `src/assets/fonts/` | Geist and Geist Mono (Latin subset) with their OFL licenses. |
 | `src/_headers` | Content-Security-Policy and other response headers for Pages. |
-| `site.config.json` | Repository, (optionally) the exact desktop release, and the `android` block: package, signing-certificate fingerprints and (optionally) the exact APK release. |
+| `site.config.json` | Repository, the public `origin` for link previews, (optionally) the exact desktop release, and the `android` block: package, signing-certificate fingerprints and (optionally) the exact APK release. |
 | `scripts/` | `build.mjs` (copy, conservative minify, release links, `assetlinks.json`), `serve.mjs` (local preview with the real headers), `check-placeholders.mjs` (publishing guard), `import-android-screenshots.mjs` (goldens → WebP). |
 | `test/` | `node:test` suites. |
 | `wrangler.jsonc` | Pages project name, output directory and compatibility date. |
 
-Header and footer markup is repeated in every page on purpose (no templating). When you change navigation, change all thirteen pages; the tests catch broken links and missing counterparts.
+### Home page design
+
+The home page tells Bento’s story as a bento box: the hero box opens (the lid lifts) and its compartments drift apart as you scroll; *Cómo funciona* is a sticky stage that fills the box, wraps it in a *furoshiki* (encryption) and ties the knot (the recovery kit); the privacy “lens” shows the same files as you see them and as Telegram stores them; downloads sit in a lacquered tray. Brand rules from `orchestration/design-system/brand.md` still apply: tokens only, one shu (ume) per screen: the hero and story use no shu, and the closing mark’s ume lands while scrolling down, when the header has tucked itself away.
+
+Header and footer markup is repeated in every page on purpose (no templating). When you change navigation, change every page; the tests catch broken links and missing counterparts.
 
 ## Privacy rules the site must keep
 
@@ -35,9 +40,13 @@ npm --prefix apps/site test        # builds dist/ and runs every check
 npm --prefix apps/site run preview # http://127.0.0.1:8788 with the same _headers
 ```
 
-The tests cover: internal links and anchors, es/en parity and alternates, the absence of external requests and inline code, the CSP and privacy headers, accessibility basics (language, title, one `h1`, skip link, labelled navigation, hidden decorative SVGs), the Telegram API disclosure on every page, the join-code parser and the `/join` page states, the release-link rewrite, the placeholder guard, `assetlinks.json` generation and serving (preview server, `application/json`, no redirect), the production fingerprint guard, the Android release links and screenshots, and the Android “Instala Bento” variant of `/join`. They also check every relative link and heading anchor in `README.md` and `docs/**`.
+The tests cover: internal links and anchors, es/en parity and alternates, the absence of external requests and inline code, the CSP and privacy headers, accessibility basics (language, title, one `h1`, skip link, labelled navigation, hidden decorative SVGs), the Telegram API disclosure on every page, the join-code parser and the `/join` page states, the release-link rewrite, the link-preview tags, the placeholder guard, `assetlinks.json` generation and serving (preview server, `application/json`, no redirect), the production fingerprint guard, the Android release links and screenshots, and the Android “Instala Bento” variant of `/join`. They also check every relative link and heading anchor in `README.md` and `docs/**`.
 
 Try `/join` locally with `http://127.0.0.1:8788/join/#v=1&c=K7Q2-MXR9-T4WA`.
+
+## Link previews
+
+Both home pages declare Open Graph and Twitter card tags with a 1200×630 image (`src/assets/social/og-es.jpg`, `og-en.jpg`). Link previews need absolute URLs, so `site.config.json` sets `"origin": "https://bentocloud.app"` (https, no trailing slash). The build then turns the `og:url`, `og:image` and `twitter:image` paths into absolute URLs. With `"origin": null` they stay root-relative, which some apps resolve and others ignore.
 
 ## Download links
 

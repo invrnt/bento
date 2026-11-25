@@ -1,5 +1,6 @@
 {
   "repository": "invrnt/bento",
+  "origin": "https://bentocloud.app",
   "release": null,
   "android": {
     "package": "dev.bento.app",

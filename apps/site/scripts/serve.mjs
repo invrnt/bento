@@ -15,6 +15,8 @@ const types = {
   ".png": "image/png",
   ".webp": "image/webp",
   ".woff2": "font/woff2",
+  ".avif": "image/avif",
+  ".webp": "image/webp",
   ".txt": "text/plain; charset=utf-8",
 };
 

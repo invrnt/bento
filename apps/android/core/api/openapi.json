@@ -1925,8 +1925,13 @@
         "type": "object"
       },
       "QrMatrix": {
-        "description": "QR modules as rows of \"0\"/\"1\" so the renderer can draw it without HTML injection.",
+        "description": "QR modules as rows of \"0\"/\"1\" so the renderer can draw it without HTML injection.\n\n`logo_modules` is the side, in modules, of the centred square the renderer\nclears to draw the Bento mark; 0 means a plain code with no logo.",
         "properties": {
+          "logo_modules": {
+            "default": 0,
+            "title": "Logo Modules",
+            "type": "integer"
+          },
           "rows": {
             "items": {
               "type": "string"

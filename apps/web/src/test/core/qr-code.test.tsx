@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { QrCode, darkRuns } from "../../components/QrCode";
+import { QrCode, darkRuns, logoSquare } from "../../components/QrCode";
 import { qrMatrix } from "./testkit";
 
 describe("QrCode", () => {
@@ -27,5 +27,28 @@ describe("QrCode", () => {
     // Background + 8 runs.
     expect(container.querySelectorAll("rect")).toHaveLength(9);
     expect(container.querySelector("svg")).toHaveAttribute("viewBox", "0 0 9 9");
+  });
+
+  it("leaves the centre square light and draws the Bento mark there", () => {
+    // 9×9 all-dark matrix with a 3-module logo square in the middle (modules 3..5).
+    const matrix = { logo_modules: 3, rows: Array.from({ length: 9 }, () => "111111111"), size: 9 };
+    expect(logoSquare(matrix)).toEqual({ inset: 1, mark: 1, side: 3, start: 3 });
+    const runs = darkRuns(matrix, logoSquare(matrix));
+    expect(runs.filter((run) => run.y === 4)).toEqual([
+      { length: 3, x: 0, y: 4 },
+      { length: 3, x: 6, y: 4 },
+    ]);
+    expect(runs.filter((run) => run.y === 0)).toEqual([{ length: 9, x: 0, y: 0 }]);
+
+    render(<QrCode label="QR" matrix={matrix} quietZone={4} />);
+    const mark = screen.getByTestId("qr-logo");
+    expect(mark).toHaveAttribute("transform", "translate(8 8) scale(0.03125)");
+    expect(mark.querySelector("circle")).not.toBeNull();
+  });
+
+  it("draws no mark for plain codes such as the printed recovery kit", () => {
+    render(<QrCode label="QR" matrix={{ ...qrMatrix, logo_modules: 0 }} />);
+    expect(screen.queryByTestId("qr-logo")).toBeNull();
+    expect(logoSquare(qrMatrix)).toBeNull();
   });
 });
