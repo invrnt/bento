@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#0c0e15" media="(prefers-color-scheme: dark)">
 <meta name="referrer" content="no-referrer">
 <title>Términos de uso · Bento</title>
-<meta name="description" content="Condiciones para usar Bento, tu cuenta de Telegram, tus llaves y los límites del servicio.">
+<meta name="description" content="Condiciones para usar Bento, tu cuenta de Telegram, tus llaves, la CLI para agentes y los límites del servicio.">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/assets/site.css">
 <script type="module" src="/assets/motion.js"></script>
@@ -24,9 +24,10 @@
       Bento
     </a>
     <nav class="site-nav" aria-label="Principal">
-      <a href="/#como-funciona">Cómo funciona</a>
+      <a href="/#dia-a-dia">Qué incluye</a>
+      <a href="/#agentes">Agentes IA</a>
       <a href="/#privacidad">Privacidad</a>
-      <a href="/#dispositivos">Dispositivos</a>
+      <a href="/#como-funciona">Cómo funciona</a>
       <a href="/#preguntas">Preguntas</a>
       <a href="/security/">Seguridad</a>
     </nav>
@@ -42,69 +43,65 @@
     <header class="page-header narrow">
       <span class="eyebrow">Términos</span>
       <h1 class="page-title">Términos de uso</h1>
-      <p class="updated">Última actualización: [[COMPLETAR: fecha de entrada en vigor]]</p>
+      <p class="updated">Última actualización: 24 de noviembre de 2026</p>
     </header>
 
     <div class="prose">
-      <p class="callout callout-warning draft-notice">
-        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
-        <span>Borrador pendiente de revisión legal: debe revisarlo un profesional antes de publicarse. [[COMPLETAR: eliminar este aviso tras la revisión legal]]</span>
-      </p>
-
       <h2 id="aceptacion">1. Aceptación</h2>
-      <p>Al descargar o usar Bento aceptas estos términos. Si no estás de acuerdo, no uses Bento.</p>
+      <p>Al descargar, instalar o usar Bento (incluyendo la aplicación de escritorio, la app para Android, la herramienta de línea de comandos, el relay de emparejamiento o este sitio web) aceptas estos términos. Si no estás de acuerdo, no uses Bento.</p>
 
       <h2 id="quien">2. Quién ofrece Bento</h2>
-      <p>Bento lo ofrece [[COMPLETAR: nombre legal del responsable]], con domicilio en [[COMPLETAR: domicilio del responsable]] («nosotros»). Contacto: [[COMPLETAR: correo de contacto]].</p>
+      <p>Bento es ofrecido por <strong>Humans Corporation S.A.S.</strong> (Humans Corporation), con domicilio en Colombia («nosotros»). Contacto general y legal: <span class="mono">legal@bentocloud.app</span>.</p>
 
-      <h2 id="que-es">3. Qué es Bento</h2>
-      <p>Bento es una aplicación de escritorio que guarda tu biblioteca de fotos y archivos en tus equipos y, si conectas tu cuenta de Telegram, una copia cifrada en canales privados de esa cuenta para sincronizar tus dispositivos. Bento usa la API de Telegram y no está afiliado a Telegram ni respaldado por Telegram.</p>
-      <p>El software se ofrece bajo la <a href="https://github.com/invrnt/bento/blob/main/LICENSE">GNU Affero General Public License v3.0</a> (AGPL-3.0-only). Bento es gratuito. Los componentes de terceros conservan sus propias licencias, que se detallan en los <a href="https://github.com/invrnt/bento/blob/main/docs/legal/es/avisos-de-terceros.md">avisos de terceros</a>.</p>
+      <h2 id="que-es">3. Qué es Bento y licencia</h2>
+      <p>Bento es software libre disponible para escritorio, Android y terminal (CLI) que guarda tu biblioteca de fotos y archivos en tus dispositivos y, si conectas tu cuenta de Telegram, mantiene una copia cifrada en canales privados de esa cuenta para sincronizar tus equipos. Bento usa la API de Telegram y no está afiliado a Telegram ni respaldado por Telegram.</p>
+      <p>El software se ofrece de forma gratuita bajo la <a href="https://github.com/invrnt/bento/blob/main/LICENSE">GNU Affero General Public License v3.0 (AGPL-3.0-only)</a>. En caso de conflicto respecto al código fuente y su redistribución, prevalece dicha licencia. Los componentes de terceros conservan sus propias licencias, detalladas en los <a href="https://github.com/invrnt/bento/blob/main/docs/legal/es/avisos-de-terceros.md">avisos de terceros</a>.</p>
 
       <h2 id="telegram">4. Tu cuenta de Telegram</h2>
       <ul>
-        <li>Para usar la nube necesitas tu propia cuenta de Telegram. Sigues sujeto a las <a href="https://telegram.org/tos">condiciones de servicio de Telegram</a>.</li>
-        <li>Telegram puede cambiar su servicio, limitar su uso o suspender o eliminar cuentas. No controlamos esas decisiones.</li>
-        <li>Bento respeta los límites que fija Telegram y solo actúa sobre los canales que crea para ti y los chats que tú eliges.</li>
+        <li>Para usar la sincronización en la nube necesitas tu propia cuenta de Telegram y sigues sujeto a las <a href="https://telegram.org/tos">condiciones de servicio de Telegram</a>.</li>
+        <li>Telegram puede modificar su servicio, aplicar límites de velocidad, restringir funciones o suspender o eliminar cuentas (incluida la eliminación por inactividad). No controlamos ni garantizamos las decisiones de Telegram.</li>
+        <li>Bento respeta los límites técnicos de Telegram y solo actúa sobre los canales que crea para ti y los chats que elijas expresamente.</li>
       </ul>
 
       <h2 id="espacio">5. Espacio y disponibilidad</h2>
-      <p>«Sin límite de espacio» describe que Telegram no anuncia hoy un límite total para lo que guardas en su nube. No es una promesa contractual de Telegram ni nuestra. No garantizamos que tu nube esté siempre disponible ni que Telegram conserve tus datos. Bento no sustituye una segunda copia de lo que no puedes perder.</p>
+      <p>«Sin límite de espacio» describe únicamente que Telegram no anuncia hoy un tope total para lo que guardas en su nube. No constituye una promesa ni garantía contractual de Telegram ni de Humans Corporation S.A.S. No garantizamos disponibilidad continua ni conservación indefinida en Telegram. Bento no sustituye una copia de seguridad independiente para archivos irreemplazables.</p>
 
-      <h2 id="llaves">6. Tus llaves y tu kit de recuperación</h2>
-      <p>Las llaves de tu nube solo existen en tus equipos y en tu kit de recuperación. Eres responsable de guardar el kit en un lugar seguro. Si pierdes todos tus equipos y también el kit, perderás el acceso a tu nube de forma permanente: no podemos recuperarlo ni restablecerlo.</p>
+      <h2 id="llaves">6. Tus llaves, kit de recuperación y agentes de IA</h2>
+      <p>Las llaves de cifrado de tu nube existen únicamente en tus dispositivos y en tu kit de recuperación. Eres el único responsable de proteger tus dispositivos y custodiar el kit en un lugar seguro. Si pierdes todos tus dispositivos y también el kit, perderás el acceso a tu nube de forma permanente: nadie, ni siquiera nosotros, puede recuperarlo o restablecerlo.</p>
+      <p>Si conectas scripts, automatizaciones o agentes de inteligencia artificial externos (como OpenClaw, Claude Code o Codex) mediante la CLI de Bento, dichas herramientas actúan localmente en tu equipo o servidor bajo tu exclusiva autorización y supervisión. Eres responsable de revisar y confirmar las acciones que delegues en ellos.</p>
 
       <h2 id="uso-aceptable">7. Uso aceptable</h2>
-      <p>No uses Bento para:</p>
+      <p>No uses Bento, el relay de emparejamiento ni este sitio web para:</p>
       <ul>
-        <li>guardar o compartir contenido ilegal o que infrinja derechos de otras personas;</li>
-        <li>enviar spam, distribuir software malicioso o incumplir las condiciones de Telegram;</li>
-        <li>sobrecargar, atacar o abusar del relay de emparejamiento o de este sitio web.</li>
+        <li>almacenar, distribuir o compartir contenido ilegal o que infrinja derechos de propiedad intelectual, privacidad u otros derechos de terceros;</li>
+        <li>enviar spam, distribuir software malicioso o incumplir las condiciones de servicio de Telegram;</li>
+        <li>sobrecargar, atacar, eludir límites de tasa o abusar del relay de emparejamiento o de este sitio web.</li>
       </ul>
 
       <h2 id="tu-contenido">8. Tu contenido</h2>
-      <p>Tu contenido es tuyo. No lo recibimos y no reclamamos ningún derecho sobre él. Eres responsable de lo que guardas y de lo que decides compartir.</p>
+      <p>Tu contenido es exclusivamente tuyo. No lo recibimos, no podemos leerlo y no reclamamos ningún derecho sobre él. Eres el único responsable de la legalidad de lo que almacenas y de lo que decides compartir.</p>
 
       <h2 id="terceros">9. Servicios de terceros</h2>
-      <p>Telegram, Cloudflare y GitHub prestan sus servicios según sus propias condiciones. No respondemos de su funcionamiento.</p>
+      <p>Telegram, Cloudflare, GitHub y cualquier agente de IA o proveedor de modelos que conectes por tu cuenta prestan sus servicios bajo sus propios términos. No somos responsables de su funcionamiento, cambios, caídas ni políticas.</p>
 
       <h2 id="cambios-servicio">10. Actualizaciones y cambios</h2>
-      <p>Podemos mejorar, cambiar o retirar funciones. Si dejamos de ofrecer el relay de emparejamiento, Bento podrá seguir emparejando equipos a través de tu propio Telegram.</p>
+      <p>Podemos actualizar, modificar o descontinuar funciones, así como suspender o retirar el relay de emparejamiento opcional en cualquier momento. Si el relay deja de estar disponible, Bento puede seguir emparejando dispositivos mediante tu propia cuenta de Telegram o ejecutándose de forma local.</p>
 
-      <h2 id="garantias">11. Sin garantías</h2>
-      <p>Bento se ofrece «tal cual» y «según disponibilidad», en la medida máxima que permita la ley. [[COMPLETAR: adaptar la exclusión de garantías a la ley aplicable y a los derechos de las personas consumidoras]]</p>
+      <h2 id="garantias">11. Exclusión de garantías</h2>
+      <p>En consonancia con la licencia AGPL-3.0-only (sección 15) y en la medida máxima permitida por la ley aplicable, Bento, el relay y este sitio web se ofrecen gratuitamente «tal cual» y «según disponibilidad», sin garantías de ningún tipo, expresas ni implícitas, incluidas las garantías implícitas de comerciabilidad, idoneidad para un propósito particular, exactitud, disponibilidad ininterrumpida o no infracción. Nada en esta cláusula excluye garantías que no puedan excluirse conforme a las normas imperativas de protección al consumidor aplicables en tu país.</p>
 
       <h2 id="responsabilidad">12. Limitación de responsabilidad</h2>
-      <p>En la medida máxima que permita la ley, no respondemos de pérdidas de datos o de acceso, ni de daños indirectos, derivados del uso de Bento o de Telegram, o de la pérdida de tus equipos, llaves o kit de recuperación. Nada de lo anterior limita derechos que la ley no permite limitar. [[COMPLETAR: revisar la limitación de responsabilidad con asesoría legal]]</p>
+      <p>En consonancia con la licencia AGPL-3.0-only (sección 16) y en la medida máxima permitida por la ley aplicable, Humans Corporation S.A.S., sus socios, colaboradores y contribuidores no serán responsables por daños indirectos, incidentales, especiales, consecuenciales, lucro cesante ni por pérdida o corrupción de datos o de acceso derivados del uso o la imposibilidad de uso de Bento, de decisiones o fallos de Telegram o terceros, de acciones ejecutadas por agentes de IA o scripts locales, o de la pérdida de tus dispositivos, llaves o kit de recuperación. Cuando la ley permita limitar la responsabilidad por daños directos en software gratuito, nuestra responsabilidad agregada máxima no excederá el monto efectivamente pagado por ti a Humans Corporation S.A.S. por el uso de Bento (0 USD). Nada de lo anterior limita responsabilidades por dolo, culpa grave o derechos irrenunciables que la ley aplicable prohíba limitar.</p>
 
-      <h2 id="ley">13. Ley aplicable</h2>
-      <p>[[COMPLETAR: ley aplicable y tribunales competentes]]</p>
+      <h2 id="ley">13. Ley aplicable y jurisdicción</h2>
+      <p>Estos términos se rigen e interpretan conforme a las leyes de la República de Colombia, sin aplicación de sus normas sobre conflicto de leyes. Cualquier controversia relacionada con Bento o estos términos se someterá a los jueces y tribunales competentes de la República de Colombia, sin perjuicio de las normas imperativas de protección al consumidor y de competencia judicial que correspondan según tu país de residencia.</p>
 
       <h2 id="cambios">14. Cambios en estos términos</h2>
-      <p>Si cambiamos estos términos, actualizaremos la fecha de arriba y, si el cambio es importante, lo anunciaremos en las notas de la versión. Seguir usando Bento después significa que aceptas los términos nuevos.</p>
+      <p>Podemos actualizar estos términos periódicamente. Publicaremos la fecha de actualización en la parte superior y, si el cambio es sustancial, lo indicaremos en las notas de la versión. Continuar usando Bento tras la actualización implica la aceptación de los términos vigentes.</p>
 
       <h2 id="marcas">15. Marcas</h2>
-      <p>Telegram es una marca de sus respectivos titulares. Bento no está afiliado a Telegram.</p>
+      <p>Telegram es una marca registrada de sus respectivos titulares. Google Drive, Google Fotos y cualquier otro nombre mencionado como referencia descriptiva pertenecen a sus respectivos titulares. Bento no está afiliado ni respaldado por Telegram ni por ninguno de dichos terceros.</p>
     </div>
   </div>
 </main>
@@ -114,13 +111,14 @@
     <div class="footer-grid">
       <div class="footer-brand">
         <a class="logo" href="/">Bento</a>
-        <p>Tu nube privada, en orden.</p>
+        <p>Tu Google Drive y Google Fotos sin límites, cifrado en tu Telegram y listo para tus agentes de IA.</p>
       </div>
       <nav aria-label="Producto">
         <h2>Producto</h2>
         <ul>
           <li><a href="/#descargar">Descargar</a></li>
           <li><a href="/android/">Bento para Android</a></li>
+          <li><a href="/#agentes">CLI para agentes IA</a></li>
           <li><a href="/#como-funciona">Cómo funciona</a></li>
           <li><a href="/#preguntas">Preguntas frecuentes</a></li>
         </ul>
@@ -137,6 +135,7 @@
         <h2>Ayuda</h2>
         <ul>
           <li><a href="https://github.com/invrnt/bento/blob/main/docs/user/es/README.md">Guías de uso</a></li>
+          <li><a href="https://github.com/invrnt/bento/blob/main/docs/user/es/cli.md">Bento en la terminal</a></li>
           <li><a href="https://github.com/invrnt/bento/blob/main/docs/user/es/solucion-de-problemas.md">Solución de problemas</a></li>
           <li><a href="https://github.com/invrnt/bento">GitHub</a></li>
         </ul>
