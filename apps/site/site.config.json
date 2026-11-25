@@ -5,7 +5,7 @@
   "android": {
     "package": "dev.bento.app",
     "sha256CertFingerprints": [
-      "[[COMPLETAR: huella SHA-256 del certificado de firma de release de Android]]"
+      "CA:14:88:B6:D1:66:64:D0:5F:4B:83:F5:1D:5A:72:DA:31:9B:21:C3:7E:99:F1:E7:73:03:A2:DF:9B:B1:7D:9E"
     ],
     "release": null
   }

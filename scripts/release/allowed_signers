@@ -6,4 +6,4 @@
 # Adding or removing a key is a reviewed commit; keep a retired key here (with valid-before="YYYYMMDD")
 # while releases signed by it are still offered.
 #
-# [[COMPLETAR: clave pública SSH Ed25519 de firma de releases del propietario; ver docs/dev/releasing.md#claves]]
+bento-release namespaces="bento-release" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFwT4ABdIP8Z/c0yscumdxT8wh2DI9i4YUgpYXf8UJyp

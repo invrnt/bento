@@ -547,11 +547,14 @@ def finalize(root: Path, out: Path, version: str, report: Report, key: Path | No
         if key is not None:
             signing.sign(directory, key)
             allowed = root / ALLOWED_SIGNERS
-            if not release and not signing.allowed_signers_entries(allowed):
+            own_line = signing.allowed_signers_line(signing.public_key_of(key))
+            listed = own_line.split()[-1] in {entry.split()[-1] for entry in signing.allowed_signers_entries(allowed)}
+            if not release and not listed:
+                # Dry runs may use a throwaway key; a release must verify against the committed allowed_signers.
                 allowed = out / "work" / "allowed_signers.dry-run"
                 allowed.parent.mkdir(parents=True, exist_ok=True)
-                allowed.write_text(signing.allowed_signers_line(signing.public_key_of(key)) + "\n", encoding="utf-8")
-                info["signature_checked_against"] = "the signing key's own public key (allowed_signers is still empty)"
+                allowed.write_text(own_line + "\n", encoding="utf-8")
+                info["signature_checked_against"] = "the signing key's own public key (it is not in allowed_signers)"
             else:
                 info["signature_checked_against"] = ALLOWED_SIGNERS
             signing.verify(directory, allowed)
