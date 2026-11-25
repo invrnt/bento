@@ -11,7 +11,9 @@ fake Telegram cloud. Each journey starts from a cleared app and joins the host d
 | 9 Search: OCR text of a desktop-indexed image found on the phone; filters; no-results | `j09_searchDesktopOcr` | desktop upload → thumbnail → OCR job → index → encrypted sync → phone search UI |
 
 `files_host.py` runs the remote fake cloud and one headless desktop on free host ports (or `BENTO_E2E_FAKE_PORT`,
-`BENTO_E2E_DESKTOP_PORT`), which `adb reverse` exposes to the phone as :8790 and :8791. Only that desktop's OCR engine is
+`BENTO_E2E_DESKTOP_PORT`), which `adb reverse` exposes to the phone as :8790 and :8791. Every run starts from an empty `$OUT/host`
+(fresh fake cloud and desktop), and each journey from airplane mode off and Wi-Fi on; a failed step saves a screenshot
+and the semantics tree, and each journey its full logcat. Only that desktop's OCR engine is
 the backend's mock provider with a fixed text (RapidOCR models are not installed on the hosts); everything after OCR is
 real. `run_journeys.sh` boots the AVD headless, starts the host, maps the ports with `adb reverse`, clears the app,
 writes `files/dev-options.json` before each journey and pulls in-app screenshots to `build/files-journeys/`.

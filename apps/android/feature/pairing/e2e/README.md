@@ -22,7 +22,7 @@ phone's fixed :8788 (relay), :8790 (fake cloud), :8791/:8792 (desktops) onto the
 and writes `files/dev-options.json` (`relay_url`, `fake_telegram_url`) before each journey, saves each journey's app
 logcat, and pulls in-app screenshots to `build/trust-journeys/screens-<locale>/`. Any debug build works: the relay
 comes from the dev options and App Links are accepted for `bentoSiteHost` (`bento.example` by default). The host's
-sidecars are stopped on every exit, including failures and Ctrl-C.
+sidecars are stopped on every exit, including failures and Ctrl-C. Every run starts from an empty `$OUT/host` (fresh fake cloud and desktops), and each journey from airplane mode off and Wi-Fi on.
 
 ```sh
 cd apps/android

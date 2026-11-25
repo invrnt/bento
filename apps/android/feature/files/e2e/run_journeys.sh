@@ -46,7 +46,8 @@ until [[ "$("$adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" =
 "$adb" shell settings put global transition_animation_scale 0
 "$adb" shell settings put global animator_duration_scale 0
 
-rm -f "$OUT/host/pgids"
+# A fresh cloud and fresh desktops every run: leftovers from earlier runs change what the journeys see.
+rm -rf "$OUT/host"
 cd "$repo"
 e2e_start_host "$OUT/host/pgids" uv run --quiet --project apps/api python "$here/files_host.py" --root "$OUT/host" \
   --fake-port "$host_fake" --desktop-port "$host_desktop" >"$OUT/host.out" 2>&1
@@ -62,6 +63,9 @@ echo "host ports: fake cloud $host_fake, desktop $host_desktop"
 status=0
 for j in "${journeys[@]}"; do
   "$adb" shell pm clear dev.bento.app >/dev/null
+  # Connectivity persists in the AVD: a journey that toggled airplane mode must not leave the next one off Wi-Fi.
+  "$adb" shell cmd connectivity airplane-mode disable >/dev/null 2>&1 || true
+  "$adb" shell svc wifi enable >/dev/null 2>&1 || true
   "$adb" logcat -c || true
   "$adb" shell cmd locale set-app-locales dev.bento.app --locales "${APP_LOCALE:-es-ES}" >/dev/null 2>&1 || true
   options="{\"fake_telegram_url\":\"http://127.0.0.1:$phone_fake\",\"manual_login\":\"true\"}"

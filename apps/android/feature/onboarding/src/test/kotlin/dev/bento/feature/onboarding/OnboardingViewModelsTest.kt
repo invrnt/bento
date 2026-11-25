@@ -66,6 +66,31 @@ class OnboardingViewModelsTest {
     }
 
     @Test
+    fun slowFirstStatusDoesNotUndoChoosingThePhoneNumber() = runTest(main.dispatcher) {
+        api.on("GET /api/account") { TrustFixtures.account("signed_out") }
+        val vm = signIn()
+        vm.start("co", null)
+        vm.usePhone() // before the engine answered the first status read
+        advanceUntilIdle()
+        assertEquals(SignInView.Phone, vm.state.value.view)
+        assertFalse(vm.state.value.loading)
+    }
+
+    @Test
+    fun slowFirstStatusDoesNotDropTheCodeStep() = runTest(main.dispatcher) {
+        api.on("GET /api/account") { TrustFixtures.account("signed_out") }
+        api.on("POST /api/account/login/phone") { TrustFixtures.account("code_required") }
+        val vm = signIn()
+        vm.start("co", null)
+        vm.usePhone()
+        vm.editNational("300 123 4567")
+        vm.submitPhone()
+        advanceUntilIdle()
+        assertEquals(SignInView.Code, vm.state.value.view)
+        assertEquals("code_required", vm.state.value.status?.step)
+    }
+
+    @Test
     fun implausibleNumberIsCaughtBeforeTelegram() = runTest(main.dispatcher) {
         api.on("GET /api/account") { TrustFixtures.account("signed_out") }
         val vm = signIn()

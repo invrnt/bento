@@ -47,7 +47,8 @@ until [[ "$("$adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" =
 "$adb" shell settings put global transition_animation_scale 0
 "$adb" shell settings put global animator_duration_scale 0
 
-rm -f "$OUT/host/pgids"
+# A fresh cloud and fresh desktops every run: leftovers from earlier runs change what the journeys see.
+rm -rf "$OUT/host"
 cd "$repo"
 e2e_start_host "$OUT/host/pgids" uv run --quiet --project apps/api python "$here/trust_host.py" --root "$OUT/host" \
   --relay-port "$host_relay" --fake-port "$host_fake" --desktop-port "$host_desktop" --desktop2-port "$host_desktop2" >"$OUT/host.out" 2>&1
@@ -65,6 +66,9 @@ echo "host ports: relay $host_relay, fake cloud $host_fake, desktop $host_deskto
 status=0
 for j in "${journeys[@]}"; do
   "$adb" shell pm clear dev.bento.app >/dev/null
+  # Connectivity persists in the AVD: a journey that toggled airplane mode must not leave the next one off Wi-Fi.
+  "$adb" shell cmd connectivity airplane-mode disable >/dev/null 2>&1 || true
+  "$adb" shell svc wifi enable >/dev/null 2>&1 || true
   "$adb" logcat -c || true
   "$adb" shell cmd locale set-app-locales dev.bento.app --locales "${APP_LOCALE:-es-ES}" >/dev/null 2>&1 || true
   # The multi-device journeys share the host's fake cloud; the others use the phone's own fake directory.
@@ -78,8 +82,7 @@ for j in "${journeys[@]}"; do
   echo "== $j"
   if ! "$adb" shell am instrument -w -r -e class "dev.bento.app.TrustJourneysTest#$j" dev.bento.app.test/androidx.test.runner.AndroidJUnitRunner | tee "$OUT/$j.txt" | grep -E "OK \(|FAILURES|Tests run|AssertionError|Exception" ; then status=1; fi
   grep -q "OK (1 test)" "$OUT/$j.txt" || status=1
-  "$adb" logcat -d --pid="$("$adb" shell pidof dev.bento.app | tr -d '\r')" > "$OUT/$j.logcat" 2>/dev/null \
-    || "$adb" logcat -d > "$OUT/$j.logcat" 2>/dev/null || true
+  "$adb" logcat -d > "$OUT/$j.logcat" 2>/dev/null || true
   "$adb" pull /sdcard/Android/data/dev.bento.app/files/journeys "$OUT/screens-${APP_LOCALE:-es-ES}" >/dev/null 2>&1 || true
 done
 exit $status
