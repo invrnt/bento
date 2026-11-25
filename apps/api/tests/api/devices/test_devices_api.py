@@ -14,7 +14,7 @@ from bento.application.pairing import b64url_encode
 from bento.domain.devices import Device, DevicePlatform
 from bento.infrastructure.settings import Settings
 from bento.interfaces.http.main import create_app
-from bento.interfaces.http.qr import qr_matrix
+from bento.interfaces.http.qr import recovery_qr_matrix
 from bento.interfaces.http.routes_pairing import get_device_service, get_pairing_service
 from tests.integration.pairing.pairing_support import PairingDevice, make_pairing_device
 
@@ -107,7 +107,7 @@ def test_remove_device_returns_a_new_recovery_kit_once(tmp_path: Path) -> None:
         assert body["device"]["id"] == laptop.device_id and body["device"]["removed_at"]
         assert body["telegram_session_closed"] is True
         assert RECOVERY_CODE.match(body["recovery_code"]) and body["recovery_code"] != old_code
-        assert body["recovery_qr"] == qr_matrix(f"bento-recovery:{body['recovery_code']}").model_dump()
+        assert body["recovery_qr"] == recovery_qr_matrix(body["recovery_code"]).model_dump()
 
         active = client.get("/api/devices").json()["items"]
         assert [item["id"] for item in active] == [host.device_id]
