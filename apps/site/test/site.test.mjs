@@ -360,6 +360,35 @@ describe("downloads", () => {
   });
 });
 
+describe("link previews", () => {
+  it("gives both home pages a same-site share image that exists", async () => {
+    for (const page of pages.values()) {
+      if (page.urlPath !== "/" && page.urlPath !== "/en/") continue;
+      const meta = Object.fromEntries(page.tags.filter((tag) => tag.name === "meta" && (tag.attrs.property || tag.attrs.name)).map((tag) => [tag.attrs.property ?? tag.attrs.name, tag.attrs.content]));
+      for (const key of ["og:title", "og:description", "og:image", "og:image:alt", "twitter:card"]) assert.ok(meta[key], `${page.urlPath}: ${key}`);
+      assert.equal(meta["twitter:image"], meta["og:image"]);
+      const { origin } = JSON.parse(await readFile(path.join(root, "site.config.json"), "utf8"));
+      const image = origin && meta["og:image"].startsWith(`${origin}/`) ? meta["og:image"].slice(origin.length) : meta["og:image"];
+      assert.ok(image.startsWith("/"), `${page.urlPath}: share image must be on this site, got ${meta["og:image"]}`);
+      assert.ok(await resolveInternal(image), `${page.urlPath}: missing ${image}`);
+    }
+  });
+
+  it("makes share URLs absolute only when the public origin is configured", async () => {
+    const output = await mkdtemp(path.join(tmpdir(), "bento-site-"));
+    try {
+      const android = { package: "dev.bento.app", sha256CertFingerprints: ["[[COMPLETAR: release]]"], release: null };
+      await build({ output, config: { repository: "invrnt/bento", origin: "https://bento.example", release: null, android } });
+      const html = await readFile(path.join(output, "index.html"), "utf8");
+      assert.match(html, /property="og:image" content="https:\/\/bento\.example\/assets\/social\/og-es\.jpg"/u);
+      assert.match(html, /property="og:url" content="https:\/\/bento\.example\/"/u);
+      await assert.rejects(build({ output, config: { repository: "invrnt/bento", origin: "http://bento.example/", release: null, android } }));
+    } finally {
+      await rm(output, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("publishing guard", () => {
   it("finds owner placeholders and passes a clean tree", async () => {
     const directory = await mkdtemp(path.join(tmpdir(), "bento-placeholders-"));

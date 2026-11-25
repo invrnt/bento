@@ -16,7 +16,9 @@ export async function build({
   config,
   production = false,
 } = {}) {
-  const resolvedConfig = validateConfig(config ?? JSON.parse(await readFile(path.join(root, "site.config.json"), "utf8")));
+  const rawConfig = config ?? JSON.parse(await readFile(path.join(root, "site.config.json"), "utf8"));
+  const resolvedConfig = validateConfig(rawConfig);
+  const origin = validateOrigin(rawConfig.origin ?? null);
   const { android } = resolvedConfig;
   if (android === null) throw new Error("site.config.json: the android block is required (package and signing certificate fingerprints)");
   if (production) assertProductionReady(android);
@@ -28,7 +30,7 @@ export async function build({
     await mkdir(path.dirname(target), { recursive: true });
     if (file.endsWith(".html")) {
       const html = await readFile(file, "utf8");
-      const resolved = applyAndroidRelease(applyRelease(html, resolvedConfig), resolvedConfig.repository, android);
+      const resolved = applyOrigin(applyAndroidRelease(applyRelease(html, resolvedConfig), resolvedConfig.repository, android), origin);
       await writeFile(target, minifyHtml(resolved), "utf8");
     } else if (file.endsWith(".css")) {
       await writeFile(target, minifyCss(await readFile(file, "utf8")), "utf8");
@@ -46,6 +48,21 @@ export async function build({
     androidRelease: android.release?.tag ?? null,
     androidFingerprints: android.sha256CertFingerprints.length,
   };
+}
+
+// Link previews (Open Graph) need absolute URLs. Until the public domain is set in
+// site.config.json ("origin"), the share meta tags keep root-relative paths.
+function validateOrigin(origin) {
+  if (origin === null) return null;
+  if (typeof origin !== "string" || !/^https:\/\/[a-z0-9.-]+(?::\d+)?$/u.test(origin)) {
+    throw new Error('site.config.json: origin must look like "https://example.com" (no trailing slash) or be null');
+  }
+  return origin;
+}
+
+function applyOrigin(html, origin) {
+  if (origin === null) return html;
+  return html.replace(/(<meta (?:property|name)="(?:og:image|og:url|twitter:image)" content=")\//gu, `$1${origin}/`);
 }
 
 async function walk(directory) {

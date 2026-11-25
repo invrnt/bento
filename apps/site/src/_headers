@@ -28,5 +28,11 @@
   Content-Type: application/json
   Cache-Control: public, max-age=3600
 
+/assets/photos/*
+  Cache-Control: public, max-age=604800
+
 /assets/android/*
+  Cache-Control: public, max-age=86400
+
+/assets/social/*
   Cache-Control: public, max-age=86400
