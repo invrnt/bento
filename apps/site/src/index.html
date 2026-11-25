@@ -7,20 +7,20 @@
 <meta name="theme-color" content="#f5f2ee" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0c0e15" media="(prefers-color-scheme: dark)">
 <meta name="referrer" content="no-referrer">
-<title>Bento · Tu nube privada, sin límite de espacio, guardada en tu Telegram</title>
-<meta name="description" content="Bento respalda tus fotos y archivos cifrados en tu propia cuenta de Telegram y los mantiene en orden en todos tus equipos. Para Windows, macOS y Linux.">
+<title>Bento · Deja de alquilar espacio para tus fotos y archivos</title>
+<meta name="description" content="Tu Google Drive y Google Fotos sin límite de espacio, cifrado en tu propia cuenta de Telegram. Gratis, código abierto, para escritorio, Android y con CLI nativa para OpenClaw y agentes de IA.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Bento">
 <meta property="og:locale" content="es_ES">
 <meta property="og:locale:alternate" content="en_US">
 <meta property="og:url" content="/">
-<meta property="og:title" content="Bento · Tu nube privada, guardada en tu Telegram">
-<meta property="og:description" content="Bento respalda tus fotos y archivos cifrados en tu propia cuenta de Telegram y los mantiene en orden en todos tus equipos.">
+<meta property="og:title" content="Bento · Deja de alquilar espacio para tus fotos y archivos">
+<meta property="og:description" content="Tu Google Drive y Google Fotos sin límite de espacio, cifrado en tu Telegram y con CLI lista para OpenClaw y tus agentes de IA.">
 <meta property="og:image" content="/assets/social/og-es.jpg">
 <meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Una caja envuelta en un furoshiki índigo junto al lema de Bento: Todo en su lugar. Cifrado, en tu propio Telegram.">
+<meta property="og:image:alt" content="Una caja bento envuelta en un furoshiki índigo junto a la marca de Bento: tu nube privada, cifrada en tu propio Telegram.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="/assets/social/og-es.jpg">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -39,9 +39,10 @@
       Bento
     </a>
     <nav class="site-nav" aria-label="Principal">
-      <a href="/#como-funciona">Cómo funciona</a>
+      <a href="/#dia-a-dia">Qué incluye</a>
+      <a href="/#agentes">Agentes IA</a>
       <a href="/#privacidad">Privacidad</a>
-      <a href="/#dispositivos">Dispositivos</a>
+      <a href="/#como-funciona">Cómo funciona</a>
       <a href="/#preguntas">Preguntas</a>
       <a href="/security/">Seguridad</a>
     </nav>
@@ -56,17 +57,17 @@
   <section class="hero" aria-labelledby="titulo">
     <div class="wrap hero-grid">
       <div class="hero-copy">
-        <span class="eyebrow eyebrow-chip"><span class="eyebrow-dot" aria-hidden="true"></span>Tu nube privada, en orden</span>
-        <h1 id="titulo"><span class="h1-line">Todo en su lugar.</span> <span class="h1-line h1-soft">Cifrado, en tu propio Telegram.</span></h1>
-        <p class="lead">Bento respalda tus fotos y archivos en tu propia cuenta de Telegram, sin límite de espacio, cifrados antes de salir de tu equipo, y los mantiene en orden en todos tus dispositivos. Sin bots ni configuraciones técnicas.</p>
+        <span class="eyebrow eyebrow-chip"><span class="eyebrow-dot" aria-hidden="true"></span>0 $/mes · Código abierto · Cifrado en tu equipo</span>
+        <h1 id="titulo"><span class="h1-line">Deja de alquilar tu nube.</span> <span class="h1-line h1-soft">Tu Google Drive y Google Fotos, sin límite de espacio.</span></h1>
+        <p class="lead">Bento convierte tu cuenta gratuita de Telegram en una nube privada, cifrada antes de salir de tu equipo y sincronizada en tu computador y Android. Incluye una CLI en JSON para que tus agentes de IA —como OpenClaw, Claude Code o Codex— encuentren y organicen tus archivos por ti.</p>
         <div class="button-row">
           <a class="button button-primary button-xl" href="#descargar">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-            Descargar Bento
+            Descargar gratis
           </a>
-          <a class="button button-secondary button-xl" href="#como-funciona">Cómo funciona</a>
+          <a class="button button-secondary button-xl" href="#agentes">CLI para agentes IA</a>
         </div>
-        <p class="hero-note">Para Windows, macOS y Linux. Telegram no anuncia un límite total de espacio, pero no lo garantiza por contrato: <a href="#limites">lee los límites</a>. Bento usa la API de Telegram y no está afiliado a Telegram.</p>
+        <p class="hero-note">Windows, macOS, Linux, Android y terminal · Cifrado AES-256-GCM · Sin cuentas nuevas ni servidores de Bento · <a href="#limites">Cómo funciona el espacio</a>.</p>
       </div>
 
       <div class="hero-stage" aria-hidden="true" data-tilt data-progress="exit">
@@ -106,7 +107,7 @@
                 <span class="sync-text"><span class="sync-busy">Subiendo 9 de 12</span><span class="sync-done">Todo al día</span></span>
               </span>
               <span class="hb-stat">1,2 TB</span>
-              <span class="hb-sub">en tu Telegram</span>
+              <span class="hb-sub">sin límite · 0 $/mes</span>
             </div>
             <div class="hb hb-audio" data-live>
               <span class="audio-top"><span class="play-btn"><svg viewBox="0 0 10 12" aria-hidden="true"><path d="M1 1l8 5-8 5z"/></svg></span><span class="hb-sub">Nota de voz</span></span>
@@ -149,12 +150,203 @@
     </div>
   </section>
 
+  <section class="section" id="dia-a-dia" aria-labelledby="dia-a-dia-titulo">
+    <div class="wrap">
+      <div class="section-head" data-reveal>
+        <span class="eyebrow">Tu nueva nube</span>
+        <h2 id="dia-a-dia-titulo">Todo lo bueno de Google Drive y Google Fotos. Sin la factura mensual.</h2>
+        <p>Se acabaron los avisos de «tu almacenamiento está al 98 %», las fotos comprimidas y los planes que suben cada año. Tus recuerdos y archivos viven en calidad original, ordenados y bajo tu llave.</p>
+      </div>
+      <div class="bento-grid daily-grid" data-stagger>
+        <article class="tile tile-search" data-search-demo data-live>
+          <div class="search-demo" aria-hidden="true">
+            <span class="search-field"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><span data-typing data-words="factura luz|pasaporte|tayrona">factura luz</span><span class="caret"></span></span>
+            <span class="search-results">
+              <span class="result is-match" data-result="0"><span class="r-thumb th th-page"><span class="pg-head pg-bill"></span><i></i><i></i><i></i><span class="pg-total"></span></span><span>Factura_octubre.pdf<small>«…<mark>factura</mark> de <mark>luz</mark>, octubre…»</small></span></span>
+              <span class="result" data-result="1"><span class="r-thumb th th-page"><span class="pg-head"></span><span class="pg-row"><span class="pg-photo"></span><span class="pg-lines"><i></i><i></i></span></span></span><span>IMG_0381.jpg<small>Texto en la imagen: «<mark>PASAPORTE</mark>»</small></span></span>
+              <span class="result" data-result="2"><span class="r-thumb th th-beach"></span><span>Playa de Tayrona.jpg<small>Nombre · Fotos de agosto</small></span></span>
+            </span>
+          </div>
+          <span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>
+          <h3>Encuentra lo que dice dentro de tus fotos y PDF</h3>
+          <p>Busca «factura luz» o «pasaporte» y aparece el archivo aunque se llame IMG_0381.jpg. El reconocimiento de texto corre en tu equipo, sin enviar nada a servidores ajenos.</p>
+        </article>
+        <article class="tile tile-inbox" data-live>
+          <div class="inbox-demo" aria-hidden="true">
+            <div class="chat">
+              <span class="chat-head"><span class="chat-avatar"><svg viewBox="4 4.5 24 23" aria-hidden="true"><rect x="4.5" y="5" width="10.5" height="22" rx="3.5"/><rect x="17" y="5" width="10.5" height="10" rx="3.5"/><rect x="17" y="17" width="10.5" height="10" rx="3.5"/></svg></span><span class="chat-name">Bento · Bandeja<small>canal privado</small></span></span>
+              <span class="bubble bubble-1"><span class="th th-beach"></span></span>
+              <span class="bubble bubble-2"><span class="th th-page"><i></i><i></i><i></i></span><span class="bubble-file">Boleto.pdf<small>220 KB</small></span></span>
+            </div>
+            <span class="lib-chip"><span class="lib-icon"><svg viewBox="4 4.5 24 23" aria-hidden="true"><rect x="4.5" y="5" width="10.5" height="22" rx="3.5"/><rect x="17" y="5" width="10.5" height="10" rx="3.5"/><rect x="17" y="17" width="10.5" height="10" rx="3.5"/></svg></span><span class="lib-text">Biblioteca<small>+2 · cifrados</small></span><span class="lib-ok"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span></span>
+          </div>
+          <span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></span>
+          <h3>Reenvía desde cualquier chat a tu nube</h3>
+          <p>Manda cualquier foto o PDF a «Bento · Bandeja» desde Telegram —incluso desde iPhone— y en segundos aparece ordenado y cifrado en tu Drive y Fotos.</p>
+        </article>
+        <article class="tile">
+          <div class="share-demo" aria-hidden="true">
+            <span class="sh-title">Enviar una copia a…</span>
+            <span class="sh-people"><span class="sh-person"><span class="sh-avatar sh-1">M</span>Mamá</span><span class="sh-person"><span class="sh-avatar sh-2">A</span>Ana</span><span class="sh-person"><span class="sh-avatar sh-3">T</span>Trabajo</span></span>
+            <span class="sh-warn"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>Esta copia va sin cifrar</span>
+          </div>
+          <span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg></span>
+          <h3>Comparte e importa sin rodeos</h3>
+          <p>Envía una copia a cualquier chat de Telegram (con aviso claro de que va sin cifrar) o trae a Bento todo lo que ya guardabas en Mensajes guardados.</p>
+        </article>
+        <article class="tile tile-trash">
+          <div class="trash-ring" aria-hidden="true" data-reveal>
+            <svg viewBox="0 0 120 120" aria-hidden="true"><circle class="ring-track" cx="60" cy="60" r="52"/><circle class="ring-fill" cx="60" cy="60" r="52"/></svg>
+            <span class="ring-num">30<small>días</small></span>
+          </div>
+          <div class="trash-copy">
+            <span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></span>
+            <h3>Borra sin miedo durante 30 días</h3>
+            <p>Deshaz al instante o recupera archivos eliminados hasta un mes después, en todos tus equipos. Incluso cuando los mueve un agente de IA.</p>
+          </div>
+          <div class="trash-demo" aria-hidden="true">
+            <span class="td-title">Papelera<small>3 elementos</small></span>
+            <span class="td-row"><span class="td-thumb th th-page"><span class="pg-head"></span><span class="pg-row"><span class="pg-photo"></span><span class="pg-lines"><i></i><i></i></span></span></span><span class="td-name">Pasaporte.pdf<small>Borrado ahora</small></span><span class="td-days">30 días</span></span>
+            <span class="td-row"><span class="td-thumb th th-beach"></span><span class="td-name">Playa de Tayrona.jpg<small>Borrado el 2 nov</small></span><span class="td-days">18 días</span></span>
+            <span class="td-row td-soon"><span class="td-thumb th th-sheet"></span><span class="td-name">Gastos 2025.xlsx<small>Borrado el 28 oct</small></span><span class="td-days">4 días</span></span>
+            <span class="undo-toast" data-live><span class="ut-text">Pasaporte.pdf a la papelera</span><span class="ut-undo">Deshacer</span><span class="ut-timer"></span></span>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="agentes" aria-labelledby="agentes-titulo">
+    <div class="wrap">
+      <div class="section-head" data-reveal>
+        <span class="eyebrow">CLI nativa para agentes de IA</span>
+        <h2 id="agentes-titulo">Tus agentes de IA también necesitan un Drive infinito.</h2>
+        <p>Olvídate de pelear con tokens OAuth, APIs cerradas y cuotas de pago solo para que un agente archive tus documentos. Bento trae una CLI rápida en JSON lista desde el minuto uno para OpenClaw, Claude Code, Codex o cualquier agente con terminal.</p>
+      </div>
+
+      <div class="agents-stage" data-stagger>
+        <div class="agent-prompt">
+          <div class="agent-prompt-head">
+            <span>Lo que le pides a tu agente</span>
+            <span class="status-pill"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Misma biblioteca cifrada</span>
+          </div>
+          <blockquote class="agent-quote">
+            «Revisa lo que tengo suelto en <code>~/Descargas</code>, mete las facturas en <code>/Documentos/Facturas/2026</code> y agrupa las fotos del viaje en <code>/Fotos</code>. Usa <code>bento</code> (lee primero <code>bento guide</code>), muéstrame el plan antes y no borres nada definitivo.»
+          </blockquote>
+          <div class="agent-badges">
+            <span class="agent-badge">OpenClaw</span>
+            <span class="agent-badge">Claude Code</span>
+            <span class="agent-badge">Codex</span>
+            <span class="agent-badge">Servidores y Raspberry Pi</span>
+          </div>
+        </div>
+
+        <div class="agent-terminal" aria-label="Ejemplo de comandos de Bento CLI para agentes de IA">
+          <div class="term-bar" aria-hidden="true">
+            <span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span>
+            <span class="term-title">bento — agent session</span>
+          </div>
+          <pre class="term-body"><span class="term-line"><span class="term-ps">$ </span><span class="term-cmd">bento guide</span> <span class="term-comment"># el agente aprende reglas y límites</span></span><span class="term-line"><span class="term-ps">$ </span><span class="term-cmd">bento tree / --depth 2 --json</span> <span class="term-comment"># respeta tus carpetas</span></span><span class="term-line"><span class="term-ps">$ </span><span class="term-cmd">bento upload ~/Descargas --to /Documentos/Facturas/2026 --dry-run --json</span><span class="term-out">{<span class="term-key">"uploaded"</span>: <span class="term-num">14</span>, <span class="term-key">"duplicates"</span>: <span class="term-num">2</span>, <span class="term-key">"dry_run"</span>: <span class="term-ok">true</span>}</span></span><span class="term-line"><span class="term-ps">$ </span><span class="term-cmd">bento find "contrato arriendo" --json</span> <span class="term-comment"># nombre + texto OCR</span></span></pre>
+        </div>
+      </div>
+
+      <div class="bento-grid agents-grid" data-stagger>
+        <article class="tile">
+          <span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/></svg></span>
+          <h3>Se explica solo con <code>bento guide</code></h3>
+          <p>Con un comando tu agente aprende cómo organizar tu biblioteca, imita tu idioma y reutiliza tus carpetas existentes.</p>
+        </article>
+        <article class="tile">
+          <span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg></span>
+          <h3>100 % JSON y códigos claros</h3>
+          <p>Salida estructurada (<code>--json</code>), códigos de salida deterministas y catálogo autodocumentado (<code>bento commands --json</code>).</p>
+        </article>
+        <article class="tile">
+          <span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg></span>
+          <h3>A prueba de errores del agente</h3>
+          <p>Simula con <code>--dry-run</code>, evita duplicados por SHA-256 y manda borrados a la papelera de 30 días. Nunca purga sin tu permiso.</p>
+        </article>
+        <article class="tile">
+          <span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg></span>
+          <h3>Listo 24/7 en tu servidor</h3>
+          <p>Un solo binario sin dependencias para tu portátil, tu VPS de OpenClaw o tu Raspberry Pi. Empareja con <code>bento join</code> y listo.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="privacidad" aria-labelledby="privacidad-titulo">
+    <div class="wrap">
+      <div class="section-head" data-reveal>
+        <span class="eyebrow">Privacidad sin trucos</span>
+        <h2 id="privacidad-titulo">Guardado en tu Telegram. Ilegible para Telegram.</h2>
+        <p>Las nubes baratas suelen pagarse con tus datos. En Bento todo sale cifrado de tu dispositivo: ni Telegram, ni nosotros, ni nadie sin tu llave puede abrir tu nube.</p>
+      </div>
+
+      <div class="bento-grid privacy-grid" data-stagger>
+        <figure class="tile lens" data-lens>
+          <div class="lens-head">
+            <figcaption>
+              <span class="lens-title">Los mismos archivos, vistos por…</span>
+              <span class="lens-hint">Telegram guarda partes cifradas en canales privados: ve tamaños y horas, jamás qué son.</span>
+            </figcaption>
+            <div class="segmented" role="group" aria-label="Cambiar quién mira" data-lens-controls hidden>
+              <button type="button" aria-pressed="true" data-lens-mode="plain">Tú</button>
+              <button type="button" aria-pressed="false" data-lens-mode="cipher">Telegram</button>
+            </div>
+          </div>
+          <ul class="lens-list">
+            <li><span class="lv-thumb"><span class="th th-beach"></span><span class="lv-noise"></span></span><span class="lens-text"><span class="lens-name" data-cipher>Playa de Tayrona.jpg</span><span class="lens-meta" data-cipher="4,2 MB · subido 14:02">12 ago 2024 · Santa Marta</span></span></li>
+            <li><span class="lv-thumb"><span class="th th-page"><i></i><i></i><i></i></span><span class="lv-noise"></span></span><span class="lens-text"><span class="lens-name" data-cipher>Pasaporte.pdf</span><span class="lens-meta" data-cipher="1,1 MB · subido 14:02">Documentos · personal</span></span></li>
+            <li><span class="lv-thumb"><span class="th th-sheet"></span><span class="lv-noise"></span></span><span class="lens-text"><span class="lens-name" data-cipher>Gastos del hogar.xlsx</span><span class="lens-meta" data-cipher="88 KB · subido 14:03">Hojas · 3 pestañas</span></span></li>
+            <li><span class="lv-thumb"><span class="th th-cake th-video"><span class="th-time">2:31</span></span><span class="lv-noise"></span></span><span class="lens-text"><span class="lens-name" data-cipher>Cumpleaños de Mamá.mp4</span><span class="lens-meta" data-cipher="312 MB · subido 14:05">3 mar 2025 · Medellín</span></span></li>
+            <li><span class="lv-thumb"><span class="th th-page th-doc"><i></i><i></i><i></i><i></i></span><span class="lv-noise"></span></span><span class="lens-text"><span class="lens-name" data-cipher>Contrato de arriendo.docx</span><span class="lens-meta" data-cipher="640 KB · subido 14:06">Documentos · firmado</span></span></li>
+          </ul>
+          <p class="lens-foot"><span class="lens-alg"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>AES-256-GCM</span><span>La llave vive en tus dispositivos y en tu kit, nunca en la nube.</span></p>
+        </figure>
+
+        <article class="tile">
+          <div class="tile-art art-encrypt" aria-hidden="true"><span class="ae-plain"><span class="th th-page ae-page"><i></i><i></i><i></i></span>Pasaporte.pdf</span><span class="ae-arrow"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span><span class="ae-cipher">9f3a…c71e</span></div>
+          <h3>Cifrado antes de salir</h3>
+          <p>Contenido, nombres de archivos y carpetas, fechas, ubicación de las fotos y el texto OCR se cifran en tu equipo antes de tocar la red.</p>
+        </article>
+        <article class="tile">
+          <div class="tile-art art-sees" aria-hidden="true"><span class="as-row"><span class="as-redact"></span><span class="as-chip">4,2 MB</span><span class="as-chip">14:02</span></span><span class="as-row"><span class="as-redact as-short"></span><span class="as-chip">1,1 MB</span><span class="as-chip">14:02</span></span></div>
+          <h3>Lo que ve Telegram</h3>
+          <p>Que usas Bento, cuántos bloques cifrados guardas, cuándo los subes y qué equipos tienen sesión. Jamás qué son ni cómo se llaman.</p>
+        </article>
+        <article class="tile">
+          <div class="tile-art art-relay" aria-hidden="true" data-live><span class="ar-dev"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9m16 0H4m16 0 1.28 2.55a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45L4 16"/></svg></span><span class="ar-line"><span class="ar-packet"></span><span class="ar-node">relay</span></span><span class="ar-dev"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg></span></div>
+          <h3>Cero servidores de Bento</h3>
+          <p>No hay cuentas de Bento ni servidores con tus archivos. Al emparejar equipos, un relay efímero pasa mensajes cifrados unos minutos y los olvida.</p>
+        </article>
+        <article class="tile">
+          <div class="tile-art art-key" aria-hidden="true"><span class="ak-item"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9m16 0H4m16 0 1.28 2.55a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45L4 16"/></svg><span class="ak-key"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg></span></span><span class="ak-item"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg><span class="ak-key"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg></span></span><span class="ak-item ak-kit"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg><small>Kit</small></span></div>
+          <h3>Si no tienes la llave, no entras</h3>
+          <p>Tus llaves viven en tus equipos y en tu kit de recuperación. Sin anuncios, sin telemetría y sin IA en servidores externos.</p>
+        </article>
+      </div>
+
+      <dl class="figures" data-stagger>
+        <div><dt>Cifrado en tu dispositivo</dt><dd><span data-count="256">256</span><small>bits</small></dd></div>
+        <div><dt>Servidores de Bento con tus datos</dt><dd><span>0</span></dd></div>
+        <div><dt>Al mes en Telegram gratuito</dt><dd><span>0</span><small>$</small></dd></div>
+        <div><dt>Papelera recuperable</dt><dd><span data-count="30">30</span><small>días</small></dd></div>
+      </dl>
+
+      <p class="more-links">
+        <a href="/security/">Qué ve exactamente cada parte <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+        <a href="/privacy/">Política de privacidad</a>
+      </p>
+    </div>
+  </section>
+
   <section class="section story" id="como-funciona" aria-labelledby="como-funciona-titulo">
     <div class="wrap">
       <div class="section-head" data-reveal>
-        <span class="eyebrow">Cómo funciona</span>
-        <h2 id="como-funciona-titulo">Tres pasos y listo</h2>
-        <p>Como preparar un bento: lo llenas, lo envuelves y te lo llevas. Usas la cuenta de Telegram que ya tienes y Bento se encarga del resto en segundo plano.</p>
+        <span class="eyebrow">Listo en 2 minutos</span>
+        <h2 id="como-funciona-titulo">Sin cuentas nuevas. Sin bots. Sin dolores de cabeza.</h2>
+        <p>Usas el Telegram que ya tienes. Bento crea tu espacio privado dentro de tu cuenta y trabaja en segundo plano sin estorbar.</p>
       </div>
 
       <div class="story-grid" data-story>
@@ -207,20 +399,20 @@
           <li class="story-step" data-step="1">
             <span class="step-number" aria-hidden="true">1</span>
             <span class="step-kicker">Conecta</span>
-            <h3>Conecta tu Telegram</h3>
-            <p>Abre Telegram en tu móvil › Ajustes › Dispositivos › Vincular dispositivo de escritorio y escanea el código QR que muestra Bento. También puedes entrar con tu número de teléfono.</p>
+            <h3>Escanea un QR con tu Telegram</h3>
+            <p>Sin registrarte en otro servicio ni configurar bots. Escanea el código QR con tu móvil (o entra con tu número) y Bento crea tu nube privada en segundos.</p>
           </li>
           <li class="story-step" data-step="2">
             <span class="step-number" aria-hidden="true">2</span>
             <span class="step-kicker">Llena</span>
-            <h3>Elige qué respaldar</h3>
-            <p>Bento te sugiere Imágenes, Documentos y Escritorio. Activa las carpetas que quieras: se suben en segundo plano, se reanudan solas y no bloquean tu equipo.</p>
+            <h3>Elige tus carpetas y fotos</h3>
+            <p>Activa Imágenes, Documentos, Escritorio o el carrete de tu Android. Todo sube cifrado en segundo plano, divide archivos gigantes y se reanuda solo si se corta el internet.</p>
           </li>
           <li class="story-step" data-step="3">
             <span class="step-number" aria-hidden="true">3</span>
             <span class="step-kicker">Envuelve</span>
             <h3>Guarda tu kit de recuperación</h3>
-            <p>Todo sale de tu equipo envuelto, como un bento en su <i lang="ja">furoshiki</i>: cifrado. El nudo es un código que solo tú tienes. Con tu Telegram y ese código puedes recuperar todo, aunque pierdas tus equipos.</p>
+            <p>Todo sale envuelto, como un bento en su <i lang="ja">furoshiki</i>: cifrado. El nudo es un código único que solo tú tienes para recuperar toda tu nube aunque pierdas todos tus equipos.</p>
           </li>
         </ol>
       </div>
@@ -232,85 +424,18 @@
     </div>
   </section>
 
-  <section class="section" id="privacidad" aria-labelledby="privacidad-titulo">
-    <div class="wrap">
-      <div class="section-head" data-reveal>
-        <span class="eyebrow">Privacidad</span>
-        <h2 id="privacidad-titulo">Tus archivos, ilegibles para todos menos para ti</h2>
-        <p>Bento cifra en tu equipo todo lo que sube. Ni Telegram ni Bento pueden abrir tu nube.</p>
-      </div>
-
-      <div class="bento-grid privacy-grid" data-stagger>
-        <figure class="tile lens" data-lens>
-          <div class="lens-head">
-            <figcaption>
-              <span class="lens-title">Los mismos archivos, vistos por…</span>
-              <span class="lens-hint">Telegram guarda partes cifradas: ve su tamaño y su hora, no lo que son.</span>
-            </figcaption>
-            <div class="segmented" role="group" aria-label="Cambiar quién mira" data-lens-controls hidden>
-              <button type="button" aria-pressed="true" data-lens-mode="plain">Tú</button>
-              <button type="button" aria-pressed="false" data-lens-mode="cipher">Telegram</button>
-            </div>
-          </div>
-          <ul class="lens-list">
-            <li><span class="lv-thumb"><span class="th th-beach"></span><span class="lv-noise"></span></span><span class="lens-text"><span class="lens-name" data-cipher>Playa de Tayrona.jpg</span><span class="lens-meta" data-cipher="4,2 MB · subido 14:02">12 ago 2024 · Santa Marta</span></span></li>
-            <li><span class="lv-thumb"><span class="th th-page"><i></i><i></i><i></i></span><span class="lv-noise"></span></span><span class="lens-text"><span class="lens-name" data-cipher>Pasaporte.pdf</span><span class="lens-meta" data-cipher="1,1 MB · subido 14:02">Documentos · personal</span></span></li>
-            <li><span class="lv-thumb"><span class="th th-sheet"></span><span class="lv-noise"></span></span><span class="lens-text"><span class="lens-name" data-cipher>Gastos del hogar.xlsx</span><span class="lens-meta" data-cipher="88 KB · subido 14:03">Hojas · 3 pestañas</span></span></li>
-            <li><span class="lv-thumb"><span class="th th-cake th-video"><span class="th-time">2:31</span></span><span class="lv-noise"></span></span><span class="lens-text"><span class="lens-name" data-cipher>Cumpleaños de Mamá.mp4</span><span class="lens-meta" data-cipher="312 MB · subido 14:05">3 mar 2025 · Medellín</span></span></li>
-            <li><span class="lv-thumb"><span class="th th-page th-doc"><i></i><i></i><i></i><i></i></span><span class="lv-noise"></span></span><span class="lens-text"><span class="lens-name" data-cipher>Contrato de arriendo.docx</span><span class="lens-meta" data-cipher="640 KB · subido 14:06">Documentos · firmado</span></span></li>
-          </ul>
-          <p class="lens-foot"><span class="lens-alg"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>AES-256-GCM</span><span>La llave vive en tus equipos y en tu kit, nunca en Telegram.</span></p>
-        </figure>
-
-        <article class="tile">
-          <div class="tile-art art-encrypt" aria-hidden="true"><span class="ae-plain"><span class="th th-page ae-page"><i></i><i></i><i></i></span>Pasaporte.pdf</span><span class="ae-arrow"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span><span class="ae-cipher">9f3a…c71e</span></div>
-          <h3>Cifrado en tu equipo</h3>
-          <p>El contenido, los nombres de archivos y carpetas, las fechas, la ubicación de las fotos y el texto que Bento reconoce se cifran antes de salir.</p>
-        </article>
-        <article class="tile">
-          <div class="tile-art art-sees" aria-hidden="true"><span class="as-row"><span class="as-redact"></span><span class="as-chip">4,2 MB</span><span class="as-chip">14:02</span></span><span class="as-row"><span class="as-redact as-short"></span><span class="as-chip">1,1 MB</span><span class="as-chip">14:02</span></span></div>
-          <h3>Lo que ve Telegram</h3>
-          <p>Que usas Bento, cuántos datos cifrados guardas, cuándo los subes y qué equipos tienen sesión. No qué son ni cómo se llaman.</p>
-        </article>
-        <article class="tile">
-          <div class="tile-art art-relay" aria-hidden="true" data-live><span class="ar-dev"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9m16 0H4m16 0 1.28 2.55a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45L4 16"/></svg></span><span class="ar-line"><span class="ar-packet"></span><span class="ar-node">relay</span></span><span class="ar-dev"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg></span></div>
-          <h3>Sin servidores de Bento</h3>
-          <p>No hay cuentas de Bento ni servidores que guarden tus archivos. Para emparejar equipos, un relay pasa mensajes cifrados durante unos minutos y los olvida.</p>
-        </article>
-        <article class="tile">
-          <div class="tile-art art-key" aria-hidden="true"><span class="ak-item"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9m16 0H4m16 0 1.28 2.55a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45L4 16"/></svg><span class="ak-key"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg></span></span><span class="ak-item"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg><span class="ak-key"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg></span></span><span class="ak-item ak-kit"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg><small>Kit</small></span></div>
-          <h3>La llave es tuya</h3>
-          <p>Las llaves viven en tus equipos y en tu kit de recuperación. Bento no puede abrir tu nube ni restablecer tu acceso si los pierdes todos.</p>
-        </article>
-      </div>
-
-      <dl class="figures" data-stagger>
-        <div><dt>Llave maestra aleatoria</dt><dd><span data-count="256">256</span><small>bits</small></dd></div>
-        <div><dt>Servidores de Bento con tus archivos</dt><dd><span>0</span></dd></div>
-        <div><dt>Vida de un código de emparejamiento</dt><dd><span data-count="10">10</span><small>min</small></dd></div>
-        <div><dt>Para recuperar lo que borras</dt><dd><span data-count="30">30</span><small>días</small></dd></div>
-      </dl>
-
-      <p class="more-links">
-        <a href="/security/">Qué ve exactamente cada parte <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
-        <a href="/privacy/">Política de privacidad</a>
-      </p>
-    </div>
-  </section>
-
   <section class="section" id="dispositivos" aria-labelledby="dispositivos-titulo">
     <div class="wrap devices">
       <div>
         <div class="section-head" data-reveal>
-          <span class="eyebrow">Todos tus equipos</span>
-          <h2 id="dispositivos-titulo">Un código y tu otro equipo ya está dentro</h2>
-          <p>Añade tantos equipos como quieras. Todos ven la misma biblioteca y los cambios llegan solos: renombrar, mover o borrar en uno se refleja en los demás.</p>
+          <span class="eyebrow">En tu mesa, en tu bolsillo y en tu servidor</span>
+          <h2 id="dispositivos-titulo">Un código, cuatro emojis y tu otro equipo ya está dentro.</h2>
+          <p>Conecta tu portátil, tu computador de mesa, tu teléfono Android o un servidor Linux sin pantalla. Todo comparte la misma biblioteca en tiempo real.</p>
         </div>
         <ul class="check-list" data-stagger>
-          <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>En el equipo que ya usas: <strong>Ajustes › Dispositivos › Añadir dispositivo</strong>. Verás un QR y un código como <span class="mono">K7Q2-MXR9-T4WA</span>.</span></li>
-          <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>En el nuevo: abre Bento, elige <strong>«Ya uso Bento en otro dispositivo»</strong> y escribe el código o pega el enlace.</span></li>
-          <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>Comprueba que los <strong>cuatro emojis</strong> coinciden en las dos pantallas y pulsa <strong>Añadir</strong>. Si no coinciden, pulsa <strong>No soy yo</strong>.</span></li>
-          <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>El código caduca a los 10 minutos y sirve una sola vez. ¿No tienes el otro equipo a mano? Entra con tu Telegram y usa tu kit de recuperación.</span></li>
+          <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Empareja en 10 segundos:</strong> genera un QR o código de un solo uso (caduca en 10 minutos), confirma que los cuatro emojis coinciden y listo.</span></li>
+          <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Bento para Android:</strong> respalda tu cámara solo con Wi-Fi, libera gigas del teléfono con un toque, busca por texto en tus capturas y protege la app con huella.</span></li>
+          <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Servidores y agentes:</strong> corre <code>bento join</code> en cualquier Linux, macOS, Windows o Raspberry Pi para conectar tus scripts y agentes de IA a la misma nube.</span></li>
         </ul>
       </div>
 
@@ -333,77 +458,12 @@
     </div>
   </section>
 
-  <section class="section" id="dia-a-dia" aria-labelledby="dia-a-dia-titulo">
-    <div class="wrap">
-      <div class="section-head" data-reveal>
-        <span class="eyebrow">Cada día</span>
-        <h2 id="dia-a-dia-titulo">Pensado para no pensar en él</h2>
-      </div>
-      <div class="bento-grid daily-grid" data-stagger>
-        <article class="tile tile-search" data-search-demo data-live>
-          <div class="search-demo" aria-hidden="true">
-            <span class="search-field"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><span data-typing data-words="factura luz|pasaporte|tayrona">factura luz</span><span class="caret"></span></span>
-            <span class="search-results">
-              <span class="result is-match" data-result="0"><span class="r-thumb th th-page"><span class="pg-head pg-bill"></span><i></i><i></i><i></i><span class="pg-total"></span></span><span>Factura_octubre.pdf<small>«…<mark>factura</mark> de <mark>luz</mark>, octubre…»</small></span></span>
-              <span class="result" data-result="1"><span class="r-thumb th th-page"><span class="pg-head"></span><span class="pg-row"><span class="pg-photo"></span><span class="pg-lines"><i></i><i></i></span></span></span><span>IMG_0381.jpg<small>Texto en la imagen: «<mark>PASAPORTE</mark>»</small></span></span>
-              <span class="result" data-result="2"><span class="r-thumb th th-beach"></span><span>Playa de Tayrona.jpg<small>Nombre · Fotos de agosto</small></span></span>
-            </span>
-          </div>
-          <span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>
-          <h3>Encuentra cualquier cosa</h3>
-          <p>Busca por nombre o por el texto que aparece en tus fotos y PDF. La búsqueda funciona en tu equipo, sin enviar nada a nadie.</p>
-        </article>
-        <article class="tile tile-inbox" data-live>
-          <div class="inbox-demo" aria-hidden="true">
-            <div class="chat">
-              <span class="chat-head"><span class="chat-avatar"><svg viewBox="4 4.5 24 23" aria-hidden="true"><rect x="4.5" y="5" width="10.5" height="22" rx="3.5"/><rect x="17" y="5" width="10.5" height="10" rx="3.5"/><rect x="17" y="17" width="10.5" height="10" rx="3.5"/></svg></span><span class="chat-name">Bento · Bandeja<small>canal privado</small></span></span>
-              <span class="bubble bubble-1"><span class="th th-beach"></span></span>
-              <span class="bubble bubble-2"><span class="th th-page"><i></i><i></i><i></i></span><span class="bubble-file">Boleto.pdf<small>220 KB</small></span></span>
-            </div>
-            <span class="lib-chip"><span class="lib-icon"><svg viewBox="4 4.5 24 23" aria-hidden="true"><rect x="4.5" y="5" width="10.5" height="22" rx="3.5"/><rect x="17" y="5" width="10.5" height="10" rx="3.5"/><rect x="17" y="17" width="10.5" height="10" rx="3.5"/></svg></span><span class="lib-text">Biblioteca<small>+2 · cifrados</small></span><span class="lib-ok"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span></span>
-          </div>
-          <span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></span>
-          <h3>Bandeja de Telegram</h3>
-          <p>Reenvía cualquier foto o archivo a «Bento · Bandeja» desde Telegram en el móvil y aparece en tu biblioteca en segundos, ya cifrado.</p>
-        </article>
-        <article class="tile">
-          <div class="share-demo" aria-hidden="true">
-            <span class="sh-title">Enviar una copia a…</span>
-            <span class="sh-people"><span class="sh-person"><span class="sh-avatar sh-1">M</span>Mamá</span><span class="sh-person"><span class="sh-avatar sh-2">A</span>Ana</span><span class="sh-person"><span class="sh-avatar sh-3">T</span>Trabajo</span></span>
-            <span class="sh-warn"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>Esta copia va sin cifrar</span>
-          </div>
-          <span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg></span>
-          <h3>Compartir e importar</h3>
-          <p>Envía una copia a cualquier chat (Bento te avisa de que esa copia va sin cifrar) o trae a Bento lo que ya tienes en Mensajes guardados.</p>
-        </article>
-        <article class="tile tile-trash">
-          <div class="trash-ring" aria-hidden="true" data-reveal>
-            <svg viewBox="0 0 120 120" aria-hidden="true"><circle class="ring-track" cx="60" cy="60" r="52"/><circle class="ring-fill" cx="60" cy="60" r="52"/></svg>
-            <span class="ring-num">30<small>días</small></span>
-          </div>
-          <div class="trash-copy">
-            <span class="tile-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></span>
-            <h3>Papelera de 30 días</h3>
-            <p>Lo que borras se puede deshacer al momento y recuperar durante 30 días, en todos tus equipos.</p>
-          </div>
-          <div class="trash-demo" aria-hidden="true">
-            <span class="td-title">Papelera<small>3 elementos</small></span>
-            <span class="td-row"><span class="td-thumb th th-page"><span class="pg-head"></span><span class="pg-row"><span class="pg-photo"></span><span class="pg-lines"><i></i><i></i></span></span></span><span class="td-name">Pasaporte.pdf<small>Borrado ahora</small></span><span class="td-days">30 días</span></span>
-            <span class="td-row"><span class="td-thumb th th-beach"></span><span class="td-name">Playa de Tayrona.jpg<small>Borrado el 2 nov</small></span><span class="td-days">18 días</span></span>
-            <span class="td-row td-soon"><span class="td-thumb th th-sheet"></span><span class="td-name">Gastos 2025.xlsx<small>Borrado el 28 oct</small></span><span class="td-days">4 días</span></span>
-            <span class="undo-toast" data-live><span class="ut-text">Pasaporte.pdf a la papelera</span><span class="ut-undo">Deshacer</span><span class="ut-timer"></span></span>
-          </div>
-        </article>
-      </div>
-    </div>
-  </section>
-
   <section class="section lacquer" id="descargar" aria-labelledby="descargar-titulo">
     <div class="wrap">
       <div class="section-head" data-reveal>
-        <span class="eyebrow">Descargar</span>
-        <h2 id="descargar-titulo">Descarga Bento para tu equipo</h2>
-        <p>Bento es una app de escritorio. Todavía no hay app para móvil: en el móvil solo usas Telegram para conectar tu cuenta y para la Bandeja.</p>
+        <span class="eyebrow">Empieza gratis hoy</span>
+        <h2 id="descargar-titulo">Recupera tu nube en dos minutos</h2>
+        <p>Gratis, software libre (AGPL-3.0) y con instaladores firmados. Descarga la app para tu computador o Android, o instala la CLI en una sola línea.</p>
       </div>
       <div class="download-tray" data-stagger>
         <article class="download-card" data-os="windows">
@@ -436,6 +496,32 @@
           <a class="checksums" data-checksums="linux-x64" href="https://github.com/invrnt/bento/releases/latest">Sumas SHA-256 para Linux</a>
         </article>
       </div>
+      <div class="download-extras" data-stagger>
+        <article class="download-card" data-os="android">
+          <span class="os-badge" data-os-badge hidden>Tu sistema</span>
+          <h3><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>Android</h3>
+          <p class="meta">Android 10 o posterior. Respalda las fotos del teléfono, libera espacio y lleva toda tu biblioteca contigo. APK firmado en GitHub.</p>
+          <div class="button-row">
+            <a class="button button-primary" href="https://github.com/invrnt/bento/releases/latest">Descargar APK para Android</a>
+          </div>
+          <p class="checksums"><a href="https://github.com/invrnt/bento/blob/main/docs/user/es/android.md">Guía de instalación y SHA-256</a> · En iPhone aún usas la Bandeja de Telegram.</p>
+        </article>
+        <article class="download-card">
+          <h3><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>CLI para terminal y agentes IA</h3>
+          <p class="meta">Un solo binario para OpenClaw, Claude Code, Codex y servidores sin pantalla (Linux, macOS, Windows y Raspberry Pi).</p>
+          <div class="cli-snippet">
+            <code id="cli-install-cmd">curl -fsSL https://raw.githubusercontent.com/invrnt/bento/main/scripts/install/install.sh | sh</code>
+            <button type="button" class="copy-cmd" data-copy-target="cli-install-cmd" data-copied-label="Copiado">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+              <span data-copy-label>Copiar</span>
+            </button>
+          </div>
+          <p class="cli-alt-links">
+            <a href="https://github.com/invrnt/bento/blob/main/docs/user/es/cli.md">Guía de la CLI y PowerShell</a>
+            <a href="https://github.com/invrnt/bento/releases">Paquetes .deb (amd64 / arm64)</a>
+          </p>
+        </article>
+      </div>
       <p class="more-links">
         <a href="https://github.com/invrnt/bento/releases">Todas las versiones y novedades</a>
         <a href="https://github.com/invrnt/bento/blob/main/docs/user/es/primeros-pasos.md">Guía de primeros pasos</a>
@@ -447,16 +533,22 @@
   <section class="section" id="preguntas" aria-labelledby="preguntas-titulo">
     <div class="wrap faq-layout">
       <div class="section-head faq-head" data-reveal>
-        <span class="eyebrow">Preguntas frecuentes</span>
-        <h2 id="preguntas-titulo">Lo que conviene saber antes de empezar</h2>
+        <span class="eyebrow">Sin letra pequeña</span>
+        <h2 id="preguntas-titulo">Las respuestas honestas antes de empezar</h2>
         <p class="more-links"><a href="https://github.com/invrnt/bento/blob/main/docs/user/es/preguntas-frecuentes.md">Más preguntas y respuestas</a></p>
       </div>
       <div class="faq">
         <details id="limites">
-          <summary>¿De verdad no tiene límite de espacio?</summary>
+          <summary>¿De verdad no tiene límite de espacio ni cuesta nada?</summary>
           <div class="answer">
-            <p>Telegram no cobra por espacio ni anuncia un límite total para lo que guardas en su nube, y Bento divide los archivos grandes en partes, así que el límite de Telegram por archivo no te afecta. Pero no es un contrato: Telegram puede cambiar sus condiciones, limitar la velocidad o restringir cuentas en cualquier momento.</p>
-            <p>Además, Telegram elimina las cuentas que pasan demasiado tiempo sin conectarse (eliges el plazo en sus ajustes de privacidad), y con la cuenta se borraría tu nube. Para lo irreemplazable, conserva también otra copia.</p>
+            <p>Telegram no cobra por espacio ni anuncia un límite total para lo que guardas en su nube, y Bento divide los archivos grandes en partes, así que el límite de Telegram por archivo no te afecta. Pero hablamos claro: Telegram no lo garantiza por contrato y puede cambiar sus condiciones, limitar la velocidad o restringir cuentas en cualquier momento.</p>
+            <p>Además, Telegram elimina las cuentas que pasan demasiado tiempo sin conectarse (eliges el plazo en sus ajustes de privacidad), y con la cuenta se borraría tu nube. Para lo verdaderamente irreemplazable, conserva siempre otra copia.</p>
+          </div>
+        </details>
+        <details>
+          <summary>¿Cómo conecto Bento con OpenClaw, Claude Code u otro agente de IA?</summary>
+          <div class="answer">
+            <p>Instala la CLI de Bento en el equipo o servidor donde corre tu agente y vincúlala con <code>bento setup</code> o <code>bento join</code>. Después solo pídele al agente que ejecute <code>bento guide</code> antes de empezar: responderá en JSON, podrá probar con <code>--dry-run</code>, evitará duplicados y cualquier borrado irá a la papelera de 30 días.</p>
           </div>
         </details>
         <details>
@@ -467,22 +559,22 @@
           </div>
         </details>
         <details>
+          <summary>¿Hay app para móvil?</summary>
+          <div class="answer">
+            <p>Sí en Android (Android 10 o posterior, desde el APK firmado en GitHub), con respaldo automático de cámara, búsqueda por texto y bloqueo con huella. En iPhone todavía no hay app nativa: por ahora puedes reenviar fotos y archivos desde Telegram a «Bento · Bandeja» para guardarlos cifrados en tu biblioteca.</p>
+          </div>
+        </details>
+        <details>
           <summary>¿Bento es una app oficial de Telegram?</summary>
           <div class="answer">
             <p>No. Bento usa la API de Telegram con su propio identificador de aplicación y no está afiliado a Telegram ni respaldado por Telegram.</p>
           </div>
         </details>
         <details>
-          <summary>¿Qué pasa si pierdo el móvil?</summary>
-          <div class="answer">
-            <p>Bento no guarda nada en tu móvil: solo lo usas para iniciar sesión en Telegram. Tus equipos con Bento siguen funcionando. Recupera tu cuenta de Telegram como harías normalmente y, por seguridad, revisa en Telegram › Ajustes › Dispositivos qué sesiones están abiertas.</p>
-          </div>
-        </details>
-        <details>
-          <summary>¿Y si pierdo un equipo?</summary>
+          <summary>¿Qué pasa si pierdo un equipo o el móvil?</summary>
           <div class="answer">
             <p>Desde otro de tus equipos, ve a Ajustes › Dispositivos y quita el que perdiste: Bento cierra su sesión de Telegram, cambia las llaves de tu nube y te da un kit de recuperación nuevo. Lo que ese equipo ya tenía descargado no se puede borrar a distancia.</p>
-            <p>Si era tu único equipo, instala Bento en otro, conecta tu Telegram y usa tu kit de recuperación.</p>
+            <p>Si era tu único equipo, instala Bento en otro, conecta tu Telegram y usa tu kit de recuperación. Si en el móvil solo usabas Telegram, Bento no guardaba nada en él.</p>
           </div>
         </details>
         <details>
@@ -504,12 +596,6 @@
           </div>
         </details>
         <details>
-          <summary>¿Puedo compartir con alguien que no usa Telegram?</summary>
-          <div class="answer">
-            <p>Todavía no. Por ahora puedes enviar una copia por Telegram a cualquier chat. Los enlaces públicos, la app para móvil y las nubes compartidas en familia aún no están disponibles.</p>
-          </div>
-        </details>
-        <details>
           <summary>¿Bento usa mis archivos para entrenar inteligencia artificial?</summary>
           <div class="answer">
             <p>No. El reconocimiento de texto y la búsqueda funcionan en tu equipo, solo sobre tus archivos, y nada se usa para entrenar modelos. Bento tampoco envía analíticas ni publicidad.</p>
@@ -522,11 +608,11 @@
   <section class="closing" aria-labelledby="cierre-titulo" data-reveal>
     <div class="wrap">
       <svg class="closing-mark" viewBox="0 0 32 32" aria-hidden="true"><rect class="box" width="32" height="32" rx="9"/><rect class="cell cell-1" x="4.5" y="5" width="10.5" height="22" rx="3.5"/><rect class="cell cell-2" x="17" y="5" width="10.5" height="10" rx="3.5"/><rect class="cell cell-3" x="17" y="17" width="10.5" height="10" rx="3.5"/><circle class="plum" cx="22.25" cy="22" r="2.75"/></svg>
-      <h2 id="cierre-titulo">Todo en su lugar.</h2>
-      <p>Tu nube privada, en orden. Funciona con cuentas gratuitas de Telegram.</p>
+      <h2 id="cierre-titulo">Tus archivos son tuyos. Deja de pagar alquiler.</h2>
+      <p>Drive, Fotos y una CLI lista para tus agentes de IA — todo en su lugar, cifrado en tu propio Telegram.</p>
       <div class="button-row">
-        <a class="button button-primary button-xl" href="#descargar">Descargar Bento</a>
-        <a class="button button-secondary button-xl" href="/security/">Leer sobre seguridad</a>
+        <a class="button button-primary button-xl" href="#descargar">Descargar Bento gratis</a>
+        <a class="button button-secondary button-xl" href="#agentes">Ver CLI para agentes</a>
       </div>
     </div>
   </section>
@@ -537,12 +623,13 @@
     <div class="footer-grid">
       <div class="footer-brand">
         <a class="logo" href="/">Bento</a>
-        <p>Tu nube privada, en orden.</p>
+        <p>Tu Google Drive y Google Fotos sin límites, cifrado en tu Telegram y listo para tus agentes de IA.</p>
       </div>
       <nav aria-label="Producto">
         <h2>Producto</h2>
         <ul>
           <li><a href="/#descargar">Descargar</a></li>
+          <li><a href="/#agentes">CLI para agentes IA</a></li>
           <li><a href="/#como-funciona">Cómo funciona</a></li>
           <li><a href="/#preguntas">Preguntas frecuentes</a></li>
         </ul>
@@ -559,6 +646,7 @@
         <h2>Ayuda</h2>
         <ul>
           <li><a href="https://github.com/invrnt/bento/blob/main/docs/user/es/README.md">Guías de uso</a></li>
+          <li><a href="https://github.com/invrnt/bento/blob/main/docs/user/es/cli.md">Bento en la terminal</a></li>
           <li><a href="https://github.com/invrnt/bento/blob/main/docs/user/es/solucion-de-problemas.md">Solución de problemas</a></li>
           <li><a href="https://github.com/invrnt/bento">GitHub</a></li>
         </ul>

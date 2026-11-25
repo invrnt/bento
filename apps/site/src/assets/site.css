@@ -4840,6 +4840,273 @@ a.checksums {
   color: var(--ink);
 }
 
+/* AI agents & CLI section */
+
+.agents-stage {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (min-width: 960px) {
+  .agents-stage {
+    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+    align-items: stretch;
+  }
+}
+
+.agent-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.agent-prompt-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ink-subtle);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.agent-quote {
+  margin: 0;
+  padding: 18px 20px;
+  border-radius: var(--radius-xl);
+  background: var(--subtle);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.agent-quote code {
+  font-size: 0.88em;
+}
+
+.agent-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.agent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--raised);
+  color: var(--ink-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.agent-terminal {
+  --t-ink: oklch(0.95 0.006 80);
+  --t-muted: oklch(0.74 0.012 80);
+  --t-subtle: oklch(0.58 0.014 80);
+  --t-accent: oklch(0.8 0.12 268);
+  --t-ok: oklch(0.76 0.14 152);
+  --t-warn: oklch(0.84 0.12 82);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 22px 22px;
+  border: 1px solid var(--lacquer-line);
+  border-radius: var(--radius-2xl);
+  background: radial-gradient(ellipse 90% 70% at 15% 0%, oklch(1 0 0 / 0.07), transparent 65%), var(--lacquer);
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.1), var(--shadow-lg);
+  color: var(--t-ink);
+  overflow: hidden;
+}
+
+.term-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid oklch(1 0 0 / 0.08);
+}
+
+.term-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: oklch(1 0 0 / 0.18);
+}
+
+.term-title {
+  margin-inline-start: 8px;
+  color: var(--t-subtle);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.term-body {
+  display: grid;
+  gap: 12px;
+  margin: 18px 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.84rem;
+  line-height: 1.55;
+  overflow-x: auto;
+}
+
+.term-line {
+  display: block;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.term-ps {
+  color: var(--t-accent);
+  user-select: none;
+}
+
+.term-cmd {
+  color: var(--t-ink);
+  font-weight: 500;
+}
+
+.term-comment {
+  color: var(--t-subtle);
+}
+
+.term-out {
+  display: block;
+  margin-top: 4px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: oklch(0 0 0 / 0.24);
+  color: var(--t-muted);
+  font-size: 0.8rem;
+}
+
+.term-key {
+  color: var(--t-accent);
+}
+
+.term-ok {
+  color: var(--t-ok);
+}
+
+.term-num {
+  color: var(--t-warn);
+}
+
+.agents-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 760px) {
+  .agents-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1080px) {
+  .agents-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* CLI install bar and secondary download tray (Android + CLI) */
+
+.download-extras {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+@media (min-width: 900px) {
+  .download-extras {
+    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+    gap: 14px;
+    margin-top: 14px;
+  }
+}
+
+.cli-snippet {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px 10px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: oklch(0 0 0 / 0.28);
+}
+
+.cli-snippet code {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  color: var(--ink);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+
+.cli-snippet code::-webkit-scrollbar {
+  display: none;
+}
+
+.copy-cmd {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--raised);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-out), border-color 160ms var(--ease-out);
+}
+
+.copy-cmd:hover {
+  background: var(--subtle);
+}
+
+.copy-cmd.is-copied {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.copy-cmd .icon {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.cli-alt-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: auto;
+  color: var(--ink-subtle);
+  font-size: 0.8125rem;
+}
+
+.cli-alt-links a {
+  color: var(--ink-subtle);
+}
+
 /* FAQ */
 
 .faq-layout {

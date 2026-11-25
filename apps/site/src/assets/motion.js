@@ -268,16 +268,42 @@ for (const element of doc.querySelectorAll("[data-count]")) {
   }, { threshold: 0.8 });
 }
 
-// Downloads: point out the visitor's own system (desktop browsers only).
+// Downloads: point out the visitor's own system (desktop and Android).
 const agent = (globalThis.navigator?.userAgent ?? "").toLowerCase();
 const platform = (globalThis.navigator?.userAgentData?.platform ?? globalThis.navigator?.platform ?? agent).toLowerCase();
-const mobile = /android|iphone|ipad|ipod|mobile/u.test(agent);
-const system = mobile ? null : /win/u.test(platform) ? "windows" : /mac/u.test(platform) ? "macos" : /linux|x11/u.test(platform) ? "linux" : null;
+const isAndroid = /android/u.test(agent);
+const mobile = /iphone|ipad|ipod|mobile/u.test(agent);
+const system = isAndroid ? "android" : mobile ? null : /win/u.test(platform) ? "windows" : /mac/u.test(platform) ? "macos" : /linux|x11/u.test(platform) ? "linux" : null;
 if (system) {
   for (const card of doc.querySelectorAll(`[data-os="${system}"]`)) {
     card.classList.add("is-yours");
     for (const badge of card.querySelectorAll("[data-os-badge]")) badge.hidden = false;
   }
+}
+
+// Copy buttons for CLI install commands.
+for (const button of doc.querySelectorAll("[data-copy-target]")) {
+  button.addEventListener("click", async () => {
+    const targetId = button.getAttribute("data-copy-target");
+    const source = targetId ? doc.getElementById(targetId) : null;
+    const text = source?.textContent?.trim();
+    if (!text) return;
+    try {
+      await globalThis.navigator?.clipboard?.writeText(text);
+    } catch {
+      return;
+    }
+    const label = button.querySelector("[data-copy-label]");
+    const copied = button.getAttribute("data-copied-label");
+    if (!label || !copied) return;
+    const original = label.getAttribute("data-original") ?? label.textContent ?? "";
+    label.setAttribute("data-original", original);
+    label.textContent = copied;
+    button.classList.add("is-copied");
+    await wait(1800);
+    label.textContent = original;
+    button.classList.remove("is-copied");
+  });
 }
 
 // Hero: the box unwraps itself once at least part of it is on screen.
