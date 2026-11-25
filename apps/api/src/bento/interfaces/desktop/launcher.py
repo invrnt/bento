@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, TextIO
 
 from bento.adapters.security.key_store import WRAPPING_KEY_ENV
-from bento.infrastructure import process_secrets
+from bento.infrastructure import parent_watch, process_secrets
 from bento.infrastructure.child_processes import resolve_executable
 from bento.infrastructure.db.migrate import DATA_DIR_LAYOUT, bundle_root, run_migrations
 from bento.infrastructure.loopback import LOOPBACK_HOSTS as _LOOPBACK_HOSTS
@@ -39,6 +39,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     # Before anything else runs: per-launch secrets must not stay where child processes inherit them.
     process_secrets.adopt_environment_secrets((TOKEN_ENV, CLI_TOKEN_ENV, API_TOKEN_ENV, WRAPPING_KEY_ENV))
     arguments = _parser().parse_args(argv)
+    if arguments.command in ("api", "worker"):
+        # Long-running sidecars must not outlive the desktop host (crash, kill, lost session).
+        parent_watch.start_parent_watch()
     if arguments.command == "api":
         return _run_api(arguments)
     if arguments.command == "worker":

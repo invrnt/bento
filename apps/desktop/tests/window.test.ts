@@ -62,6 +62,11 @@ describe("BrowserWindow security", () => {
     expect(development.options.webPreferences).toMatchObject({ devTools: true });
   });
 
+  it("hides the menu bar until Alt is pressed on Windows and Linux", () => {
+    const window = createMainWindow() as unknown as InstanceType<typeof electron.FakeWindow>;
+    expect(window.options).toMatchObject({ autoHideMenuBar: true });
+  });
+
   it("denies new windows, webviews, remote navigation, and subframe navigation", () => {
     const window = createMainWindow() as unknown as InstanceType<typeof electron.FakeWindow>;
     const openHandler = window.webContents.setWindowOpenHandler.mock.calls[0]?.[0] as () => unknown;

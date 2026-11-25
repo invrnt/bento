@@ -77,6 +77,8 @@ describe("authenticated sidecar lifecycle", () => {
       DATA_DIR: "/tmp/bento-test-data",
       BENTO_DESKTOP_ORIGIN: BENTO_ORIGIN,
     });
+    // Every sidecar learns the host PID so it can stop itself if the host dies.
+    for (const launch of launches) expect(launch.env.BENTO_PARENT_PID).toBe(String(process.pid));
     expect(launches[1]?.env).not.toHaveProperty("API_PORT");
     expect(Object.values(launches[1]!.env)).not.toContain("legacy-secret");
     expect(launches[1]?.env.BENTO_DESKTOP_API_TOKEN).toBe("unguessable-per-launch-token-1234567890");

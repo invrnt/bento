@@ -26,6 +26,8 @@ export const DESKTOP_API_TOKEN_ENV = "BENTO_DESKTOP_API_TOKEN";
 /** Per-launch token for non-browser local clients (the `bento` CLI); never the renderer token. */
 export const DESKTOP_CLI_TOKEN_ENV = "BENTO_DESKTOP_CLI_TOKEN";
 export const SIDECAR_PATH_ENV = "BENTO_SIDECAR_PATH";
+/** Sidecars watch this PID and stop when the desktop host is gone (see bento/infrastructure/parent_watch.py). */
+export const PARENT_PID_ENV = "BENTO_PARENT_PID";
 /** Never inherited by sidecars; main sets the token for the API process only. */
 const STRIPPED_SIDECAR_ENVIRONMENT = [DEVICE_WRAPPING_KEY_ENV, DESKTOP_API_TOKEN_ENV, DESKTOP_CLI_TOKEN_ENV, SIDECAR_PATH_ENV, "API_PORT"] as const;
 /** Two tokens (renderer + CLI) per API launch. */
@@ -287,6 +289,7 @@ export class SidecarSupervisor extends EventEmitter {
       HOST: "127.0.0.1",
       DATA_DIR: this.options.dataDir,
       BENTO_DESKTOP_ORIGIN: BENTO_ORIGIN,
+      [PARENT_PID_ENV]: String(process.pid),
       ...secretEnvironment(this.secretEnvironment),
       ...(this.options.deviceWrappingKey ? { [DEVICE_WRAPPING_KEY_ENV]: this.options.deviceWrappingKey } : {}),
       ...extra,
