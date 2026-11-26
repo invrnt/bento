@@ -51,7 +51,7 @@ When you close the window, Bento keeps backing up and syncing in the background;
 ## Search and preview
 
 - <kbd>Ctrl</kbd> + <kbd>K</kbd> (<kbd>⌘</kbd> + <kbd>K</kbd> on macOS) opens search: by name and, when it is on, by the text inside your images and PDFs.
-- Text recognition turns on automatically on computers with at least 4 cores and 8 GB of RAM; on others you can turn it on in Settings › Smart search. **Smart search** (search by meaning) is optional: turn it on in the same place and Bento downloads the model in the background. Everything runs on your computer.
+- Text recognition turns on automatically on computers with at least 4 cores and 8 GB of RAM; on others you can turn it on in Settings › Smart search. **Smart search** (search by meaning) is optional: turn it on in the same place and point it at the model file (GGUF) on your computer: Bento neither downloads nor bundles it. Everything runs on your computer.
 - Press <kbd>Space</kbd> on a file to preview it right away: photos, videos (with seeking), PDFs and text.
 
 ## Next steps
