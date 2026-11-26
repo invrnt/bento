@@ -113,4 +113,4 @@ Bento consulta GitHub para saber si hay versiones nuevas. Las descarga en segund
 
 ## Reportar un problema de seguridad
 
-Escríbenos a [[COMPLETAR: correo para reportes de seguridad]]. Te pedimos que no publiques los detalles hasta que hayamos podido corregirlo.
+Escríbenos a `security@bentocloud.app`. Te pedimos que no publiques los detalles hasta que hayamos podido corregirlo.

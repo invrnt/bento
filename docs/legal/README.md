@@ -1,34 +1,24 @@
 # Documentos legales de Bento · Bento legal documents
 
-> **Revisión legal obligatoria antes de publicar.** Estos textos son borradores redactados para describir con precisión cómo funciona Bento. Un profesional debe revisarlos y adaptarlos a la ley aplicable antes de publicarlos.
->
-> **Legal review is required before publishing.** These texts are drafts written to describe accurately how Bento works. A professional must review them and adapt them to the applicable law before they are published.
+La política de privacidad, los términos de uso y la página de seguridad vigentes son las páginas del sitio <https://bentocloud.app>. Su fuente está en `apps/site/src/privacy/`, `apps/site/src/terms/` y `apps/site/src/security/` (y sus versiones en `apps/site/src/en/`). Los archivos `privacidad.md`, `privacy.md`, `terminos.md` y `terms.md` de esta carpeta solo enlazan a esas páginas; no copian su texto.
 
-| Documento | Español | English | Sitio web |
+The current privacy policy, terms of use and security page are the pages on <https://bentocloud.app>. Their source is in `apps/site/src/privacy/`, `apps/site/src/terms/` and `apps/site/src/security/` (and their `apps/site/src/en/` versions). The `privacidad.md`, `privacy.md`, `terminos.md` and `terms.md` files in this folder only link to those pages; they do not copy their text.
+
+| Documento · Document | Español | English | Sitio web · Site |
 |---|---|---|---|
-| Política de privacidad · Privacy policy | [privacidad.md](es/privacidad.md) | [privacy.md](en/privacy.md) | `/privacy/`, `/en/privacy/` |
-| Términos de uso · Terms of use | [terminos.md](es/terminos.md) | [terms.md](en/terms.md) | `/terms/`, `/en/terms/` |
+| Política de privacidad · Privacy policy | [privacidad.md](es/privacidad.md) | [privacy.md](en/privacy.md) | <https://bentocloud.app/privacy/>, <https://bentocloud.app/en/privacy/> |
+| Términos de uso · Terms of use | [terminos.md](es/terminos.md) | [terms.md](en/terms.md) | <https://bentocloud.app/terms/>, <https://bentocloud.app/en/terms/> |
+| Seguridad · Security | — | — | <https://bentocloud.app/security/>, <https://bentocloud.app/en/security/> |
 | Avisos de terceros · Third-party notices | [avisos-de-terceros.md](es/avisos-de-terceros.md) | [third-party-notices.md](en/third-party-notices.md) | — |
 
-## Datos que debe completar el responsable · Owner placeholders
+Los avisos de terceros sí viven aquí: los enlazan los términos del sitio y [CONTRIBUTING](../../CONTRIBUTING.md).
 
-Todos los datos pendientes están marcados como `[[COMPLETAR: …]]`, con el mismo texto en ambos idiomas, en estos documentos y en las páginas del sitio (`apps/site/src/privacy/`, `apps/site/src/terms/`, `apps/site/src/security/` y sus versiones en `en/`). `npm --prefix apps/site run deploy` se niega a publicar mientras quede alguno.
+The third-party notices do live here: the site’s terms and [CONTRIBUTING](../../CONTRIBUTING.md) link to them.
 
-Every pending value is marked `[[COMPLETAR: …]]`, with the same text in both languages, in these documents and in the site pages. `npm --prefix apps/site run deploy` refuses to publish while any remains. Find them with:
+## Cambios · Changes
 
-```sh
-grep -rn "\[\[COMPLETAR" docs apps/site/src README.md
-```
+Cambia el texto legal solo en las páginas del sitio. Si la app cambia lo que envía, a quién o durante cuánto tiempo (por ejemplo, telemetría, un servicio nuevo o la configuración de registros del relay), actualiza esas páginas y las guías de usuario de privacidad en el mismo commit. Si cambian las dependencias que se distribuyen, actualiza los avisos de terceros en ambos idiomas.
 
-- Nombre legal, domicilio y correos de contacto (general, privacidad y seguridad).
-- Fecha de entrada en vigor.
-- Ley aplicable, tribunales competentes y autoridad de protección de datos.
-- Bases jurídicas, garantías para transferencias internacionales y plazo de conservación de los registros del relay.
-- Origen y licencia del modelo de búsqueda inteligente.
-- Retirar el aviso de borrador de las páginas de privacidad y términos tras la revisión.
+Change legal text only in the site pages. If the app changes what it sends, to whom, or for how long (for example telemetry, a new service, or the relay’s logging configuration), update those pages and the privacy user guides in the same commit. If the shipped dependencies change, update the third-party notices in both languages.
 
-## Mantener el sitio y los documentos alineados · Keeping the site and these files in sync
-
-Las páginas de privacidad y términos del sitio y estos archivos contienen el mismo texto. Cuando cambies uno, cambia el otro en el mismo commit. Si la app cambia lo que envía, a quién o durante cuánto tiempo (por ejemplo, telemetría, un servicio nuevo o la configuración de registros del relay), actualiza primero estos textos.
-
-The privacy and terms pages on the site and these files carry the same text. When you change one, change the other in the same commit. If the app changes what it sends, to whom, or for how long (for example telemetry, a new service, or the relay’s logging configuration), update these texts first.
+`npm --prefix apps/site run deploy` refuses to publish while any `[[COMPLETAR: …]]` placeholder remains in the built site.

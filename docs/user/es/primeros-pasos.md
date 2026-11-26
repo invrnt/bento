@@ -51,7 +51,7 @@ Al cerrar la ventana, Bento sigue respaldando y sincronizando en segundo plano; 
 ## Buscar y ver
 
 - <kbd>Ctrl</kbd> + <kbd>K</kbd> (<kbd>⌘</kbd> + <kbd>K</kbd> en macOS) abre la búsqueda: por nombre y, si está activado, por el texto que aparece en tus imágenes y PDF.
-- El reconocimiento de texto se activa automáticamente en equipos con al menos 4 núcleos y 8 GB de RAM; en otros puedes activarlo en Ajustes › Búsqueda inteligente. La **búsqueda inteligente** (buscar por significado) es opcional: actívala en el mismo lugar y Bento descargará el modelo en segundo plano. Todo funciona en tu equipo.
+- El reconocimiento de texto se activa automáticamente en equipos con al menos 4 núcleos y 8 GB de RAM; en otros puedes activarlo en Ajustes › Búsqueda inteligente. La **búsqueda inteligente** (buscar por significado) es opcional: actívala en el mismo lugar e indica la ruta del archivo del modelo (GGUF) que tengas en tu equipo: Bento no lo descarga ni lo incluye. Todo funciona en tu equipo.
 - Pulsa <kbd>Espacio</kbd> sobre un archivo para verlo al momento: fotos, vídeos (con avance), PDF y texto.
 
 ## Siguientes pasos

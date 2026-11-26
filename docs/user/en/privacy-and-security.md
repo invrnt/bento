@@ -113,4 +113,4 @@ Bento checks GitHub for new versions. It downloads them in the background, verif
 
 ## Reporting a security problem
 
-Write to [[COMPLETAR: correo para reportes de seguridad]]. Please don’t publish details until we have been able to fix it.
+Write to `security@bentocloud.app`. Please don’t publish details until we have been able to fix it.
