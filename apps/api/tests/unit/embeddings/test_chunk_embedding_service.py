@@ -89,10 +89,26 @@ class FakeRecorder:
     calls: list[dict[str, Any]] = field(default_factory=list)
 
     async def record_embedding(
-        self, asset_id: str, *, provider: str, dimensions: int, vector: Sequence[float], space: str | None = None
+        self,
+        asset_id: str,
+        *,
+        provider: str,
+        dimensions: int,
+        vector: Sequence[float],
+        space: str | None = None,
+        chunks: Sequence[Sequence[float]] | None = None,
+        pages: Sequence[int | None] | None = None,
     ) -> None:
         self.calls.append(
-            {"asset_id": asset_id, "provider": provider, "dimensions": dimensions, "vector": tuple(vector), "space": space}
+            {
+                "asset_id": asset_id,
+                "provider": provider,
+                "dimensions": dimensions,
+                "vector": tuple(vector),
+                "space": space,
+                "chunks": None if chunks is None else [tuple(chunk) for chunk in chunks],
+                "pages": None if pages is None else list(pages),
+            }
         )
 
 
@@ -163,6 +179,29 @@ def test_long_document_is_chunked_capped_and_sent_in_batches_of_eight(tmp_path: 
         assert sync["space"] == SPACE.id and sync["dimensions"] == 4
         assert math.isclose(math.fsum(v * v for v in sync["vector"]), 1.0)
         assert sync["vector"] == pytest.approx((0.5, 0.5, 0.5, 0.5))
+        # Every chunk travels to peers, in order, with its page.
+        assert sync["chunks"] == [chunk.vector for chunk in chunks]
+        assert sync["pages"] == [chunk.page for chunk in chunks]
+
+    asyncio.run(scenario())
+
+
+def test_mock_provider_publishes_its_legacy_space(tmp_path: Path) -> None:
+    from bento.adapters.embeddings.mock import MockEmbeddingProvider
+    from bento.domain.smart_search import legacy_space_id
+
+    async def scenario() -> None:
+        asset = make_asset(AssetKind.PDF, filename="nota.pdf")
+        index, recorder = FakeVectorIndex(), FakeRecorder()
+        service = build(
+            tmp_path, asset, provider=MockEmbeddingProvider(dimensions=4), index=index, text="hola", recorder=recorder
+        )
+
+        await service.process_asset_embedding(asset.id)
+
+        (sync,) = recorder.calls
+        assert sync["space"] == legacy_space_id("mock", 4)
+        assert sync["chunks"] is None and sync["pages"] is None
 
     asyncio.run(scenario())
 

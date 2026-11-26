@@ -59,6 +59,7 @@ from bento.infrastructure.db.engine import session_scope
 from bento.infrastructure.db.models import (
     AlbumAssetModel,
     AlbumModel,
+    AssetEmbeddingChunkModel,
     AssetEmbeddingModel,
     AssetModel,
     AssetTextModel,
@@ -343,7 +344,17 @@ class _ApplyContext:
         self.session.execute(delete(FolderModel).where(FolderModel.id == folder_id))
 
     def _purge_asset(self, asset_id: str) -> None:
-        for model in (ThumbnailModel, AlbumAssetModel, AssetTextModel, OCRBlockModel, PDFPageModel, AssetEmbeddingModel):
+        # Chunk vectors go explicitly, in every space: the FK cascade only runs with `PRAGMA foreign_keys` on.
+        # The `vec0` search rows follow after commit (`AssetIndexData.remove` through `purged_assets`).
+        for model in (
+            ThumbnailModel,
+            AlbumAssetModel,
+            AssetTextModel,
+            OCRBlockModel,
+            PDFPageModel,
+            AssetEmbeddingChunkModel,
+            AssetEmbeddingModel,
+        ):
             self.session.execute(delete(model).where(model.asset_id == asset_id))
         self.session.execute(update(BlobRefModel).where(BlobRefModel.asset_id == asset_id).values(asset_id=None))
         self.session.execute(update(JobModel).where(JobModel.asset_id == asset_id).values(asset_id=None))

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from bento.adapters.sync.apply import SQLiteSyncApplier
 from bento.adapters.sync.capture import SYNC_APPLY, ChangeCapture, configure_change_capture, install_change_capture
-from bento.adapters.sync.index_data import AssetIndexData
+from bento.adapters.sync.index_data import ActiveSpaceResolver, AssetIndexData
 from bento.adapters.sync.records import Now, NowMs, system_now, system_now_ms
 from bento.adapters.sync.snapshot_source import SQLiteFullStatePublisher, SQLiteSnapshotSource
 from bento.adapters.sync.store import SQLiteHlcSource, SQLiteHoldState, SQLiteSyncOutbox, SQLiteSyncStateStore
@@ -35,10 +35,20 @@ class SQLiteSyncAdapters:
         clock: ClockPort,
         *,
         vector_dimensions: int | None = None,
+        legacy_provider: str | None = None,
+        active_space: ActiveSpaceResolver | None = None,
         now_ms: NowMs = system_now_ms,
         now: Now = system_now,
     ) -> SQLiteSyncAdapters:
-        index = AssetIndexData(session_factory, clock, vector_dimensions=vector_dimensions)
+        """`legacy_provider`/`active_space` name this device's active embedding space when no managed space is
+        active in `embedding_spaces` (see `AssetIndexData`): peer vectors in that space are indexed."""
+        index = AssetIndexData(
+            session_factory,
+            clock,
+            vector_dimensions=vector_dimensions,
+            legacy_provider=legacy_provider,
+            active_space=active_space,
+        )
         return cls(
             state=SQLiteSyncStateStore(session_factory, now=now),
             outbox=SQLiteSyncOutbox(session_factory, now_ms=now_ms, now=now),
@@ -53,6 +63,7 @@ class SQLiteSyncAdapters:
 
 __all__ = [
     "SYNC_APPLY",
+    "ActiveSpaceResolver",
     "AssetIndexData",
     "ChangeCapture",
     "SQLiteFullStatePublisher",

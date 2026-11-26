@@ -24,6 +24,7 @@ from bento.domain.smart_search import (
     TextChunk,
     batched,
     chunk_text,
+    legacy_space_id,
     truncate_and_renormalize,
 )
 from bento.domain.storage import BlobKind
@@ -83,10 +84,19 @@ class EmbeddingTextCatalogPort(Protocol):
 
 
 class EmbeddingIndexRecorderPort(Protocol):
-    """Publishes the asset's embedding to other devices (`asset_index` op, which carries `space`)."""
+    """Publishes the asset's embedding to other devices (`asset_index` op, which carries `space`, and every
+    chunk with its page when there is more than one). `application.sync.ports.AssetIndexRecorderPort`."""
 
     async def record_embedding(
-        self, asset_id: str, *, provider: str, dimensions: int, vector: Sequence[float], space: str | None = None
+        self,
+        asset_id: str,
+        *,
+        provider: str,
+        dimensions: int,
+        vector: Sequence[float],
+        space: str | None = None,
+        chunks: Sequence[Sequence[float]] | None = None,
+        pages: Sequence[int | None] | None = None,
     ) -> None: ...
 
 
@@ -132,14 +142,14 @@ class EmbeddingIndexingService:
 
         pending_asset = await self._mark_embedding_pending(asset)
         space: EmbeddingSpace | None = None
-        chunk_count = 0
+        chunk_vectors: tuple[ChunkVector, ...] = ()
         try:
             if not await self._provider.is_enabled():
                 await self._mark_indexed(pending_asset)
                 return None
 
             if isinstance(self._provider, SpaceEmbeddingProviderPort):
-                record, vector, chunk_count, space = await self._embed_chunks(self._provider, pending_asset)
+                record, vector, chunk_vectors, space = await self._embed_chunks(self._provider, pending_asset)
             else:
                 original_ref = await self._blob_refs.latest_for_asset(asset.id, BlobKind.ORIGINAL)
                 if original_ref is None:
@@ -156,7 +166,7 @@ class EmbeddingIndexingService:
             }
             if space is not None:
                 payload["space_id"] = space.id
-                payload["chunks"] = chunk_count
+                payload["chunks"] = len(chunk_vectors)
             await self._manifest.append(
                 type=ManifestEventType.EMBEDDING_INDEXED,
                 entity_type=ManifestEntityType.ASSET,
@@ -168,14 +178,14 @@ class EmbeddingIndexingService:
         except Exception:
             await self._mark_partial_failure(pending_asset)
             raise
-        await self._record_index(record, vector, space)
+        await self._record_index(record, vector, space, chunk_vectors)
         return record
 
     # Smart search spaces: chunks + document prefix + batches of 8 ---------------------
 
     async def _embed_chunks(
         self, provider: SpaceEmbeddingProviderPort, asset: Asset
-    ) -> tuple[EmbeddingRecord, Vector, int, EmbeddingSpace]:
+    ) -> tuple[EmbeddingRecord, Vector, tuple[ChunkVector, ...], EmbeddingSpace]:
         chunks = await self._chunks_for_asset(asset)
         vectors: list[Vector] = []
         for batch in batched([chunk.text for chunk in chunks], self._batch_size):
@@ -194,7 +204,7 @@ class EmbeddingIndexingService:
             await self._index.index_chunk_vectors(space.id, record, chunk_vectors)
         else:
             await self._index.index_embedding_vector(record, asset_vector)
-        return record, asset_vector, len(chunk_vectors), space
+        return record, asset_vector, chunk_vectors, space
 
     async def _chunks_for_asset(self, asset: Asset) -> tuple[TextChunk, ...]:
         """Images in v1: OCR text plus metadata as text (pixels only for multimodal spaces, Stage 26)."""
@@ -246,22 +256,37 @@ class EmbeddingIndexingService:
 
     # Shared ------------------------------------------------------------------------------
 
-    async def _record_index(self, record: EmbeddingRecord, vector: Vector, space: EmbeddingSpace | None) -> None:
-        """Publish the embedding to other devices (`asset_index` op); sync failures never fail indexing."""
+    async def _record_index(
+        self,
+        record: EmbeddingRecord,
+        vector: Vector,
+        space: EmbeddingSpace | None,
+        chunks: Sequence[ChunkVector] = (),
+    ) -> None:
+        """Publish the embedding to other devices (`asset_index` op); sync failures never fail indexing.
+
+        Pre-Stage-24 providers (`mock`) publish one vector in their legacy space (`legacy:<provider>/<dims>`)."""
         if self._index_recorder is None:
             return
         try:
             if space is None:
                 await self._index_recorder.record_embedding(
-                    record.asset_id, provider=record.provider, dimensions=record.dimensions, vector=vector
+                    record.asset_id,
+                    provider=record.provider,
+                    dimensions=record.dimensions,
+                    vector=vector,
+                    space=legacy_space_id(record.provider, record.dimensions),
                 )
             else:
+                ordered = sorted(chunks, key=lambda chunk: chunk.chunk_no)
                 await self._index_recorder.record_embedding(
                     record.asset_id,
                     provider=record.provider,
                     dimensions=record.dimensions,
                     vector=vector,
                     space=space.id,
+                    chunks=[chunk.vector for chunk in ordered] or None,
+                    pages=[chunk.page for chunk in ordered] or None,
                 )
         except Exception as exc:  # noqa: BLE001
             LOGGER.warning("Could not queue the embedding for sync: %s", exc.__class__.__name__)

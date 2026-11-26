@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel
@@ -100,7 +100,7 @@ def _search_dependencies(request: Request) -> SearchRouteDependencies:
     if cached is not None:
         return cached
 
-    from bento.adapters.embeddings import DisabledEmbeddingProvider, JinaOmniNanoGgufAdapter, MockEmbeddingProvider
+    from bento.adapters.runtime.embedding_setup import build_query_provider, default_model_ports
     from bento.adapters.search.composite import CompositeSearchIndex
     from bento.adapters.search.sqlite_fts import SQLiteFTSSearchIndex
     from bento.adapters.search.sqlite_vec import SQLiteVecSearchIndex
@@ -111,13 +111,8 @@ def _search_dependencies(request: Request) -> SearchRouteDependencies:
     data_dir = Path(settings.data_dir)
     clock = SystemClock()
     session_factory = create_session_factory(sqlite_url(data_dir / "db" / "bento.sqlite3"))
-    provider = _embedding_provider(
-        data_dir,
-        settings,
-        DisabledEmbeddingProvider,
-        MockEmbeddingProvider,
-        JinaOmniNanoGgufAdapter,
-    )
+    # Queries go through the worker's embedding server (`<data_dir>/run/embedder.json`); the API never spawns one.
+    provider = build_query_provider(settings, catalog=default_model_ports(settings)[0])
     vector_index = SQLiteVecSearchIndex(
         session_factory,
         clock,
@@ -136,31 +131,6 @@ def _search_dependencies(request: Request) -> SearchRouteDependencies:
     )
     request.app.state.search_route_dependencies = dependencies
     return dependencies
-
-
-def _embedding_provider(
-    data_dir: Path,
-    settings: Settings,
-    disabled_cls: type[Any],
-    mock_cls: type[Any],
-    jina_cls: type[Any],
-) -> Any:
-    provider = settings.embeddings_provider
-    dimensions = settings.embedding_dimensions
-    if provider == "mock":
-        return mock_cls(dimensions=dimensions)
-    if provider == "jina":
-        return jina_cls(
-            model_path=_model_path(settings.jina_model_path, data_dir),
-            endpoint_url=settings.embedding_server_url,
-            dimensions=dimensions,
-        )
-    return disabled_cls()
-
-
-def _model_path(configured: str, data_dir: Path) -> Path:
-    path = Path(configured)
-    return path if path.is_absolute() else (data_dir.parent / path).resolve()
 
 
 def _settings(request: Request) -> Settings:

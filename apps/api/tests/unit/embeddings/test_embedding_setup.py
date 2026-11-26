@@ -199,3 +199,20 @@ def test_query_provider_reads_the_workers_endpoint_file(tmp_path: Path) -> None:
         assert isinstance(build_query_provider(values), DisabledEmbeddingProvider)  # no catalog: nothing to query
 
     asyncio.run(scenario())
+
+
+def test_managed_query_provider_follows_the_space_the_worker_serves(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        provider = build_query_provider(settings(tmp_path, embedding_dimensions=512), catalog=FakeCatalog())
+        assert isinstance(provider, LlamaCppEmbeddingProvider)
+        assert provider.space.id == EG2.space(512).id  # nothing served yet: the settings decide
+
+        # The activation status picked 256 dims; the worker serves that space, so queries must use it too.
+        write_endpoint_file(
+            endpoint_file_path((tmp_path / "data").resolve()),
+            EndpointInfo(EG2.space(256).id, "http://127.0.0.1:1", tmp_path / "k.key", 1, "t"),
+        )
+        assert provider.space.id == EG2.space(256).id
+        assert await provider.is_enabled() is True
+
+    asyncio.run(scenario())
