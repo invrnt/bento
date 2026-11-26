@@ -15,8 +15,8 @@
 | `src/assets/android/` | Phone screenshots for `/android/` (WebP from the Roborazzi goldens, see below). |
 | `src/assets/fonts/` | Geist and Geist Mono (Latin subset) with their OFL licenses. |
 | `src/_headers` | Content-Security-Policy and other response headers for Pages. |
-| `site.config.json` | Repository, the public `origin` for link previews, (optionally) the exact desktop release, and the `android` block: package, signing-certificate fingerprints and (optionally) the exact APK release. |
-| `scripts/` | `build.mjs` (copy, conservative minify, release links, `assetlinks.json`), `serve.mjs` (local preview with the real headers), `check-placeholders.mjs` (publishing guard), `import-android-screenshots.mjs` (goldens → WebP). |
+| `site.config.json` | Repository, the public `origin` for link previews, the public `indexNowKey`, (optionally) the exact desktop release, and the `android` block: package, signing-certificate fingerprints and (optionally) the exact APK release. |
+| `scripts/` | `build.mjs` (copy, conservative minify, release links, sitemap, IndexNow key file, `assetlinks.json`), `indexnow.mjs` (post-deploy IndexNow ping), `serve.mjs` (local preview with the real headers), `check-placeholders.mjs` (publishing guard), `import-android-screenshots.mjs` (goldens → WebP). |
 | `test/` | `node:test` suites. |
 | `wrangler.jsonc` | Pages project name, output directory and compatibility date. |
 
@@ -139,6 +139,8 @@ Deploys use Wrangler pinned in the npm scripts (`npx --yes wrangler@4.151.3`), s
 
    The script builds, refuses to continue while placeholders remain, and runs `wrangler pages deploy --branch main`. `wrangler.jsonc` supplies the project name and `./dist`.
 
+After a production deploy the script pings IndexNow (see [Search engines](#search-engines)).
+
 For a review deployment that may still contain placeholders, use `npm --prefix apps/site run deploy:preview` (branch `preview`). Preview URLs on `*.pages.dev` are public unless you protect them with Cloudflare Access.
 
 ### Custom domain
@@ -158,6 +160,15 @@ CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=… npm --prefix apps/site run de
 ```
 
 A GitHub Actions job only needs Node 22+, those two secrets and that command; no `npm ci` is required. (A Pages project created for Direct Upload cannot be switched to Git integration later. If you prefer Git integration, create the project from the dashboard instead with root directory `apps/site`, build command `npm run build` and output directory `dist`; the placeholder guard then needs to run in your CI before merging.)
+
+## Search engines
+
+With `origin` set, the build emits `sitemap.xml` (every page in `SITEMAP_PAIRS`, `scripts/lib/seo.mjs`, with es/en `hreflang`) and adds it to `robots.txt`. `/join/` pages are excluded and served with `X-Robots-Tag: noindex`.
+
+- **Google**: the `bentocloud.app` domain property in Search Console (verified by a DNS `TXT` record in Cloudflare) has the sitemap submitted. Use *URL inspection › Request indexing* after a significant change to a page.
+- **IndexNow** (Bing, Yandex, Seznam, Naver and others; Bing also feeds DuckDuckGo and ChatGPT search): `indexNowKey` in `site.config.json` is a public key by design. The build serves it at `/<key>.txt`, and `npm run deploy` ends with `node scripts/indexnow.mjs`, which posts every sitemap URL to `api.indexnow.org`. The ping is best effort: a failure prints a warning and never fails the deploy. Run it alone with `npm --prefix apps/site run indexnow`. To rotate the key, set a new random value (`openssl rand -hex 16`) and deploy.
+
+Adding a page to `SITEMAP_PAIRS` puts it in both the sitemap and the IndexNow ping.
 
 ## Configure Bento builds
 
