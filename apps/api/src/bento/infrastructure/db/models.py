@@ -19,6 +19,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from bento.domain.smart_search import legacy_space_id
 from bento.infrastructure.db.base import Base
 
 
@@ -159,11 +160,18 @@ class AssetTextModel(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+def _legacy_space_default(context: Any) -> str:
+    """`space_id` for writers that predate embedding spaces and only pass `provider`/`dimensions`."""
+    parameters = context.get_current_parameters()
+    return legacy_space_id(str(parameters.get("provider") or ""), int(parameters.get("dimensions") or 0))
+
+
 class AssetEmbeddingModel(Base):
     __tablename__ = "asset_embeddings"
     __table_args__ = (
         Index("ix_asset_embeddings_asset_id", "asset_id"),
         Index("ix_asset_embeddings_provider", "provider"),
+        Index("ix_asset_embeddings_space_asset", "space_id", "asset_id"),
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -172,6 +180,79 @@ class AssetEmbeddingModel(Base):
     vector_ref: Mapped[str] = mapped_column(String(256), nullable=False)
     dimensions: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    space_id: Mapped[str] = mapped_column(String(160), nullable=False, default=_legacy_space_default)
+    """Embedding space of the vector (`domain.smart_search`); rows from before 0009 are `legacy:<provider>/<dims>`."""
+
+
+class AssetEmbeddingChunkModel(Base):
+    """One vector per text window (`chunk_pages`), keyed by space. `vector` is little-endian float32, L2-normalised
+    to the space's dims. Device-local: synced vectors travel in `asset_index.embedding`, not as rows."""
+
+    __tablename__ = "asset_embedding_chunks"
+    __table_args__ = (Index("ix_asset_embedding_chunks_asset_id", "asset_id"),)
+
+    space_id: Mapped[str] = mapped_column(String(160), primary_key=True)
+    asset_id: Mapped[str] = mapped_column(ForeignKey("assets.id", ondelete="CASCADE"), primary_key=True)
+    chunk_no: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    page: Mapped[int | None] = mapped_column(Integer)
+    vector: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class EmbeddingSpaceModel(Base):
+    """Managed embedding spaces (blue/green re-indexing). `state` is `building | active | retired`; the partial
+    unique index keeps at most one `active` row. `modalities` is a sorted JSON list such as `["text"]`."""
+
+    __tablename__ = "embedding_spaces"
+    __table_args__ = (
+        Index("ux_embedding_spaces_active", "state", unique=True, sqlite_where=text("state = 'active'")),
+    )
+
+    id: Mapped[str] = mapped_column(String(160), primary_key=True)
+    model_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    revision: Mapped[str] = mapped_column(String(64), nullable=False)
+    dims: Mapped[int] = mapped_column(Integer, nullable=False)
+    modalities: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ModelInstallModel(Base):
+    """Download/verification progress per model file. `state` is `downloading | paused | verifying | installed |
+    error | update_downloading`. Device-local; never carries paths or URLs."""
+
+    __tablename__ = "model_installs"
+
+    model_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    revision: Mapped[str] = mapped_column(String(64), primary_key=True)
+    file: Mapped[str] = mapped_column(String(255), primary_key=True)
+    bytes_total: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    bytes_done: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default=text("0"))
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String(32))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SmartSearchStatusModel(Base):
+    """The persisted `SmartSearchStatus` (single row, `id = 1`, seeded `off` by 0009). Runtime state, not a
+    setting; device-local."""
+
+    __tablename__ = "smart_search_status"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="off", server_default=text("'off'"))
+    space_id: Mapped[str | None] = mapped_column(String(160))
+    bytes_done: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default=text("0"))
+    bytes_total: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default=text("0"))
+    waiting_network: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("0"))
+    indexed_done: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+    indexed_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+    error_code: Mapped[str | None] = mapped_column(String(16))
+    failed_step: Mapped[str | None] = mapped_column(String(16))
+    was_ready: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("0"))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class PDFPageModel(Base):
