@@ -53,6 +53,7 @@ from bento.interfaces.http.routes_pairing import router as pairing_router
 from bento.interfaces.http.routes_trash import router as trash_router
 from bento.interfaces.http.routes_search import router as search_router
 from bento.interfaces.http.routes_settings import router as settings_router
+from bento.interfaces.http.routes_smart_search import router as smart_search_router
 from bento.interfaces.http.routes_sync import router as sync_router
 from bento.interfaces.http.routes_telegram import router as telegram_router
 from bento.interfaces.http.routes_vault import router as vault_router
@@ -74,6 +75,7 @@ router.include_router(sync_router)
 router.include_router(drive_paths_router)
 router.include_router(android_router)
 router.include_router(events_router)
+router.include_router(smart_search_router)
 
 
 class HealthResponse(BaseModel):
