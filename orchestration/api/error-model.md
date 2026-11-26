@@ -58,3 +58,11 @@ Use consistent JSON errors:
 - `smart_search_state_conflict` (`409`, `details: {state, event}`): the smart search action is not allowed in the current state (maps the domain's `illegal_smart_search_transition`).
 - `smart_search_no_space` (`409`, `details: {required_bytes, free_bytes}`): less free disk than the model size plus 10 %.
 - `invalid_model_spec` (`400`): unknown smart search model id, unsupported dimensions, or a malformed model manifest.
+- `smart_search_unavailable`: search by meaning is not offered on this platform (for example `embeddings_provider = managed` on Android). A field issue of `POST /api/settings/validate` on `embeddings_provider`; `PATCH /api/settings/values` answers it as `400 validation_failed` with the issue in `details.fields`.
+
+## Warning Codes
+
+Warnings never block a save. They are returned in `warnings` of `POST /api/settings/validate` (`{key, code, message}`) and the UI shows them next to the field.
+
+- `telegram_not_available` (`storage_backend`): this build has no Telegram application credentials; the library stays local.
+- `embedding_server_not_local` (`embedding_server_url`): the external embedding server is not on this device (not `localhost` or a loopback address). File text is sent to it to be embedded and leaves the device without Bento's end-to-end encryption.

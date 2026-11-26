@@ -19,6 +19,7 @@ All endpoints are loopback-only like the rest of the API. Every response that ca
 | `POST /api/smart-search/retry` | `error → failed step`; after `checksum`, the download restarts from zero | `error` | `409` |
 | `POST /api/smart-search/cancel` | Stops the work, deletes partial files, returns to `off` | `downloading`, `paused`, `verifying`, `starting`, `error` | `409` |
 | `POST /api/smart-search/update` | Starts downloading the manifest's newer revision as a new space. The old space keeps serving search until the flip (§Re-indexing) | `ready` with `update_available` | `409` |
+| `POST /api/smart-search/use-now` | "Usar ya": flips search to the space being re-embedded before it reaches 100 % (`ReembedService.use_now()`). The queued embedding jobs keep filling it; the status moves to the new space and the old model's files are deleted | `can_use_now` is `true` | `409` (no re-embed pending, `event: "use_now"`) |
 | `DELETE /api/smart-search/model` | Stops the runtime, deletes the model files and the space's vectors, returns to `off` | any state except `off` | `409` |
 
 `409` uses code `smart_search_state_conflict` with `details: {state, event}`. This maps `IllegalSmartSearchTransitionError` (code `illegal_smart_search_transition` in the domain). The new codes are added to `error-model.md` in Stage 24.
@@ -46,7 +47,9 @@ All endpoints are loopback-only like the rest of the API. Every response that ca
   "free_bytes": 52613349376,
   "update_available": null,
   "locked": false,
-  "search_available": false
+  "search_available": false,
+  "can_use_now": false,
+  "suggest_in_onboarding": false
 }
 ```
 
@@ -54,9 +57,11 @@ All endpoints are loopback-only like the rest of the API. Every response that ca
 - `error_code` is one of `download | checksum | space | runtime`, set exactly when `state` is `error`. `failed_step` is the step that `retry` returns to.
 - `waiting_network` is only ever `true` during `downloading`.
 - `search_available` is `true` in `ready` and `indexing` (the active space serves queries while the backlog runs).
-- `update_available` is `null` or `{"revision", "size_bytes"}`.
+- `update_available` is `null` or `{"revision", "size_bytes", "progress"}`. The state machine has no update state, so the status stays `ready` while an update downloads. `progress` is `null` until `POST /update` started, then `{"bytes_done", "bytes_total", "state"}` from the newer revision's `model_installs` row, with `state` one of `downloading | verifying | installed | error`. `installed` means verified and re-embedding into the new space; after an `error` the update action starts again.
+- `can_use_now` is `true` while search is available (`ready`/`indexing`) and a `building` space is pending: a verified update's space, or the status's own space while an older one still serves search. It is `false` when this process has no re-embed owner wired.
+- `suggest_in_onboarding` (D8) is `true` when `state` is `off`, the feature is not `locked`, the platform is not Android, and `suggest_in_onboarding(cores, ram)` holds for this machine (≥ 4 cores and ≥ 8 GiB, read by the API with the standard library: `os.cpu_count()`, `sysconf(SC_PHYS_PAGES × SC_PAGE_SIZE)`, `GlobalMemoryStatusEx` on Windows). The UI only offers the confirmation sheet; nothing downloads without "Descargar y activar".
 - `locked` is `true` when `BENTO_EMBEDDINGS_PROVIDER` or another env override controls the feature. The UI shows the switch read-only.
-- `GET /api/settings` keeps `embeddings_state` and `model_available` for old clients: `embeddings_state` = `SmartSearchStatus.legacy_embeddings_state()` (`off → disabled`, `ready → ready`, `error → failed`, otherwise `pending`), and `model_available` = the weights file is installed and verified.
+- `GET /api/settings` keeps `embeddings_state` and `model_available` for old clients. With `embeddings_provider = managed`: `embeddings_state` = `SmartSearchStatus.legacy_embeddings_state()` (`off → disabled`, `ready → ready`, `error → failed`, otherwise `pending`), and `model_available` = the status's weights file is installed and its verification marker matches. With `custom`, `model_available` is whether `custom_model_path` exists.
 - Progress fields never carry paths, URLs with tokens, or request bodies.
 
 `GET /api/smart-search/license` returns the Apache-2.0 text shipped in `infrastructure/models/licenses/` as `text/plain`.
@@ -162,6 +167,8 @@ llama-server -m <weights> --embeddings --pooling <pooling> -c 2048 -ub 2048 -b 2
 
 ## Settings plan (Stage 24 vector-index-migration)
 
+`GET /api/settings/schema` adds `platform` at the top level and, per field, `advanced` (`SettingDefinition.advanced`, shown under the group's "Avanzado" disclosure) and `hidden` (`is_hidden(key, platform)`). `constraints.choices` of `embeddings_provider` and `smart_search_model` are the platform's (`embeddings_provider_choices(platform)`, `smart_search_model_choices(platform)`), so Android lists neither `managed` nor any model. Validation uses the packaged manifest (`ModelCatalogPort`) for `smart_search_model` and `embedding_dimensions`.
+
 - `embeddings_provider`: choices `disabled | managed | custom | mock` (`EMBEDDINGS_PROVIDER_CHOICES`), default `disabled`. The activation flow writes `managed`; the settings form never writes it directly.
 - `smart_search_model`: a choice from the manifest, defaulting to `default_model_id`. Hidden while the manifest has a single recommended model for the platform.
 - Advanced settings (group `ai`, `advanced=True`):
@@ -174,4 +181,6 @@ llama-server -m <weights> --embeddings --pooling <pooling> -c 2048 -ub 2048 -b 2
 
 ## Re-indexing (blue/green)
 
-Activating a different space (a new model, revision or dims) creates an `embedding_spaces` row with `state = building` and queues `reembed` for this device's own assets. Search keeps using the `active` space until the new one reaches 100 %, or until the person chooses "Usar ya". Then one transaction flips `active`, marks the old space `retired`, and drops its rows and `vec0` table. The old model files are deleted only after that.
+Activating a different space (a new model, revision or dims) creates an `embedding_spaces` row with `state = building` and queues `reembed` for this device's own assets. Search keeps using the `active` space until the new one reaches 100 %, or until the person chooses "Usar ya" (`POST /api/smart-search/use-now`). Then one transaction flips `active`, marks the old space `retired`, and drops its rows and `vec0` table. The old model files are deleted only after that.
+
+For a model update the activation service does the glue: once the newer revision is verified it registers the space (`register_space`) and starts `reembed`, when its process has the space registry and re-embed owner wired. After the flip, `SmartSearchActivationService.space_activated()` (reached from `ReembedService` through `ActivationReembedObserver`) moves the status's `space_id` to the new space without changing its state, so the runtime supervisor serves the new model, and deletes the old revision's files and `model_installs` rows.

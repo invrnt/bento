@@ -27,6 +27,7 @@ def _field(
     minimum: float | None = None,
     maximum: float | None = None,
     probe: str | None = None,
+    advanced: bool = False,
 ) -> SettingDefinition:
     return SettingDefinition(
         key=key,
@@ -44,6 +45,7 @@ def _field(
         minimum=minimum,
         maximum=maximum,
         probe=probe,
+        advanced=advanced,
     )
 
 
@@ -102,16 +104,16 @@ SETTINGS_REGISTRY: tuple[SettingDefinition, ...] = (
     _field("embeddings_provider", ("EMBEDDINGS_PROVIDER", "BENTO_EMBEDDING_PROVIDER"), "ai", Type.CHOICE, "disabled", apply=Apply.RESTART_SERVICES, choices=EMBEDDINGS_PROVIDER_CHOICES),
     _field("smart_search_model", ("BENTO_SMART_SEARCH_MODEL",), "ai", Type.CHOICE, DEFAULT_SMART_SEARCH_MODEL_ID, apply=Apply.RESTART_SERVICES, choices=SMART_SEARCH_MODEL_IDS),
     # Advanced (`ADVANCED_SETTINGS`): a person's own GGUF (`custom`) and the llama.cpp runtime.
-    _field("custom_model_path", ("BENTO_CUSTOM_MODEL_PATH", "JINA_MODEL_PATH", "BENTO_EMBEDDING_MODEL_PATH"), "ai", Type.PATH, "", apply=Apply.RESTART_SERVICES, probe="model_file"),
-    _field("custom_mmproj_path", ("BENTO_CUSTOM_MMPROJ_PATH",), "ai", Type.PATH, "", apply=Apply.RESTART_SERVICES, probe="model_file"),
-    _field("custom_query_prefix", ("BENTO_CUSTOM_QUERY_PREFIX",), "ai", Type.STRING, "", apply=Apply.RESTART_SERVICES),
-    _field("custom_document_prefix", ("BENTO_CUSTOM_DOCUMENT_PREFIX",), "ai", Type.STRING, "", apply=Apply.RESTART_SERVICES),
-    _field("custom_pooling", ("BENTO_CUSTOM_POOLING",), "ai", Type.CHOICE, "auto", apply=Apply.RESTART_SERVICES, choices=CUSTOM_POOLING_CHOICES),
-    _field("embedding_dimensions", ("BENTO_EMBEDDING_DIMENSIONS",), "ai", Type.INTEGER, DEFAULT_EMBEDDING_DIMENSIONS, apply=Apply.RESTART_SERVICES, minimum=1, maximum=65536),
-    _field("llama_server_path", ("BENTO_LLAMA_SERVER_PATH",), "ai", Type.PATH, "", apply=Apply.RESTART_SERVICES),
+    _field("custom_model_path", ("BENTO_CUSTOM_MODEL_PATH", "JINA_MODEL_PATH", "BENTO_EMBEDDING_MODEL_PATH"), "ai", Type.PATH, "", apply=Apply.RESTART_SERVICES, probe="model_file", advanced=True),
+    _field("custom_mmproj_path", ("BENTO_CUSTOM_MMPROJ_PATH",), "ai", Type.PATH, "", apply=Apply.RESTART_SERVICES, probe="model_file", advanced=True),
+    _field("custom_query_prefix", ("BENTO_CUSTOM_QUERY_PREFIX",), "ai", Type.STRING, "", apply=Apply.RESTART_SERVICES, advanced=True),
+    _field("custom_document_prefix", ("BENTO_CUSTOM_DOCUMENT_PREFIX",), "ai", Type.STRING, "", apply=Apply.RESTART_SERVICES, advanced=True),
+    _field("custom_pooling", ("BENTO_CUSTOM_POOLING",), "ai", Type.CHOICE, "auto", apply=Apply.RESTART_SERVICES, choices=CUSTOM_POOLING_CHOICES, advanced=True),
+    _field("embedding_dimensions", ("BENTO_EMBEDDING_DIMENSIONS",), "ai", Type.INTEGER, DEFAULT_EMBEDDING_DIMENSIONS, apply=Apply.RESTART_SERVICES, minimum=1, maximum=65536, advanced=True),
+    _field("llama_server_path", ("BENTO_LLAMA_SERVER_PATH",), "ai", Type.PATH, "", apply=Apply.RESTART_SERVICES, advanced=True),
     # An external OpenAI-compatible server; when set, Bento spawns no llama-server of its own.
-    _field("embedding_server_url", ("BENTO_EMBEDDING_SERVER_URL",), "ai", Type.STRING, "", apply=Apply.RESTART_SERVICES),
-    _field("embedding_threads", ("BENTO_EMBEDDING_THREADS",), "ai", Type.INTEGER, default_embedding_threads(os.cpu_count() or 1), apply=Apply.RESTART_SERVICES, minimum=1, maximum=64),
+    _field("embedding_server_url", ("BENTO_EMBEDDING_SERVER_URL",), "ai", Type.STRING, "", apply=Apply.RESTART_SERVICES, advanced=True),
+    _field("embedding_threads", ("BENTO_EMBEDDING_THREADS",), "ai", Type.INTEGER, default_embedding_threads(os.cpu_count() or 1), apply=Apply.RESTART_SERVICES, minimum=1, maximum=64, advanced=True),
     # Build configuration (Bento's own Telegram application), read from the environment only.
     _field("telegram_api_id", ("BENTO_TELEGRAM_API_ID",), "telegram", Type.SECRET, None, apply=Apply.RESTART_SERVICES, secret=True, editable=False),
     _field("telegram_api_hash", ("BENTO_TELEGRAM_API_HASH",), "telegram", Type.SECRET, None, apply=Apply.RESTART_SERVICES, secret=True, editable=False),
@@ -137,24 +139,13 @@ SETTINGS_REGISTRY: tuple[SettingDefinition, ...] = (
 SETTINGS_BY_KEY = {item.key: item for item in SETTINGS_REGISTRY}
 SETTINGS_BY_ALIAS = {alias: item for item in SETTINGS_REGISTRY for alias in item.env_aliases}
 
-# Shown only under the "Advanced" disclosure of their group (`ai`).
-ADVANCED_SETTINGS: frozenset[str] = frozenset(
-    {
-        "custom_model_path",
-        "custom_mmproj_path",
-        "custom_query_prefix",
-        "custom_document_prefix",
-        "custom_pooling",
-        "embedding_dimensions",
-        "llama_server_path",
-        "embedding_server_url",
-        "embedding_threads",
-    }
-)
+# Shown only under the "Advanced" disclosure of their group (`ai`); set with `advanced=True` above.
+ADVANCED_SETTINGS: frozenset[str] = frozenset(item.key for item in SETTINGS_REGISTRY if item.advanced)
 
 
 def is_advanced(key: str) -> bool:
-    return key in ADVANCED_SETTINGS
+    definition = SETTINGS_BY_KEY.get(key)
+    return definition is not None and definition.advanced
 
 
 def embeddings_provider_choices(platform: str) -> tuple[str, ...]:
@@ -173,6 +164,15 @@ def is_hidden(key: str, platform: str = "auto") -> bool:
     return False
 
 
+def choices_for(key: str, platform: str = "auto") -> tuple[str, ...]:
+    """The choices `key` offers on `platform` (the registry's, except the two smart search fields)."""
+    if key == "embeddings_provider":
+        return embeddings_provider_choices(platform)
+    if key == "smart_search_model":
+        return smart_search_model_choices(platform)
+    return SETTINGS_BY_KEY[key].choices
+
+
 def platform_default(key: str, platform: str) -> object:
     """The default of `key` on `platform` (the registry default unless `PLATFORM_DEFAULTS` overrides it)."""
     overrides = PLATFORM_DEFAULTS.get(platform, {})
@@ -188,9 +188,9 @@ def validate_registry() -> None:
         raise RuntimeError("Duplicate settings environment aliases")
     if any(item.secret != (item.value_type == Type.SECRET) for item in SETTINGS_REGISTRY):
         raise RuntimeError("Secret registry fields must use the secret value type")
-    unknown_advanced = ADVANCED_SETTINGS - set(keys)
-    if unknown_advanced or any(SETTINGS_BY_KEY[key].group != "ai" for key in ADVANCED_SETTINGS):
-        raise RuntimeError(f"Invalid advanced settings: {sorted(unknown_advanced)}")
+    misplaced_advanced = sorted(key for key in ADVANCED_SETTINGS if SETTINGS_BY_KEY[key].group != "ai")
+    if misplaced_advanced:
+        raise RuntimeError(f"Invalid advanced settings: {misplaced_advanced}")
     if set(PLATFORM_EMBEDDINGS_PROVIDERS) != set(PLATFORMS):
         raise RuntimeError("Every platform needs its embeddings provider choices")
     for platform, overrides in PLATFORM_DEFAULTS.items():

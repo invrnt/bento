@@ -31,6 +31,8 @@ STATUS_KEYS = {
     "update_available",
     "locked",
     "search_available",
+    "can_use_now",
+    "suggest_in_onboarding",
 }
 
 
@@ -153,6 +155,7 @@ def test_journey_activate_pause_resume_verify_start_index_ready_remove(tmp_path:
         ("post", "/api/smart-search/retry", "retry"),
         ("post", "/api/smart-search/cancel", "cancel"),
         ("post", "/api/smart-search/update", "update"),
+        ("post", "/api/smart-search/use-now", "use_now"),
         ("delete", "/api/smart-search/model", "remove"),
     ],
 )
@@ -279,7 +282,7 @@ def test_openapi_lists_every_smart_search_endpoint(tmp_path: Path) -> None:
     paths = create_app(Settings(data_dir=str(tmp_path / "data"))).openapi()["paths"]
 
     assert {"get"} <= set(paths["/api/smart-search"])
-    for action in ("activate", "pause", "resume", "retry", "cancel", "update"):
+    for action in ("activate", "pause", "resume", "retry", "cancel", "update", "use-now"):
         assert "post" in paths[f"/api/smart-search/{action}"]
     assert "delete" in paths["/api/smart-search/model"]
     assert "get" in paths["/api/smart-search/license"]
