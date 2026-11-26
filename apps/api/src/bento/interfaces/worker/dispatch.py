@@ -67,10 +67,24 @@ class WorkerDispatcher:
             await self.jobs.save(failed)
             if failed.status == JobStatus.FAILED:
                 await self._settle(job, failed=True)
+                await self._embedding_finished(job)
         else:
             await self.jobs.save(job.complete(self.clock.now()))
             await self._settle(job, failed=False)
+            await self._embedding_finished(job)
         return True
+
+    async def _embedding_finished(self, job: Job) -> None:
+        """Live re-embed progress: count an embedding job once it ended for good (not on a retried attempt)."""
+        if self.reembed is None or job.type is not JobType.EMBEDDING:
+            return
+        asset_id = job.asset_id or job.payload.get("asset_id")
+        if not isinstance(asset_id, str) or not asset_id:
+            return
+        try:
+            await self.reembed.embedding_finished(asset_id)
+        except Exception as exc:  # noqa: BLE001 - progress is bookkeeping; it never fails the job
+            LOGGER.warning("Could not record the re-embedding progress: %s", exc.__class__.__name__)
 
     async def _settle(self, job: Job, *, failed: bool) -> None:
         """After the last thumbnail/OCR/embedding job of an asset, move it to its terminal processing state."""

@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from bento.application.search import SearchAssetsQuery, SearchUseCase
 from bento.domain.search import SearchFacet, SearchHit, SearchOrigin, SearchResultType
 from bento.infrastructure.settings import Settings
+from bento.interfaces.http.routes_smart_search import live_embedding_key
 
 router = APIRouter()
 
@@ -76,7 +77,8 @@ async def search(
 ) -> SearchResponse:
     """`origin` keeps assets this device got a given way (`device`, `peer`, `telegram`, `telegram_inbox`,
     `telegram_import`); folders and albums are left out while it is set."""
-    results = await _search_dependencies(request).search.execute(
+    dependencies = await _search_dependencies(request)
+    results = await dependencies.search.execute(
         SearchAssetsQuery(
             origin=origin,
             text=q,
@@ -95,11 +97,23 @@ async def search(
     )
 
 
-def _search_dependencies(request: Request) -> SearchRouteDependencies:
-    cached = getattr(request.app.state, "search_route_dependencies", None)
-    if cached is not None:
+async def _search_dependencies(request: Request) -> SearchRouteDependencies:
+    """Built once per embedding configuration. Smart search activation and removal change it while the API runs,
+    so every search compares the live `(embeddings_provider, space_id)` (two small reads) and rebuilds on change."""
+    state = request.app.state
+    cached = getattr(state, "search_route_dependencies", None)
+    if cached is not None and not hasattr(state, "search_route_key"):
+        return cached  # injected by a test or an embedding host
+    key = await live_embedding_key(request)
+    if cached is not None and state.search_route_key == key:
         return cached
+    dependencies = _build_search_dependencies(request, provider=key[0])
+    state.search_route_dependencies = dependencies
+    state.search_route_key = key
+    return dependencies
 
+
+def _build_search_dependencies(request: Request, *, provider: str) -> SearchRouteDependencies:
     from bento.adapters.runtime.embedding_setup import build_query_provider, default_model_ports
     from bento.adapters.search.composite import CompositeSearchIndex
     from bento.adapters.search.sqlite_fts import SQLiteFTSSearchIndex
@@ -112,7 +126,7 @@ def _search_dependencies(request: Request) -> SearchRouteDependencies:
     clock = SystemClock()
     session_factory = create_session_factory(sqlite_url(data_dir / "db" / "bento.sqlite3"))
     # Queries go through the worker's embedding server (`<data_dir>/run/embedder.json`); the API never spawns one.
-    provider = build_query_provider(settings, catalog=default_model_ports(settings)[0])
+    query_provider = build_query_provider(settings, catalog=default_model_ports(settings)[0], provider=provider)
     vector_index = SQLiteVecSearchIndex(
         session_factory,
         clock,
@@ -125,11 +139,10 @@ def _search_dependencies(request: Request) -> SearchRouteDependencies:
                 clock,
                 text_index=SQLiteFTSSearchIndex(session_factory, clock),
                 vector_index=vector_index,
-                query_embedding_provider=provider,
+                query_embedding_provider=query_provider,
             )
         )
     )
-    request.app.state.search_route_dependencies = dependencies
     return dependencies
 
 

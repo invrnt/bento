@@ -113,8 +113,10 @@ class SettingsRuntimeTargets:
         catalog: ModelCatalogPort | None = None,
         store: ModelStorePort | None = None,
         load_status: Callable[[], Awaitable[SmartSearchStatus]] | None = None,
+        provider: str | None = None,
     ) -> None:
         self._settings = settings
+        self._provider = provider
         self._catalog = catalog
         self._store = store
         self._status_targets = (
@@ -125,6 +127,8 @@ class SettingsRuntimeTargets:
 
     @property
     def provider(self) -> str:
+        if self._provider is not None:
+            return self._provider
         return str(getattr(self._settings, "embeddings_provider", "disabled"))
 
     def model(self) -> tuple[ModelSpec, EmbeddingSpace] | None:
@@ -222,14 +226,17 @@ def build_worker_embedding(
     status: RuntimeStatusSinkPort | None = None,
     load_status: Callable[[], Awaitable[SmartSearchStatus]] | None = None,
     environ: Mapping[str, str] | None = None,
+    provider: str | None = None,
 ) -> WorkerEmbedding:
-    provider = str(getattr(settings, "embeddings_provider", "disabled"))
+    """`provider` overrides `settings.embeddings_provider`: the worker passes `managed` when it follows the
+    persisted smart search status, so the runtime exists before activation and idles while the status is off."""
+    provider = provider if provider is not None else str(getattr(settings, "embeddings_provider", "disabled"))
     dimensions = int(getattr(settings, "embedding_dimensions", 768))
     if provider == "mock":
         return WorkerEmbedding(provider=MockEmbeddingProvider(dimensions=dimensions), runtime=None, dimensions=dimensions)
     if provider not in SMART_PROVIDERS:
         return WorkerEmbedding(provider=DisabledEmbeddingProvider(), runtime=None, dimensions=dimensions)
-    targets = SettingsRuntimeTargets(settings, catalog=catalog, store=store, load_status=load_status)
+    targets = SettingsRuntimeTargets(settings, catalog=catalog, store=store, load_status=load_status, provider=provider)
     model = targets.model()
     if model is None:
         LOGGER.warning("Smart search is on (%s) but no model is configured; embeddings stay off", provider)
@@ -259,15 +266,16 @@ def build_worker_embedding(
 
 
 def build_query_provider(
-    settings: Any, *, catalog: ModelCatalogPort | None = None
+    settings: Any, *, catalog: ModelCatalogPort | None = None, provider: str | None = None
 ) -> LlamaCppEmbeddingProvider | MockEmbeddingProvider | DisabledEmbeddingProvider:
-    """For the API process: embeds queries through the worker's server (`embedder.json`); never spawns one."""
-    provider = str(getattr(settings, "embeddings_provider", "disabled"))
+    """For the API process: embeds queries through the worker's server (`embedder.json`); never spawns one.
+    `provider` overrides `settings.embeddings_provider` (the value in effect now, see `routes_search`)."""
+    provider = provider if provider is not None else str(getattr(settings, "embeddings_provider", "disabled"))
     if provider == "mock":
         return MockEmbeddingProvider(dimensions=int(getattr(settings, "embedding_dimensions", 768)))
     if provider not in SMART_PROVIDERS:
         return DisabledEmbeddingProvider()
-    model = SettingsRuntimeTargets(settings, catalog=catalog).model()
+    model = SettingsRuntimeTargets(settings, catalog=catalog, provider=provider).model()
     if model is None:
         return DisabledEmbeddingProvider()
     spec, space = model

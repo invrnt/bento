@@ -19,13 +19,14 @@ from bento.application.indexing.embedding import EmbeddingIndexingService
 from bento.application.indexing.reindex import ReindexService
 from bento.application.media import MediaProcessingService, ProcessingCompletionService
 from bento.application.smart_search.reembed import ReembedService
-from bento.domain.smart_search import SmartSearchStatus, legacy_space_id
+from bento.domain.settings_registry import embeddings_provider_choices
+from bento.domain.smart_search import SmartSearchStatus, follows_smart_search_status, legacy_space_id
 from bento.application.indexing import OCRIndexingService
 from bento.application.ingestion import IndexingPolicy
 from bento.infrastructure import services
 from bento.infrastructure.db.clock import SystemClock
 from bento.infrastructure.db.engine import create_app_session_factory
-from bento.infrastructure.settings import Settings, get_settings
+from bento.infrastructure.settings import Settings, get_settings, setting_locked
 from bento.infrastructure.storage_pipeline import get_storage_pipeline
 from bento.interfaces.worker.dispatch import WorkerDispatcher
 from bento.interfaces.worker.handlers_models import build_model_download_handler
@@ -51,9 +52,9 @@ LOGGER = logging.getLogger("bento.worker")
 async def run_worker(stop_event: asyncio.Event | None = None) -> None:
     """The worker process: job loop plus Inbox, storage-pipeline housekeeping, and sync loops until `stop_event`.
 
-    With smart search on, the worker also owns the embedding server: it starts it for the active space,
-    restarts it with backoff, and stops it on shutdown (settings changes restart the worker, so turning smart
-    search off or removing the model stops it too)."""
+    The worker also owns the embedding server. Unless `embeddings_provider` is pinned elsewhere (`custom`, `mock`,
+    or `disabled` from the environment), the runtime supervisor runs from the start and follows the persisted
+    smart search status every tick: activation starts the server and removal stops it, with no restart."""
     from bento.interfaces.worker.runtime import WorkerRuntime
 
     settings = get_settings()
@@ -208,7 +209,11 @@ _WORKER_EMBEDDINGS: dict[tuple[str, ...], WorkerEmbedding] = {}
 
 
 def _worker_embedding(settings: Settings) -> WorkerEmbedding:
-    """One provider + runtime per profile, shared by the dispatcher and the runtime supervisor."""
+    """One provider + runtime per profile, shared by the dispatcher and the runtime supervisor.
+
+    When the worker follows the smart search status (`follows_smart_search_status`), it is wired as `managed`
+    even if it started with `disabled`: the supervisor and the provider then read the status, which is `off`
+    until the person activates the feature (no server, embedding jobs are no-ops)."""
     key = (
         str(Path(settings.data_dir).expanduser().resolve()),
         str(settings.embeddings_provider),
@@ -219,11 +224,18 @@ def _worker_embedding(settings: Settings) -> WorkerEmbedding:
     )
     cached = _WORKER_EMBEDDINGS.get(key)
     if cached is None:
-        catalog, store = (
-            default_model_ports(settings) if settings.embeddings_provider == "managed" else (None, None)
-        )
+        provider = str(settings.embeddings_provider)
+        catalog, store = None, None
+        if follows_smart_search_status(
+            provider,
+            locked=setting_locked(settings, "embeddings_provider"),
+            offered=embeddings_provider_choices(str(settings.platform)),
+        ):
+            catalog, store = default_model_ports(settings)
+            if catalog is not None and store is not None:
+                provider = "managed"
         cached = build_worker_embedding(
-            settings, catalog=catalog, store=store, load_status=_status_loader(settings)
+            settings, catalog=catalog, store=store, load_status=_status_loader(settings), provider=provider
         )
         _WORKER_EMBEDDINGS[key] = cached
     return cached

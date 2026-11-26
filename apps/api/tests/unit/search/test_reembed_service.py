@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -130,6 +130,9 @@ class Jobs:
     async def save(self, job: Job) -> None:
         self.jobs[job.id] = job
 
+    async def get(self, job_id: str) -> Job | None:
+        return self.jobs.get(job_id)
+
     async def has_active(self, asset_id: str, *, types: frozenset[JobType], exclude_job_id: str | None = None) -> bool:
         return any(
             job.asset_id == asset_id
@@ -237,12 +240,18 @@ class World:
     service: ReembedService
 
 
-def _world(states: dict[str, EmbeddingSpaceState], assets: list[Asset], *, page_size: int = 2) -> World:
+def _world(
+    states: dict[str, EmbeddingSpaceState],
+    assets: list[Asset],
+    *,
+    page_size: int = 2,
+    jobs_factory: Callable[[Clock], Jobs] = Jobs,
+) -> World:
     clock = Clock()
     world_assets = Assets(assets)
     spaces = Spaces(dict(states))
     vectors = Vectors()
-    jobs = Jobs(clock)
+    jobs = jobs_factory(clock)
     store = Store()
     observer = Observer()
     catalog = Catalog({("old-model", "a" * 40): _spec("old-model", "a" * 40), ("new-model", "b" * 40): _spec("new-model", "b" * 40)})
@@ -407,3 +416,91 @@ def test_start_queues_the_reembed_job_and_handle_requires_a_space() -> None:
     )
     with pytest.raises(RuntimeError):
         asyncio.run(world.service.handle(broken))
+
+
+# ------------------------------------------------------------------------------------------
+# Live progress: each finished embedding job advances `indexing.done` (no waiting for the `wait` check)
+
+
+def _finish(world: World, asset_id: str, *, embedded: bool = True) -> None:
+    """The worker finished `asset_id`'s embedding job for good and told the service."""
+    if embedded:
+        world.vectors.embedded.setdefault(NEW, set()).add(asset_id)
+    world.jobs.finish_embeddings({asset_id})
+    asyncio.run(world.service.embedding_finished(asset_id))
+
+
+def test_progress_advances_with_each_finished_embedding_job() -> None:
+    world = _world({NEW: EmbeddingSpaceState.BUILDING}, _library())
+    asyncio.run(world.service.run(NEW))
+    assert world.observer.progress_calls == [(NEW, 0, 5)]
+
+    for asset_id in ("asset_1", "asset_2", "asset_3", "asset_4"):
+        _finish(world, asset_id)
+
+    assert world.observer.progress_calls == [(NEW, 0, 5), (NEW, 1, 5), (NEW, 2, 5), (NEW, 3, 5), (NEW, 4, 5)]
+    done = [call[1] for call in world.observer.progress_calls]
+    assert done == sorted(done)
+
+
+def test_the_last_finished_job_completes_the_space_without_waiting_for_the_check() -> None:
+    world = _world({OLD: EmbeddingSpaceState.ACTIVE, NEW: EmbeddingSpaceState.BUILDING}, _library())
+    asyncio.run(world.service.run(NEW))
+    check = world.jobs.of_type(JobType.REEMBED)[0]
+    assert check.run_after == NOW + timedelta(seconds=60)
+
+    for asset_id in ("asset_1", "asset_2", "asset_3", "asset_4"):
+        _finish(world, asset_id)
+    assert world.spaces.flips == []
+    _finish(world, "asset_5", embedded=False)  # no text: its job ended without a vector, which counts as done
+
+    # The clock never moved: the flip and the 100 % report came from the last job, not from the 60 s check.
+    assert world.clock.current == NOW
+    assert world.spaces.flips == [NEW]
+    assert world.spaces.states == {OLD: EmbeddingSpaceState.RETIRED, NEW: EmbeddingSpaceState.ACTIVE}
+    assert world.observer.progress_calls[-1] == (NEW, 5, 5)
+    assert world.observer.activations == [(NEW, (OLD,))]
+    # No extra check was queued, and the one waiting has nothing left to do: it is closed, so it cannot run
+    # later against the same space activated again after a removal.
+    checks = world.jobs.of_type(JobType.REEMBED)
+    assert [job.id for job in checks] == [check.id]
+    assert checks[0].status is JobStatus.SUCCEEDED
+
+
+def test_retries_and_duplicate_reports_never_over_count() -> None:
+    world = _world({NEW: EmbeddingSpaceState.BUILDING}, _library())
+    asyncio.run(world.service.run(NEW))
+
+    _finish(world, "asset_1")
+    asyncio.run(world.service.embedding_finished("asset_1"))  # the same asset again (a duplicate job)
+    asyncio.run(world.service.embedding_finished("asset_peer"))  # never pending in this space
+    asyncio.run(world.service.embedding_finished("asset_unknown"))
+
+    assert world.observer.progress_calls == [(NEW, 0, 5), (NEW, 1, 5)]
+
+
+def test_a_rescan_resets_the_live_count_to_the_exact_numbers() -> None:
+    world = _world({NEW: EmbeddingSpaceState.BUILDING}, _library())
+    asyncio.run(world.service.run(NEW))
+    _finish(world, "asset_1")
+    # A job finished while nobody told the service (for example the worker restarted in between).
+    world.vectors.embedded[NEW].add("asset_2")
+    world.jobs.finish_embeddings({"asset_2"})
+
+    progress = asyncio.run(world.service.run(NEW, queue=False))
+    _finish(world, "asset_3")
+
+    assert (progress.done, progress.total) == (2, 5)
+    assert world.observer.progress_calls[-1] == (NEW, 3, 5)
+
+
+def test_a_retired_space_stops_counting() -> None:
+    world = _world({NEW: EmbeddingSpaceState.BUILDING}, _library())
+    asyncio.run(world.service.run(NEW))
+    world.spaces.states[NEW] = EmbeddingSpaceState.RETIRED  # the person removed the model meanwhile
+    asyncio.run(world.service.run(NEW, queue=False))
+    calls = list(world.observer.progress_calls)
+
+    _finish(world, "asset_1")
+
+    assert world.observer.progress_calls == calls

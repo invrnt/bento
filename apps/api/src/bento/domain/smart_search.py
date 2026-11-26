@@ -735,6 +735,16 @@ def migrate_embeddings_provider(provider: str, custom_model_exists: bool) -> str
     return "disabled"
 
 
+def follows_smart_search_status(configured_provider: str, *, locked: bool, offered: Sequence[str]) -> bool:
+    """Whether a running process should follow the persisted smart search status instead of the provider it
+    started with: activation (`disabled` → `managed`) and removal (`managed` → `disabled`) then take effect with
+    no restart. Not when the environment pins `disabled`, when `managed` is not offered on the platform, or for
+    `custom`/`mock`, which keep their own wiring."""
+    if "managed" not in offered:
+        return False
+    return configured_provider == "managed" or (configured_provider == "disabled" and not locked)
+
+
 def suggest_in_onboarding(cpu_cores: int, ram_bytes: int) -> bool:
     """D8: onboarding offers smart search on capable machines; it is never enabled
     without the person's explicit consent (the activation sheet)."""

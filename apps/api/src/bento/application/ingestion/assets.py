@@ -54,6 +54,25 @@ class IndexingPolicy:
         return cls(ocr=ocr_provider != "disabled", embeddings=embeddings_provider != "disabled")
 
 
+class IndexingPolicySourcePort(Protocol):
+    """The policy as in effect at each upload (smart search can be turned on or off while the process runs)."""
+
+    def current(self) -> IndexingPolicy: ...
+
+
+@dataclass(frozen=True, slots=True)
+class LiveIndexingPolicy:
+    """`IndexingPolicySourcePort` over provider readers, called once per upload (they must be cheap)."""
+
+    ocr_provider: Callable[[], str]
+    embeddings_provider: Callable[[], str]
+
+    def current(self) -> IndexingPolicy:
+        return IndexingPolicy.from_providers(
+            ocr_provider=self.ocr_provider(), embeddings_provider=self.embeddings_provider()
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class UploadedAssetFile:
     source_path: Path
@@ -82,10 +101,10 @@ class AssetIngestionService:
         blob_refs: BlobRefCatalogPort,
         metadata_extractor: UploadMetadataExtractorPort,
         remote_uploads: RemoteUploadSchedulerPort | None = None,
-        indexing: IndexingPolicy | None = None,
+        indexing: IndexingPolicy | IndexingPolicySourcePort | None = None,
     ) -> None:
         self._upload = upload
-        self._indexing = indexing or IndexingPolicy()
+        self._indexing: IndexingPolicy | IndexingPolicySourcePort = indexing or IndexingPolicy()
         self._blob_refs = blob_refs
         self._metadata_extractor = metadata_extractor
         self._remote_uploads = remote_uploads
@@ -96,6 +115,7 @@ class AssetIngestionService:
             original_filename=file.original_filename,
             declared_mime_type=file.declared_mime_type,
         )
+        indexing = self._indexing if isinstance(self._indexing, IndexingPolicy) else self._indexing.current()
         result = await self._upload.execute(
             UploadAssetCommand(
                 source_ref=str(file.source_path),
@@ -108,8 +128,8 @@ class AssetIngestionService:
                 taken_at=metadata.taken_at or file.taken_at,
                 exif=metadata.exif,
                 allow_duplicate=file.allow_duplicate,
-                ocr_enabled=self._indexing.ocr,
-                embeddings_enabled=self._indexing.embeddings,
+                ocr_enabled=indexing.ocr,
+                embeddings_enabled=indexing.embeddings,
                 folder_resolver=file.folder_resolver,
                 origin=file.origin,
             )

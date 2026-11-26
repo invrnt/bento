@@ -130,7 +130,8 @@ class RuntimeStatusRelay:
 
     On `runtime_ready` of a managed space: register it (`building` when new) and queue `reembed` when the space
     still has to be built or the status is `indexing`. At most once per space per worker process, and not while
-    a `reembed` job is already waiting."""
+    a `reembed` job is already waiting, unless the space was (re)registered just now: removal retires it, and
+    activating it again in the same process must fill it again."""
 
     def __init__(
         self,
@@ -164,16 +165,19 @@ class RuntimeStatusRelay:
 
     async def _prepare_space(self, space_id: str) -> None:
         state = await self._spaces.space_state(space_id)
-        if state is None or state is EmbeddingSpaceState.RETIRED:
+        fresh = state is None or state is EmbeddingSpaceState.RETIRED
+        if fresh:
             await self._spaces.register_space(self._space(space_id))
             state = EmbeddingSpaceState.BUILDING
-        if space_id in self._started:
+        elif space_id in self._started:
             return
         status = await self._load_status()
         indexing = status.space_id == space_id and status.state is SmartSearchState.INDEXING
         if state is EmbeddingSpaceState.ACTIVE and not indexing:
             return  # built already; new files get their own embedding jobs
-        if await self._reembed_waiting():
+        # A fresh space (first activation, or activated again after removal in this process) always gets its
+        # own `queue` scan: a `wait` check left from before the removal never queues embedding jobs.
+        if not fresh and await self._reembed_waiting():
             self._started.add(space_id)
             return
         await self._reembed.start(space_id)

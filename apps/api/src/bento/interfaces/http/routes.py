@@ -56,6 +56,7 @@ from bento.interfaces.http.routes_trash import router as trash_router
 from bento.interfaces.http.routes_search import router as search_router
 from bento.interfaces.http.routes_settings import router as settings_router
 from bento.interfaces.http.routes_smart_search import activation_service as smart_search_activation
+from bento.interfaces.http.routes_smart_search import live_embeddings_provider
 from bento.interfaces.http.routes_smart_search import router as smart_search_router
 from bento.interfaces.http.routes_sync import router as sync_router
 from bento.interfaces.http.routes_telegram import router as telegram_router
@@ -367,8 +368,9 @@ async def public_settings(request: Request) -> dict[str, Any]:
     settings = _settings(request)
     data_dir = _data_dir(settings)
     ocr_enabled = settings.ocr_provider != "disabled"
-    embeddings_enabled = settings.embeddings_provider != "disabled"
-    embeddings_state, model_available = await _embeddings_status(request, settings)
+    embeddings_provider = live_embeddings_provider(request)
+    embeddings_enabled = embeddings_provider != "disabled"
+    embeddings_state, model_available = await _embeddings_status(request, settings, embeddings_provider)
     maintenance = await _storage_maintenance_dependencies(request).service.status()
     return {
         "storage_backend": settings.storage_backend,
@@ -943,12 +945,12 @@ def _safe_limit(limit: int) -> int:
     return max(1, min(limit, 200))
 
 
-async def _embeddings_status(request: Request, settings: Settings) -> tuple[str, bool]:
-    """`(embeddings_state, model_available)` for old clients (`api/smart-search-contract.md`).
+async def _embeddings_status(request: Request, settings: Settings, provider: str) -> tuple[str, bool]:
+    """`(embeddings_state, model_available)` for old clients (`api/smart-search-contract.md`), for `provider` as in
+    effect now.
 
     `managed` folds the smart search status (`legacy_embeddings_state()`) and its verified install; `custom`
     looks for the person's own model file (`custom_model_path`)."""
-    provider = settings.embeddings_provider
     if provider == "managed":
         try:
             view = await smart_search_activation(request).status()
