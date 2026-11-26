@@ -66,6 +66,10 @@ try:
 except Exception:
     pass
 
+# Smart search model manifest and license notices, read through importlib.resources. Not guarded: a
+# bundle without them could neither list nor legally download the embedding models.
+datas += collect_data_files("bento.infrastructure.models")
+
 # sqlite-vec (D7): the `vec0` loadable extension is package data that `sqlite_vec.loadable_path()` finds
 # next to the module, so it is collected into `sqlite_vec/`. PyInstaller's default patterns only match
 # `lib*.so`, hence the explicit ones. Guarded: without the package the spec still builds and search uses

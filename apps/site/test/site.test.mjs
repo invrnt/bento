@@ -324,6 +324,31 @@ describe("honest copy", () => {
       assert.ok(page.ids.has(urlPath === "/" ? "limites" : "limits"));
     }
   });
+
+  it("lists the optional smart search model download, with no personal data, on both privacy pages", () => {
+    const expectations = {
+      "/privacy/": {
+        service: "Modelo de búsqueda inteligente (opcional)",
+        when: "Solo si activas la búsqueda por significado",
+        claims: ["huggingface.co", "github.com", "no se envía ningún dato de tus archivos", "el modelo funciona en tu dispositivo"],
+      },
+      "/en/privacy/": {
+        service: "Smart search model (optional)",
+        when: "Only if you turn on search by meaning",
+        claims: ["huggingface.co", "github.com", "no data about your files is sent", "the model runs on your device"],
+      },
+    };
+    for (const [urlPath, expected] of Object.entries(expectations)) {
+      const page = [...pages.values()].find((candidate) => candidate.urlPath === urlPath);
+      assert.ok(page, urlPath);
+      const rows = elementText(page.html, "tr").map((row) => elementText(row, "td").map(textContent));
+      const row = rows.find((cells) => cells[0] === expected.service);
+      assert.ok(row, `${urlPath} lists the smart search model download`);
+      assert.equal(row.length, 3, urlPath);
+      assert.ok(row[1].startsWith(expected.when), urlPath);
+      for (const claim of expected.claims) assert.ok(row[2].includes(claim), `${urlPath}: ${claim}`);
+    }
+  });
 });
 
 describe("downloads", () => {

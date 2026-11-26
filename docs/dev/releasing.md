@@ -121,7 +121,8 @@ export BENTO_ANDROID_CERT_SHA256=…  BENTO_SITE_HOST=…
 
 Python 3.11+, uv, Node.js 24 (`mise install node@24`; desktop packaging refuses Node 26), `ssh-keygen`, `gh`,
 JDK 17 and the Android SDK for Android, and `dpkg-deb` + `fakeroot` for the `.deb` packages (Arch:
-`sudo pacman -S dpkg fakeroot`). `npx` downloads `@cyclonedx/cyclonedx-npm@6.0.1` on first use; Gradle
+`sudo pacman -S dpkg fakeroot`). The desktop and CLI builds compile `llama-server` for smart search, so they
+also need CMake and a C/C++ toolchain ([smart search](smart-search.md#llama-server)). `npx` downloads `@cyclonedx/cyclonedx-npm@6.0.1` on first use; Gradle
 downloads the CycloneDX plugin 3.6.1.
 
 ## What this Linux machine builds
@@ -270,6 +271,21 @@ it is wrong, and run `publish` again; the tag stays.
    `SHA256SUMS-android-X.Y.Z.txt` ([site](site.md#download-links)). Run `npm test` in `apps/site`, commit and
    deploy. Without this the buttons open the latest release page, which always works.
 4. Update `orchestration/execution/status.md` if the program tracks the release.
+
+### Smart search model mirror
+
+The embedding model is not part of the product release: the app downloads it on demand from the pinned
+Hugging Face URL, with a copy on a separate GitHub release as fallback (decision D3). That copy has its own
+command, run once per model pin, not on every release:
+
+```sh
+scripts/release/bento-release models plan                                 # the mirror tags the manifest expects
+scripts/release/bento-release models stage --source ~/Downloads/models    # verify size + SHA-256, add the license, sign SHA256SUMS
+scripts/release/bento-release models publish                              # draft, inventory check, publish with --latest=false
+```
+
+Mirror releases are named `models-<name>-<revision[:8]>`, are never marked latest and are never replaced. The
+full procedure, including bumping the model, is in [smart search](smart-search.md#the-model-mirror-d3).
 
 ## GitHub Actions
 

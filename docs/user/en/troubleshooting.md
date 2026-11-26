@@ -66,12 +66,12 @@ Bento protects each computer’s key with the system’s secure storage (Secret 
 
 ## Search by meaning doesn’t turn on
 
-Settings › Smart search shows what happened and a **Retry** button:
+Settings › Smart search shows what happened and a **Try again** button:
 
-- **“The model could not be downloaded.”** Check your connection and choose Retry: the download picks up where it stopped. If Hugging Face is blocked on your network, Bento tries GitHub as well.
-- **“The downloaded file is not correct and was deleted.”** Something changed the file on the way (a proxy or antivirus, for example). Retry downloads it again from the start.
-- **“There is not enough space on this computer.”** Free the space shown and retry.
-- **“The search engine could not start on this computer.”** Restart Bento. If it keeps happening, report it with the details from Activity. Search by name, date and text keeps working meanwhile.
+- **“The model couldn’t be downloaded.”** Check your connection and choose Try again: the download picks up where it stopped. If Hugging Face is blocked on your network, Bento tries GitHub as well.
+- **“The downloaded file wasn’t right and was deleted.”** Something changed the file on the way (a proxy or antivirus, for example). Try again downloads it again from the start.
+- **“There isn’t enough space on this computer.”** Free the space shown and try again.
+- **“The search engine couldn’t start on this computer.”** Restart Bento. If it keeps happening, report it with the details from Activity. Search by name, date and text keeps working meanwhile.
 
 If it seems stuck on “Going through your files”, the computer may be on battery with little charge: it carries on when you plug in.
 

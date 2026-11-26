@@ -36,6 +36,32 @@ Where it ships:
 
 The desktop host also writes `<data_dir>/run/power.json` (`BENTO_POWER_STATE_FILE`) from the existing power hook: `{on_battery, battery_percent, low_battery, updated_at}`. `low_battery` is true on battery below 20 %, or on battery when the charge is unknown (macOS reads `pmset`, Linux sysfs; Windows reports no charge). Indexing pauses while it is true.
 
+### Which llama-server runs
+
+The worker spawns one `llama-server` (none at all when `embedding_server_url` points at an external server). It
+takes the first candidate that is an absolute path to an existing executable file, skipping the others:
+
+1. The `llama_server_path` setting (Settings → Advanced), for a user who wants their own build.
+2. `BENTO_LLAMA_SERVER_PATH`. The desktop host sets it to the packaged copy, `<resources>/llama-server/llama-server[.exe]`; packaged builds ignore an inherited value, development builds pass an explicit one through (point it at `dist/llama-server/<platform>-<arch>/llama-server`). The Docker image sets `/opt/llama-server/llama-server`.
+3. The bundled copy: `llama-server/` inside the CLI's PyInstaller bundle (`sys._MEIPASS/llama-server/`).
+4. `llama-server` on `PATH`.
+
+If none is found, smart search reports a runtime error instead of indexing.
+
+### Packaging without llama-server (development)
+
+Building llama-server takes a while on the first run. For local experiments only:
+
+```sh
+BENTO_SKIP_LLAMA_SERVER=1 npm --prefix apps/desktop run package        # desktop, no llama-server/ resource
+BENTO_SKIP_LLAMA_SERVER=1 scripts/release/bento-release build --only cli   # dry run only
+```
+
+`build-sidecar.mjs` skips the build and copy, `forge.config.cjs` leaves out the `extraResource`, and
+`verify-artifacts.mjs` and `smoke-packaged.mjs` warn instead of failing. Such a package can't run smart search
+unless `BENTO_LLAMA_SERVER_PATH`, the setting or `PATH` provides a binary. `bento-release build --release`
+refuses the variable, so a release always bundles llama-server.
+
 ## The model mirror (D3)
 
 The manifest lists the Hugging Face URL pinned to the commit first and a copy on a Bento GitHub release second. Each model revision has its own release, `models-<name>-<revision[:8]>` (for example `models-embeddinggemma-2-6ea3e3a3`), published with `--latest=false`, so the file is uploaded once per pin, not with every version.
