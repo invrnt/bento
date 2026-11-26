@@ -77,5 +77,16 @@ class AssetIndexRecorderPort(Protocol):
     ) -> None: ...
 
     async def record_embedding(
-        self, asset_id: str, *, provider: str, dimensions: int, vector: Sequence[float]
-    ) -> None: ...
+        self,
+        asset_id: str,
+        *,
+        provider: str,
+        dimensions: int,
+        vector: Sequence[float],
+        space: str | None = None,
+        chunks: Sequence[Sequence[float]] | None = None,
+        pages: Sequence[int | None] | None = None,
+    ) -> None:
+        """`space` is the embedding space id (`legacy:<provider>/<dims>` when omitted); `chunks`/`pages` carry
+        every chunk vector and its page, in `chunk_no` order, when the asset has more than one."""
+        ...

@@ -17,12 +17,13 @@ import asyncio
 import logging
 import os
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Protocol
 
 from bento.application.work_budget import WorkBudgetExceeded, work_deadline
+from bento.domain.device import DeviceConditions, JobClass, JobDeferral, WaitReason
 from bento.domain.jobs import JobType
 from bento.infrastructure import services
 from bento.infrastructure.settings import Settings
@@ -72,7 +73,7 @@ class WorkerRuntime:
         self._dispatcher = dispatcher
         self._clock = clock
         self._wall_clock = wall_clock
-        self._eligibility = services.get_job_eligibility(settings)
+        self._eligibility = with_power_state(services.get_job_eligibility(settings))
         self._job_lock: asyncio.Lock | None = None
         self._wake: asyncio.Event | None = None
         self._announced_at = float("-inf")
@@ -202,6 +203,51 @@ class WorkerRuntime:
         self._job_lock = lock
         async with lock:
             return await self.dispatcher.process_one(types=types, deferral=self._eligibility.current())
+
+
+class LowBatteryPort(Protocol):
+    def low_battery(self) -> bool: ...
+
+
+class EligibilitySource(Protocol):
+    def current(self) -> JobDeferral: ...
+
+    def conditions(self) -> DeviceConditions: ...
+
+
+class PowerAwareEligibility:
+    """The host's deferral plus the desktop power state: while `low_battery`, OCR and embedding jobs (the
+    `indexing` class) wait with reason `battery`. Uploads, thumbnails and the rest keep running."""
+
+    def __init__(self, inner: EligibilitySource, power: LowBatteryPort) -> None:
+        self._inner = inner
+        self._power = power
+
+    def current(self) -> JobDeferral:
+        base = self._inner.current()
+        try:
+            low = self._power.low_battery()
+        except Exception:  # noqa: BLE001 - an unreadable power state means "on AC"
+            low = False
+        if not low or JobClass.INDEXING in base.reasons:
+            return base
+        return JobDeferral(
+            reasons={**base.reasons, JobClass.INDEXING: WaitReason.BATTERY},
+            wifi_override_before=base.wifi_override_before,
+        )
+
+    def conditions(self) -> DeviceConditions:
+        return self._inner.conditions()
+
+
+def with_power_state(
+    eligibility: EligibilitySource, environ: Mapping[str, str] | None = None
+) -> EligibilitySource:
+    """Wrap the eligibility when the desktop host publishes its power state (`BENTO_POWER_STATE_FILE`)."""
+    from bento.adapters.runtime.power_state import power_state_from_environment
+
+    power = power_state_from_environment(environ)
+    return eligibility if power is None else PowerAwareEligibility(eligibility, power)
 
 
 def _job_types(kinds: list[str] | None) -> frozenset[JobType] | None:

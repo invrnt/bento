@@ -25,7 +25,7 @@ import struct
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Protocol
 
 from sqlalchemy import DateTime, bindparam, text
 from sqlalchemy.orm import Session, sessionmaker
@@ -59,6 +59,19 @@ _LEGACY_FALLBACK_TABLE = "asset_embedding_vectors_fallback"
 _LEGACY_MAP_TABLE = "asset_embedding_vector_map"
 _LEGACY_VEC_TABLE = "asset_embedding_vec"
 _TIMESTAMP = DateTime(timezone=True)
+
+
+class ChunkVectorLike(Protocol):
+    """`application.indexing.embedding.ChunkVector`, structurally (adapters do not import application DTOs)."""
+
+    @property
+    def chunk_no(self) -> int: ...
+
+    @property
+    def page(self) -> int | None: ...
+
+    @property
+    def vector(self) -> Sequence[float]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -229,6 +242,19 @@ class SQLiteVecSearchIndex:
             if vec_ready:
                 _insert_vec_rows(session, space, record.asset_id, [(row["chunk_no"], row["vector"]) for row in rows])
 
+    async def index_chunk_vectors(
+        self, space_id: str, record: EmbeddingRecord, chunks: Sequence[ChunkVectorLike]
+    ) -> None:
+        """`ChunkVectorIndexPort` (`application/indexing/embedding.py`): the asset's chunks in `space_id`, in
+        `chunk_no` order, replacing its earlier ones there. Chunk numbers are stored densely from 0."""
+        ordered = sorted(chunks, key=lambda chunk: chunk.chunk_no)
+        await self.index_chunks(
+            record,
+            [tuple(chunk.vector) for chunk in ordered],
+            space_id=space_id,
+            pages=[chunk.page for chunk in ordered],
+        )
+
     async def remove_asset(self, asset_id: str, *, space_id: str | None = None) -> None:
         """Remove the asset's vectors from one space, or from every space."""
         await self.initialize()
@@ -251,6 +277,28 @@ class SQLiteVecSearchIndex:
         with session_scope(self._session_factory) as session:
             _drop_space_rows(session, space_id)
         self._verified_spaces.discard(space_id)
+
+    async def retire_space(self, space_id: str) -> None:
+        """Smart search was removed or cancelled: drop the space's vectors and search table and mark it
+        `retired`, so search falls back to text and a later activation starts it again as `building`."""
+        await self.initialize()
+        with session_scope(self._session_factory) as session:
+            _drop_space_rows(session, space_id)
+            session.execute(
+                text(f"UPDATE {SPACES_TABLE} SET state = :retired WHERE id = :id"),
+                {"retired": EmbeddingSpaceState.RETIRED.value, "id": space_id},
+            )
+        self._verified_spaces.discard(space_id)
+
+    async def registered_space_ids(self, *, include_retired: bool = False) -> tuple[str, ...]:
+        """The managed spaces in `embedding_spaces` (`building` and `active`, plus `retired` when asked)."""
+        with session_scope(self._session_factory) as session:
+            rows = session.execute(text(f"SELECT id, state FROM {SPACES_TABLE} ORDER BY created_at, id")).all()
+        return tuple(
+            str(space_id)
+            for space_id, state in rows
+            if include_retired or state != EmbeddingSpaceState.RETIRED.value
+        )
 
     async def rebuild_space_index(self, space_id: str) -> bool:
         """Build (or repair) the space's `vec0` table from its chunks. False when sqlite-vec is not in use."""

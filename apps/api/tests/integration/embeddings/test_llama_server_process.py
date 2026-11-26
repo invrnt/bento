@@ -296,13 +296,37 @@ def test_binary_resolution_order(tmp_path: Path) -> None:
     not_executable = tmp_path / "plain" / "llama-server"
     not_executable.parent.mkdir()
     not_executable.write_text("", encoding="utf-8")
+    frozen = tmp_path / "meipass"
+    bundled = executable(frozen / "llama-server" / "llama-server")
+    empty_root = tmp_path / "no-bundle"
     env = {PACKAGED_BINARY_ENV: str(packaged), "PATH": str(on_path.parent)}
+    path_only = {"PATH": str(on_path.parent)}
 
-    assert resolve_llama_server_binary(str(configured), environ=env) == packaged
-    assert resolve_llama_server_binary(str(configured), environ={"PATH": str(on_path.parent)}) == configured
-    assert resolve_llama_server_binary(None, environ={"PATH": str(on_path.parent)}) == on_path
-    assert resolve_llama_server_binary("relative/llama-server", environ={"PATH": str(on_path.parent)}) == on_path
-    assert resolve_llama_server_binary(str(not_executable), environ={"PATH": ""}) is None
+    def resolve(setting: str | None, environ: dict[str, str], root: Path = empty_root) -> Path | None:
+        return resolve_llama_server_binary(setting, environ=environ, windows=False, frozen_root=root)
+
+    # 1. The person's explicit `llama_server_path` wins over everything.
+    assert resolve(str(configured), env, frozen) == configured
+    # 2. Then the desktop's `BENTO_LLAMA_SERVER_PATH`.
+    assert resolve(None, env, frozen) == packaged
+    # 3. Then the frozen sidecar's own copy.
+    assert resolve(None, path_only, frozen) == bundled
+    # 4. Then PATH.
+    assert resolve(None, path_only) == on_path
+    # Unusable candidates fall through.
+    assert resolve("relative/llama-server", path_only) == on_path
+    assert resolve(str(not_executable), {PACKAGED_BINARY_ENV: str(not_executable), "PATH": ""}) is None
+
+
+def test_frozen_binary_uses_the_exe_name_on_windows(tmp_path: Path) -> None:
+    exe = tmp_path / "meipass" / "llama-server" / "llama-server.exe"
+    exe.parent.mkdir(parents=True)
+    exe.write_bytes(b"MZ")
+    exe.chmod(0o755)
+
+    found = resolve_llama_server_binary(None, environ={"PATH": ""}, windows=True, frozen_root=tmp_path / "meipass")
+
+    assert found == exe
 
 
 def test_normalize_server_url() -> None:

@@ -41,12 +41,14 @@ from bento.application.smart_search.runtime import (
 from bento.domain.smart_search import (
     DEFAULT_CHUNK_TOKENS,
     EmbeddingSpace,
+    InvalidEmbeddingSpaceError,
     InvalidModelSpecError,
     ModelSpec,
     SmartSearchStatus,
     default_embedding_threads,
+    parse_space_id,
 )
-from bento.ports.models import ModelCatalogPort, ModelStorePort
+from bento.ports.models import EndpointInfo, ModelCatalogPort, ModelStorePort
 
 LOGGER = logging.getLogger("bento.embeddings.setup")
 
@@ -269,7 +271,36 @@ def build_query_provider(
     if model is None:
         return DisabledEmbeddingProvider()
     spec, space = model
+    endpoint = EndpointFileReader(endpoint_file_path(data_dir_of(settings)))
     return LlamaCppEmbeddingProvider(
-        spec=spec, space=space, endpoint=EndpointFileReader(endpoint_file_path(data_dir_of(settings)))
+        spec=spec,
+        space=space,
+        endpoint=endpoint,
+        model_source=_served_model(endpoint, catalog) if provider == "managed" and catalog is not None else None,
     )
+
+
+def _served_model(
+    endpoint: Callable[[], EndpointInfo | None], catalog: ModelCatalogPort
+) -> Callable[[], tuple[ModelSpec, EmbeddingSpace] | None]:
+    """Managed mode: the model and dims the worker serves now (the activation status may have picked other
+    dims or a model than the settings name), so queries land in the same space as the documents."""
+
+    def current() -> tuple[ModelSpec, EmbeddingSpace] | None:
+        info = endpoint()
+        if info is None:
+            return None
+        try:
+            model_id, revision, dims = parse_space_id(info.space_id)
+        except InvalidEmbeddingSpaceError:
+            return None
+        spec = catalog.get(model_id, revision) if revision else None
+        if spec is None:
+            return None
+        try:
+            return spec, spec.space(dims)
+        except InvalidModelSpecError:
+            return None
+
+    return current
 

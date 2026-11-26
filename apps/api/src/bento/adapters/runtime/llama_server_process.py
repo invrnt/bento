@@ -60,15 +60,33 @@ def resolve_llama_server_binary(
     *,
     environ: Mapping[str, str] | None = None,
     windows: bool | None = None,
+    frozen_root: str | Path | None = None,
 ) -> Path | None:
-    """Packaged binary (`BENTO_LLAMA_SERVER_PATH`), then the `llama_server_path` setting, then `PATH`."""
+    """Where `llama-server` is, first match wins:
+
+    1. the `llama_server_path` setting (Advanced: an explicit override by the person);
+    2. `BENTO_LLAMA_SERVER_PATH` (set by the desktop host for its bundled binary);
+    3. the frozen sidecar's own copy, `sys._MEIPASS/llama-server/llama-server[.exe]`;
+    4. `PATH`.
+
+    `frozen_root` defaults to `sys._MEIPASS` (absent outside a PyInstaller bundle)."""
     source = os.environ if environ is None else environ
-    for candidate in (source.get(PACKAGED_BINARY_ENV), setting_path):
+    is_windows = sys.platform == "win32" if windows is None else windows
+    root = getattr(sys, "_MEIPASS", None) if frozen_root is None else frozen_root
+    bundled = _bundled_binary(root, windows=is_windows)
+    for candidate in (setting_path, source.get(PACKAGED_BINARY_ENV), bundled):
         resolved = _executable(candidate)
         if resolved is not None:
             return resolved
     found = resolve_executable(BINARY_NAME, environ=source, windows=windows)
     return Path(found) if found else None
+
+
+def _bundled_binary(root: str | Path | None, *, windows: bool) -> str | None:
+    if not root:
+        return None
+    name = f"{BINARY_NAME}.exe" if windows else BINARY_NAME
+    return str(Path(root) / BINARY_NAME / name)
 
 
 def _executable(value: str | None) -> Path | None:
