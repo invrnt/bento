@@ -42,7 +42,7 @@ See `architecture/desktop-runtime-settings.md` for lifecycle, configuration prec
 
 - Blob storage: local, Telegram, future stores.
 - OCR: RapidOCR, mock, disabled.
-- Embeddings: Jina GGUF, mock, disabled.
+- Embeddings: managed GGUF model on a local llama.cpp server (`execution/smart-search-program.md`), custom GGUF (advanced), mock, disabled.
 - Vector DB: sqlite-vec now, future replacement.
 - Jobs: SQLite queue now, future queue.
 - UI surfaces: Drive and Photos replaceable without changing domain.

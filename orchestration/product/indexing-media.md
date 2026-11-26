@@ -30,7 +30,7 @@ PDFs:
 
 ## Embeddings
 
-- Jina v5 omni nano GGUF local adapter embeds text and images.
+- A managed GGUF embedding model (one-click download, pinned SHA-256; `execution/smart-search-program.md`) embeds document text and image OCR/metadata text through a local llama.cpp server; image-pixel embeddings are an opt-in later track. The earlier Jina v5 omni nano target was dropped (CC BY-NC 4.0, no official GGUF).
 - Mock and disabled providers are required for tests and fallback.
 - Embeddings write `asset_embeddings` and sqlite-vec records.
 - Embeddings are optional; the app must still work without them.
