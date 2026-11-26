@@ -924,19 +924,6 @@ class SmartSearchActivationService:
         return current
 
 
-class ActivationReembedObserver:
-    """`ReembedObserverPort` for the worker's `ReembedService`: progress and the flip reach the status."""
-
-    def __init__(self, activation: SmartSearchActivationService) -> None:
-        self._activation = activation
-
-    async def progress(self, space_id: str, done: int, total: int) -> None:
-        await self._activation.reembed_progress(space_id, done, total)
-
-    async def activated(self, space_id: str, dropped_space_ids: Sequence[str]) -> None:
-        await self._activation.space_activated(space_id, dropped_space_ids)
-
-
 def _update_progress(installs: Sequence[ModelInstallRecord], update: ModelSpec | None) -> UpdateProgress | None:
     if update is None:
         return None

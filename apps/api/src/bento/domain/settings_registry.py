@@ -110,7 +110,7 @@ SETTINGS_REGISTRY: tuple[SettingDefinition, ...] = (
     _field("custom_document_prefix", ("BENTO_CUSTOM_DOCUMENT_PREFIX",), "ai", Type.STRING, "", apply=Apply.RESTART_SERVICES, advanced=True),
     _field("custom_pooling", ("BENTO_CUSTOM_POOLING",), "ai", Type.CHOICE, "auto", apply=Apply.RESTART_SERVICES, choices=CUSTOM_POOLING_CHOICES, advanced=True),
     _field("embedding_dimensions", ("BENTO_EMBEDDING_DIMENSIONS",), "ai", Type.INTEGER, DEFAULT_EMBEDDING_DIMENSIONS, apply=Apply.RESTART_SERVICES, minimum=1, maximum=65536, advanced=True),
-    _field("llama_server_path", ("BENTO_LLAMA_SERVER_PATH",), "ai", Type.PATH, "", apply=Apply.RESTART_SERVICES, advanced=True),
+    _field("llama_server_path", ("BENTO_LLAMA_SERVER_BINARY",), "ai", Type.PATH, "", apply=Apply.RESTART_SERVICES, advanced=True),
     # An external OpenAI-compatible server; when set, Bento spawns no llama-server of its own.
     _field("embedding_server_url", ("BENTO_EMBEDDING_SERVER_URL",), "ai", Type.STRING, "", apply=Apply.RESTART_SERVICES, advanced=True),
     _field("embedding_threads", ("BENTO_EMBEDDING_THREADS",), "ai", Type.INTEGER, default_embedding_threads(os.cpu_count() or 1), apply=Apply.RESTART_SERVICES, minimum=1, maximum=64, advanced=True),

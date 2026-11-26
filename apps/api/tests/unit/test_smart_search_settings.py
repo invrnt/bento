@@ -193,7 +193,7 @@ def test_custom_model_path_keeps_the_legacy_environment_aliases() -> None:
         "BENTO_CUSTOM_DOCUMENT_PREFIX": "custom_document_prefix",
         "BENTO_CUSTOM_POOLING": "custom_pooling",
         "BENTO_EMBEDDING_DIMENSIONS": "embedding_dimensions",
-        "BENTO_LLAMA_SERVER_PATH": "llama_server_path",
+        "BENTO_LLAMA_SERVER_BINARY": "llama_server_path",
         "BENTO_EMBEDDING_SERVER_URL": "embedding_server_url",
         "BENTO_EMBEDDING_THREADS": "embedding_threads",
     }.items():

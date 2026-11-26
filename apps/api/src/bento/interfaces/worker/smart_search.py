@@ -50,6 +50,8 @@ class ActivationProgressPort(Protocol):
 
     async def backlog(self, space_id: str, count: int) -> SmartSearchStatus | None: ...
 
+    async def space_activated(self, space_id: str, dropped_space_ids: Sequence[str] = ()) -> SmartSearchStatus | None: ...
+
 
 class SpaceRegistryPort(Protocol):
     """`SQLiteVecSearchIndex` as the `embedding_spaces` registry and per-space vector store."""
@@ -115,7 +117,11 @@ class ReembedStatusObserver:
             LOGGER.warning("Could not record the re-embedding progress: %s", exc.__class__.__name__)
 
     async def activated(self, space_id: str, dropped_space_ids: Sequence[str]) -> None:
-        del space_id
+        try:
+            await self._activation.space_activated(space_id, dropped_space_ids)
+        except Exception as exc:  # noqa: BLE001 - status bookkeeping never fails the re-embed job
+            LOGGER.warning("Could not record the embedding space switch: %s", exc.__class__.__name__)
+            return
         LOGGER.info("Search switched to the new embedding space (%s older spaces dropped)", len(dropped_space_ids))
 
 

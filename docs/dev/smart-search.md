@@ -41,7 +41,7 @@ The desktop host also writes `<data_dir>/run/power.json` (`BENTO_POWER_STATE_FIL
 The worker spawns one `llama-server` (none at all when `embedding_server_url` points at an external server). It
 takes the first candidate that is an absolute path to an existing executable file, skipping the others:
 
-1. The `llama_server_path` setting (Settings → Advanced), for a user who wants their own build.
+1. The `llama_server_path` setting (Settings → Advanced, or the `BENTO_LLAMA_SERVER_BINARY` env var), for a user who wants their own build. It is deliberately separate from `BENTO_LLAMA_SERVER_PATH`, which the desktop host sets to the bundled copy.
 2. `BENTO_LLAMA_SERVER_PATH`. The desktop host sets it to the packaged copy, `<resources>/llama-server/llama-server[.exe]`; packaged builds ignore an inherited value, development builds pass an explicit one through (point it at `dist/llama-server/<platform>-<arch>/llama-server`). The Docker image sets `/opt/llama-server/llama-server`.
 3. The bundled copy: `llama-server/` inside the CLI's PyInstaller bundle (`sys._MEIPASS/llama-server/`).
 4. `llama-server` on `PATH`.

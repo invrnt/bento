@@ -95,7 +95,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("BENTO_EMBEDDING_DIMENSIONS", "embedding_dimensions"),
     )
     llama_server_path: str = Field(
-        default="", validation_alias=AliasChoices("BENTO_LLAMA_SERVER_PATH", "llama_server_path")
+        default="", validation_alias=AliasChoices("BENTO_LLAMA_SERVER_BINARY", "llama_server_path")
     )
     # External server; when set, Bento spawns no llama-server of its own.
     embedding_server_url: str = Field(
