@@ -7,12 +7,14 @@ import type { SettingDefinition } from "../../api/settings";
 import type { SmartSearchStatus } from "../../api/smartSearch";
 import { JobsPage } from "../../features/jobs/JobsPage";
 import { AdvancedSection } from "../../features/settings/AdvancedSection";
+import { smartSearchUpdateProgress } from "../../api/smartSearch";
+import { formatBytes } from "../../lib/format";
 import {
   actionErrorMessage,
   describeSmartSearch,
-  formatModelBytes,
+  describeUpdate,
   nextAnnouncement,
-  suggestInOnboarding,
+  spaceMessage,
 } from "../../features/settings/smart-search/model";
 import type { SettingsController } from "../../features/settings/useSettingsController";
 
@@ -57,8 +59,9 @@ function controller(provider: string, overrides: Partial<SettingsController> = {
 }
 
 const status = (overrides: Partial<SmartSearchStatus> = {}): SmartSearchStatus => ({
-  download: { bytes_done: 0, bytes_total: 2000 }, error_code: null, failed_step: null, free_bytes: null, indexing: { done: 0, total: 0 }, locked: false, model: null,
-  search_available: false, space_id: null, state: "downloading", update_available: null, waiting_network: false, ...overrides,
+  can_use_now: false, download: { bytes_done: 0, bytes_total: 2000 }, error_code: null, failed_step: null, free_bytes: null, indexing: { done: 0, total: 0 }, locked: false, model: null,
+  search_available: false, space_id: null, state: "downloading", suggest_in_onboarding: false, update_available: null, waiting_network: false,
+  ...overrides,
 });
 
 afterEach(() => {
@@ -110,8 +113,8 @@ describe("Avanzado › Modelo propio", () => {
 
 describe("Trabajos", () => {
   it("labels the model download and re-embedding jobs", () => {
-    const job = (id: string, type: string): JobRecord => ({
-      attempts: 0, created_at: "2026-11-26T10:00:00Z", id, max_attempts: 3, priority: 1, status: "running", type: type as JobRecord["type"], updated_at: "2026-11-26T10:01:00Z",
+    const job = (id: string, type: JobRecord["type"]): JobRecord => ({
+      attempts: 0, created_at: "2026-11-26T10:00:00Z", id, max_attempts: 3, priority: 1, status: "running", type, updated_at: "2026-11-26T10:01:00Z",
     });
     render(<JobsPage jobs={[job("job-1", "model_download"), job("job-2", "reembed")]} onReindex={vi.fn()} onRetry={vi.fn()} />);
     expect(screen.getByText("Descarga del modelo")).toBeInTheDocument();
@@ -120,12 +123,22 @@ describe("Trabajos", () => {
 });
 
 describe("smart search model helpers", () => {
-  it("states model sizes in decimal units like the model card", () => {
-    expect(formatModelBytes(309_855_456)).toBe("310 MB");
-    expect(formatModelBytes(52_000_000)).toBe("52 MB");
-    expect(formatModelBytes(52_613_349_376)).toBe("52,6 GB");
-    expect(formatModelBytes(0)).toBe("0 B");
-    expect(formatModelBytes(null)).toBe("");
+  it("states sizes in the same units as the rest of the app", () => {
+    const model = { bytes_done: 104_857_600, bytes_total: 309_855_456 };
+    expect(describeSmartSearch(status({ download: model })).text).toBe(`Descargando… ${formatBytes(model.bytes_done)} de ${formatBytes(model.bytes_total)}`);
+    expect(describeSmartSearch(status({ download: model })).text).toBe("Descargando… 100 MB de 296 MB");
+    expect(spaceMessage(340_841_002, 52_613_349_376)).toBe("Necesitas 325 MB libres. Ahora tienes 49 GB.");
+  });
+
+  it("describes a model update's download as a secondary line", () => {
+    const offer = { revision: "abc123", size_bytes: 320_000_000 };
+    expect(describeUpdate(status({ state: "ready", update_available: offer }))).toBeNull();
+    const nested = status({ state: "ready", update_available: { ...offer, progress: { bytes_done: 80_000_000, bytes_total: 320_000_000, state: "downloading" } } });
+    expect(describeUpdate(nested)).toEqual({ indeterminate: false, percent: 25, text: "Descargando la versión nueva… 76,3 MB de 305 MB" });
+    const topLevel = status({ state: "ready", update: { progress: { bytes_done: 320_000_000, bytes_total: 320_000_000, state: "downloading" } } });
+    expect(smartSearchUpdateProgress(topLevel)).toEqual({ bytes_done: 320_000_000, bytes_total: 320_000_000, state: "downloading" });
+    expect(describeUpdate(topLevel)).toMatchObject({ indeterminate: true, text: "Comprobando la versión nueva…" });
+    expect(describeUpdate(status({ state: "ready", update: { progress: null } }))).toBeNull();
   });
 
   it("announces the first change, each state change and each new tenth of progress", () => {
@@ -154,17 +167,8 @@ describe("smart search model helpers", () => {
     const refusal = (code: string, details: Record<string, unknown> = {}) => new ApiError("Conflict", 409, { error: { code, details, message: code } });
     expect(actionErrorMessage(refusal("smart_search_state_conflict", { event: "pause", state: "paused" }))).toBe("El estado cambió mientras tanto. Ya ves el actual.");
     expect(actionErrorMessage(refusal("settings_source_locked"))).toBe("Esta opción la controla la configuración de este equipo.");
-    expect(actionErrorMessage(refusal("smart_search_no_space", { free_bytes: 100_000_000, required_bytes: 340_841_002 }))).toBe("Necesitas 341 MB libres. Ahora tienes 100 MB.");
+    expect(actionErrorMessage(refusal("smart_search_no_space", { free_bytes: 100_000_000, required_bytes: 340_841_002 }))).toBe("Necesitas 325 MB libres. Ahora tienes 95,4 MB.");
     expect(actionErrorMessage(refusal("smart_search_no_space"))).toBe("No hay espacio suficiente en este equipo.");
     expect(actionErrorMessage(new ApiError("Bad Request", 400, { error: { code: "invalid_model_spec", message: "" } }))).toBe("No se pudo completar la acción. Inténtalo otra vez.");
-  });
-
-  it("suggests smart search in onboarding only on known capable machines", () => {
-    const gib = 1024 ** 3;
-    expect(suggestInOnboarding({ cores: 4, ramBytes: 8 * gib })).toBe(true);
-    expect(suggestInOnboarding({ cores: 3, ramBytes: 16 * gib })).toBe(false);
-    expect(suggestInOnboarding({ cores: 8, ramBytes: 4 * gib })).toBe(false);
-    expect(suggestInOnboarding({ cores: 8, ramBytes: null })).toBe(false);
-    expect(suggestInOnboarding({ cores: null, ramBytes: 8 * gib })).toBe(false);
   });
 });

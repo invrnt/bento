@@ -10,6 +10,7 @@ import {
   removeSmartSearchModel,
   resumeSmartSearch,
   retrySmartSearch,
+  switchSmartSearchNow,
   updateSmartSearchModel,
 } from "../../../api/smartSearch";
 import type { SmartSearchActivation, SmartSearchStatus } from "../../../api/smartSearch";
@@ -17,7 +18,7 @@ import { usePolledResource } from "../../../lib/usePolledResource";
 import { busyStates } from "./model";
 
 export type SmartSearchStatusOptions = {
-  /** `false` skips every request (the onboarding suggestion on a small machine). */
+  /** `false` skips every request (the onboarding suggestion once its download started). */
   enabled?: boolean;
   /** Poll interval while nothing runs (`off`, `paused`, `ready`, `error`): catches a new backlog or a restored network. */
   idlePollIntervalMs?: number | null;
@@ -59,7 +60,7 @@ export function useSmartSearchStatus(client: ApiClient = apiClient, options: Sma
   return { error: status ? null : resource.error, isLoading: resource.isLoading && !status, refresh: resource.refresh, setStatus, status };
 }
 
-export type SmartSearchAction = "activate" | "pause" | "resume" | "retry" | "cancel" | "update" | "remove";
+export type SmartSearchAction = "activate" | "pause" | "resume" | "retry" | "cancel" | "update" | "switchNow" | "remove";
 
 export type SmartSearchMutations = {
   activate: (activation?: SmartSearchActivation) => Promise<SmartSearchStatus | null>;
@@ -71,6 +72,8 @@ export type SmartSearchMutations = {
   remove: () => Promise<SmartSearchStatus | null>;
   resume: () => Promise<SmartSearchStatus | null>;
   retry: () => Promise<SmartSearchStatus | null>;
+  /** "Usar ya": flips search to the space being re-embedded (`POST /smart-search/use-now`). */
+  switchNow: () => Promise<SmartSearchStatus | null>;
   update: () => Promise<SmartSearchStatus | null>;
 };
 
@@ -120,6 +123,7 @@ export function useSmartSearchMutations(
       remove: () => run("remove", () => removeSmartSearchModel(client)),
       resume: () => run("resume", () => resumeSmartSearch(client)),
       retry: () => run("retry", () => retrySmartSearch(client)),
+      switchNow: () => run("switchNow", () => switchSmartSearchNow(client)),
       update: () => run("update", () => updateSmartSearchModel(client)),
     }),
     [client, error, pending, run],

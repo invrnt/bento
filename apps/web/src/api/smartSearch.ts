@@ -6,9 +6,6 @@ import type { ApiClient } from "./client";
 export type SmartSearchState = "off" | "downloading" | "paused" | "verifying" | "starting" | "indexing" | "ready" | "error";
 export type SmartSearchErrorCode = "download" | "checksum" | "space" | "runtime";
 
-/** Worker job types added by Stage 24 (`model_download`) and the vector index migration (`reembed`). */
-export type SmartSearchJobType = "model_download" | "reembed";
-
 export type SmartSearchModelOffer = {
   dims: number;
   display_name: string;
@@ -20,7 +17,22 @@ export type SmartSearchModelOffer = {
   size_bytes: number;
 };
 
+/**
+ * A model update downloads while the status stays `ready` (the state machine has no update state).
+ * `state` is the install row's own state, passed through as the backend reports it.
+ */
+export type SmartSearchUpdateProgress = { bytes_done: number; bytes_total: number; state: string };
+
+export type SmartSearchUpdateOffer = {
+  /** Set while the newer revision downloads; see `smartSearchUpdateProgress()`. */
+  progress?: SmartSearchUpdateProgress | null;
+  revision: string;
+  size_bytes: number;
+};
+
 export type SmartSearchStatus = {
+  /** A re-embed into a new space is running and `POST /smart-search/use-now` may flip search to it early. */
+  can_use_now: boolean;
   download: { bytes_done: number; bytes_total: number };
   error_code: SmartSearchErrorCode | null;
   failed_step: SmartSearchState | null;
@@ -32,7 +44,11 @@ export type SmartSearchStatus = {
   search_available: boolean;
   space_id: string | null;
   state: SmartSearchState;
-  update_available: { revision: string; size_bytes: number } | null;
+  /** `off`, not Android, and at least 4 cores and 8 GiB of RAM (D8); the API decides, not the browser. */
+  suggest_in_onboarding: boolean;
+  /** Progress of a model update, when the API reports it beside `update_available`. */
+  update?: { progress?: SmartSearchUpdateProgress | null } | null;
+  update_available: SmartSearchUpdateOffer | null;
   /** Only ever `true` during `downloading`. */
   waiting_network: boolean;
 };
@@ -81,9 +97,22 @@ export function updateSmartSearchModel(client: ApiClient = apiClient): Promise<S
   return client.request<SmartSearchStatus>("/smart-search/update", { method: "POST" });
 }
 
+/** During a re-embed, switches search to the new space now, with only the files indexed so far. */
+export function switchSmartSearchNow(client: ApiClient = apiClient): Promise<SmartSearchStatus> {
+  return client.request<SmartSearchStatus>("/smart-search/use-now", { method: "POST" });
+}
+
 /** Stops the runtime, deletes the model files and this space's vectors, returns to `off`. */
 export function removeSmartSearchModel(client: ApiClient = apiClient): Promise<SmartSearchStatus> {
   return client.request<SmartSearchStatus>("/smart-search/model", { method: "DELETE" });
+}
+
+/**
+ * The running update download, if any. The backend exposes it as `update.progress`; reading
+ * `update_available.progress` too keeps the UI working whichever object the body nests it in.
+ */
+export function smartSearchUpdateProgress(status: Pick<SmartSearchStatus, "update" | "update_available">): SmartSearchUpdateProgress | null {
+  return status.update?.progress ?? status.update_available?.progress ?? null;
 }
 
 /** Absolute URL of the shipped license text, for a link that opens outside the app. */

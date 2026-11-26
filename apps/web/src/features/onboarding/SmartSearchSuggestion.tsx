@@ -6,27 +6,24 @@ import type { ApiClient } from "../../api/client";
 import { Button } from "../../components/Button";
 import { t } from "../../i18n/dictionary";
 import { ActivationSheet } from "../settings/smart-search/ActivationSheet";
-import { detectHardware, suggestInOnboarding } from "../settings/smart-search/model";
-import type { Hardware } from "../settings/smart-search/model";
 import { useSmartSearchMutations, useSmartSearchStatus } from "../settings/smart-search/useSmartSearch";
 
 export type SmartSearchSuggestionProps = {
   client?: ApiClient;
-  /** Defaults to what the browser reports about this machine. */
-  hardware?: Hardware;
 };
 
 /**
- * D8: on machines with at least 4 cores and 8 GiB, the last setup step suggests search by meaning.
- * It only opens the confirmation sheet; nothing downloads until "Descargar y activar".
+ * D8: when the API says this machine qualifies (`suggest_in_onboarding`: at least 4 cores and
+ * 8 GiB, not Android), the last setup step suggests search by meaning. The browser cannot tell:
+ * Firefox and Safari report no memory at all. It only opens the confirmation sheet; nothing
+ * downloads until "Descargar y activar".
  */
-export function SmartSearchSuggestion({ client = apiClient, hardware }: SmartSearchSuggestionProps) {
-  const [capable] = useState(() => suggestInOnboarding(hardware ?? detectHardware()));
+export function SmartSearchSuggestion({ client = apiClient }: SmartSearchSuggestionProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [started, setStarted] = useState(false);
   // Read once; Ajustes › Búsqueda inteligente follows the download after setup.
-  const live = useSmartSearchStatus(client, { enabled: capable && !started, idlePollIntervalMs: null });
+  const live = useSmartSearchStatus(client, { enabled: !started, idlePollIntervalMs: null });
   const actions = useSmartSearchMutations(client, live);
   const startedRef = useRef<HTMLParagraphElement | null>(null);
   const status = live.status;
@@ -45,7 +42,7 @@ export function SmartSearchSuggestion({ client = apiClient, hardware }: SmartSea
     );
   }
 
-  if (!capable || dismissed || !status || status.state !== "off" || status.locked || !status.model) return null;
+  if (dismissed || !status?.suggest_in_onboarding || status.state !== "off" || status.locked || !status.model) return null;
 
   async function confirm() {
     const next = await actions.activate();
