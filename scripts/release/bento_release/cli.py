@@ -7,7 +7,7 @@ import datetime as _dt
 import sys
 from pathlib import Path
 
-from . import build, changelog, inventory, publish, signing, versioning
+from . import build, changelog, inventory, models, publish, signing, versioning
 from .runner import say
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -140,6 +140,28 @@ def cmd_publish(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_models(args: argparse.Namespace) -> int:
+    manifest = Path(args.manifest).expanduser().resolve() if args.manifest else None
+    out = Path(args.out).expanduser().resolve() if args.out else ROOT / models.STAGE
+    if args.action == "plan":
+        grouped, problems = models.plan(ROOT, manifest)
+        for tag, items in grouped.items():
+            print(f"{tag}: " + ", ".join(f"{item.name} ({item.size_bytes} bytes, sha256 {item.sha256[:12]}…)" for item in items))
+        if not grouped:
+            print("the manifest lists no GitHub Releases mirror URL")
+        for problem in problems:
+            print(f"mirror: {problem}", file=sys.stderr)
+        return 1 if problems else 0
+    if args.action == "stage":
+        if not args.source:
+            raise build.ReleaseError("models stage needs --source (the folder with the downloaded model files)")
+        licenses = Path(args.licenses).expanduser().resolve() if args.licenses else None
+        models.stage(ROOT, Path(args.source).expanduser().resolve(), out, manifest_path=manifest, licenses=licenses, key=publish.default_signing_key(args.signing_key))
+        return 0
+    models.publish(ROOT, out, args.tag or None, manifest_path=manifest, assume_yes=args.yes)
+    return 0
+
+
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(prog="bento-release", description="Local release tool for Bento (docs/dev/releasing.md). Default: a dry-run build.")
     sub = root.add_subparsers(dest="command")
@@ -202,6 +224,17 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--remote", default="origin")
     p.add_argument("--yes", action="store_true", help="skip the typed confirmation")
     p.set_defaults(func=cmd_publish)
+
+    p = sub.add_parser("models", help="smart search model mirror (D3): plan, stage or publish the GitHub release copies")
+    p.add_argument("action", choices=["plan", "stage", "publish"])
+    p.add_argument("--manifest", help=f"defaults to {models.MANIFEST}")
+    p.add_argument("--source", help="stage: folder with the model files downloaded from the pinned Hugging Face URLs")
+    p.add_argument("--licenses", help=f"stage: license texts (defaults to {models.LICENSES})")
+    p.add_argument("--out", help=f"defaults to {models.STAGE}")
+    p.add_argument("--signing-key", help="stage: SSH key that signs SHA256SUMS (or BENTO_RELEASE_SIGNING_KEY)")
+    p.add_argument("--tag", action="append", help="publish: only this mirror tag (repeatable)")
+    p.add_argument("--yes", action="store_true", help="publish: skip the typed confirmation")
+    p.set_defaults(func=cmd_models)
     return root
 
 

@@ -3,6 +3,9 @@ services:
     build:
       context: .
       dockerfile: docker/api.Dockerfile
+      args:
+        # llama-server-none skips compiling llama-server (smart search off); see docker/api.Dockerfile.
+        LLAMA_SERVER_STAGE: ${LLAMA_SERVER_STAGE:-llama-server-build}
     command: sh -c "cd /app/apps/api && alembic upgrade head && cd /app && python -m bento.interfaces.http.main"
     env_file:
       - .env.example
@@ -32,6 +35,8 @@ services:
           path: ./apps/api/uv.lock
         - action: rebuild
           path: ./docker/api.Dockerfile
+        - action: rebuild
+          path: ./scripts/build-llama-server.sh
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=2)"]
       interval: 30s
@@ -43,6 +48,9 @@ services:
     build:
       context: .
       dockerfile: docker/api.Dockerfile
+      args:
+        # llama-server-none skips compiling llama-server (smart search off); see docker/api.Dockerfile.
+        LLAMA_SERVER_STAGE: ${LLAMA_SERVER_STAGE:-llama-server-build}
     command: python -m bento.interfaces.worker.main
     env_file:
       - .env.example
@@ -72,6 +80,8 @@ services:
           path: ./apps/api/uv.lock
         - action: rebuild
           path: ./docker/api.Dockerfile
+        - action: rebuild
+          path: ./scripts/build-llama-server.sh
 
   web:
     build:

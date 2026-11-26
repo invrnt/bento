@@ -59,7 +59,7 @@ Assumption: the repository is currently empty, so agents must create a new Docke
 - Telegram-first program (Stages 14-17): MTProto account login, encrypted vault, multi-device sync, QR/code pairing via relay, automatic backup, end-user product polish. See `execution/telegram-first-program.md`.
 - CLI program (Stage 18): agent-first `bento` CLI, headless daemon, desktop discovery, cross-platform packaging. See `execution/cli-program.md`.
 - Android program (Stages 19-22): native Kotlin/Compose app embedding the backend as a full vault device, with camera-roll backup, share target, and scan-to-join. See `execution/android-program.md`.
-- Smart search program (Stages 23-26, planned): one-click on-device search by meaning with a managed, permissively licensed GGUF model and a bundled llama.cpp server. See `execution/smart-search-program.md` and `research/embedding-models-2026.md`.
+- Smart search program (Stages 23-26, in progress): one-click on-device search by meaning with a managed, permissively licensed GGUF model (EmbeddingGemma 2) and a bundled llama.cpp server (`b12777`, built by `scripts/build-llama-server.{sh,ps1}`). Stage 23 is done; Stages 24 (backend engine) and 25 (web UI, desktop/CLI/Docker packaging, docs and legal) are in integration; Stage 26 stays behind its gates. See `execution/smart-search-program.md`, `research/embedding-models-2026.md` and `docs/dev/smart-search.md`.
 
 ## Non-Goals
 

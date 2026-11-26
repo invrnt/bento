@@ -105,6 +105,18 @@ Bento does not ask for a password when it opens. On each computer your library (
 
 Bento checks GitHub for new versions. It downloads them in the background, verifies their size and SHA-256 fingerprint before offering them and never installs without you pressing “Restart to update”. Published versions are signed on Windows and signed and notarized on macOS.
 
+## Smart search
+
+Search by meaning is off until you turn it on, and it works entirely on your computer:
+
+- **The only download is the model.** When you choose **Download and turn on**, Bento downloads the model (EmbeddingGemma 2, about 310 MB, Apache-2.0 license) from Hugging Face or, if it is not available, from Bento’s releases on GitHub. That service sees your IP address and which file is requested; the download carries no cookies or identifiers of yours, and nothing about your files.
+- **Checked before use.** The model is pinned to an exact version. Bento checks its size and SHA-256 fingerprint and deletes it if it doesn’t match.
+- **Nothing leaves the computer.** The engine that runs the model comes inside Bento (Bento never downloads programs) and listens only on your computer, with a new key every time it starts. Your files, their text and your searches are never sent anywhere.
+- **On battery** with little charge left, Bento pauses going through your files and carries on when you plug in.
+- **Remove it whenever you want** in Settings › Smart search: Bento deletes the model and frees the space. Search by name, date and text keeps working.
+
+Results by meaning are approximate: they can miss a file or show loosely related ones.
+
 ## This website
 
 - It uses no cookies, analytics, or third-party fonts or scripts. A strict content security policy stops its pages from loading or sending anything outside this domain.

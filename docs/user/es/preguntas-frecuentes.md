@@ -64,6 +64,10 @@ Sí, en parte: ves tu biblioteca, buscas y abres lo que ya está en el equipo. L
 
 No. El reconocimiento de texto y la búsqueda funcionan en tu equipo, solo sobre tus archivos, y nada se usa para entrenar modelos. Bento tampoco envía analíticas ni muestra publicidad.
 
+## ¿La búsqueda por significado envía mis archivos a algún sitio?
+
+No. Lo único que Bento descarga es el modelo, una vez, cuando activas la función en Ajustes › Búsqueda inteligente. Después todo funciona en tu equipo, incluso sin conexión. Más en [Privacidad y seguridad](privacidad-y-seguridad.md#búsqueda-inteligente).
+
 ## ¿Qué pasa si desinstalo Bento?
 
 Tu nube sigue en tu Telegram y tus otros equipos siguen funcionando. La carpeta de datos de ese equipo no se borra automáticamente. Si dejas de usar ese equipo para siempre, quítalo desde otro para cerrar su sesión de Telegram y cambiar las llaves.

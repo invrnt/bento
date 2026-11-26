@@ -1,6 +1,7 @@
+import importlib.util
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules, copy_metadata
+from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, collect_submodules, copy_metadata
 
 api_root = Path(SPEC).resolve().parent.parent
 source_root = api_root / "src"
@@ -35,6 +36,17 @@ for distribution in ("alembic", "bento-api", "fastapi", "pydantic", "sqlalchemy"
 
 try:
     datas += collect_data_files("rapidocr")
+except Exception:
+    pass
+
+# sqlite-vec (D7): the `vec0` loadable extension is package data that `sqlite_vec.loadable_path()` finds
+# next to the module, so it is collected into `sqlite_vec/`. PyInstaller's default patterns only match
+# `lib*.so`, hence the explicit ones. Guarded: without the package the spec still builds and search uses
+# the Python fallback index.
+try:
+    if importlib.util.find_spec("sqlite_vec") is not None:
+        binaries += collect_dynamic_libs("sqlite_vec", search_patterns=["*.so", "*.dylib", "*.dll"])
+        hiddenimports.append("sqlite_vec")
 except Exception:
     pass
 

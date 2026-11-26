@@ -64,6 +64,10 @@ Partly: you can browse your library, search and open what is already on the comp
 
 No. Text recognition and search run on your computer, only over your files, and nothing is used to train models. Bento does not send analytics or show ads either.
 
+## Does search by meaning send my files anywhere?
+
+No. The only thing Bento downloads is the model, once, when you turn the feature on in Settings › Smart search. After that everything runs on your computer, even offline. More in [Privacy and security](privacy-and-security.md#smart-search).
+
 ## What happens if I uninstall Bento?
 
 Your cloud stays in your Telegram and your other computers keep working. That computer’s data folder is not deleted automatically. If you are done with that computer for good, remove it from another one to sign it out of Telegram and change the keys.
