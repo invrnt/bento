@@ -42,7 +42,7 @@ See `architecture/desktop-runtime-settings.md` for lifecycle, configuration prec
 
 - Blob storage: local, Telegram, future stores.
 - OCR: RapidOCR, mock, disabled.
-- Embeddings: managed GGUF model on a local llama.cpp server (`execution/smart-search-program.md`), custom GGUF (advanced), mock, disabled.
+- Embeddings: managed GGUF model (EmbeddingGemma 2, pinned and SHA-256 verified) on a worker-supervised local llama.cpp server bound to a Unix socket or loopback with a per-launch key, custom GGUF (advanced), mock, disabled. Vectors are tagged by embedding space (`api/smart-search-contract.md`, `execution/smart-search-program.md`).
 - Vector DB: sqlite-vec now, future replacement.
 - Jobs: SQLite queue now, future queue.
 - UI surfaces: Drive and Photos replaceable without changing domain.
