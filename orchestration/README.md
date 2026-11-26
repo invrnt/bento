@@ -23,6 +23,7 @@ Assumption: the repository is currently empty, so agents must create a new Docke
 - `product/`: behavior contracts for every user-facing and backend module.
 - `api/`: HTTP, event, error, and external service contracts.
 - `testing/`: required test strategy, layers, critical journeys, merge gates.
+- `research/`: dated, source-cited technology research that binding docs refer to (for example `research/embedding-models-2026.md`).
 - `execution/`: build order, parallel workstreams, agent prompts, and local integration/CI (`execution/local-integration.md`, `scripts/local-ci.sh`; GitHub Actions is unavailable).
 
 ## Core Principles
@@ -58,6 +59,7 @@ Assumption: the repository is currently empty, so agents must create a new Docke
 - Telegram-first program (Stages 14-17): MTProto account login, encrypted vault, multi-device sync, QR/code pairing via relay, automatic backup, end-user product polish. See `execution/telegram-first-program.md`.
 - CLI program (Stage 18): agent-first `bento` CLI, headless daemon, desktop discovery, cross-platform packaging. See `execution/cli-program.md`.
 - Android program (Stages 19-22): native Kotlin/Compose app embedding the backend as a full vault device, with camera-roll backup, share target, and scan-to-join. See `execution/android-program.md`.
+- Smart search program (Stages 23-26, planned): one-click on-device search by meaning with a managed, permissively licensed GGUF model and a bundled llama.cpp server. See `execution/smart-search-program.md` and `research/embedding-models-2026.md`.
 
 ## Non-Goals
 

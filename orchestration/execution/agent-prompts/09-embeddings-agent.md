@@ -1,5 +1,7 @@
 # Embeddings Agent
 
+> Superseded for the model, runtime and settings by `execution/smart-search-program.md` (Stages 23-26): the Jina v5 omni nano target is dropped (CC BY-NC 4.0, no official GGUF). This prompt is kept as the Stage 7 historical record.
+
 ## Mission
 
 Implement local embedding providers, sqlite-vec storage, embedding jobs, and vector search primitives.

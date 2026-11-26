@@ -17,7 +17,7 @@ Do not duplicate endpoint URLs in feature components.
 - Telegram Bot API local server: accessed only by `TelegramBlobStoreAdapter` and Telegram webhook interface.
 - ffmpeg: accessed only through media/thumbnail adapter code.
 - RapidOCR: accessed only through `OCRProviderPort` adapter.
-- llama.cpp/Jina GGUF: accessed only through `EmbeddingProviderPort` adapter.
+- llama.cpp server + managed GGUF model: accessed only through `EmbeddingProviderPort`/`EmbeddingRuntimePort` adapters; model files only through `ModelDownloaderPort`/`ModelStorePort`.
 - sqlite-vec: accessed only through search/vector adapter.
 
 ## Configuration
