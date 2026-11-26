@@ -8,9 +8,9 @@ import { Button } from "../../../components/Button";
 import { Callout } from "../../../components/Callout";
 import { Dialog } from "../../../components/Dialog";
 import { t } from "../../../i18n/dictionary";
-import { formatMessage } from "../../../lib/format";
+import { formatBytes, formatMessage } from "../../../lib/format";
 import { errorCode } from "../../onboarding/apiErrors";
-import { actionErrorMessage, formatModelBytes, hasRoomForModel, requiredBytes, spaceMessage } from "./model";
+import { actionErrorMessage, hasRoomForModel, requiredBytes, spaceMessage } from "./model";
 
 export type ActivationSheetProps = {
   client?: ApiClient;
@@ -55,7 +55,7 @@ export function ActivationSheet({ client = apiClient, error, onConfirm, onOpenCh
     >
       {model ? (
         <div className="grid gap-4">
-          <p>{formatMessage("smartSearch.activate.body", { host: model.download_host, size: formatModelBytes(model.size_bytes) })}</p>
+          <p>{formatMessage("smartSearch.activate.body", { host: model.download_host, size: formatBytes(model.size_bytes) })}</p>
           <div className="grid gap-1.5 rounded-lg border border-line bg-subtle p-3.5 text-sm">
             <p className="font-medium text-ink">
               {formatMessage("smartSearch.activate.license", { license: model.license_spdx, modelName: model.display_name })}

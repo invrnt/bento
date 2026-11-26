@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { RefObject } from "react";
-import { Pause, Play, RefreshCw, RotateCcw, Trash2, X } from "lucide-react";
+import { FastForward, Pause, Play, RefreshCw, RotateCcw, Trash2, X } from "lucide-react";
 
 import { apiClient } from "../../../api/client";
 import type { ApiClient } from "../../../api/client";
@@ -11,10 +11,10 @@ import { CheckboxBox } from "../../../components/Checkbox";
 import { Dialog } from "../../../components/Dialog";
 import { t } from "../../../i18n/dictionary";
 import { cx } from "../../../lib/cx";
-import { formatMessage } from "../../../lib/format";
+import { formatBytes, formatMessage } from "../../../lib/format";
 import { ActivationSheet } from "./ActivationSheet";
-import { actionErrorMessage, cancellableStates, describeSmartSearch, formatModelBytes, removableStates, useThrottledAnnouncement } from "./model";
-import { SmartSearchProgress } from "./SmartSearchProgress";
+import { actionErrorMessage, cancellableStates, describeSmartSearch, describeUpdate, removableStates, useThrottledAnnouncement } from "./model";
+import { SmartSearchProgress, SmartSearchUpdateProgress } from "./SmartSearchProgress";
 import { useSmartSearchMutations, useSmartSearchStatus } from "./useSmartSearch";
 
 export type SemanticSearchPanelProps = {
@@ -33,11 +33,13 @@ export function SemanticSearchPanel({ client = apiClient, idlePollIntervalMs, po
   const announcement = useThrottledAnnouncement(live.status);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [removeOpen, setRemoveOpen] = useState(false);
+  const [switchOpen, setSwitchOpen] = useState(false);
   const [focusAfter, setFocusAfter] = useState<RefObject<HTMLElement | null> | null>(null);
   const switchRef = useRef<HTMLInputElement | null>(null);
   const primaryRef = useRef<HTMLButtonElement | null>(null);
   const cancelRef = useRef<HTMLButtonElement | null>(null);
   const removeRef = useRef<HTMLButtonElement | null>(null);
+  const switchNowRef = useRef<HTMLButtonElement | null>(null);
   const descriptionId = useId();
 
   const status = live.status;
@@ -45,7 +47,9 @@ export function SemanticSearchPanel({ client = apiClient, idlePollIntervalMs, po
   const locked = Boolean(status?.locked);
   const busy = actions.pending !== null;
   const view = status ? describeSmartSearch(status) : null;
-  const modelSize = formatModelBytes(status?.model?.size_bytes);
+  const modelSize = formatBytes(status?.model?.size_bytes);
+  const updating = status ? describeUpdate(status) !== null : false;
+  const canSwitchNow = Boolean(status?.can_use_now) && !locked;
 
   // An action can remove its own button (cancel → off, remove → off). Once the answer is on screen,
   // keep keyboard focus on the trigger when it survived, or move it to the switch.
@@ -78,6 +82,11 @@ export function SemanticSearchPanel({ client = apiClient, idlePollIntervalMs, po
   async function confirmActivation() {
     const next = await actions.activate();
     if (next) setSheetOpen(false);
+  }
+
+  function confirmSwitchNow() {
+    setSwitchOpen(false);
+    run(actions.switchNow, switchNowRef);
   }
 
   function confirmRemove() {
@@ -126,7 +135,9 @@ export function SemanticSearchPanel({ client = apiClient, idlePollIntervalMs, po
         <p className="text-sm text-ink-muted">{formatMessage("smartSearch.ready.detail", { modelName: status.model.display_name, size: modelSize })}</p>
       ) : null}
 
-      {status?.state === "ready" && status.update_available && !locked ? (
+      {status && removableStates.has(state) ? <SmartSearchUpdateProgress status={status} /> : null}
+
+      {status?.state === "ready" && status.update_available && !updating && !locked ? (
         <Callout
           action={
             <Button aria-busy={actions.pending === "update" || undefined} leadingIcon={<RefreshCw />} onClick={() => run(actions.update, switchRef)} size="sm">
@@ -135,7 +146,26 @@ export function SemanticSearchPanel({ client = apiClient, idlePollIntervalMs, po
           }
           tone="info"
         >
-          {formatMessage("smartSearch.update.available", { size: formatModelBytes(status.update_available.size_bytes) })}
+          {formatMessage("smartSearch.update.available", { size: formatBytes(status.update_available.size_bytes) })}
+        </Callout>
+      ) : null}
+
+      {canSwitchNow ? (
+        <Callout
+          action={
+            <Button
+              aria-busy={actions.pending === "switchNow" || undefined}
+              leadingIcon={<FastForward />}
+              onClick={() => !busy && setSwitchOpen(true)}
+              ref={switchNowRef}
+              size="sm"
+            >
+              {t("smartSearch.action.useNow")}
+            </Button>
+          }
+          tone="info"
+        >
+          {t("smartSearch.useNow.hint")}
         </Callout>
       ) : null}
 
@@ -202,6 +232,25 @@ export function SemanticSearchPanel({ client = apiClient, idlePollIntervalMs, po
         pending={actions.pending === "activate"}
         status={status}
       />
+
+      <Dialog
+        actions={
+          <>
+            <Button data-autofocus onClick={() => setSwitchOpen(false)} variant="ghost">
+              {t("smartSearch.useNow.keep")}
+            </Button>
+            <Button leadingIcon={<FastForward />} onClick={confirmSwitchNow} variant="primary">
+              {t("smartSearch.useNow.confirm")}
+            </Button>
+          </>
+        }
+        icon={<FastForward />}
+        onOpenChange={setSwitchOpen}
+        open={switchOpen && canSwitchNow}
+        title={t("smartSearch.useNow.title")}
+      >
+        <p>{t("smartSearch.useNow.body")}</p>
+      </Dialog>
 
       <Dialog
         actions={

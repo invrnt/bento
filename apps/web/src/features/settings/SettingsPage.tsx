@@ -125,7 +125,7 @@ export function SettingsPage({
             />
           ) : null}
           {section === "backup" ? <BackupSection client={client} pollIntervalMs={pollIntervalMs} vault={vault.data} /> : null}
-          {section === "smart-search" ? <SmartSearchSection controller={controller} /> : null}
+          {section === "smart-search" ? <SmartSearchSection client={client} controller={controller} pollIntervalMs={pollIntervalMs} /> : null}
           {section === "advanced" ? <AdvancedSection controller={controller} /> : null}
           {section === "about" ? <AboutSection controller={controller} /> : null}
           {section === "smart-search" || section === "advanced" ? <SettingsApplyStatus controller={controller} /> : null}

@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { SettingDefinition } from "../../api/settings";
+import type { SmartSearchStatus } from "../../api/smartSearch";
 import type { VaultStatus } from "../../api/vault";
 import { SettingsPage } from "../../features/settings/SettingsPage";
 import type { SettingsSection } from "../../features/settings/sections";
@@ -297,31 +298,40 @@ describe("Respaldo", () => {
 });
 
 describe("Búsqueda inteligente", () => {
-  it("maps two plain switches to the OCR and semantic search providers", () => {
-    const state = controller();
-    renderSettings("smart-search", {}, state);
+  const smartSearchOff: SmartSearchStatus = {
+    can_use_now: false, download: { bytes_done: 0, bytes_total: 0 }, error_code: null, failed_step: null, free_bytes: 52_613_349_376,
+    indexing: { done: 0, total: 0 }, locked: false,
+    model: {
+      dims: 512, display_name: "EmbeddingGemma 2", download_host: "huggingface.co", license_spdx: "Apache-2.0", license_url: "/api/smart-search/license",
+      model_id: "embeddinggemma-2-q8_0", size_bytes: 309_855_456,
+    },
+    search_available: false, space_id: null, state: "off", suggest_in_onboarding: false, update_available: null, waiting_network: false,
+  };
+
+  it("keeps OCR as a plain switch saved through the settings bar", () => {
+    const state = controller({ dirty: true });
+    renderSettings("smart-search", { "GET /smart-search": smartSearchOff }, state);
     const ocr = screen.getByRole("checkbox", { name: "Texto en imágenes (OCR)" });
-    const semantic = screen.getByRole("checkbox", { name: "Búsqueda por significado" });
     expect(ocr).not.toBeChecked();
-    expect(semantic).toBeChecked();
-    expect(screen.getByText("Activa")).toBeInTheDocument();
     fireEvent.click(ocr);
     expect(state.setValue).toHaveBeenCalledWith("ocr_provider", "rapidocr");
-    fireEvent.click(semantic);
-    expect(state.setValue).toHaveBeenCalledWith("embeddings_provider", "disabled");
-  });
-
-  it("keeps a development provider and saves through the settings bar", () => {
-    const state = controller({
-      dirty: true,
-      draft: { embeddings_provider: "disabled", ocr_provider: "disabled" },
-    });
-    renderSettings("smart-search", {}, state);
-    fireEvent.click(screen.getByRole("checkbox", { name: "Búsqueda por significado" }));
-    expect(state.setValue).toHaveBeenCalledWith("embeddings_provider", "mock");
     const bar = screen.getByRole("region", { name: "Acciones para cambios sin guardar" });
     fireEvent.click(within(bar).getByRole("button", { name: /Guardar/ }));
     expect(state.save).toHaveBeenCalledOnce();
+  });
+
+  // The managed switch itself is covered in `test/settings/smart-search.test.tsx`.
+  it("reads search by meaning through the page's API client, never the settings form", async () => {
+    const state = controller();
+    const { api } = renderSettings("smart-search", { "GET /smart-search": smartSearchOff }, state);
+    const semantic = await screen.findByRole("checkbox", { name: "Buscar por significado" });
+    await waitFor(() => expect(semantic).toBeEnabled());
+    expect(semantic).not.toBeChecked();
+    expect(api.callsTo("GET /smart-search").length).toBeGreaterThan(0);
+
+    fireEvent.click(semantic);
+    expect(screen.getByRole("dialog", { name: "Activar la búsqueda por significado" })).toBeInTheDocument();
+    expect(state.setValue).not.toHaveBeenCalledWith("embeddings_provider", expect.anything());
   });
 });
 

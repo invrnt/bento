@@ -24,7 +24,6 @@ import { Card } from "../../components/Card";
 import { PageHeader } from "../../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/States";
 import type { JobRecord, JobStatus, JobType } from "../../api/jobs";
-import type { SmartSearchJobType } from "../../api/smartSearch";
 import { t } from "../../i18n/dictionary";
 import type { MessageKey } from "../../i18n/dictionary";
 import { cx } from "../../lib/cx";
@@ -71,8 +70,8 @@ const statusLabels: Record<JobStatus, MessageKey> = {
   succeeded: "jobs.status.succeeded",
 };
 
-// Smart search adds `model_download` and `reembed` (Stage 24); their labels live with the feature.
-const typeLabels: Record<JobType | SmartSearchJobType, MessageKey> = {
+// `model_download` and `reembed` belong to smart search (Stage 24); their labels live with the feature.
+const typeLabels: Record<JobType, MessageKey> = {
   embedding: "jobs.type.embedding",
   journal_export: "jobs.type.journal_export",
   metadata: "jobs.type.metadata",
@@ -86,7 +85,7 @@ const typeLabels: Record<JobType | SmartSearchJobType, MessageKey> = {
   video_thumbnail: "jobs.type.video_thumbnail",
 };
 
-const typeIcons: Record<JobType | SmartSearchJobType, LucideIcon> = {
+const typeIcons: Record<JobType, LucideIcon> = {
   embedding: Sparkles,
   journal_export: BookOpen,
   metadata: Tags,
@@ -262,7 +261,7 @@ function jobStatusLabel(status: JobStatus): string {
   return t(statusLabels[status] ?? "common.unknown");
 }
 
-function jobTypeLabel(type: JobType | SmartSearchJobType): string {
+function jobTypeLabel(type: JobType): string {
   return t(typeLabels[type] ?? "common.unknown");
 }
 
