@@ -1,6 +1,6 @@
 // Build = copy src/ to dist/, minify HTML/CSS conservatively, resolve download links, apply the public
-// origin to SEO/share URLs, emit sitemap.xml when origin is configured, and generate
-// /.well-known/assetlinks.json from site.config.json.
+// origin to SEO/share URLs, emit sitemap.xml (and the IndexNow key file) when origin is configured,
+// and generate /.well-known/assetlinks.json from site.config.json.
 // `--production` (used by `npm run deploy`) refuses placeholder Android certificate fingerprints.
 import { mkdir, readFile, readdir, rm, writeFile, copyFile } from "node:fs/promises";
 import path from "node:path";
@@ -8,16 +8,9 @@ import { fileURLToPath } from "node:url";
 import { minifyCss, minifyHtml } from "./lib/minify.mjs";
 import { applyRelease, validateConfig } from "./lib/release.mjs";
 import { applyAndroidRelease, assertProductionReady, assetLinksJson } from "./lib/android.mjs";
+import { buildSitemap, validateIndexNowKey } from "./lib/seo.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-
-const SITEMAP_PAIRS = [
-  { es: "/", en: "/en/", priority: "1.0" },
-  { es: "/android/", en: "/en/android/", priority: "0.9" },
-  { es: "/security/", en: "/en/security/", priority: "0.8" },
-  { es: "/privacy/", en: "/en/privacy/", priority: "0.5" },
-  { es: "/terms/", en: "/en/terms/", priority: "0.5" },
-];
 
 export async function build({
   source = path.join(root, "src"),
@@ -28,6 +21,7 @@ export async function build({
   const rawConfig = config ?? JSON.parse(await readFile(path.join(root, "site.config.json"), "utf8"));
   const resolvedConfig = validateConfig(rawConfig);
   const origin = validateOrigin(rawConfig.origin ?? null);
+  const indexNowKey = validateIndexNowKey(rawConfig.indexNowKey);
   const { android } = resolvedConfig;
   if (android === null) throw new Error("site.config.json: the android block is required (package and signing certificate fingerprints)");
   if (production) assertProductionReady(android);
@@ -56,6 +50,11 @@ export async function build({
   if (origin) {
     await writeFile(path.join(output, "sitemap.xml"), buildSitemap(origin), "utf8");
     written += 1;
+    if (indexNowKey) {
+      // IndexNow verifies ownership by fetching /<key>.txt and comparing its body with the key.
+      await writeFile(path.join(output, `${indexNowKey}.txt`), indexNowKey, "utf8");
+      written += 1;
+    }
   }
   // Served byte-for-byte at this exact path (no redirect); _headers sets application/json.
   await mkdir(path.join(output, ".well-known"), { recursive: true });
@@ -86,26 +85,6 @@ function applyOrigin(html, origin) {
     .replace(/(<meta (?:property|name)="(?:og:image|og:url|twitter:image)" content=")\//gu, `$1${origin}/`)
     .replace(/(<link rel="canonical" href=")\//gu, `$1${origin}/`)
     .replace(/(<link rel="alternate" hreflang="[^"]+" href=")\//gu, `$1${origin}/`);
-}
-
-function buildSitemap(origin) {
-  const lines = [
-    '<?xml version="1.0" encoding="UTF-8"?>',
-    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">',
-  ];
-  for (const pair of SITEMAP_PAIRS) {
-    for (const locPath of [pair.es, pair.en]) {
-      lines.push("  <url>");
-      lines.push(`    <loc>${origin}${locPath}</loc>`);
-      lines.push(`    <xhtml:link rel="alternate" hreflang="es" href="${origin}${pair.es}"/>`);
-      lines.push(`    <xhtml:link rel="alternate" hreflang="en" href="${origin}${pair.en}"/>`);
-      lines.push(`    <xhtml:link rel="alternate" hreflang="x-default" href="${origin}${pair.en}"/>`);
-      lines.push(`    <priority>${pair.priority}</priority>`);
-      lines.push("  </url>");
-    }
-  }
-  lines.push("</urlset>");
-  return `${lines.join("\n")}\n`;
 }
 
 async function walk(directory) {
