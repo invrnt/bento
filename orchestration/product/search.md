@@ -52,6 +52,18 @@ Rules:
 - If query contains date/month/year, apply temporal filter or boost.
 - If embeddings are disabled/unavailable, vector score is omitted.
 
+## Smart search (search by meaning)
+
+Contract: `api/smart-search-contract.md`. Program: `execution/smart-search-program.md`.
+
+- `vector_score` comes only from the **active embedding space**. Vectors from other spaces, including legacy and foreign peer spaces, are never compared.
+- Queries are embedded with the model's query prefix; documents are embedded with the document prefix and the file name as title.
+- An asset's `vector_score` is the best cosine among its chunks (≤ 16 chunks of ≤ 512 tokens).
+- Vector search is used only while `search_available` (`ready` or `indexing`). In every other state, and whenever the API cannot reach the local embedding server, search silently uses name, folder, OCR, metadata and FTS as today, and `semantic` never appears in `match_reasons`.
+- v1 is text only. Photos match by meaning through their OCR text and metadata (album, place, date, file name), not their pixels (D5).
+- Android does not offer it in v1 (D6).
+- Default space: EmbeddingGemma 2 at 512 dims (D1, D9). Measured on a Ryzen 7 5800H: about 21 ms per query embedding at p50.
+
 ## Explanation
 
 Every result includes a human-readable reason, such as `Coincidio por OCR y tipo de documento`.

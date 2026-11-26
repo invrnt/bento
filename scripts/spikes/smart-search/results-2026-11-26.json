@@ -1,0 +1,1900 @@
+{
+  "llama_server_version": "version: 1.1.0-dev (build 12777, commit caea914e9)\nbuilt with GNU 11.4.0 for Linux x86_64",
+  "threads": 4,
+  "results": [
+    {
+      "model": "embeddinggemma-2-q8_0",
+      "file": "embeddinggemma-2-Q8_0.gguf",
+      "bytes": 309855456,
+      "first_query_after_cold_s": 0.016468248999899515,
+      "cold_start_s": 0.964279155999975,
+      "warm_start_s": 0.7714537740002925,
+      "rss_idle_kib": {
+        "VmHWM": 484780,
+        "VmRSS": 484780,
+        "RssAnon": 177912,
+        "RssFile": 306868
+      },
+      "estimator": {
+        "docs_ratio_min": 1.03125,
+        "docs_ratio_median": 1.2366946778711485,
+        "chunk_real_tokens_mean": 379.5625,
+        "chunk_real_tokens_max": 437
+      },
+      "query_ms": {
+        "p50": 20.769711999946594,
+        "p95": 24.186162750083895,
+        "n": 126
+      },
+      "throughput": {
+        "chunks": 32,
+        "seconds": 18.353813096000067,
+        "chunks_per_s": 1.7435069123033573
+      },
+      "short_docs_per_s": 12.826360145152456,
+      "rss_after_kib": {
+        "VmHWM": 540968,
+        "VmRSS": 540968,
+        "RssAnon": 234100,
+        "RssFile": 306868
+      },
+      "native_dims": 768,
+      "retrieval": {
+        "768": {
+          "summary": {
+            "es": {
+              "recall5": 0.9933333333333334,
+              "mrr": 1.0,
+              "n": 30
+            },
+            "all": {
+              "recall5": 0.9952380952380951,
+              "mrr": 0.9880952380952381,
+              "n": 42
+            },
+            "en": {
+              "recall5": 1.0,
+              "mrr": 1.0,
+              "n": 7
+            },
+            "es->en": {
+              "recall5": 1.0,
+              "mrr": 0.875,
+              "n": 4
+            },
+            "en->es": {
+              "recall5": 1.0,
+              "mrr": 1.0,
+              "n": 1
+            }
+          },
+          "queries": [
+            {
+              "id": "q01",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "luz-2026-03",
+                "gas-2026-3",
+                "movil-2026-03"
+              ]
+            },
+            {
+              "id": "q02",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "agua-2026-4",
+                "agua-2026-5",
+                "agua-2026-3"
+              ]
+            },
+            {
+              "id": "q03",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "dni",
+                "nie",
+                "pasaporte"
+              ]
+            },
+            {
+              "id": "q04",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "pasaporte",
+                "tarjeta-embarque-bogota",
+                "nie"
+              ]
+            },
+            {
+              "id": "q05",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "carnet-conducir",
+                "nie",
+                "dni"
+              ]
+            },
+            {
+              "id": "q06",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-paella-marisco",
+                "receta-paella",
+                "receta-sancocho"
+              ]
+            },
+            {
+              "id": "q07",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-gazpacho",
+                "receta-cafe",
+                "lista-compra"
+              ]
+            },
+            {
+              "id": "q08",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-flan",
+                "receta-croquetas",
+                "receta-bizcocho"
+              ]
+            },
+            {
+              "id": "q09",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-sancocho",
+                "receta-ajiaco",
+                "receta-tortilla"
+              ]
+            },
+            {
+              "id": "q10",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "tarjeta-embarque-bogota",
+                "tarjeta-embarque-mexico",
+                "seguro-viaje"
+              ]
+            },
+            {
+              "id": "q11",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "hotel-lisboa",
+                "hotel-oporto",
+                "tarjeta-embarque-lisboa"
+              ]
+            },
+            {
+              "id": "q12",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "itinerario-japon",
+                "viaje-mexico",
+                "ticket-rest-2"
+              ]
+            },
+            {
+              "id": "q13",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "tren-renfe",
+                "check-in-online",
+                "tren-3"
+              ]
+            },
+            {
+              "id": "q14",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "contrato-laboral",
+                "nie",
+                "contrato-alquiler"
+              ]
+            },
+            {
+              "id": "q15",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "nomina-2026-02",
+                "extracto-2026-02",
+                "gas-2026-2"
+              ]
+            },
+            {
+              "id": "q16",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "analitica",
+                "tarjeta-credito",
+                "ticket-super-8"
+              ]
+            },
+            {
+              "id": "q17",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "vacuna-perro",
+                "vacunas",
+                "adopcion-gato"
+              ]
+            },
+            {
+              "id": "q18",
+              "recall5": 0.8,
+              "rr": 1.0,
+              "top3": [
+                "foto-playa-concha",
+                "foto-02",
+                "foto-01"
+              ]
+            },
+            {
+              "id": "q19",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "foto-cumple-playa",
+                "cumple-invitacion",
+                "foto-02"
+              ]
+            },
+            {
+              "id": "q20",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "contrato-alquiler",
+                "gimnasio",
+                "agua-2026-5"
+              ]
+            },
+            {
+              "id": "q21",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "renta-2025",
+                "certificado-retenciones",
+                "extracto-2026-12"
+              ]
+            },
+            {
+              "id": "q22",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "ibi",
+                "renta-2025",
+                "cert-empadronamiento"
+              ]
+            },
+            {
+              "id": "q23",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "seguro-coche",
+                "seguro-moto",
+                "alquiler-coche"
+              ]
+            },
+            {
+              "id": "q24",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "manual-caldera",
+                "wifi",
+                "gas-2026-3"
+              ]
+            },
+            {
+              "id": "q25",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "boletin-notas",
+                "foto-cumple-playa",
+                "libro-notas"
+              ]
+            },
+            {
+              "id": "q26",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "multa",
+                "carnet-conducir",
+                "alquiler-coche"
+              ]
+            },
+            {
+              "id": "q27",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "mudanza",
+                "extracto-2026-05",
+                "extracto-2026-11"
+              ]
+            },
+            {
+              "id": "q28",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "foto-nieve",
+                "foto-montana",
+                "foto-navidad"
+              ]
+            },
+            {
+              "id": "q29",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "ticket-super-3",
+                "ticket-super-8",
+                "ticket-super-1"
+              ]
+            },
+            {
+              "id": "q30",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "vacunas",
+                "tarjeta-embarque-mexico",
+                "seguro-viaje"
+              ]
+            },
+            {
+              "id": "q31",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "luz-2026-03",
+                "gas-2026-3",
+                "en-misc-1"
+              ]
+            },
+            {
+              "id": "q32",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "pasaporte",
+                "visa-us",
+                "tarjeta-embarque-bogota"
+              ]
+            },
+            {
+              "id": "q33",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-tortilla",
+                "receta-pancakes",
+                "receta-banana-bread"
+              ]
+            },
+            {
+              "id": "q34",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "tarjeta-embarque-bogota",
+                "tarjeta-embarque-mexico",
+                "tarjeta-embarque-lisboa"
+              ]
+            },
+            {
+              "id": "q35",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "contrato-laboral",
+                "nomina-2026-12",
+                "nomina-2026-01"
+              ]
+            },
+            {
+              "id": "q36",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-pancakes",
+                "receta-banana-bread",
+                "receta-arepas"
+              ]
+            },
+            {
+              "id": "q37",
+              "recall5": 1.0,
+              "rr": 0.5,
+              "top3": [
+                "certificado-retenciones",
+                "informe-trimestral",
+                "extracto-2026-03"
+              ]
+            },
+            {
+              "id": "q38",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "nda-cliente",
+                "nda",
+                "contrato-laboral"
+              ]
+            },
+            {
+              "id": "q39",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-banana-bread",
+                "receta-bizcocho",
+                "receta-empanadas"
+              ]
+            },
+            {
+              "id": "q40",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "hotel-tokio",
+                "itinerario-japon",
+                "foto-tokio"
+              ]
+            },
+            {
+              "id": "q41",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "vacuna-perro",
+                "vacunas",
+                "tarjeta-embarque-bogota"
+              ]
+            },
+            {
+              "id": "q42",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-brownies",
+                "receta-banana-bread",
+                "ticket-rest-6"
+              ]
+            }
+          ]
+        },
+        "512": {
+          "summary": {
+            "es": {
+              "recall5": 0.9933333333333334,
+              "mrr": 1.0,
+              "n": 30
+            },
+            "all": {
+              "recall5": 0.9714285714285713,
+              "mrr": 0.977891156462585,
+              "n": 42
+            },
+            "en": {
+              "recall5": 1.0,
+              "mrr": 1.0,
+              "n": 7
+            },
+            "es->en": {
+              "recall5": 0.75,
+              "mrr": 0.7678571428571429,
+              "n": 4
+            },
+            "en->es": {
+              "recall5": 1.0,
+              "mrr": 1.0,
+              "n": 1
+            }
+          },
+          "queries": [
+            {
+              "id": "q01",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "luz-2026-03",
+                "gas-2026-3",
+                "movil-2026-03"
+              ]
+            },
+            {
+              "id": "q02",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "agua-2026-4",
+                "agua-2026-3",
+                "agua-2026-5"
+              ]
+            },
+            {
+              "id": "q03",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "dni",
+                "nie",
+                "pasaporte"
+              ]
+            },
+            {
+              "id": "q04",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "pasaporte",
+                "tarjeta-embarque-bogota",
+                "nie"
+              ]
+            },
+            {
+              "id": "q05",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "carnet-conducir",
+                "nie",
+                "dni"
+              ]
+            },
+            {
+              "id": "q06",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-paella-marisco",
+                "receta-paella",
+                "receta-sancocho"
+              ]
+            },
+            {
+              "id": "q07",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-gazpacho",
+                "receta-cafe",
+                "receta-sancocho"
+              ]
+            },
+            {
+              "id": "q08",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-flan",
+                "receta-croquetas",
+                "receta-bizcocho"
+              ]
+            },
+            {
+              "id": "q09",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-sancocho",
+                "receta-ajiaco",
+                "receta-tortilla"
+              ]
+            },
+            {
+              "id": "q10",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "tarjeta-embarque-bogota",
+                "tarjeta-embarque-mexico",
+                "seguro-viaje"
+              ]
+            },
+            {
+              "id": "q11",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "hotel-lisboa",
+                "hotel-oporto",
+                "tarjeta-embarque-lisboa"
+              ]
+            },
+            {
+              "id": "q12",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "itinerario-japon",
+                "viaje-mexico",
+                "ticket-rest-2"
+              ]
+            },
+            {
+              "id": "q13",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "tren-renfe",
+                "check-in-online",
+                "tren-5"
+              ]
+            },
+            {
+              "id": "q14",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "contrato-laboral",
+                "nie",
+                "contrato-alquiler"
+              ]
+            },
+            {
+              "id": "q15",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "nomina-2026-02",
+                "extracto-2026-02",
+                "gas-2026-2"
+              ]
+            },
+            {
+              "id": "q16",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "analitica",
+                "ticket-super-8",
+                "tarjeta-credito"
+              ]
+            },
+            {
+              "id": "q17",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "vacuna-perro",
+                "vacunas",
+                "adopcion-gato"
+              ]
+            },
+            {
+              "id": "q18",
+              "recall5": 0.8,
+              "rr": 1.0,
+              "top3": [
+                "foto-playa-concha",
+                "foto-02",
+                "foto-01"
+              ]
+            },
+            {
+              "id": "q19",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "foto-cumple-playa",
+                "cumple-invitacion",
+                "foto-playa-concha"
+              ]
+            },
+            {
+              "id": "q20",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "contrato-alquiler",
+                "gimnasio",
+                "gas-2026-3"
+              ]
+            },
+            {
+              "id": "q21",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "renta-2025",
+                "certificado-retenciones",
+                "extracto-2026-12"
+              ]
+            },
+            {
+              "id": "q22",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "ibi",
+                "cert-empadronamiento",
+                "renta-2025"
+              ]
+            },
+            {
+              "id": "q23",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "seguro-coche",
+                "seguro-moto",
+                "alquiler-coche"
+              ]
+            },
+            {
+              "id": "q24",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "manual-caldera",
+                "gas-2026-3",
+                "garantia-lavadora"
+              ]
+            },
+            {
+              "id": "q25",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "boletin-notas",
+                "foto-cumple-playa",
+                "libro-notas"
+              ]
+            },
+            {
+              "id": "q26",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "multa",
+                "carnet-conducir",
+                "alquiler-coche"
+              ]
+            },
+            {
+              "id": "q27",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "mudanza",
+                "extracto-2026-11",
+                "extracto-2026-12"
+              ]
+            },
+            {
+              "id": "q28",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "foto-nieve",
+                "foto-montana",
+                "foto-playa-concha"
+              ]
+            },
+            {
+              "id": "q29",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "ticket-super-3",
+                "ticket-super-8",
+                "ticket-super-4"
+              ]
+            },
+            {
+              "id": "q30",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "vacunas",
+                "seguro-viaje",
+                "tarjeta-embarque-mexico"
+              ]
+            },
+            {
+              "id": "q31",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "luz-2026-03",
+                "gas-2026-3",
+                "en-misc-1"
+              ]
+            },
+            {
+              "id": "q32",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "pasaporte",
+                "visa-us",
+                "tarjeta-embarque-bogota"
+              ]
+            },
+            {
+              "id": "q33",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-tortilla",
+                "receta-pancakes",
+                "receta-banana-bread"
+              ]
+            },
+            {
+              "id": "q34",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "tarjeta-embarque-bogota",
+                "tarjeta-embarque-mexico",
+                "tarjeta-embarque-lisboa"
+              ]
+            },
+            {
+              "id": "q35",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "contrato-laboral",
+                "nomina-2026-12",
+                "onboarding-guide"
+              ]
+            },
+            {
+              "id": "q36",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-pancakes",
+                "receta-banana-bread",
+                "receta-brownies"
+              ]
+            },
+            {
+              "id": "q37",
+              "recall5": 0.0,
+              "rr": 0.07142857142857142,
+              "top3": [
+                "certificado-retenciones",
+                "extracto-2026-07",
+                "agua-2026-5"
+              ]
+            },
+            {
+              "id": "q38",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "nda-cliente",
+                "nda",
+                "contrato-laboral"
+              ]
+            },
+            {
+              "id": "q39",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-banana-bread",
+                "receta-bizcocho",
+                "receta-tortilla"
+              ]
+            },
+            {
+              "id": "q40",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "hotel-tokio",
+                "hotel-lisboa",
+                "itinerario-japon"
+              ]
+            },
+            {
+              "id": "q41",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "vacuna-perro",
+                "vacunas",
+                "en-misc-6"
+              ]
+            },
+            {
+              "id": "q42",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-brownies",
+                "receta-banana-bread",
+                "ticket-rest-6"
+              ]
+            }
+          ]
+        },
+        "256": {
+          "summary": {
+            "es": {
+              "recall5": 0.9933333333333334,
+              "mrr": 1.0,
+              "n": 30
+            },
+            "all": {
+              "recall5": 0.9714285714285713,
+              "mrr": 0.9770723104056438,
+              "n": 42
+            },
+            "en": {
+              "recall5": 1.0,
+              "mrr": 1.0,
+              "n": 7
+            },
+            "es->en": {
+              "recall5": 0.75,
+              "mrr": 0.7592592592592593,
+              "n": 4
+            },
+            "en->es": {
+              "recall5": 1.0,
+              "mrr": 1.0,
+              "n": 1
+            }
+          },
+          "queries": [
+            {
+              "id": "q01",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "luz-2026-03",
+                "gas-2026-3",
+                "movil-2026-03"
+              ]
+            },
+            {
+              "id": "q02",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "agua-2026-4",
+                "agua-2026-3",
+                "agua-2026-5"
+              ]
+            },
+            {
+              "id": "q03",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "dni",
+                "nie",
+                "pasaporte"
+              ]
+            },
+            {
+              "id": "q04",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "pasaporte",
+                "nie",
+                "tarjeta-embarque-mexico"
+              ]
+            },
+            {
+              "id": "q05",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "carnet-conducir",
+                "nie",
+                "dni"
+              ]
+            },
+            {
+              "id": "q06",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-paella-marisco",
+                "receta-paella",
+                "receta-ceviche"
+              ]
+            },
+            {
+              "id": "q07",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-gazpacho",
+                "receta-sancocho",
+                "receta-cafe"
+              ]
+            },
+            {
+              "id": "q08",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-flan",
+                "receta-croquetas",
+                "receta-bizcocho"
+              ]
+            },
+            {
+              "id": "q09",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-sancocho",
+                "receta-ajiaco",
+                "receta-ceviche"
+              ]
+            },
+            {
+              "id": "q10",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "tarjeta-embarque-bogota",
+                "tarjeta-embarque-mexico",
+                "seguro-viaje"
+              ]
+            },
+            {
+              "id": "q11",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "hotel-lisboa",
+                "hotel-oporto",
+                "tarjeta-embarque-lisboa"
+              ]
+            },
+            {
+              "id": "q12",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "itinerario-japon",
+                "viaje-mexico",
+                "ticket-rest-2"
+              ]
+            },
+            {
+              "id": "q13",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "tren-renfe",
+                "check-in-online",
+                "tren-3"
+              ]
+            },
+            {
+              "id": "q14",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "contrato-laboral",
+                "nie",
+                "contrato-alquiler"
+              ]
+            },
+            {
+              "id": "q15",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "nomina-2026-02",
+                "extracto-2026-02",
+                "nomina-2026-03"
+              ]
+            },
+            {
+              "id": "q16",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "analitica",
+                "ticket-super-4",
+                "foto-recibo-restaurante"
+              ]
+            },
+            {
+              "id": "q17",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "vacuna-perro",
+                "vacunas",
+                "adopcion-gato"
+              ]
+            },
+            {
+              "id": "q18",
+              "recall5": 0.8,
+              "rr": 1.0,
+              "top3": [
+                "foto-02",
+                "foto-playa-concha",
+                "foto-01"
+              ]
+            },
+            {
+              "id": "q19",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "foto-cumple-playa",
+                "foto-playa-concha",
+                "foto-02"
+              ]
+            },
+            {
+              "id": "q20",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "contrato-alquiler",
+                "gimnasio",
+                "nomina-2026-01"
+              ]
+            },
+            {
+              "id": "q21",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "renta-2025",
+                "certificado-retenciones",
+                "extracto-2026-12"
+              ]
+            },
+            {
+              "id": "q22",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "ibi",
+                "cert-empadronamiento",
+                "renta-2025"
+              ]
+            },
+            {
+              "id": "q23",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "seguro-coche",
+                "seguro-moto",
+                "alquiler-coche"
+              ]
+            },
+            {
+              "id": "q24",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "manual-caldera",
+                "gas-2026-2",
+                "garantia-lavadora"
+              ]
+            },
+            {
+              "id": "q25",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "boletin-notas",
+                "foto-cumple-playa",
+                "matricula"
+              ]
+            },
+            {
+              "id": "q26",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "multa",
+                "seguro-coche",
+                "ticket-super-8"
+              ]
+            },
+            {
+              "id": "q27",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "mudanza",
+                "seguro-hogar",
+                "ikea"
+              ]
+            },
+            {
+              "id": "q28",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "foto-nieve",
+                "foto-montana",
+                "foto-playa-concha"
+              ]
+            },
+            {
+              "id": "q29",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "ticket-super-3",
+                "ticket-super-8",
+                "ticket-super-1"
+              ]
+            },
+            {
+              "id": "q30",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "vacunas",
+                "seguro-viaje",
+                "tarjeta-embarque-mexico"
+              ]
+            },
+            {
+              "id": "q31",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "luz-2026-03",
+                "gas-2026-3",
+                "luz-2026-02"
+              ]
+            },
+            {
+              "id": "q32",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "pasaporte",
+                "nie",
+                "visa-us"
+              ]
+            },
+            {
+              "id": "q33",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-tortilla",
+                "receta-pancakes",
+                "receta-banana-bread"
+              ]
+            },
+            {
+              "id": "q34",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "tarjeta-embarque-bogota",
+                "tarjeta-embarque-mexico",
+                "tarjeta-embarque-lisboa"
+              ]
+            },
+            {
+              "id": "q35",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "contrato-laboral",
+                "onboarding-guide",
+                "nomina-2026-01"
+              ]
+            },
+            {
+              "id": "q36",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-pancakes",
+                "receta-banana-bread",
+                "receta-tortilla"
+              ]
+            },
+            {
+              "id": "q37",
+              "recall5": 0.0,
+              "rr": 0.037037037037037035,
+              "top3": [
+                "certificado-retenciones",
+                "extracto-2026-07",
+                "extracto-2026-04"
+              ]
+            },
+            {
+              "id": "q38",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "nda-cliente",
+                "nda",
+                "contrato-laboral"
+              ]
+            },
+            {
+              "id": "q39",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-banana-bread",
+                "receta-tortilla",
+                "receta-bizcocho"
+              ]
+            },
+            {
+              "id": "q40",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "hotel-tokio",
+                "foto-tokio",
+                "hotel-lisboa"
+              ]
+            },
+            {
+              "id": "q41",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "vacuna-perro",
+                "vacunas",
+                "en-misc-6"
+              ]
+            },
+            {
+              "id": "q42",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-brownies",
+                "receta-banana-bread",
+                "ticket-rest-5"
+              ]
+            }
+          ]
+        }
+      },
+      "special_tokens_hola": [
+        2,
+        122310,
+        1
+      ]
+    },
+    {
+      "model": "qwen3-embedding-0.6b-q8_0",
+      "file": "Qwen3-Embedding-0.6B-Q8_0.gguf",
+      "bytes": 639150592,
+      "first_query_after_cold_s": 0.0646239500001684,
+      "cold_start_s": 0.7300466329998017,
+      "warm_start_s": 0.4003175640000336,
+      "rss_idle_kib": {
+        "VmHWM": 962776,
+        "VmRSS": 962776,
+        "RssAnon": 323672,
+        "RssFile": 639104
+      },
+      "estimator": {
+        "docs_ratio_min": 0.9259259259259259,
+        "docs_ratio_median": 1.1333333333333333,
+        "chunk_real_tokens_mean": 419.75,
+        "chunk_real_tokens_max": 459
+      },
+      "query_ms": {
+        "p50": 77.77469899997413,
+        "p95": 89.32231975006744,
+        "n": 126
+      },
+      "throughput": {
+        "chunks": 32,
+        "seconds": 50.122427866999715,
+        "chunks_per_s": 0.6384367510071992
+      },
+      "short_docs_per_s": 5.955498120538422,
+      "rss_after_kib": {
+        "VmHWM": 998032,
+        "VmRSS": 998032,
+        "RssAnon": 358928,
+        "RssFile": 639104
+      },
+      "native_dims": 1024,
+      "retrieval": {
+        "1024": {
+          "summary": {
+            "es": {
+              "recall5": 0.9600000000000001,
+              "mrr": 0.8919191919191919,
+              "n": 30
+            },
+            "all": {
+              "recall5": 0.9476190476190476,
+              "mrr": 0.8854978354978355,
+              "n": 42
+            },
+            "en": {
+              "recall5": 1.0,
+              "mrr": 0.9047619047619048,
+              "n": 7
+            },
+            "es->en": {
+              "recall5": 0.75,
+              "mrr": 0.775,
+              "n": 4
+            },
+            "en->es": {
+              "recall5": 1.0,
+              "mrr": 1.0,
+              "n": 1
+            }
+          },
+          "queries": [
+            {
+              "id": "q01",
+              "recall5": 1.0,
+              "rr": 0.3333333333333333,
+              "top3": [
+                "gas-2026-3",
+                "extracto-2026-03",
+                "luz-2026-03"
+              ]
+            },
+            {
+              "id": "q02",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "agua-2026-4",
+                "agua-2026-5",
+                "agua-2026-6"
+              ]
+            },
+            {
+              "id": "q03",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "dni",
+                "nie",
+                "tarjeta-sanitaria"
+              ]
+            },
+            {
+              "id": "q04",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "pasaporte",
+                "nie",
+                "visa-us"
+              ]
+            },
+            {
+              "id": "q05",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "carnet-conducir",
+                "en-misc-5",
+                "itv"
+              ]
+            },
+            {
+              "id": "q06",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-paella-marisco",
+                "receta-curry",
+                "receta-arepas"
+              ]
+            },
+            {
+              "id": "q07",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-gazpacho",
+                "receta-tortilla",
+                "receta-guacamole"
+              ]
+            },
+            {
+              "id": "q08",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-flan",
+                "receta-brownies",
+                "receta-banana-bread"
+              ]
+            },
+            {
+              "id": "q09",
+              "recall5": 1.0,
+              "rr": 0.5,
+              "top3": [
+                "receta-paella",
+                "receta-ajiaco",
+                "receta-sancocho"
+              ]
+            },
+            {
+              "id": "q10",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "tarjeta-embarque-bogota",
+                "tren-3",
+                "tarjeta-embarque-mexico"
+              ]
+            },
+            {
+              "id": "q11",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "hotel-lisboa",
+                "hotel-oporto",
+                "tarjeta-embarque-lisboa"
+              ]
+            },
+            {
+              "id": "q12",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "itinerario-japon",
+                "foto-tokio",
+                "viaje-mexico"
+              ]
+            },
+            {
+              "id": "q13",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "tren-renfe",
+                "check-in-online",
+                "tren-2"
+              ]
+            },
+            {
+              "id": "q14",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "contrato-laboral",
+                "onboarding-guide",
+                "adopcion-gato"
+              ]
+            },
+            {
+              "id": "q15",
+              "recall5": 1.0,
+              "rr": 0.3333333333333333,
+              "top3": [
+                "extracto-2026-02",
+                "gas-2026-2",
+                "nomina-2026-02"
+              ]
+            },
+            {
+              "id": "q16",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "analitica",
+                "tarjeta-credito",
+                "ticket-super-2"
+              ]
+            },
+            {
+              "id": "q17",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "vacuna-perro",
+                "vacunas",
+                "adopcion-gato"
+              ]
+            },
+            {
+              "id": "q18",
+              "recall5": 0.8,
+              "rr": 1.0,
+              "top3": [
+                "foto-02",
+                "foto-01",
+                "foto-playa-concha"
+              ]
+            },
+            {
+              "id": "q19",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "foto-cumple-playa",
+                "foto-playa-concha",
+                "foto-cumple-parque"
+              ]
+            },
+            {
+              "id": "q20",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "contrato-alquiler",
+                "gimnasio",
+                "hipoteca"
+              ]
+            },
+            {
+              "id": "q21",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "renta-2025",
+                "transferencia",
+                "extracto-2026-09"
+              ]
+            },
+            {
+              "id": "q22",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "ibi",
+                "comunidad",
+                "cert-empadronamiento"
+              ]
+            },
+            {
+              "id": "q23",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "seguro-coche",
+                "seguro-moto",
+                "en-misc-5"
+              ]
+            },
+            {
+              "id": "q24",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "manual-caldera",
+                "garantia-lavadora",
+                "annual-report"
+              ]
+            },
+            {
+              "id": "q25",
+              "recall5": 1.0,
+              "rr": 0.5,
+              "top3": [
+                "foto-cumple-playa",
+                "boletin-notas",
+                "foto-boda"
+              ]
+            },
+            {
+              "id": "q26",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "multa",
+                "en-misc-5",
+                "carnet-conducir"
+              ]
+            },
+            {
+              "id": "q27",
+              "recall5": 0.0,
+              "rr": 0.09090909090909091,
+              "top3": [
+                "comunidad",
+                "propuesta-proyecto",
+                "extracto-2026-06"
+              ]
+            },
+            {
+              "id": "q28",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "foto-nieve",
+                "foto-10",
+                "captura-wifi-aeropuerto"
+              ]
+            },
+            {
+              "id": "q29",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "ticket-super-3",
+                "ticket-super-8",
+                "ticket-super-4"
+              ]
+            },
+            {
+              "id": "q30",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "vacunas",
+                "vacuna-perro",
+                "seguro-viaje"
+              ]
+            },
+            {
+              "id": "q31",
+              "recall5": 1.0,
+              "rr": 0.3333333333333333,
+              "top3": [
+                "gas-2026-3",
+                "extracto-2026-03",
+                "luz-2026-03"
+              ]
+            },
+            {
+              "id": "q32",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "pasaporte",
+                "nie",
+                "visa-us"
+              ]
+            },
+            {
+              "id": "q33",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-tortilla",
+                "receta-banana-bread",
+                "receta-pancakes"
+              ]
+            },
+            {
+              "id": "q34",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "tarjeta-embarque-bogota",
+                "check-in-online",
+                "tarjeta-embarque-lisboa"
+              ]
+            },
+            {
+              "id": "q35",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "contrato-laboral",
+                "nomina-2026-08",
+                "nomina-2026-09"
+              ]
+            },
+            {
+              "id": "q36",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-pancakes",
+                "receta-banana-bread",
+                "receta-flan"
+              ]
+            },
+            {
+              "id": "q37",
+              "recall5": 0.0,
+              "rr": 0.1,
+              "top3": [
+                "extracto-2026-03",
+                "extracto-2026-09",
+                "extracto-2026-10"
+              ]
+            },
+            {
+              "id": "q38",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "nda-cliente",
+                "nda",
+                "annual-report"
+              ]
+            },
+            {
+              "id": "q39",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-banana-bread",
+                "receta-flan",
+                "receta-sancocho"
+              ]
+            },
+            {
+              "id": "q40",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "hotel-tokio",
+                "itinerario-japon",
+                "hotel-oporto"
+              ]
+            },
+            {
+              "id": "q41",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "vacuna-perro",
+                "vacunas",
+                "en-misc-5"
+              ]
+            },
+            {
+              "id": "q42",
+              "recall5": 1.0,
+              "rr": 1.0,
+              "top3": [
+                "receta-brownies",
+                "ticket-super-2",
+                "receta-flan"
+              ]
+            }
+          ]
+        }
+      },
+      "special_tokens_hola": [
+        71,
+        7924,
+        151643
+      ]
+    }
+  ]
+}

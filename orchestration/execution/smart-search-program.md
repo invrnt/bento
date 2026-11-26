@@ -13,9 +13,9 @@ Binding research: `research/embedding-models-2026.md` (model choice, licenses, f
 | Fallback text | `Qwen/Qwen3-Embedding-0.6B-GGUF` @`370f27d7550e0def9b39c1f16d3fbaa13aa67728` | `Qwen3-Embedding-0.6B-Q8_0.gguf` | 639,150,592 | `06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439` | Apache-2.0 | 1024 (MRL 32-1024) | query `Instruct: Given a search query, retrieve relevant files\nQuery:{q}` · doc none · last pooling |
 | Runtime | `ggml-org/llama.cpp` tag `b12777` (minimum `b11454`, which adds the `gemma-embedding2` architecture) | `llama-server` built by Bento | — | per-build, in `SHA256SUMS` | MIT | — | — |
 
-`-c 2048 -ub 2048 -b 2048 -np 1 --pooling mean` for the default. `-c` must be set explicitly because the GGUF advertises 262,144 tokens. Never use F16 weights for EmbeddingGemma 2: its card warns that F16 produces NaN. The SHA-256 values are the HF LFS object ids and must be re-checked when the manifest is written.
+`-c 2048 -ub 2048 -b 2048 -np 1 --pooling mean` for the default (measured working at b12777, see the research doc §Measured). `-c` must be set explicitly because the GGUF advertises 262,144 tokens. Never use F16 weights for EmbeddingGemma 2: its card warns that F16 produces NaN. The SHA-256 values are the HF LFS object ids and must be re-checked when the manifest is written.
 
-Scope: web UI + desktop (Electron) + headless/CLI daemon + Docker. Android: decision in §Android below (query-only smart search behind a Stage 26 gate; full on-phone indexing is out of scope).
+Scope: web UI + desktop (Electron) + headless/CLI daemon + Docker. Android: off for v1 (D6); query-only smart search stays a possible later Stage 26 track (§Android), and full on-phone indexing is out of scope.
 
 ## Why the current code needs more than a model swap
 
@@ -65,7 +65,7 @@ Accessibility: the switch, sheet and progress are keyboard reachable in order; p
 
 Privacy: the download is the only network call. It sends no identifiers beyond what HTTPS needs (no cookies, no `Authorization`, a generic `User-Agent: Bento/<version>`). Everything else stays local. The privacy page names the download host (see §Legal).
 
-## Distribution decisions (proposed; owner confirms in §Decisions)
+## Distribution decisions (confirmed by the owner 2026-11-26, §Decisions D3/D4)
 
 - **Model file**: download from the publisher's Hugging Face repo, **pinned to a commit**: `https://huggingface.co/<repo>/resolve/<commit-sha>/<file>`, and verify against the SHA-256 that Hugging Face publishes for that LFS object (recorded in the manifest at pin time). Mirroring the file as a Bento GitHub release asset is allowed by Apache-2.0 if the LICENSE text goes along. The source repos ship no LICENSE file, so Bento ships the Apache-2.0 text from `infrastructure/models/licenses/` and is kept as the **fallback URL** in the manifest, uploaded by `bento-release`. Reasons for HF first: no 300 MB+ per-release upload, no bandwidth bill, and the pin plus hash gives the same integrity. Reasons to keep the mirror: HF outages, rate limits, or the publisher deleting the repo. The downloader tries the URLs in order; both must yield the same hash.
 - **llama.cpp server**: Bento builds `llama-server` itself from tag `b12777` (`scripts/build-llama-server.{sh,ps1}`, run by `bento-release` on each platform) for linux-x64, linux-arm64, win32-x64, win32-arm64, darwin-arm64 and darwin-x64.
@@ -110,7 +110,7 @@ infrastructure/models/        manifest.json, paths, binary resolution (packaged 
   - `EmbeddingRuntimePort.ensure(spec, paths) -> EndpointInfo`, `.stop()`, `.health()`.
   - `EmbeddingProviderPort.space -> EmbeddingSpace`, `embed_query(text)`, `embed_documents(texts)`, `embed_image(path)` (raises `Unsupported` for text-only spaces).
 - **Embedding space**: `EmbeddingSpace(id="<model_id>@<revision>/<dims>", dims, modalities)`. Every stored vector carries its `space_id`. Search only queries the active space. Synced `asset_index.embedding` gains `space` and is indexed only when it equals the local active space. Otherwise it is stored and indexed later, if the person switches to that space. Old peers that send only `provider` are treated as an unknown space.
-- **Chunking**: documents become ≤ 512-token windows. Token counts are estimated with a character budget per language (about 4 characters per token) and checked against the server's `/tokenize` in tests. Windows are capped at 16 chunks per asset, the first pages first. Vectors go into `asset_embedding_chunks(space_id, asset_id, chunk_no, vector)`. An asset's search score is the best of its chunks. Images: OCR text plus filename/EXIF/album metadata as text in v1. Image pixels are embedded only when the active space is multimodal (§Images).
+- **Chunking**: documents become ≤ 512-token windows. Token counts are estimated conservatively: letters and spaces count 3 characters per token, and digits, CJK and punctuation count 1 token each. The Stage 23 spike calibrated this against the server's `/tokenize`; the first rule, about 4 characters per token, under-counted Spanish by up to 1.8×. Windows are capped at 16 chunks per asset, the first pages first. Vectors go into `asset_embedding_chunks(space_id, asset_id, chunk_no, vector)`. An asset's search score is the best of its chunks. Images: OCR text plus filename/EXIF/album metadata as text in v1. Image pixels are embedded only when the active space is multimodal (§Images).
 - **Batching and CPU-safe defaults**: one embedding job per asset as today (`JobPriority.EMBEDDING` after thumbnails and OCR). Within a job, chunks are sent in batches of 8, with `worker_concurrency` 1. A new `embedding_threads` setting (default `min(4, max(1, cores // 2))`) goes to `-t`. Indexing pauses while on battery below 20 % (existing `DeviceConditions` on Android; desktop `powerMonitor` through the existing power hook). Thumbnails and OCR always run before embeddings.
 - **Settings changes** (`domain/settings_registry.py`, `application/settings.py`):
   - `embeddings_provider` choices become `disabled | managed | custom | mock`. `jina` is migrated to `custom` if `jina_model_path` points to an existing file, otherwise to `disabled`.
@@ -124,7 +124,7 @@ infrastructure/models/        manifest.json, paths, binary resolution (packaged 
   - Rewrite the settings rows: `jina` → `custom`/`disabled`, `jina_model_path` → `custom_model_path`.
   - Legacy vectors stay readable under their legacy space. They are not deleted until the person activates a managed space.
   - `vec0` virtual tables are created at runtime per space (`asset_embedding_vec_<hash8>`), because their dimension is part of the DDL. The migration does not create them.
-- **sqlite-vec**: add `sqlite-vec` (Apache-2.0/MIT dual) to the `desktop` extra and bundle its loadable extension through the PyInstaller spec (`collect_dynamic_libs("sqlite_vec")`). Keep the fallback for Docker dev, Android, and when the extension fails to load. Open decision D7.
+- **sqlite-vec**: add `sqlite-vec` (Apache-2.0/MIT dual) to the `desktop` extra and bundle its loadable extension through the PyInstaller spec (`collect_dynamic_libs("sqlite_vec")`). Keep the fallback for Docker dev, Android, and when the extension fails to load. Decided: bundle it now (D7).
 
 ## Images (search photos by description)
 
@@ -204,7 +204,7 @@ Exit: the backend suite is green. `scripts/local-ci.sh` is green. An end-to-end 
 
 | Agent | Owns |
 |---|---|
-| web-smart-search | `apps/web/src/features/settings/SmartSearchSection.tsx` (+ new `smart-search/` subfolder: sheet, progress, query hooks `useSmartSearchStatus`/mutations), `apps/web/src/api/smartSearch.ts`, i18n keys `smartSearch.*` in `apps/web/src/i18n/{es,en}/onboarding.ts`, `AdvancedSection.tsx` (model path field → custom model group), `JobsPage.tsx` (model_download/reembed labels), tests `apps/web/src/test/settings/smart-search*.test.tsx` |
+| web-smart-search | `apps/web/src/features/settings/SmartSearchSection.tsx` (+ new `smart-search/` subfolder: sheet, progress, query hooks `useSmartSearchStatus`/mutations), `apps/web/src/api/smartSearch.ts`, i18n keys `smartSearch.*` in `apps/web/src/i18n/{es,en}/onboarding.ts`, `AdvancedSection.tsx` (model path field → custom model group), `JobsPage.tsx` (model_download/reembed labels), the D8 onboarding suggestion (a new `features/onboarding/SmartSearchSuggestion.tsx` plus its one-line mount in `FirstRun.tsx`), tests `apps/web/src/test/settings/smart-search*.test.tsx` |
 | desktop-llama-packaging | `scripts/build-llama-server.{sh,ps1}`, `apps/desktop/forge.config.cjs` (`extraResource` llama-server), `apps/desktop/scripts/{build-sidecar,verify-artifacts,generate-sbom,checksums}.mjs` (llama-server entries), `apps/desktop/src/main/sidecars.ts` (pass `BENTO_LLAMA_SERVER_PATH` + power state to worker), `apps/api/packaging/bento-sidecar.spec` + `bento-cli.spec` (sqlite-vec extension; llama-server for CLI bundle), `docker/**` + `docker-compose.yml` (llama-server stage), release tool hooks for the optional model mirror asset, tests `apps/desktop/tests/llama-packaging.test.ts` |
 | smart-search-docs-legal | `docs/legal/{en,es}/*third-party*`, `apps/site/src/{privacy,terms,security}/index.html` + `apps/site/src/en/{privacy,terms,security}/index.html`, `docs/user/{es,en}/**` (smart search mentions), `docs/dev/smart-search.md` (pinning procedure, how to bump the model), `orchestration/README.md` status line, `CHANGELOG.md` entry |
 
@@ -243,18 +243,25 @@ Exit: the web, desktop and site suites are green. A manual pass on Linux, plus w
 | Gemma-terms obligations (if chosen) | D2; the notice and use-policy link shown before download |
 | Long PDFs slow indexing | 16-chunk cap, first pages first, the indexing state is visible |
 
-## Decisions for the owner
+## Decisions (owner, 2026-11-26)
 
-- **D1 — Default model.** Recommended: EmbeddingGemma 2 text Q8_0 (310 MB, Apache-2.0). Fallback: Qwen3-Embedding-0.6B Q8_0 (639 MB, over the ~500 MB guideline). Alternatively nomic-embed-text-v2-moe Q6_K (397 MB, 512-token context) if 500 MB is a hard ceiling.
-- **D2 — License posture.** EmbeddingGemma 2 is Apache-2.0, but its card adds "Deployments must adhere to the Gemma Prohibited Use Policy". Have counsel confirm that this line is acceptable, and decide whether Bento's terms should link the policy. The older Gemma Terms of Use models (EmbeddingGemma-300m) stay excluded.
-- **D3 — Download source.** HF pinned commit first with a GitHub-release mirror as fallback (recommended), HF only, or Bento mirror only. The mirror means Bento redistributes the model (licenses allow it) and pays the egress.
-- **D4 — Binary distribution.** Build and sign `llama-server` ourselves and bundle it in each installer (recommended; +12-25 MB), or re-sign the official archives, or download it on activation (not recommended: Gatekeeper, SmartScreen and a supply-chain cost).
-- **D5 — Image search path.** Recommended: v1 text-only (OCR + metadata) now, then the EmbeddingGemma 2 mmproj add-on (+555 MB) after the #30195 spike, with SigLIP2 ONNX as plan B. Choose the v2 path from the research options, or defer it. A caption-based path conflicts with the "no automatic captions" non-goal in `orchestration/README.md`. Choosing it means amending that line, for example to "captions only as an internal search signal, never shown or synced as content".
-- **D6 — Android.** Keep it off (v1, recommended for now), or fund the Stage 26 query-only spike.
-- **D7 — sqlite-vec.** Add it to the desktop bundle now, or keep the Python fallback until libraries exceed ~50 k vectors.
-- **D8 — Defaults.** Smart search stays opt-in (recommended), or is suggested in onboarding on machines with ≥ 4 cores and 8 GB RAM, as OCR already is.
-- **D9 — Matryoshka dims.** Full dims (best quality) or truncated (for example 256: ~3× smaller index, faster brute force, small recall loss).
+- **D1 — Default model: decided.** EmbeddingGemma 2 text Q8_0 (`ggml-org/embeddinggemma-2-GGUF` @`6ea3e3a309d12a4779cfda98b8c19800d2d5da71`, sha256 `2188ac1d…40b09135`, 310 MB, Apache-2.0) is the default. The fallback is Qwen3-Embedding-0.6B Q8_0 (@`370f27d7…`, sha256 `06507c7b…49c3e439`, 639 MB). The Stage 23 measurements support this: EG2 was better on quality, latency, throughput and RAM on this machine (research doc §Measured).
+- **D2 — License posture: open.** Counsel must review the "Deployments must adhere to the Gemma Prohibited Use Policy" line on the EG2 card, and whether Bento's terms should link the policy. This **blocks public release, not development**. The older Gemma Terms of Use models (EmbeddingGemma-300m) stay excluded.
+- **D3 — Download source: decided.** Hugging Face pinned to a commit first, then a Bento GitHub Releases mirror as fallback (with the Apache-2.0 text). Both URLs must yield the same hash.
+- **D4 — Binary distribution: decided.** Bento builds, signs and bundles `llama-server` itself in each installer (§Distribution). Bento never downloads executables at runtime.
+- **D5 — Image search: decided.** Text only for now (OCR + metadata through the text model). Photo search by pixels comes only after the Stage 26 spike (llama.cpp #30195 token counts, seconds per photo) for the EG2 mmproj; SigLIP2 on ONNX is plan B. No captioning.
+- **D6 — Android: decided, off for v1.** Search by meaning is not offered on Android. Peer vectors are still stored there ("stored, not indexed"). The query-only track in §Android stays unfunded.
+- **D7 — sqlite-vec: decided, bundle now.** Add `sqlite-vec` to the `desktop` extra and the PyInstaller specs in Stage 24/25. The Python fallback stays for Docker dev, Android and load failures.
+- **D8 — Defaults: decided.** Onboarding suggests smart search, like OCR, on machines with ≥ 4 cores and ≥ 8 GiB RAM (`suggest_in_onboarding`). Today's first-run flow (`FirstRun.tsx`) has no OCR or AI step (`ocr_provider` defaults to `disabled` on desktop), so Stage 25 web-smart-search adds the step. It is **never enabled without the person's consent**: the suggestion opens the same confirmation sheet with size, host and license, and nothing downloads until "Descargar y activar".
+- **D9 — Matryoshka dims: decided, 512.** This is a truncation of the 768-dimension EG2 vectors with re-normalisation (`default_dims: 512` in the manifest).
+  - Spike result: no clear loss on Spanish or English queries; recall@5 and MRR are identical at 768 and 512 for all 38 monolingual queries.
+  - Across all 42 queries, recall@5 went from 0.995 to 0.971 and MRR from 0.988 to 0.978. All of that loss is **one cross-language query** (Spanish query, English document) that drops out of the top 5 at 512 and 256.
+  - Recommendation: keep 512, and re-check cross-language recall with a larger set in Stage 24's opt-in `real_model` test before release. Move to 768 only if that set shows a consistent cross-language gap. It is a new space, so the switch is a re-index, not a migration.
 
 ## Status
 
-Planned (2026-11-26). Nothing implemented. Research: `research/embedding-models-2026.md`.
+- Stage 23 done on 2026-11-26.
+  - Domain contracts are in `domain/smart_search.py`, the ports in `ports/models.py` and `ports/providers.py`, and the tests in `tests/unit/smart_search/`. The API contract is `api/smart-search-contract.md`.
+  - The measurement spike is in `scripts/spikes/smart-search/`, with results in `research/embedding-models-2026.md` §Measured.
+- Decisions D1 and D3-D9 are taken. D2 is open and blocks public release only.
+- Stage 24 is next. Research: `research/embedding-models-2026.md`.

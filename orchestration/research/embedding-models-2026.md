@@ -67,7 +67,7 @@ The "Official GGUF" column counts only the publisher's own repo or `ggml-org` (t
   - **llama-cpp-python** 0.3.38 (MIT): wheels for most targets, but **no macOS x86_64 or Android wheel**, and image embeddings would need low-level mtmd glue. Rejected.
   - **ONNX Runtime** (already bundled on desktop): `onnx-community/embeddinggemma-2-ONNX` has `model_quantized` 313.7 MB + `vision_encoder_quantized` 195.2 MB. In-process with no extra binary, but it needs tokenizer and image-preprocessing glue (the official examples are Transformers.js only), the last macOS x86_64 ORT wheel is 1.23.2, and Chaquopy has no onnxruntime. Kept as the plan-B runtime if shipping a signed llama-server proves impossible.
 
-## Latency and RAM (est., 4-core x86 laptop, Q8_0, llama-server, `-np 1`)
+## Latency and RAM (est., 4-core x86 laptop, Q8_0, llama-server, `-np 1`; superseded by §Measured)
 
 No published CPU benchmark exists for these models. The figures below come from FLOP counts (about 2 × non-embedding params per token, at an effective 100-300 GFLOPS).
 
@@ -77,7 +77,71 @@ No published CPU benchmark exists for these models. The figures below come from 
 | EmbeddingGemma 2 + mmproj (image) | — | ~0.3-1 s per photo at about 280 image tokens | — | +~0.6 GB |
 | Qwen3-Embedding-0.6B (Q8_0) | ~30-80 ms | ~0.7-2 s | ~1-3 chunks/s | ~0.8-1.1 GB |
 
-Stage 24's opt-in `real_model` test records the real numbers in `execution/evidence/`.
+The Stage 23 spike measured them; see §Measured below. Stage 24's opt-in `real_model` test records further numbers in `execution/evidence/`.
+
+## Measured on a Ryzen 7 5800H laptop (Stage 23 spike, 2026-11-26)
+
+This replaces the estimates above for this class of machine. The script and fixture are in `scripts/spikes/smart-search/` (`bench.py`, `dataset.py`), and the raw output is in `results-2026-11-26.json`.
+
+**Setup**
+- Machine: AMD Ryzen 7 5800H (8 cores / 16 threads, Zen 3), 16 GB RAM, NVMe, Linux 7.2 (Arch-based), Python 3.13.15.
+- Runtime: the official release `llama-b12777-bin-ubuntu-x64.tar.gz`. Its sha256 `15b16eeb…5717730` matched the GitHub asset digest, and it reports `version: 1.1.0-dev (build 12777, commit caea914e9)`. The CPU backend is picked at runtime (`GGML_BACKEND_DL`).
+- Models: downloaded from the pinned `resolve/<commit>` URLs. **Both SHA-256 values matched the pins above**: `2188ac1d…40b09135` (EG2 Q8_0) and `06507c7b…49c3e439` (Qwen3 Q8_0).
+- Server: `llama-server --embeddings --pooling <mean|last> -c 2048 -ub 2048 -b 2048 -np 1 -t 4 -tb 4 --host 127.0.0.1 --api-key-file … --no-ui --offline`.
+- Client: one client on the same host. Batches of 8 inputs per `/v1/embeddings` request, with the manifest prefixes.
+- The machine was otherwise idle (load average under 2 before each run). The numbers are from one run; a first run differed by under 15 % except for throughput, which is explained below.
+
+**Performance (4 threads)**
+
+| | EmbeddingGemma 2 Q8_0 | Qwen3-Embedding-0.6B Q8_0 |
+|---|---|---|
+| Cold start to `/health` 200 (page cache evicted with `posix_fadvise`) | 0.96 s | 0.73 s |
+| Warm start | 0.77 s | 0.40 s |
+| First query after a cold start | 16 ms | 65 ms |
+| RSS idle (anon + file-mapped weights) | 473 MiB (174 + 300) | 940 MiB (316 + 624) |
+| RSS / peak after indexing 200 docs | 528 / 528 MiB | 975 / 975 MiB |
+| Query latency p50 / p95 (126 single queries) | **20.8 / 24.2 ms** | 77.8 / 89.3 ms |
+| Throughput, chunker windows ("512" estimated, 380 real tokens on average) | **1.74 chunks/s** (≈ 660 tokens/s) | 0.64 chunks/s (≈ 270 tokens/s) |
+| ⇒ at a full 512 real tokens per chunk | ≈ 1.3 chunks/s | ≈ 0.5 chunks/s |
+| Short docs (20-60 tokens) | 12.8 docs/s | 6.0 docs/s |
+
+- The research estimate of 2-5 chunks/s for EG2 was optimistic. Real CPU cost is about 0.75 s per full 512-token chunk on 4 Zen 3 threads.
+- A 16-chunk PDF takes about 12 s of background CPU, and a library of 10 k short items takes about 13 minutes. That fits the "poco a poco" UI promise.
+- The first run used the old 4-characters-per-token chunker, so its windows were larger (621 real tokens on average) and its throughput was 0.93 chunks/s.
+
+**Retrieval quality (200 docs, 42 queries)**
+
+The fixture is 200 synthetic documents shaped like Bento content: invoices for several months as hard negatives, IDs, recipes, travel, payslips, health, home, bank, school, photo metadata text and English work documents. The 42 queries are labelled: 30 es, 7 en, 4 es→en, 1 en→es. Recall@5 is computed as `|relevant ∩ top5| / min(|relevant|, 5)`; MRR uses the full ranking.
+
+| Model / dims | recall@5 | MRR | es (30) | en (7) | es→en (4) | en→es (1) |
+|---|---|---|---|---|---|---|
+| EmbeddingGemma 2 · 768 | **0.995** | **0.988** | 0.993 / 1.000 | 1.000 / 1.000 | 1.000 / 0.875 | 1.000 / 1.000 |
+| EmbeddingGemma 2 · 512 (MRL) | 0.971 | 0.978 | 0.993 / 1.000 | 1.000 / 1.000 | 0.750 / 0.768 | 1.000 / 1.000 |
+| EmbeddingGemma 2 · 256 (MRL) | 0.971 | 0.977 | 0.993 / 1.000 | 1.000 / 1.000 | 0.750 / 0.759 | 1.000 / 1.000 |
+| Qwen3-Embedding-0.6B · 1024 | 0.948 | 0.885 | 0.960 / 0.892 | 1.000 / 0.905 | 0.750 / 0.775 | 1.000 / 1.000 |
+
+(Per-language cells are recall@5 / MRR.)
+
+- **768 → 512** changes exactly one query. q37, «informe trimestral de ingresos», whose target is the English Q3 report, goes from rank 2 to rank 14. Every monolingual query ranks the same.
+- 256 ranks the same as 512 on this set.
+- Qwen3 mostly loses MRR: it ranks the month-specific invoices and payslips below a bank statement for the same month (q01, q15, q31), and it misses «presupuesto para cambiarnos de casa» (q27).
+- The fixture is small and near the ceiling for EG2, so it can confirm "no regression on Spanish". It cannot resolve differences under about 3 points. Cross-language is the weakest point for every model and has only 5 queries.
+- Not tested: real OCR noise, long multi-chunk documents and image pixels. Stage 24's opt-in `real_model` test and Stage 26 cover those.
+
+**Token estimator check** (real counts from `/tokenize`, BOS/EOS excluded)
+- The first rule, 4 characters per token, under-counted Spanish: real tokens were up to 1.83× the estimate, because Gemma and Qwen split digits one per token.
+- The new rule counts letters and spaces at 3 characters per token, and digits, CJK and punctuation as 1 token each. Estimate ÷ real is ≥ 1.03 for EG2 (median 1.24) and ≥ 0.93 for Qwen3 (median 1.13).
+- A "512" window is at most 437 real EG2 tokens (459 Qwen3), well under `-ub 2048`.
+
+**Facts confirmed at b12777**
+- EG2 loads under the `gemma-embedding2` arch with mean pooling. No NaN appeared at Q8_0.
+- The server adds BOS/EOS for EG2 (`[2, …, 1]`) and **appends EOS (151643) for Qwen3 itself**, so clients must not add `<|endoftext|>`.
+- `--api-key-file` and `--offline` work. `--no-webui` is now a deprecated alias of `--no-ui`.
+- `/tokenize` accepts `add_special`.
+
+**Conclusions for the owner**
+- **D1:** the numbers support EmbeddingGemma 2. On this machine it is better than the Qwen3 fallback on every axis: quality (+4.7 recall@5, +10 MRR points), query latency (3.7× faster), indexing (2.7× faster) and RAM (½). There is no reason to change the default.
+- **D9:** 512 shows no clear loss. The only change is one of four es→en queries, a single-query effect on a small set. Keep 512, and extend the cross-language part of the Stage 24 `real_model` fixture (≥ 20 cross-language queries) before release. If that shows a consistent gap at 512, recommend 768, at +50 % index size.
 
 ## Recommendation
 
@@ -98,10 +162,10 @@ Stage 24's opt-in `real_model` test records the real numbers in `execution/evide
 
 ## Could not verify
 
-- Real CPU latency and RAM for any model (all estimates).
-- Spanish-specific retrieval scores for EG2, Qwen3-0.6B, nomic v2 or Granite r2. The only Spanish numbers found were Granite r1 MIRACL-es and Immich's SigLIP/CLIP Spanish table.
+- Real CPU latency and RAM on ARM, macOS, Windows or low-end x86 (only one Zen 3 laptop was measured; §Measured).
+- Published Spanish-specific retrieval scores for EG2, Qwen3-0.6B, nomic v2 or Granite r2. The only published Spanish numbers found were Granite r1 MIRACL-es and Immich's SigLIP/CLIP Spanish table. The spike's own small Spanish fixture (§Measured) is the only Bento-side evidence.
 - The MTEB leaderboard Space itself; card numbers were used.
-- Quality of the EG2 Q8_0 GGUF against full precision (Google reports only full-precision scores).
+- Quality of the EG2 Q8_0 GGUF against full precision (Google reports only full-precision scores). The spike measured Q8_0 only.
 - Whether the "Gemma Prohibited Use Policy" line on an Apache-2.0 card binds users. This needs counsel.
 - Whether issue #30195 (image token blow-up) is still present at b12777.
 - Whether a vision-only mmproj could be cut from the 555 MB vision+audio file, and whether llama-server keeps the audio half resident.
