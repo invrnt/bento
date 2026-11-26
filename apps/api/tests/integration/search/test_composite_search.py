@@ -5,7 +5,6 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
-from bento.adapters.embeddings import MockEmbeddingProvider
 from bento.adapters.repositories import SQLiteAssetRepository, SQLiteFolderRepository
 from bento.adapters.search.composite import CompositeSearchIndex
 from bento.adapters.search.sqlite_fts import SQLiteFTSSearchIndex
@@ -16,6 +15,7 @@ from bento.domain.indexing import EmbeddingRecord, OCRBlock
 from bento.domain.search import SearchQuery, SearchResultType
 
 from tests.integration.db.support import FixedClock, migrated_session_factory, make_asset
+from tests.integration.search.vector_support import seeded_unit
 
 
 def test_filename_only_search_works_with_embeddings_disabled(tmp_path: Path) -> None:
@@ -60,12 +60,28 @@ def test_ocr_search_returns_explanation(tmp_path: Path) -> None:
     asyncio.run(scenario())
 
 
-def test_vector_search_uses_mock_provider_when_available(tmp_path: Path) -> None:
+class _LegacyQueryProvider:
+    """A provider from before embedding spaces: one `embed_text` for queries and documents."""
+
+    def __init__(self, dimensions: int) -> None:
+        self._dimensions = dimensions
+
+    async def is_enabled(self) -> bool:
+        return True
+
+    async def embed_text(self, asset_id: str, text: str) -> tuple[EmbeddingRecord, tuple[float, ...]]:
+        record = EmbeddingRecord(
+            id=f"emb_{asset_id}", asset_id=asset_id, provider="mock", vector_ref="mock:text", dimensions=self._dimensions
+        )
+        return record, seeded_unit(text, self._dimensions)
+
+
+def test_vector_search_uses_a_legacy_provider_when_available(tmp_path: Path) -> None:
     async def scenario() -> None:
         factory = migrated_session_factory(tmp_path)
         clock = FixedClock()
         assets = SQLiteAssetRepository(factory)
-        provider = MockEmbeddingProvider(dimensions=3)
+        provider = _LegacyQueryProvider(dimensions=3)
         vector = SQLiteVecSearchIndex(factory, clock, dimensions=3, prefer_sqlite_vec=False)
         search = CompositeSearchIndex(
             factory,
@@ -86,6 +102,7 @@ def test_vector_search_uses_mock_provider_when_available(tmp_path: Path) -> None
 
         await assets.add(asset)
         await search.index_embedding(record)
+        # No space named: the record's legacy space (`legacy:mock/3`), which is also the query's.
         await vector.index_embedding_vector(record, query_vector)
 
         results = await search.search(SearchQuery(text="playa atardecer"))

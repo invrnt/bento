@@ -26,6 +26,7 @@ class JobType(StrEnum):
     TRASH_PURGE = "trash_purge"
     CACHE_EVICT = "cache_evict"
     SYNC_SNAPSHOT = "sync_snapshot"
+    REEMBED = "reembed"
 
 
 class JobStatus(StrEnum):

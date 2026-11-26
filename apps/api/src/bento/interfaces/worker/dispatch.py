@@ -9,6 +9,7 @@ from bento.application.indexing.embedding import EmbeddingIndexingService
 from bento.application.indexing import OCRIndexingService
 from bento.application.indexing.reindex import ReindexService
 from bento.application.media import PROCESSING_JOB_TYPES, MediaProcessingService, ProcessingCompletionService
+from bento.application.smart_search.reembed import ReembedService
 from bento.application.work_budget import WorkBudgetExceeded
 from bento.domain.device import JobDeferral
 from bento.domain.jobs import Job, JobStatus, JobType
@@ -36,6 +37,7 @@ class WorkerDispatcher:
     sync_snapshot: Callable[[Job], Awaitable[None]] | None = None
     processing: ProcessingCompletionService | None = None
     reindex: ReindexService | None = None
+    reembed: ReembedService | None = None
 
     async def process_one(
         self, *, types: frozenset[JobType] | None = None, deferral: JobDeferral | None = None
@@ -109,6 +111,10 @@ class WorkerDispatcher:
         if job.type == JobType.REINDEX and self.reindex is not None:
             queued = await self.reindex.run()
             LOGGER.info("Reindex queued %s indexing jobs", queued)
+            return
+        if job.type == JobType.REEMBED and self.reembed is not None:
+            progress = await self.reembed.handle(job)
+            LOGGER.info("Re-embedding: %s of %s files, %s jobs queued", progress.done, progress.total, progress.queued)
             return
         raise RuntimeError(f"No handler registered for job type {job.type.value}")
 
