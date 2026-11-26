@@ -6,6 +6,7 @@ import {
   Clock,
   FileText,
   Film,
+  HardDriveDownload,
   Image,
   RefreshCw,
   RotateCw,
@@ -23,6 +24,7 @@ import { Card } from "../../components/Card";
 import { PageHeader } from "../../components/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "../../components/States";
 import type { JobRecord, JobStatus, JobType } from "../../api/jobs";
+import type { SmartSearchJobType } from "../../api/smartSearch";
 import { t } from "../../i18n/dictionary";
 import type { MessageKey } from "../../i18n/dictionary";
 import { cx } from "../../lib/cx";
@@ -69,24 +71,29 @@ const statusLabels: Record<JobStatus, MessageKey> = {
   succeeded: "jobs.status.succeeded",
 };
 
-const typeLabels: Record<JobType, MessageKey> = {
+// Smart search adds `model_download` and `reembed` (Stage 24); their labels live with the feature.
+const typeLabels: Record<JobType | SmartSearchJobType, MessageKey> = {
   embedding: "jobs.type.embedding",
   journal_export: "jobs.type.journal_export",
   metadata: "jobs.type.metadata",
+  model_download: "smartSearch.job.model_download",
   ocr: "jobs.type.ocr",
   pdf_thumbnail: "jobs.type.pdf_thumbnail",
+  reembed: "smartSearch.job.reembed",
   reindex: "jobs.type.reindex",
   telegram_import: "jobs.type.telegram_import",
   thumbnail: "jobs.type.thumbnail",
   video_thumbnail: "jobs.type.video_thumbnail",
 };
 
-const typeIcons: Record<JobType, LucideIcon> = {
+const typeIcons: Record<JobType | SmartSearchJobType, LucideIcon> = {
   embedding: Sparkles,
   journal_export: BookOpen,
   metadata: Tags,
+  model_download: HardDriveDownload,
   ocr: ScanText,
   pdf_thumbnail: FileText,
+  reembed: Sparkles,
   reindex: RefreshCw,
   telegram_import: Send,
   thumbnail: Image,
@@ -255,7 +262,7 @@ function jobStatusLabel(status: JobStatus): string {
   return t(statusLabels[status] ?? "common.unknown");
 }
 
-function jobTypeLabel(type: JobType): string {
+function jobTypeLabel(type: JobType | SmartSearchJobType): string {
   return t(typeLabels[type] ?? "common.unknown");
 }
 

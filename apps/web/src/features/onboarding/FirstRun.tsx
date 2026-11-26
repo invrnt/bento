@@ -23,6 +23,7 @@ import { isLaunchAtLoginError, setDesktopPreferences } from "./desktopHost";
 import { tf } from "./format";
 import { chooseLocalMode, forgetLocalMode } from "./localMode";
 import { HeroIcon, SetupFrame } from "./SetupFrame";
+import { SmartSearchSuggestion } from "./SmartSearchSuggestion";
 
 export type FirstRunStep = "welcome" | "telegram" | "creating" | "backup" | "kit" | "done";
 
@@ -147,7 +148,7 @@ export function FirstRun({
     );
   }
 
-  return <DoneStep onFinish={finish} steps={{ current: totalSteps, total: totalSteps }} />;
+  return <DoneStep client={client} onFinish={finish} steps={{ current: totalSteps, total: totalSteps }} />;
 }
 
 function WelcomeStep({ leaving, onJoin, onLocalOnly, onStart }: { leaving: boolean; onJoin: () => void; onLocalOnly: () => void; onStart: () => void }) {
@@ -318,7 +319,7 @@ function CreatingStep({
   );
 }
 
-function DoneStep({ onFinish, steps }: { onFinish: () => void; steps: { current: number; total: number } }) {
+function DoneStep({ client, onFinish, steps }: { client: ApiClient; onFinish: () => void; steps: { current: number; total: number } }) {
   const [loginItemFailed, setLoginItemFailed] = useState(false);
   const loginItemRequested = useRef(false);
 
@@ -370,6 +371,7 @@ function DoneStep({ onFinish, steps }: { onFinish: () => void; steps: { current:
           </li>
         ))}
       </ul>
+      <SmartSearchSuggestion client={client} />
       {loginItemFailed ? (
         <Callout className="mt-4" role="status" tone="neutral">
           {t("firstRun.done.loginItemFailed")}
