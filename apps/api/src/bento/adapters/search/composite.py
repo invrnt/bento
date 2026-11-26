@@ -13,6 +13,13 @@ from bento.application.search.parser import ParsedSearchQuery, QueryIntent, pars
 from bento.application.search.scoring import ScoreParts, fuse_scores, recency_score, weights_for_intent
 from bento.domain.assets import Asset, AssetKind, ProcessingState
 from bento.domain.indexing import EmbeddingRecord, OCRBlock
+from bento.domain.smart_search import (
+    EmbeddingSpace,
+    InvalidEmbeddingSpaceError,
+    legacy_space_id,
+    parse_space_id,
+    truncate_and_renormalize,
+)
 from bento.domain.search import (
     MATCH_REASON_ORDER,
     MatchReason,
@@ -43,6 +50,19 @@ from .sqlite_vec import SQLiteVecSearchIndex, Vector
 
 
 class QueryEmbeddingProviderPort(Protocol):
+    """The query side of `EmbeddingProviderPort`: the query prefix is applied by the provider."""
+
+    async def is_enabled(self) -> bool: ...
+
+    @property
+    def space(self) -> EmbeddingSpace: ...
+
+    async def embed_query(self, text: str) -> Vector: ...
+
+
+class LegacyQueryEmbeddingProviderPort(Protocol):
+    """Providers from before embedding spaces (one `embed_text` for queries and documents)."""
+
     async def is_enabled(self) -> bool: ...
 
     async def embed_text(self, asset_id: str, text: str) -> tuple[EmbeddingRecord, Vector]: ...
@@ -80,7 +100,7 @@ class CompositeSearchIndex(SearchIndexPort):
         *,
         text_index: SQLiteFTSSearchIndex,
         vector_index: SQLiteVecSearchIndex | None = None,
-        query_embedding_provider: QueryEmbeddingProviderPort | None = None,
+        query_embedding_provider: QueryEmbeddingProviderPort | LegacyQueryEmbeddingProviderPort | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._clock = clock
@@ -391,11 +411,13 @@ class CompositeSearchIndex(SearchIndexPort):
         ):
             return False
         try:
-            if not await self._query_embedding_provider.is_enabled():
+            target = await self._query_vector(query.text)
+            if target is None:
                 return False
-            _, vector = await self._query_embedding_provider.embed_text("query", query.text)
-            vector_hits = await self._vector_index.search_vectors(vector, limit=limit)
+            space_id, vector = target
+            vector_hits = await self._vector_index.search_vectors(vector, limit=limit, space_id=space_id)
         except Exception:
+            # The embedding runtime is missing, unhealthy or stopped: search keeps working on text alone.
             return False
 
         by_asset = {hit.asset_id: hit for hit in vector_hits}
@@ -410,6 +432,30 @@ class CompositeSearchIndex(SearchIndexPort):
                 candidate.reasons.add("vector")
                 _merge_candidate(candidates, candidate)
         return True
+
+    async def _query_vector(self, text: str) -> tuple[str, Vector] | None:
+        """The query vector in the space search must use: the active space, else the provider's own space.
+
+        Search keeps the active space while a new one is being built (blue/green). A provider serving a newer
+        space of the same model and revision can still answer it by Matryoshka truncation; any other mismatch
+        means vector search is unavailable for now.
+        """
+        provider = self._query_embedding_provider
+        if provider is None or self._vector_index is None or not await provider.is_enabled():
+            return None
+        embed_query = getattr(provider, "embed_query", None)
+        if embed_query is not None:
+            provider_space = str(getattr(provider, "space").id)
+            vector: Vector = tuple(await embed_query(text))
+        else:
+            record, vector = await getattr(provider, "embed_text")("query", text)
+            provider_space = legacy_space_id(record.provider, len(vector))
+        active = await self._vector_index.active_space_id()
+        target = active or provider_space
+        projected = _project_query_vector(vector, provider_space, target)
+        if projected is None:
+            return None
+        return target, projected
 
     def _finalize_scores(
         self,
@@ -434,6 +480,19 @@ class CompositeSearchIndex(SearchIndexPort):
             )
             if candidate.final_score == 0.0 and candidate.reasons:
                 candidate.final_score = 0.01
+
+
+def _project_query_vector(vector: Vector, provider_space: str, target_space: str) -> Vector | None:
+    if provider_space == target_space:
+        return vector
+    try:
+        model_id, revision, dims = parse_space_id(provider_space)
+        target_model, target_revision, target_dims = parse_space_id(target_space)
+    except InvalidEmbeddingSpaceError:
+        return None
+    if not revision or (model_id, revision) != (target_model, target_revision) or target_dims > dims:
+        return None
+    return truncate_and_renormalize(vector, target_dims)
 
 
 def _effective_query(query: SearchQuery, parsed: ParsedSearchQuery) -> SearchQuery:

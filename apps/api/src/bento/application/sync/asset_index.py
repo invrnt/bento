@@ -16,6 +16,7 @@ from typing import Any
 
 from bento.application.sync.codec import encode_vector
 from bento.application.sync.state import CAPTURE
+from bento.domain.smart_search import legacy_space_id
 from bento.domain.sync import SyncEntity, SyncOperation, SyncOpKind
 from bento.domain.vault import canonical_json
 from bento.ports.sync import HlcSourcePort, SyncOutboxPort, SyncStateRepositoryPort
@@ -44,6 +45,13 @@ def fit_index_fields(fields: Mapping[str, Any], *, max_bytes: int = MAX_INDEX_OP
     fitted = dict(fields)
     if len(canonical_json(fitted)) <= max_bytes:
         return fitted
+    embedding = fitted.get("embedding")
+    if isinstance(embedding, Mapping) and "chunks" in embedding:
+        # Peers that miss the extra chunks still get chunk 0 (`vector_b64_f32`).
+        fitted["embedding"] = {key: value for key, value in embedding.items() if key != "chunks"}
+        if len(canonical_json(fitted)) <= max_bytes:
+            LOGGER.info("Left the extra embedding chunks out of an asset_index op to fit the sync size cap")
+            return fitted
     budget = min(MAX_INDEX_TEXT_BYTES, max_bytes // 2)
     if isinstance(fitted.get("ocr_text"), str):
         fitted["ocr_text"] = _cut_text(fitted["ocr_text"], budget)
@@ -89,8 +97,38 @@ def _cut_pages(pages: list[Any], budget: int) -> list[Any]:
     return kept
 
 
-def embedding_fields(*, provider: str, dimensions: int, vector: Sequence[float]) -> dict[str, Any]:
-    return {"embedding": {"provider": provider, "dimensions": int(dimensions), "vector_b64_f32": encode_vector(vector)}}
+def embedding_fields(
+    *,
+    provider: str,
+    dimensions: int,
+    vector: Sequence[float],
+    space: str | None = None,
+    chunks: Sequence[Sequence[float]] | None = None,
+    pages: Sequence[int | None] | None = None,
+) -> dict[str, Any]:
+    """The synced embedding of an asset in one space.
+
+    `space` is the embedding space id (`legacy:<provider>/<dims>` when the caller predates spaces). Peers index the
+    vectors only when it equals their active space. `vector_b64_f32` is the first chunk, for peers that read one
+    vector; `chunks` (when there is more than one) carries every chunk with its page.
+    """
+    embedding: dict[str, Any] = {
+        "provider": provider,
+        "dimensions": int(dimensions),
+        "space": space or legacy_space_id(provider, int(dimensions)),
+        "vector_b64_f32": encode_vector(chunks[0] if chunks else vector),
+    }
+    if chunks is not None and len(chunks) > 1:
+        page_list = list(pages or ())
+        embedding["chunks"] = [
+            {
+                "chunk_no": index,
+                "page": page_list[index] if index < len(page_list) else None,
+                "vector_b64_f32": encode_vector(chunk),
+            }
+            for index, chunk in enumerate(chunks)
+        ]
+    return {"embedding": embedding}
 
 
 class AssetIndexRecorder:
@@ -106,8 +144,23 @@ class AssetIndexRecorder:
     ) -> None:
         await self._record(asset_id, ocr_fields(ocr_text=ocr_text, pdf_pages=pdf_pages, language=language))
 
-    async def record_embedding(self, asset_id: str, *, provider: str, dimensions: int, vector: Sequence[float]) -> None:
-        await self._record(asset_id, embedding_fields(provider=provider, dimensions=dimensions, vector=vector))
+    async def record_embedding(
+        self,
+        asset_id: str,
+        *,
+        provider: str,
+        dimensions: int,
+        vector: Sequence[float],
+        space: str | None = None,
+        chunks: Sequence[Sequence[float]] | None = None,
+        pages: Sequence[int | None] | None = None,
+    ) -> None:
+        await self._record(
+            asset_id,
+            embedding_fields(
+                provider=provider, dimensions=dimensions, vector=vector, space=space, chunks=chunks, pages=pages
+            ),
+        )
 
     async def _record(self, asset_id: str, fields: dict[str, Any]) -> None:
         device_id = await self._device_id()
