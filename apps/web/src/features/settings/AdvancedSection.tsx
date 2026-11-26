@@ -44,6 +44,18 @@ function isEditableHere(field: SettingDefinition): boolean {
   return !field.secret && !legacyKeys.has(field.key);
 }
 
+// Smart search › "Modelo propio": the settings for a person's own GGUF model, shown together
+// inside the `ai` group (`jina_model_path` is the pre-migration name of `custom_model_path`).
+const customModelKeys = ["custom_model_path", "jina_model_path", "custom_mmproj_path", "custom_query_prefix", "custom_document_prefix", "custom_pooling"];
+// GGUF files picked with the file dialog instead of a folder.
+const modelFileKeys = new Set(["custom_model_path", "jina_model_path", "custom_mmproj_path"]);
+// Executables: typed, never picked with the GGUF dialog or the folder dialog.
+const typedPathKeys = new Set(["llama_server_path"]);
+
+function isCustomModelField(field: SettingDefinition): boolean {
+  return customModelKeys.includes(field.key);
+}
+
 /** Ajustes › Avanzado: every registry setting with validation, restart scope and portability tools. */
 export function AdvancedSection({ controller }: { controller: SettingsController }) {
   const [query, setQuery] = useState("");
@@ -109,7 +121,8 @@ export function AdvancedSection({ controller }: { controller: SettingsController
                 </Button>
               </div>
               <div className="divide-y divide-line">
-                {group.fields.map((field) => <SettingField controller={controller} field={field} key={field.key} />)}
+                {group.fields.filter((field) => !isCustomModelField(field)).map((field) => <SettingField controller={controller} field={field} key={field.key} />)}
+                <CustomModelGroup controller={controller} fields={group.fields.filter(isCustomModelField)} />
               </div>
             </Card>
           ))
@@ -195,6 +208,22 @@ function SpaceOverview({ controller }: { controller: SettingsController }) {
   );
 }
 
+function CustomModelGroup({ controller, fields }: { controller: SettingsController; fields: SettingDefinition[] }) {
+  if (!fields.length) return null;
+  const ordered = [...fields].sort((left, right) => customModelKeys.indexOf(left.key) - customModelKeys.indexOf(right.key));
+  return (
+    <div aria-labelledby="settings-custom-model" className="bg-subtle" role="group">
+      <div className="px-5 pb-1 pt-5">
+        <h3 className="text-base font-semibold text-ink" id="settings-custom-model">{t("smartSearch.custom.title")}</h3>
+        <p className="mt-0.5 text-sm text-ink-muted">{t("smartSearch.custom.body")}</p>
+      </div>
+      <div className="divide-y divide-line">
+        {ordered.map((field) => <SettingField controller={controller} field={field} key={field.key} />)}
+      </div>
+    </div>
+  );
+}
+
 function SettingField({ controller, field }: { controller: SettingsController; field: SettingDefinition }) {
   const current = controller.values?.values[field.key];
   const disabled = !field.editable || field.locked;
@@ -253,7 +282,7 @@ function ValueControl({ controller, disabled, field }: { controller: SettingsCon
         hideLabel
         label={fieldLabel(field)}
         onChange={(event) => controller.setValue(field.key, event.target.value)}
-        options={field.constraints.choices.map((choice) => ({ label: choiceLabel(field.key, choice), value: choice }))}
+        options={visibleChoices(field, controller.values?.values[field.key]?.value).map((choice) => ({ label: choiceLabel(field.key, choice), value: choice }))}
         value={String(value ?? "")}
         {...common}
       />
@@ -276,8 +305,8 @@ function ValueControl({ controller, disabled, field }: { controller: SettingsCon
   return (
     <div className="flex gap-2">
       {input}
-      {controller.desktop ? (
-        <Button aria-label={t("settings.path.pick")} disabled={disabled} leadingIcon={<FolderOpen />} onClick={() => void controller.pickPath(field.key, field.key === "jina_model_path")}>
+      {controller.desktop && !typedPathKeys.has(field.key) ? (
+        <Button aria-label={t("settings.path.pick")} disabled={disabled} leadingIcon={<FolderOpen />} onClick={() => void controller.pickPath(field.key, modelFileKeys.has(field.key))}>
           <span className="hidden sm:inline">{t("settings.path.pick")}</span>
         </Button>
       ) : null}
@@ -426,14 +455,23 @@ function Notice({ body, title, tone }: { body: string; title: string; tone: Extr
   return <Callout role={tone === "danger" ? "alert" : "status"} title={title} tone={tone}>{body}</Callout>;
 }
 
-function fieldLabel(field: SettingDefinition) { return hasMessage(field.label_key) ? t(field.label_key) : field.key.replaceAll("_", " "); }
-function fieldHelp(field: SettingDefinition) { return hasMessage(field.help_key) ? t(field.help_key) : t("settings.field.defaultHelp"); }
+// Smart search settings carry their copy in the feature's `smartSearch.custom.*` keys.
+function smartSearchKey(field: SettingDefinition, part: "label" | "help") { const key = `smartSearch.custom.${field.key === "jina_model_path" ? "custom_model_path" : field.key}.${part}`; return hasMessage(key) ? key : null; }
+function fieldLabel(field: SettingDefinition) { const own = smartSearchKey(field, "label"); if (own) return t(own); return hasMessage(field.label_key) ? t(field.label_key) : field.key.replaceAll("_", " "); }
+function fieldHelp(field: SettingDefinition) { const own = smartSearchKey(field, "help"); if (own) return t(own); return hasMessage(field.help_key) ? t(field.help_key) : t("settings.field.defaultHelp"); }
 function sourceLabel(source: string) { const key = `settings.source.${source}`; return hasMessage(key) ? t(key) : t("common.unknown"); }
 function applyLabel(mode: ApplyMode) { return t(`settings.applyMode.${mode}` as MessageKey); }
 function restartDescription(mode: ApplyMode) { return mode === "live" ? t("settings.validation.live") : t("settings.validation.restart"); }
 function issueMessage(issue: FieldIssue) { const key = `settings.error.${issue.code}`; return hasMessage(key) ? t(key) : t("settings.error.generic"); }
 function progressLabel(phase: string) { const key = `settings.progress.${phase}`; return hasMessage(key) ? t(key) : t("settings.progress.working"); }
-function choiceLabel(field: string, choice: string) { const key = `settings.choice.${field}.${choice}`; return hasMessage(key) ? t(key) : choice; }
+function choiceLabel(field: string, choice: string) {
+  const own = field === "embeddings_provider" ? `smartSearch.provider.${choice}` : null;
+  if (own && hasMessage(own)) return t(own);
+  const key = `settings.choice.${field}.${choice}`;
+  return hasMessage(key) ? t(key) : choice;
+}
+// Only the activation flow in Búsqueda inteligente turns `managed` on; the form shows it only while it is the saved value.
+function visibleChoices(field: SettingDefinition, saved: unknown) { return field.key === "embeddings_provider" ? field.constraints.choices.filter((choice) => choice !== "managed" || saved === "managed") : field.constraints.choices; }
 function groupRank(group: string) { const index = groupOrder.indexOf(group); return index < 0 ? groupOrder.length : index; }
 function groupLabel(group: string) { const key = `advanced.group.${group}`; return hasMessage(key) ? t(key) : group; }
 function groupHelp(group: string) { const key = `advanced.group.${group}.help`; return hasMessage(key) ? t(key) : t("settings.field.defaultHelp"); }
