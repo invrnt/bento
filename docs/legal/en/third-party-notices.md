@@ -69,6 +69,16 @@ The website includes the Geist and Geist Mono typefaces (SIL Open Font License 1
 
 ### Smart search
 
-Bento does not include or download the smart search model: if you turn that feature on, you provide the model file (GGUF) yourself. Bento is designed for Jina AI’s **jina-embeddings-v5-omni-nano** model, which its [official model card](https://huggingface.co/jinaai/jina-embeddings-v5-omni-nano) licenses under **CC BY-NC 4.0** (non-commercial use; for commercial use, the card says to contact Jina AI). If you obtain a converted copy from another source, check the license that source states.
+Smart search (search by meaning) is off until you turn it on. The model is not included in the installers: Bento downloads it only when you turn the feature on, from the publisher's Hugging Face repository pinned to a commit or, if that is unavailable, from a copy on Bento's GitHub releases. Both copies must match the same SHA-256, pinned in the app. Bento shows the model's license in Settings › Smart search before the download and keeps a copy of it next to the downloaded file.
+
+| Component | What it is | License |
+|---|---|---|
+| **EmbeddingGemma 2** (Google), file `embeddinggemma-2-Q8_0.gguf` converted by ggml-org | Embedding model, downloaded only when you turn smart search on | Apache-2.0 |
+| llama.cpp `llama-server` (ggml-org), tag `b12777` | Local embedding server, built by Bento from source and included in the installers | MIT |
+| sqlite-vec (Alex Garcia) | SQLite extension for the vector index | Apache-2.0 OR MIT |
+
+- **EmbeddingGemma 2**: source [`ggml-org/embeddinggemma-2-GGUF`](https://huggingface.co/ggml-org/embeddinggemma-2-GGUF/tree/6ea3e3a309d12a4779cfda98b8c19800d2d5da71) at commit `6ea3e3a309d12a4779cfda98b8c19800d2d5da71` (converted from `google/embeddinggemma-2`), 309,855,456 bytes, SHA-256 `2188ac1deca4b77dffefd603c2776a9d76d9d74ec01841392982ebb840b09135`. The model card asks that deployments follow the [Gemma Prohibited Use Policy](https://ai.google.dev/gemma/prohibited_use_policy). The fallback model, [Qwen3-Embedding-0.6B](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/tree/370f27d7550e0def9b39c1f16d3fbaa13aa67728) (Qwen, Apache-2.0, SHA-256 `06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439`), is downloaded the same way only if you choose it.
+- **llama.cpp**: built from the [`b12777` source](https://github.com/ggml-org/llama.cpp/tree/b12777) with the components it compiles in: cpp-httplib (MIT), nlohmann/json (MIT), xxHash (BSD-2-Clause), rotate-bits (MIT), sha1 and sha256 (public domain), miniaudio (public domain or MIT-0), stb_image (public domain or MIT) and subprocess.h (Unlicense). Their license texts ship in the `llama-server/licenses/` folder of the app.
+- **sqlite-vec**: bundled with the desktop app and the CLI.
 
 ffmpeg is not bundled with Bento: if it is installed on your system, Bento uses it to create video thumbnails, under the license of that installation.

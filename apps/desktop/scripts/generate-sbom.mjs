@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { readLlamaPin } from "./llama-server.mjs";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../..");
 const output = path.resolve(process.argv[2] ?? path.join(repositoryRoot, "dist", "desktop", "bento-sbom.cdx.json"));
@@ -41,6 +42,30 @@ for (const block of uvLock.split("[[package]]").slice(1)) {
     purl: `pkg:pypi/${name}@${version}`,
   });
 }
+
+// llama-server is built from source by scripts/build-llama-server.{sh,ps1}; its pin is the source of truth.
+const llama = await readLlamaPin();
+const llamaPurl = `pkg:github/ggml-org/llama.cpp@${llama.tag}`;
+components.set(`github:${llamaPurl}`, {
+  type: "application",
+  name: "llama.cpp",
+  version: llama.tag,
+  "bom-ref": llamaPurl,
+  purl: llamaPurl,
+  description: "llama-server, the local embedding server of smart search",
+  licenses: [{ license: { id: "MIT" } }],
+  hashes: [{ alg: "SHA-256", content: llama.sourceSha256 }],
+  externalReferences: [{ type: "distribution", url: llama.sourceUrl }],
+  properties: [{ name: "bento:llama-cpp-commit", value: llama.commit }],
+  // Vendored into the llama.cpp tree at this tag and compiled into llama-server.
+  components: llama.components.filter((component) => !component.name.startsWith("llama.cpp")).map((component) => ({
+    type: "library",
+    name: component.name,
+    version: `vendored-${llama.tag}`,
+    "bom-ref": `${llamaPurl}#${component.name.replace(/[^A-Za-z0-9._-]+/gu, "-")}`,
+    licenses: [/^[A-Za-z0-9.+-]+$/u.test(component.license) ? { license: { id: component.license } } : { license: { name: component.license } }],
+  })),
+});
 
 const lockDigest = createHash("sha256").update(uvLock).digest("hex");
 const bom = {

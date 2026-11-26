@@ -64,6 +64,17 @@ Si cerraste la sesión porque no reconocías ese equipo, quítalo desde otro equ
 
 Bento protege la llave de cada equipo con el almacén seguro del sistema (Secret Service o KWallet). Si no hay ninguno disponible o está bloqueado, Bento sigue funcionando con un archivo protegido dentro de su carpeta de datos y te lo avisa. Para la mejor protección, configura o desbloquea el almacén seguro de tu escritorio y protege tu sesión con contraseña.
 
+## La búsqueda por significado no se activa
+
+Ajustes › Búsqueda inteligente muestra qué pasó y un botón **Reintentar**:
+
+- **«No se pudo descargar el modelo.»** Revisa tu conexión y elige Reintentar: la descarga sigue donde se quedó. Si tu red bloquea Hugging Face, Bento también prueba con GitHub.
+- **«El archivo descargado no es correcto y se borró.»** Algo cambió el archivo por el camino (un proxy o un antivirus, por ejemplo). Reintentar lo descarga de nuevo desde el principio.
+- **«No hay espacio suficiente en este equipo.»** Libera el espacio indicado y reintenta.
+- **«El motor de búsqueda no pudo iniciar en este equipo.»** Reinicia Bento. Si se repite, avísanos con los detalles de Actividad. Mientras tanto, la búsqueda por nombre, fecha y texto sigue funcionando.
+
+Si parece detenida en «Revisando tus archivos», puede que el equipo esté con batería y poca carga: sigue cuando conectas el cargador.
+
 ## Bento no se abre
 
 Sigue [Ajustes, datos y recuperación](../../desktop/settings-recovery.md#recuperación). Si necesitas ayuda, en Ajustes › Avanzado puedes exportar un diagnóstico; no incluye tus archivos ni tus llaves.

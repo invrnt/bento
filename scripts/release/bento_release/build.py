@@ -35,6 +35,10 @@ CYCLONEDX_NPM = "@cyclonedx/cyclonedx-npm@6.0.1"
 CYCLONEDX_GRADLE_INIT = "scripts/release/sbom/cyclonedx.init.gradle.kts"
 MIN_FREE_GB = {"desktop": 6, "android": 6, "android-sbom": 1, "cli": 2, "backend": 1, "sbom": 1}
 EVIDENCE = "orchestration/execution/evidence/local-ci.md"
+# Smart search runtime (D4): built from the pinned llama.cpp source and bundled by the desktop and CLI builds.
+LLAMA_BUILD_SH = "scripts/build-llama-server.sh"
+LLAMA_BUILD_PS1 = "scripts/build-llama-server.ps1"
+SKIP_LLAMA_SERVER_ENV = "BENTO_SKIP_LLAMA_SERVER"
 ALLOWED_SIGNERS = "scripts/release/allowed_signers"
 
 
@@ -100,6 +104,18 @@ def default_components() -> tuple[str, ...]:
     if sys.platform.startswith("linux"):
         return ("cli",)  # Linux arm64: the CLI is the only artifact built there
     return ("desktop", "cli")
+
+
+def llama_server_dir(root: Path) -> Path:
+    """dist/llama-server/<platform>-<arch> (Node names), the build scripts' output folder."""
+    platform_name = {"linux": "linux", "macos": "darwin", "windows": "win32"}[host_id().split("-")[0]]
+    return root / "dist" / "llama-server" / f"{platform_name}-{host_id().split('-')[1]}"
+
+
+def llama_build_command(root: Path) -> list[str]:
+    if sys.platform == "win32":
+        return ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(root / LLAMA_BUILD_PS1), "-Out", str(llama_server_dir(root))]
+    return ["bash", str(root / LLAMA_BUILD_SH), "--out", str(llama_server_dir(root))]
 
 
 def channel_dir(out: Path, channel: str, version: str) -> Path:
@@ -220,6 +236,14 @@ class Build:
         unsupported = [c for c in o.components if c in LINUX_ONLY and not sys.platform.startswith("linux")]
         if unsupported:
             problems.append(f"{', '.join(unsupported)} can only be built on Linux")
+        if {"desktop", "cli"} & set(o.components):
+            if os.environ.get(SKIP_LLAMA_SERVER_ENV) == "1":
+                if o.release:
+                    problems.append(f"{SKIP_LLAMA_SERVER_ENV}=1: a release must bundle llama-server (smart search)")
+                else:
+                    self.report.notes.append(f"{SKIP_LLAMA_SERVER_ENV}=1: desktop/CLI built without llama-server")
+            elif not shutil.which("cmake"):
+                problems.append("cmake not found: the desktop and CLI builds compile llama-server (scripts/build-llama-server.sh)")
         needs_node = {"sbom", "cli", "desktop", "android"} & set(o.components)
         if needs_node and not self.node_dir:
             problems.append("Node.js 22-25 not found (desktop refuses 26): install node@24 with mise or set BENTO_RELEASE_NODE_DIR")
@@ -303,12 +327,23 @@ class Build:
         bundle, archives = self.work / "cli", self.work / "cli-release"
         shutil.rmtree(bundle, ignore_errors=True)
         shutil.rmtree(archives, ignore_errors=True)
+        with_llama = os.environ.get(SKIP_LLAMA_SERVER_ENV) != "1"
+        if with_llama:
+            # A no-op when dist/llama-server/<target> already matches the pin; bento-cli.spec bundles it.
+            self.runner.run("llama-server-build", llama_build_command(self.root), timeout=10800)
         self.runner.run(
             "cli-build",
             ["uv", "run", "--project", "apps/api", "--frozen", "--extra", "desktop", "python", "apps/api/scripts/build_cli.py",
              "--output", str(bundle), "--build-config", "apps/desktop/resources/build-config.json", "--archive", str(archives), "--version", v],
+            env={"BENTO_REQUIRE_LLAMA_SERVER": "1"} if with_llama else None,
         )
         executable = bundle / "bento" / ("bento.exe" if sys.platform == "win32" else "bento")
+        if with_llama:
+            name = "llama-server.exe" if sys.platform == "win32" else "llama-server"
+            bundled = sorted((bundle / "bento").rglob(f"llama-server/{name}"))
+            if not bundled:
+                raise StepError("cli-llama-server", "the CLI bundle has no llama-server")
+            self.runner.run("cli-smoke-llama-server", [str(bundled[0]), "--version"])
         home = self.work / "cli-smoke"
         smoke_env = {"STORAGE_BACKEND": "local", "BENTO_LANG": "en", "BENTO_HOME": str(home), "BENTO_DESKTOP_USER_DATA": str(self.work / "no-desktop")}
         self.runner.run("cli-smoke-version", [str(executable), "--version"], env=smoke_env)

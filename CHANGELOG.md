@@ -38,6 +38,11 @@ No version has been published yet; the entries under `[Unreleased]` are the firs
   Colecciones, share to Bento, scan-to-join pairing, free up space, app lock, Quick Settings tile and an
   in-app updater that checks an Ed25519-signed manifest and the APK signer before installing.
 - **Relay:** pairing relay on Cloudflare Workers and Durable Objects that only sees ciphertext.
+- **Desktop:** one-click search by meaning in Settings › Smart search. Only when you turn it on, Bento
+  downloads a pinned EmbeddingGemma 2 model (about 310 MB, Apache-2.0) from Hugging Face, or from its
+  GitHub mirror, checks its SHA-256 and runs it on the device with a bundled, signed `llama-server`
+  (llama.cpp `b12777`, built from verified source) and the sqlite-vec index; the CLI bundle and the Docker
+  image include the same server. Nothing about your files leaves the device.
 - **Site:** public site with downloads, the `/join` pairing page, Android App Links and the legal pages.
 - **Releases:** local release tool (`scripts/release/bento-release`) with a single `VERSION`, signed
   `SHA256SUMS`, CycloneDX SBOMs for the Python, npm and Gradle dependencies, and this changelog.

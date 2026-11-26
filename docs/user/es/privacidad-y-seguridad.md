@@ -105,6 +105,18 @@ Bento no pide contraseña al abrirse. En cada equipo, tu biblioteca (nombres, mi
 
 Bento consulta GitHub para saber si hay versiones nuevas. Las descarga en segundo plano, comprueba su tamaño y su huella SHA-256 antes de ofrecerlas y nunca se instala sin que pulses «Reiniciar para actualizar». Las versiones publicadas están firmadas en Windows y firmadas y notarizadas en macOS.
 
+## Búsqueda inteligente
+
+La búsqueda por significado está apagada hasta que la activas, y funciona por completo en tu equipo:
+
+- **Lo único que se descarga es el modelo.** Cuando eliges **Descargar y activar**, Bento descarga el modelo (EmbeddingGemma 2, unos 310 MB, licencia Apache-2.0) desde Hugging Face o, si no está disponible, desde las versiones de Bento en GitHub. Ese servicio ve tu dirección IP y qué archivo se pide; la descarga no lleva cookies ni identificadores tuyos, ni nada sobre tus archivos.
+- **Se comprueba antes de usarlo.** El modelo está fijado a una versión exacta. Bento comprueba su tamaño y su huella SHA-256 y lo borra si no coincide.
+- **Nada sale del equipo.** El motor que ejecuta el modelo viene dentro de Bento (Bento nunca descarga programas) y solo escucha en tu equipo, con una llave nueva cada vez que arranca. Tus archivos, su texto y tus búsquedas no se envían a ninguna parte.
+- **Con batería** y poca carga, Bento pausa la revisión de tus archivos y sigue cuando conectas el cargador.
+- **Quítalo cuando quieras** en Ajustes › Búsqueda inteligente: Bento borra el modelo y libera el espacio. La búsqueda por nombre, fecha y texto sigue funcionando.
+
+Los resultados por significado son aproximados: pueden no encontrar un archivo o mostrar otros poco relacionados.
+
 ## Este sitio web
 
 - No usa cookies, analíticas, fuentes ni scripts de terceros. Una política de seguridad de contenido estricta impide que sus páginas carguen o envíen nada fuera de este dominio.

@@ -64,6 +64,17 @@ If you ended the session because you didn’t recognize that computer, remove it
 
 Bento protects each computer’s key with the system’s secure storage (Secret Service or KWallet). If none is available or it is locked, Bento keeps working with a protected file inside its data folder and tells you. For the best protection, set up or unlock your desktop’s secure storage and protect your session with a password.
 
+## Search by meaning doesn’t turn on
+
+Settings › Smart search shows what happened and a **Retry** button:
+
+- **“The model could not be downloaded.”** Check your connection and choose Retry: the download picks up where it stopped. If Hugging Face is blocked on your network, Bento tries GitHub as well.
+- **“The downloaded file is not correct and was deleted.”** Something changed the file on the way (a proxy or antivirus, for example). Retry downloads it again from the start.
+- **“There is not enough space on this computer.”** Free the space shown and retry.
+- **“The search engine could not start on this computer.”** Restart Bento. If it keeps happening, report it with the details from Activity. Search by name, date and text keeps working meanwhile.
+
+If it seems stuck on “Going through your files”, the computer may be on battery with little charge: it carries on when you plug in.
+
 ## Bento doesn’t open
 
 Follow [Settings, data and recovery](../../desktop/settings-recovery.md#recuperación) (in Spanish). If you need help, you can export a diagnostic report in Settings › Advanced; it does not include your files or your keys.
