@@ -390,7 +390,7 @@ def test_update_downloads_the_new_revision_without_leaving_ready(tmp_path: Path,
 
     async def scenario() -> None:
         view = await kit.service.status()
-        assert view.body()["update_available"] == {"revision": "bbbbbbb2", "size_bytes": BLOB_SIZE}
+        assert view.body()["update_available"] == {"revision": "bbbbbbb2", "size_bytes": BLOB_SIZE, "progress": None}
 
         await kit.service.update()
         assert kit.jobs.last_payload()["purpose"] == "update"

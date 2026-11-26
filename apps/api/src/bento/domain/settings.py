@@ -61,6 +61,8 @@ class SettingDefinition:
     minimum: float | None = None
     maximum: float | None = None
     probe: str | None = None
+    advanced: bool = False
+    """Shown only under the "Advanced" disclosure of its group."""
 
 
 @dataclass(frozen=True, slots=True)

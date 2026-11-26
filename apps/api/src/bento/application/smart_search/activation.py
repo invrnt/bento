@@ -8,6 +8,10 @@ when the state leaves `downloading`. Contract: `orchestration/api/smart-search-c
 
 After `starting`, the runtime owner (`application/smart_search/runtime.py`) takes over: it reaches this
 service through `advance()` / `runtime_ready()` / `index_progress()` / `indexed()` / `runtime_failed()`.
+
+Model updates are blue/green (`reembed.py`): a verified newer revision registers its space as `building` and
+queues `reembed`, while the status keeps serving the installed space. When the new space becomes active (100 %,
+or "Usar ya" through `use_now()`), `space_activated()` moves the status to it and deletes the old files.
 """
 
 from __future__ import annotations
@@ -16,13 +20,14 @@ import asyncio
 import contextlib
 import logging
 import math
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import urlsplit
 
+from bento.application.smart_search.reembed import EmbeddingSpaceState
 from bento.application.work_budget import check_safe_boundary
 from bento.domain.errors import DomainError, SettingsSourceLockedError
 from bento.domain.jobs import JobPriority, JobType
@@ -38,6 +43,7 @@ from bento.domain.smart_search import (
     SmartSearchState,
     SmartSearchStatus,
     parse_space_id,
+    suggest_in_onboarding,
     transition,
 )
 from bento.ports.jobs import JobQueuePort
@@ -59,7 +65,13 @@ NETWORK_RETRY_DELAYS: tuple[float, ...] = (1.0, 2.0, 4.0, 8.0, 16.0, 32.0)
 """In-job waits while the network is down; after them the job is retried later by the queue's backoff."""
 STATUS_POLL_SECONDS = 0.25
 LICENSE_URL = "/api/smart-search/license"
+USE_NOW_EVENT = "use_now"
+ANDROID_PLATFORM = "android"
 _CAS_ATTEMPTS = 5
+# States whose space may follow a blue/green flip: the model is installed and the runtime owns the space.
+_FOLLOWS_FLIP = frozenset(
+    {SmartSearchState.STARTING, SmartSearchState.INDEXING, SmartSearchState.READY, SmartSearchState.ERROR}
+)
 
 
 # --------------------------------------------------------------------------------------
@@ -102,6 +114,17 @@ class InstallState(StrEnum):
     INSTALLED = "installed"
     ERROR = "error"
     UPDATE_DOWNLOADING = "update_downloading"
+
+
+# `model_installs.state` as the update progress shows it.
+_UPDATE_PROGRESS_STATES: dict[InstallState, str] = {
+    InstallState.DOWNLOADING: "downloading",
+    InstallState.PAUSED: "downloading",
+    InstallState.UPDATE_DOWNLOADING: "downloading",
+    InstallState.VERIFYING: "verifying",
+    InstallState.INSTALLED: "installed",
+    InstallState.ERROR: "error",
+}
 
 
 class DownloadPurpose(StrEnum):
@@ -187,6 +210,28 @@ class SmartSearchHooksPort(Protocol):
         ...
 
 
+class EmbeddingSpaceRegistryPort(Protocol):
+    """`embedding_spaces` (the vector index adapter implements it)."""
+
+    async def space_state(self, space_id: str) -> EmbeddingSpaceState | None: ...
+
+    async def register_space(self, space: EmbeddingSpace) -> None:
+        """Add the space as `building` if it is new (a retired one comes back as `building`)."""
+        ...
+
+
+class ReembedControlPort(Protocol):
+    """The blue/green re-embedding owner (`ReembedService`)."""
+
+    async def start(self, space_id: str) -> object:
+        """Queue `reembed` for a registered space."""
+        ...
+
+    async def use_now(self, space_id: str) -> tuple[str, ...]:
+        """Flip search to the space before it reaches 100 %; returns the space ids whose vectors were dropped."""
+        ...
+
+
 class NoopSmartSearchHooks:
     async def starting(self, spec: ModelSpec, space: EmbeddingSpace, weights: Path) -> None:
         return None
@@ -199,6 +244,16 @@ class NoopSmartSearchHooks:
 
 
 @dataclass(frozen=True, slots=True)
+class UpdateProgress:
+    """The newer revision's `model_installs` row. The status stays `ready` while an update downloads."""
+
+    bytes_done: int
+    bytes_total: int
+    state: str
+    """`downloading | verifying | installed | error`."""
+
+
+@dataclass(frozen=True, slots=True)
 class SmartSearchStatusView:
     """Everything `GET /api/smart-search` returns."""
 
@@ -208,6 +263,12 @@ class SmartSearchStatusView:
     free_bytes: int
     update: ModelSpec | None
     locked: bool
+    update_progress: UpdateProgress | None = None
+    can_use_now: bool = False
+    """A re-embed into a newer space is pending and the person may switch search to it now ("Usar ya")."""
+    suggest_in_onboarding: bool = False
+    model_installed: bool = False
+    """The status's weights file is installed and verified (`model_available` of `GET /api/settings`)."""
 
     @property
     def download_host(self) -> str:
@@ -234,12 +295,26 @@ class SmartSearchStatusView:
             },
             "free_bytes": self.free_bytes,
             "update_available": (
-                {"revision": self.update.revision, "size_bytes": self.update.text_bytes}
+                {
+                    "revision": self.update.revision,
+                    "size_bytes": self.update.text_bytes,
+                    "progress": (
+                        {
+                            "bytes_done": self.update_progress.bytes_done,
+                            "bytes_total": self.update_progress.bytes_total,
+                            "state": self.update_progress.state,
+                        }
+                        if self.update_progress is not None
+                        else None
+                    ),
+                }
                 if self.update is not None
                 else None
             ),
             "locked": self.locked,
             "search_available": status.search_available,
+            "can_use_now": self.can_use_now,
+            "suggest_in_onboarding": self.suggest_in_onboarding,
         }
 
 
@@ -276,19 +351,32 @@ class SmartSearchActivationService:
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep
     poll_interval_seconds: float = STATUS_POLL_SECONDS
     network_retry_delays: tuple[float, ...] = NETWORK_RETRY_DELAYS
+    spaces: EmbeddingSpaceRegistryPort | None = None
+    """With `reembed`, enables blue/green updates and "Usar ya"; without them an update only downloads."""
+    reembed: ReembedControlPort | None = None
+    platform: str = "auto"
+    host_resources: Callable[[], tuple[int, int]] | None = None
+    """`(cpu_cores, ram_bytes)` of this machine, for the onboarding suggestion (D8). None never suggests."""
 
     # -- read ------------------------------------------------------------------------------
 
     async def status(self) -> SmartSearchStatusView:
         status = await self.repository.load()
         spec, dims = self._spec_for(status)
+        update = self._update_for(status)
+        installs = await self.repository.installs()
+        locked = await self.provider_switch.locked()
         return SmartSearchStatusView(
             status=status,
             spec=spec,
             dims=dims,
             free_bytes=self.store.free_bytes(),
-            update=self._update_for(status),
-            locked=await self.provider_switch.locked(),
+            update=update,
+            locked=locked,
+            update_progress=_update_progress(installs, update),
+            can_use_now=await self._pending_reembed_space(status, installs) is not None,
+            suggest_in_onboarding=self._suggest_in_onboarding(status, locked),
+            model_installed=status.state is not SmartSearchState.OFF and self._installed(spec),
         )
 
     # -- person actions --------------------------------------------------------------------
@@ -365,7 +453,53 @@ class SmartSearchActivationService:
         await self._enqueue(newer, space, DownloadPurpose.UPDATE)
         return await self.status()
 
+    async def use_now(self) -> SmartSearchStatusView:
+        """"Usar ya": switch search to the pending re-embed space before it reaches 100 %."""
+        current = await self.repository.load()
+        space_id = await self._pending_reembed_space(current, await self.repository.installs())
+        if space_id is None or self.reembed is None:
+            raise SmartSearchStateConflictError(current.state.value, USE_NOW_EVENT)
+        try:
+            dropped = await self.reembed.use_now(space_id)
+        except InvalidEmbeddingSpaceError as exc:  # retired or dropped by a concurrent flip
+            raise SmartSearchStateConflictError(current.state.value, USE_NOW_EVENT) from exc
+        await self.space_activated(space_id, dropped)
+        return await self.status()
+
     # -- runtime owner API (Stage 24 embeddings-runtime / reembed) ---------------------------
+
+    async def space_activated(self, space_id: str, dropped_space_ids: Sequence[str] = ()) -> SmartSearchStatus | None:
+        """The blue/green flip committed: the status follows to `space_id` (the runtime supervisor then serves
+        it) and the files of models no longer used are deleted. Idempotent; `ReembedObserverPort.activated`.
+
+        The state does not change, so this is not a state machine event: only the space (and the size of its
+        verified weights) moves."""
+        try:
+            model_id, revision, dims = parse_space_id(space_id)
+        except InvalidEmbeddingSpaceError:
+            return None
+        spec = self.catalog.get(model_id, revision)
+        if spec is None or dims not in spec.matryoshka_dims:
+            return None
+        previous: SmartSearchStatus | None = None
+        current = await self.repository.load()
+        for _ in range(_CAS_ATTEMPTS):
+            if current.state not in _FOLLOWS_FLIP or current.space_id == space_id:
+                break
+            size = spec.weights.size_bytes
+            moved = replace(current, space_id=space_id, bytes_done=size, bytes_total=size)
+            if await self.repository.replace(current, moved):
+                previous, current = current, moved
+                break
+            current = await self.repository.load()
+        old_spaces = [*dropped_space_ids, *([previous.space_id] if previous and previous.space_id else [])]
+        await self._remove_old_models(spec, old_spaces)
+        return current
+
+    async def reembed_progress(self, space_id: str, done: int, total: int) -> None:
+        """`ReembedObserverPort.progress`: only shown while the status is `indexing` in that space."""
+        await self.repository.set_index_progress(space_id, done, total)
+
 
     async def advance(self, space_id: str, event: SmartSearchEvent) -> SmartSearchStatus | None:
         """Apply a system event to `space_id`'s status. None when the status moved on (another space, or the
@@ -546,6 +680,7 @@ class SmartSearchActivationService:
             self._license(spec)
             await self.repository.save_install(_record(spec, InstallState.INSTALLED, spec.weights.size_bytes))
             await self.hooks.update_ready(spec, space, weights)
+            await self._build_space(space)
             return DownloadJobResult.UPDATE_READY
 
         if await self.advance(space.id, SmartSearchEvent(SmartSearchEventKind.DOWNLOADED)) is None:
@@ -576,6 +711,77 @@ class SmartSearchActivationService:
             await asyncio.to_thread(self.store.remove, spec)
 
     # -- helpers ------------------------------------------------------------------------------
+
+    async def _build_space(self, space: EmbeddingSpace) -> None:
+        """Register a verified update's space as `building` and queue its re-embedding (idempotent: a retried
+        job registers the same space again and `reembed` skips assets that already have vectors)."""
+        if self.spaces is None or self.reembed is None:
+            return
+        if await self.spaces.space_state(space.id) is EmbeddingSpaceState.ACTIVE:
+            return
+        await self.spaces.register_space(space)
+        await self.reembed.start(space.id)
+
+    async def _pending_reembed_space(
+        self, status: SmartSearchStatus, installs: Sequence[ModelInstallRecord]
+    ) -> str | None:
+        """The `building` space that "Usar ya" would switch to, if any: a verified update's space, or the
+        status's own space while an older one still serves search."""
+        if self.spaces is None or self.reembed is None or not status.search_available:
+            return None
+        candidates: list[str] = []
+        newer = self._update_for(status)
+        if newer is not None and any(
+            (record.model_id, record.revision, record.state) == (newer.model_id, newer.revision, InstallState.INSTALLED)
+            for record in installs
+        ):
+            candidates.append(newer.space(_dims_or_default(status.space_id, newer)).id)
+        if status.space_id:
+            candidates.append(status.space_id)
+        for space_id in candidates:
+            if await self.spaces.space_state(space_id) is EmbeddingSpaceState.BUILDING:
+                return space_id
+        return None
+
+    def _suggest_in_onboarding(self, status: SmartSearchStatus, locked: bool) -> bool:
+        if status.state is not SmartSearchState.OFF or locked or self.platform == ANDROID_PLATFORM:
+            return False
+        if self.host_resources is None:
+            return False
+        try:
+            cores, ram_bytes = self.host_resources()
+        except (OSError, ValueError):
+            return False
+        return suggest_in_onboarding(cores, ram_bytes)
+
+    def _installed(self, spec: ModelSpec) -> bool:
+        try:
+            installed = self.store.installed()
+        except OSError:
+            return False
+        return any((item.model_id, item.revision) == (spec.model_id, spec.revision) for item in installed)
+
+    async def _remove_old_models(self, active: ModelSpec, space_ids: Sequence[str]) -> None:
+        """Delete the files and install rows of models the active space no longer uses (after the flip)."""
+        seen: set[tuple[str, str]] = {(active.model_id, active.revision)}
+        for space_id in space_ids:
+            try:
+                model_id, revision, _ = parse_space_id(space_id)
+            except InvalidEmbeddingSpaceError:
+                continue
+            if not revision or (model_id, revision) in seen:
+                continue  # legacy spaces have no managed files; a dims change keeps the same model
+            seen.add((model_id, revision))
+            old = self.catalog.get(model_id, revision) or _spec_at(self.catalog.get(model_id), revision)
+            if old is None:
+                continue
+            try:
+                freed = await asyncio.to_thread(self.store.remove, old)
+            except OSError as exc:  # leftover files never undo the flip; the next remove retries
+                LOGGER.warning("Could not delete an old model's files: %s", exc.__class__.__name__)
+                continue
+            await self.repository.delete_installs(old.model_id, old.revision)
+            LOGGER.info("Deleted an old smart search model's files (%s bytes)", freed)
 
     async def _apply(self, event: SmartSearchEvent) -> SmartSearchStatus:
         _, new = await self._apply_with_previous(event)
@@ -716,6 +922,32 @@ class SmartSearchActivationService:
         if current is None or current.revision == revision:
             return None
         return current
+
+
+class ActivationReembedObserver:
+    """`ReembedObserverPort` for the worker's `ReembedService`: progress and the flip reach the status."""
+
+    def __init__(self, activation: SmartSearchActivationService) -> None:
+        self._activation = activation
+
+    async def progress(self, space_id: str, done: int, total: int) -> None:
+        await self._activation.reembed_progress(space_id, done, total)
+
+    async def activated(self, space_id: str, dropped_space_ids: Sequence[str]) -> None:
+        await self._activation.space_activated(space_id, dropped_space_ids)
+
+
+def _update_progress(installs: Sequence[ModelInstallRecord], update: ModelSpec | None) -> UpdateProgress | None:
+    if update is None:
+        return None
+    for record in installs:
+        if (record.model_id, record.revision, record.file) == (update.model_id, update.revision, update.weights.name):
+            return UpdateProgress(
+                bytes_done=record.bytes_done,
+                bytes_total=record.bytes_total,
+                state=_UPDATE_PROGRESS_STATES.get(record.state, "downloading"),
+            )
+    return None
 
 
 def _record(spec: ModelSpec, state: InstallState, bytes_done: int, error_code: str | None = None) -> ModelInstallRecord:
