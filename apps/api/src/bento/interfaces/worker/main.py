@@ -2,24 +2,24 @@ import asyncio
 import logging
 import os
 import signal
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Any
 
-from bento.adapters.embeddings import (
-    DisabledEmbeddingProvider,
-    JinaOmniNanoGgufAdapter,
-    MockEmbeddingProvider,
-    SQLiteEmbeddingTextCatalog,
-)
+from bento.adapters.embeddings import SQLiteEmbeddingTextCatalog
 from bento.adapters.jobs import SQLiteJobQueue
 from bento.adapters.manifest import SQLiteManifestJournal
 from bento.adapters.media import SQLiteBlobRefCatalog, SQLiteThumbnailCatalog
 from bento.adapters.ocr import SQLitePDFPageTextCatalog
 from bento.adapters.repositories import SQLiteAssetRepository
+from bento.adapters.runtime.embedding_setup import WorkerEmbedding, build_worker_embedding, default_model_ports
 from bento.adapters.search.sqlite_fts import SQLiteFTSSearchIndex
 from bento.adapters.search.sqlite_vec import SQLiteVecSearchIndex
 from bento.application.indexing.embedding import EmbeddingIndexingService
 from bento.application.indexing.reindex import ReindexService
 from bento.application.media import MediaProcessingService, ProcessingCompletionService
+from bento.application.smart_search.reembed import ReembedService
+from bento.domain.smart_search import SmartSearchStatus, legacy_space_id
 from bento.application.indexing import OCRIndexingService
 from bento.application.ingestion import IndexingPolicy
 from bento.infrastructure import services
@@ -28,6 +28,13 @@ from bento.infrastructure.db.engine import create_app_session_factory
 from bento.infrastructure.settings import Settings, get_settings
 from bento.infrastructure.storage_pipeline import get_storage_pipeline
 from bento.interfaces.worker.dispatch import WorkerDispatcher
+from bento.interfaces.worker.handlers_models import build_model_download_handler
+from bento.interfaces.worker.smart_search import (
+    ReembedStatusObserver,
+    RuntimeStatusRelay,
+    SmartSearchSpaceJanitor,
+    WorkerSmartSearchHooks,
+)
 from bento.adapters.sync import configure_change_capture
 from bento.interfaces.worker.telegram import TelegramJobHandlers, run_inbox_loop
 from bento.interfaces.worker.storage_pipeline import StoragePipelineJobHandler, StoragePipelineLoop
@@ -42,10 +49,28 @@ LOGGER = logging.getLogger("bento.worker")
 
 
 async def run_worker(stop_event: asyncio.Event | None = None) -> None:
-    """The worker process: job loop plus Inbox, storage-pipeline housekeeping, and sync loops until `stop_event`."""
+    """The worker process: job loop plus Inbox, storage-pipeline housekeeping, and sync loops until `stop_event`.
+
+    With smart search on, the worker also owns the embedding server: it starts it for the active space,
+    restarts it with backoff, and stops it on shutdown (settings changes restart the worker, so turning smart
+    search off or removing the model stops it too)."""
     from bento.interfaces.worker.runtime import WorkerRuntime
 
-    await WorkerRuntime(get_settings()).run(stop_event or asyncio.Event())
+    settings = get_settings()
+    stop = stop_event or asyncio.Event()
+    worker = WorkerRuntime(settings)
+    worker.dispatcher  # noqa: B018 - built first: it attaches the status relay before the supervisor's first tick
+    embedding_runtime = _worker_embedding(settings).runtime
+    background: list[asyncio.Task[None]] = []
+    if embedding_runtime is not None:
+        background.append(asyncio.create_task(embedding_runtime.run(stop), name="bento-embedding-runtime"))
+    # Cancel/remove run in the API process: once the status is `off`, drop the removed spaces' vectors here.
+    background.append(asyncio.create_task(_space_janitor(settings).run(stop), name="bento-smart-search-janitor"))
+    try:
+        await worker.run(stop)
+    finally:
+        stop.set()
+        await asyncio.gather(*background, return_exceptions=True)
 
 
 def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> WorkerDispatcher:
@@ -84,17 +109,53 @@ def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> Work
         pdf_pages=SQLitePDFPageTextCatalog(session_factory, clock),
         index_recorder=create_asset_index_recorder(settings, session_factory),
     )
+    worker_embedding = _worker_embedding(settings)
+    vec_index = SQLiteVecSearchIndex(session_factory, clock, dimensions=worker_embedding.dimensions)
     embedding = EmbeddingIndexingService(
         assets=assets,
         blob_refs=blob_refs,
         resolver=resolver,
-        provider=_embedding_provider(data_dir, settings),
-        index=SQLiteVecSearchIndex(session_factory, clock, dimensions=settings.embedding_dimensions),
+        provider=worker_embedding.provider,
+        index=vec_index,
         manifest=manifest,
         clock=clock,
         text_catalog=SQLiteEmbeddingTextCatalog(session_factory),
         index_recorder=create_asset_index_recorder(settings, session_factory),
+        chunk_tokens=worker_embedding.chunk_tokens,
     )
+    model_download = build_model_download_handler(
+        data_dir=data_dir,
+        session_factory=session_factory,
+        clock=clock,
+        jobs=jobs,
+        app_version=settings.app_version,
+        hooks=WorkerSmartSearchHooks(runtime=worker_embedding.hooks, spaces=vec_index),
+    )
+    activation = model_download.activation
+    catalog, store = default_model_ports(settings)
+    reembed = ReembedService(
+        assets=assets,
+        spaces=vec_index,
+        vectors=vec_index,
+        jobs=jobs,
+        active=jobs,
+        clock=clock,
+        catalog=catalog,
+        store=store,
+        observer=ReembedStatusObserver(activation),
+    )
+    if worker_embedding.runtime is not None:
+        runtime = worker_embedding.runtime
+        runtime.attach_status(
+            RuntimeStatusRelay(
+                activation=activation,
+                spaces=vec_index,
+                reembed=reembed,
+                load_status=activation.repository.load,
+                served_model=runtime.current_model,
+                jobs=jobs,
+            )
+        )
     indexing = IndexingPolicy.from_providers(
         ocr_provider=settings.ocr_provider, embeddings_provider=settings.embeddings_provider
     )
@@ -105,6 +166,7 @@ def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> Work
         worker_id=worker_id,
         ocr=ocr,
         embedding=embedding,
+        model_download=model_download,
         telegram=TelegramJobHandlers(settings),
         storage_pipeline=StoragePipelineJobHandler(pipeline),
         sync_snapshot=SyncSnapshotJobHandler(session_factory),
@@ -115,24 +177,72 @@ def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> Work
             active=jobs,
             ocr_enabled=indexing.ocr,
             embeddings_enabled=indexing.embeddings,
+            spaces=vec_index,
+            vectors=vec_index,
         ),
+        reembed=reembed,
     )
 
 
-def _embedding_provider(data_dir: Path, settings: Settings) -> DisabledEmbeddingProvider | MockEmbeddingProvider | JinaOmniNanoGgufAdapter:
-    provider = settings.embeddings_provider
-    if provider == "mock":
-        return MockEmbeddingProvider(dimensions=settings.embedding_dimensions)
-    if provider == "jina":
-        model_path = Path(settings.jina_model_path)
-        if not model_path.is_absolute():
-            model_path = (data_dir.parent / model_path).resolve()
-        return JinaOmniNanoGgufAdapter(
-            model_path=model_path,
-            endpoint_url=settings.embedding_server_url,
-            dimensions=settings.embedding_dimensions,
+def _space_janitor(settings: Settings) -> SmartSearchSpaceJanitor:
+    clock = SystemClock()
+    return SmartSearchSpaceJanitor(
+        load_status=_status_loader(settings),
+        spaces=SQLiteVecSearchIndex(create_app_session_factory(settings), clock),
+    )
+
+
+def worker_space_id(settings: Settings) -> str | None:
+    """The embedding space this worker writes: the served (or configured) smart search space, the legacy space
+    of pre-space providers (`mock`), or None when embeddings are off. Used for peer vectors in sync."""
+    provider = _worker_embedding(settings).provider
+    space = getattr(provider, "space", None)
+    if space is not None:
+        return str(space.id)
+    if str(settings.embeddings_provider) == "mock":
+        return legacy_space_id("mock", int(settings.embedding_dimensions))
+    return None
+
+
+_WORKER_EMBEDDINGS: dict[tuple[str, ...], WorkerEmbedding] = {}
+
+
+def _worker_embedding(settings: Settings) -> WorkerEmbedding:
+    """One provider + runtime per profile, shared by the dispatcher and the runtime supervisor."""
+    key = (
+        str(Path(settings.data_dir).expanduser().resolve()),
+        str(settings.embeddings_provider),
+        str(getattr(settings, "smart_search_model", "")),
+        str(settings.embedding_dimensions),
+        str(getattr(settings, "custom_model_path", "")),
+        str(settings.embedding_server_url),
+    )
+    cached = _WORKER_EMBEDDINGS.get(key)
+    if cached is None:
+        catalog, store = (
+            default_model_ports(settings) if settings.embeddings_provider == "managed" else (None, None)
         )
-    return DisabledEmbeddingProvider()
+        cached = build_worker_embedding(
+            settings, catalog=catalog, store=store, load_status=_status_loader(settings)
+        )
+        _WORKER_EMBEDDINGS[key] = cached
+    return cached
+
+
+def _status_loader(settings: Settings) -> Callable[[], Awaitable[SmartSearchStatus]]:
+    """The persisted smart search status decides which space the worker serves (`StatusRuntimeTargets`)."""
+    repository: Any = None
+
+    async def load() -> SmartSearchStatus:
+        nonlocal repository
+        if repository is None:
+            from bento.adapters.models.sqlite_status import SQLiteSmartSearchStatusRepository
+
+            repository = SQLiteSmartSearchStatusRepository(create_app_session_factory(settings), SystemClock())
+        status: SmartSearchStatus = await repository.load()
+        return status
+
+    return load
 
 
 def main() -> None:

@@ -6,6 +6,7 @@ import {
   Clock,
   FileText,
   Film,
+  HardDriveDownload,
   Image,
   RefreshCw,
   RotateCw,
@@ -69,12 +70,15 @@ const statusLabels: Record<JobStatus, MessageKey> = {
   succeeded: "jobs.status.succeeded",
 };
 
+// `model_download` and `reembed` belong to smart search (Stage 24); their labels live with the feature.
 const typeLabels: Record<JobType, MessageKey> = {
   embedding: "jobs.type.embedding",
   journal_export: "jobs.type.journal_export",
   metadata: "jobs.type.metadata",
+  model_download: "smartSearch.job.model_download",
   ocr: "jobs.type.ocr",
   pdf_thumbnail: "jobs.type.pdf_thumbnail",
+  reembed: "smartSearch.job.reembed",
   reindex: "jobs.type.reindex",
   telegram_import: "jobs.type.telegram_import",
   thumbnail: "jobs.type.thumbnail",
@@ -85,8 +89,10 @@ const typeIcons: Record<JobType, LucideIcon> = {
   embedding: Sparkles,
   journal_export: BookOpen,
   metadata: Tags,
+  model_download: HardDriveDownload,
   ocr: ScanText,
   pdf_thumbnail: FileText,
+  reembed: Sparkles,
   reindex: RefreshCw,
   telegram_import: Send,
   thumbnail: Image,

@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "default_model_id": "embeddinggemma-2-q8_0",
+  "models": [
+    {
+      "model_id": "embeddinggemma-2-q8_0",
+      "revision": "6ea3e3a309d12a4779cfda98b8c19800d2d5da71",
+      "display_name": "EmbeddingGemma 2",
+      "license_spdx": "Apache-2.0",
+      "source_url": "https://huggingface.co/ggml-org/embeddinggemma-2-GGUF/tree/6ea3e3a309d12a4779cfda98b8c19800d2d5da71",
+      "files": [
+        {
+          "name": "embeddinggemma-2-Q8_0.gguf",
+          "role": "weights",
+          "urls": [
+            "https://huggingface.co/ggml-org/embeddinggemma-2-GGUF/resolve/6ea3e3a309d12a4779cfda98b8c19800d2d5da71/embeddinggemma-2-Q8_0.gguf",
+            "https://github.com/invrnt/bento/releases/download/models-embeddinggemma-2-6ea3e3a3/embeddinggemma-2-Q8_0.gguf"
+          ],
+          "size_bytes": 309855456,
+          "sha256": "2188ac1deca4b77dffefd603c2776a9d76d9d74ec01841392982ebb840b09135"
+        }
+      ],
+      "native_dims": 768,
+      "matryoshka_dims": [768, 512, 256, 128],
+      "default_dims": 512,
+      "pooling": "mean",
+      "context_tokens": 2048,
+      "ubatch_tokens": 2048,
+      "chunk_tokens": 512,
+      "query_template": "task: search result | query: {q}",
+      "document_template": "title: {title} | text: {text}",
+      "modalities": ["text"]
+    },
+    {
+      "model_id": "qwen3-embedding-0.6b-q8_0",
+      "revision": "370f27d7550e0def9b39c1f16d3fbaa13aa67728",
+      "display_name": "Qwen3-Embedding-0.6B",
+      "license_spdx": "Apache-2.0",
+      "source_url": "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/tree/370f27d7550e0def9b39c1f16d3fbaa13aa67728",
+      "files": [
+        {
+          "name": "Qwen3-Embedding-0.6B-Q8_0.gguf",
+          "role": "weights",
+          "urls": [
+            "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/370f27d7550e0def9b39c1f16d3fbaa13aa67728/Qwen3-Embedding-0.6B-Q8_0.gguf"
+          ],
+          "size_bytes": 639150592,
+          "sha256": "06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439"
+        }
+      ],
+      "native_dims": 1024,
+      "matryoshka_dims": [1024, 768, 512, 256],
+      "default_dims": 1024,
+      "pooling": "last",
+      "context_tokens": 2048,
+      "ubatch_tokens": 2048,
+      "chunk_tokens": 512,
+      "query_template": "Instruct: Given a search query, retrieve relevant files\nQuery:{q}",
+      "document_template": "{text}",
+      "modalities": ["text"]
+    }
+  ]
+}

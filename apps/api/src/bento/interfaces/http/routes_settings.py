@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from typing import Any
 
@@ -11,9 +12,12 @@ from bento.adapters.settings import SQLiteSettingsRepository
 from bento.application.settings import EditableSettingsService
 from bento.domain.errors import DomainError
 from bento.domain.settings import SecretReferenceMutation, SettingSource
-from bento.domain.settings_registry import SETTINGS_REGISTRY
+from bento.domain.settings_registry import SETTINGS_BY_KEY, SETTINGS_REGISTRY, choices_for, is_advanced, is_hidden
 from bento.infrastructure.db.clock import SystemClock
 from bento.infrastructure.db.engine import create_session_factory, sqlite_url
+from bento.ports.models import ModelCatalogPort
+
+LOGGER = logging.getLogger("bento.http.settings")
 
 router = APIRouter()
 
@@ -40,8 +44,10 @@ class SettingsImportPreviewRequest(BaseModel):
 @router.get("/settings/schema")
 async def settings_schema(request: Request) -> dict[str, Any]:
     snapshot = await _service(request).snapshot()
+    platform = str(snapshot.values["platform"].value or "auto")
     return {
         "revision": snapshot.revision,
+        "platform": platform,
         "fields": [
             {
                 "key": definition.key,
@@ -51,7 +57,7 @@ async def settings_schema(request: Request) -> dict[str, Any]:
                 "type": definition.value_type.value,
                 "default": None if definition.secret else definition.default,
                 "constraints": {
-                    "choices": list(definition.choices),
+                    "choices": list(choices_for(definition.key, platform)),
                     "minimum": definition.minimum,
                     "maximum": definition.maximum,
                 },
@@ -63,6 +69,8 @@ async def settings_schema(request: Request) -> dict[str, Any]:
                 "probe": definition.probe,
                 "source": snapshot.values[definition.key].source.value,
                 "locked": snapshot.values[definition.key].locked,
+                "advanced": is_advanced(definition.key),
+                "hidden": is_hidden(definition.key, platform),
             }
             for definition in SETTINGS_REGISTRY
         ],
@@ -123,9 +131,8 @@ def _service(request: Request) -> EditableSettingsService:
     environment: dict[str, str] = {}
     policy_values: dict[str, Any] = {}
     if effective is not None:
-        definitions = {definition.key: definition for definition in SETTINGS_REGISTRY}
         for key, item in effective.values.items():
-            definition = definitions[key]
+            definition = SETTINGS_BY_KEY[key]
             if item.source == SettingSource.ENVIRONMENT:
                 environment[definition.env_aliases[0]] = "configured" if definition.secret else str(item.value)
             elif item.source == SettingSource.POLICY and not definition.secret:
@@ -136,9 +143,21 @@ def _service(request: Request) -> EditableSettingsService:
         runtime_mode=settings.runtime_mode,
         policy_values=policy_values,
         bootstrap_values={"data_dir": settings.data_dir} if settings.runtime_mode == "desktop" else {},
+        model_catalog=_model_catalog(),
     )
     request.app.state.editable_settings_service = service
     return service
+
+
+def _model_catalog() -> ModelCatalogPort | None:
+    """The packaged manifest, so `smart_search_model`/`embedding_dimensions` validate against it."""
+    from bento.infrastructure.models import packaged_model_catalog
+
+    try:
+        return packaged_model_catalog()
+    except (OSError, ValueError, DomainError) as exc:  # a broken manifest falls back to the registry mirror
+        LOGGER.warning("Could not read the packaged model manifest: %s", exc.__class__.__name__)
+        return None
 
 
 def _secret_references(values: dict[str, SecretReferenceRequest]) -> dict[str, SecretReferenceMutation]:
@@ -151,7 +170,7 @@ def _secret_references(values: dict[str, SecretReferenceRequest]) -> dict[str, S
 def _snapshot_response(snapshot: Any) -> dict[str, Any]:
     values: dict[str, Any] = {}
     for key, item in snapshot.values.items():
-        definition = next(field for field in SETTINGS_REGISTRY if field.key == key)
+        definition = SETTINGS_BY_KEY[key]
         entry: dict[str, Any] = {
             "source": item.source.value,
             "locked": item.locked,

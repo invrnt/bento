@@ -12,7 +12,9 @@ export type JobType =
   | "video_thumbnail"
   | "reindex"
   | "telegram_import"
-  | "journal_export";
+  | "journal_export"
+  | "model_download"
+  | "reembed";
 
 export type JobRecord = {
   asset_id?: string | null;

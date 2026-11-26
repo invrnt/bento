@@ -1,16 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-from pathlib import Path
 
 import pytest
 
-from bento.adapters.embeddings import (
-    DisabledEmbeddingProvider,
-    EmbeddingModelUnavailableError,
-    JinaOmniNanoGgufAdapter,
-    MockEmbeddingProvider,
-)
+from bento.adapters.embeddings import DisabledEmbeddingProvider, MockEmbeddingProvider
 from bento.domain.errors import EmbeddingsDisabledError
 
 
@@ -38,13 +32,3 @@ def test_disabled_embedding_provider_reports_disabled() -> None:
 
     asyncio.run(scenario())
 
-
-def test_jina_adapter_missing_model_is_unavailable(tmp_path: Path) -> None:
-    async def scenario() -> None:
-        provider = JinaOmniNanoGgufAdapter(model_path=tmp_path / "missing.gguf", dimensions=4)
-
-        assert await provider.is_enabled() is False
-        with pytest.raises(EmbeddingModelUnavailableError, match="unavailable"):
-            await provider.embed_text("asset_1", "hello")
-
-    asyncio.run(scenario())

@@ -9,7 +9,13 @@ import logging
 from sqlalchemy.orm import Session, sessionmaker
 
 from bento.adapters.repositories.devices import SQLiteDeviceRepository
-from bento.adapters.sync import SQLiteHlcSource, SQLiteSyncAdapters, SQLiteSyncOutbox, SQLiteSyncStateStore
+from bento.adapters.sync import (
+    ActiveSpaceResolver,
+    SQLiteHlcSource,
+    SQLiteSyncAdapters,
+    SQLiteSyncOutbox,
+    SQLiteSyncStateStore,
+)
 from bento.application.sync import AssetIndexRecorder, SyncEngine, SyncLoop
 from bento.application.sync.state import SNAPSHOT_REQUESTED_AT, format_timestamp
 from bento.domain.errors import DomainError
@@ -40,7 +46,13 @@ def create_sync_loop(settings: Settings) -> SyncLoop | None:
         return None
     clock = SystemClock()
     session_factory = create_app_session_factory(settings)
-    adapters = SQLiteSyncAdapters.create(session_factory, clock, vector_dimensions=settings.embedding_dimensions)
+    adapters = SQLiteSyncAdapters.create(
+        session_factory,
+        clock,
+        vector_dimensions=settings.embedding_dimensions,
+        legacy_provider=legacy_embedding_provider(settings),
+        active_space=_worker_active_space(settings),
+    )
     engine = SyncEngine(
         vault=vault,
         transport=runtime.transport,
@@ -57,6 +69,25 @@ def create_sync_loop(settings: Settings) -> SyncLoop | None:
         notifier=services.get_notifier(settings),
     )
     return SyncLoop(engine=engine, vault=vault, transport=runtime.transport, state=adapters.state, clock=clock)
+
+
+def legacy_embedding_provider(settings: Settings) -> str | None:
+    """Pre-space providers keep their vectors in `legacy:<provider>/<dims>`: today only `mock`."""
+    provider = str(settings.embeddings_provider)
+    return provider if provider == "mock" else None
+
+
+def _worker_active_space(settings: Settings) -> ActiveSpaceResolver | None:
+    """The space this worker embeds into when no managed space is active yet (`custom` models, or a managed
+    model whose space is not registered yet): peers' vectors in it are indexed, not only stored."""
+    if str(settings.embeddings_provider) not in {"managed", "custom"}:
+        return None
+    from bento.interfaces.worker.main import worker_space_id
+
+    async def resolve() -> str | None:
+        return worker_space_id(settings)
+
+    return resolve
 
 
 def start_sync_loop(settings: Settings, stop_event: asyncio.Event) -> asyncio.Task[None] | None:

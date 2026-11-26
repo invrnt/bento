@@ -7,6 +7,9 @@ const iconRoot = path.join(__dirname, "resources", "icons", "bento");
 // Written by scripts/write-build-config.mjs (npm run build:config) before packaging.
 const buildConfig = path.join(__dirname, "resources", "build-config.json");
 const trayIcons = path.join(__dirname, "resources", "tray");
+// llama-server (smart search, D4) next to bento-sidecar: scripts/build-sidecar.mjs copies the output of
+// scripts/build-llama-server.{sh,ps1} there. BENTO_SKIP_LLAMA_SERVER=1 is for development packages only.
+const llamaServer = process.env.BENTO_SKIP_LLAMA_SERVER === "1" ? [] : [path.join(sidecarBundle, "llama-server")];
 
 // Linux registers only the bento:// scheme. Declaring image/document MIME types could make Bento the
 // default opener on some desktops; files still reach Bento via "Open with" (`%U`) and drag and drop.
@@ -55,7 +58,7 @@ module.exports = {
     icon: process.platform === "darwin" ? `${iconRoot}.icns` : process.platform === "win32" ? `${iconRoot}.ico` : `${iconRoot}.png`,
     ...macSigning,
     ...windowsSigning,
-    extraResource: [path.join(sidecarBundle, "bento-sidecar"), buildConfig, trayIcons],
+    extraResource: [path.join(sidecarBundle, "bento-sidecar"), buildConfig, trayIcons].concat(llamaServer),
     ignore: [
       /^\/src($|\/)/,
       /^\/tests($|\/)/,

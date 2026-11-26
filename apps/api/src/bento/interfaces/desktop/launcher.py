@@ -189,8 +189,8 @@ def _run_probe(arguments: argparse.Namespace) -> int:
         path = Path(arguments.path or settings.data_dir)
         result = _probe_writable_directory(path)
     elif probe == "model-file":
-        path = Path(arguments.path or settings.jina_model_path)
-        result = _probe_model_file(path)
+        configured = arguments.path or settings.custom_model_path.strip()
+        result = _probe_model_file(Path(configured)) if configured else _failed("model-file", "not_readable")
     elif probe == "ffmpeg":
         result = _probe_ffmpeg()
     elif probe == "ocr":

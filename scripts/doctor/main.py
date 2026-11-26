@@ -172,13 +172,61 @@ def _check_ffmpeg() -> Check:
 
 
 def _check_model(root: Path, data_dir: Path, settings: Settings) -> Check:
+    """Smart search (`embeddings_provider`: `disabled | managed | custom | mock`)."""
     provider = settings.embeddings_provider
     if provider == "disabled":
         return Check(name="embedding model", status="pass", detail="embeddings disabled")
-    model_path = _resolve_model_path(root, data_dir, settings.jina_model_path)
-    if model_path.is_file():
-        return Check(name="embedding model", status="pass", detail=f"{provider} model is present")
-    return Check(name="embedding model", status="fail", detail=f"{provider} model missing at {model_path}")
+    if provider == "mock":
+        return Check(name="embedding model", status="pass", detail="mock embeddings (no model file)")
+    if provider == "custom":
+        configured = settings.custom_model_path.strip()
+        if not configured:
+            return Check(name="embedding model", status="fail", detail="custom provider without custom_model_path")
+        model_path = _resolve_model_path(root, data_dir, configured)
+        if not model_path.is_file():
+            return Check(name="embedding model", status="fail", detail=f"custom model missing at {model_path}")
+        return _check_llama_server(settings, "custom model is present")
+    if provider == "managed":
+        installed = _managed_model_installed(data_dir, settings)
+        if installed is None:
+            return Check(name="embedding model", status="warn", detail="the packaged model manifest is unavailable")
+        if not installed:
+            return Check(
+                name="embedding model",
+                status="warn",
+                detail="smart search model not downloaded yet (Settings > Smart search)",
+            )
+        return _check_llama_server(settings, "managed model is installed")
+    return Check(name="embedding model", status="fail", detail=f"unknown embeddings provider {provider!r}")
+
+
+def _managed_model_installed(data_dir: Path, settings: Settings) -> bool | None:
+    try:
+        from bento.infrastructure.models import model_store, packaged_model_catalog
+
+        catalog = packaged_model_catalog()
+        store = model_store(data_dir)
+    except Exception:  # noqa: BLE001 - reported as a warning
+        return None
+    chosen = settings.smart_search_model.strip()
+    spec = (catalog.get(chosen) if chosen else None) or catalog.default()
+    installed = {(item.model_id, item.revision) for item in store.installed()}
+    return (spec.model_id, spec.revision) in installed
+
+
+def _check_llama_server(settings: Settings, present: str) -> Check:
+    from bento.adapters.runtime.embedding_setup import configured_server_url
+    from bento.adapters.runtime.llama_server_process import resolve_llama_server_binary
+
+    if configured_server_url(settings):
+        return Check(name="embedding model", status="pass", detail=f"{present}; using embedding_server_url")
+    if resolve_llama_server_binary(settings.llama_server_path.strip() or None) is None:
+        return Check(
+            name="embedding model",
+            status="warn",
+            detail=f"{present}, but llama-server was not found (llama_server_path, BENTO_LLAMA_SERVER_PATH or PATH)",
+        )
+    return Check(name="embedding model", status="pass", detail=f"{present}; llama-server found")
 
 
 STORAGE_MODES = {

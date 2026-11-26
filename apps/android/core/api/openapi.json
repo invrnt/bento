@@ -2461,6 +2461,272 @@
         "title": "ShareResponse",
         "type": "object"
       },
+      "SmartSearchActivateRequest": {
+        "properties": {
+          "dims": {
+            "anyOf": [
+              {
+                "maximum": 65536.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dims"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "pattern": "^[a-z0-9][a-z0-9._-]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          }
+        },
+        "title": "SmartSearchActivateRequest",
+        "type": "object"
+      },
+      "SmartSearchDownloadResponse": {
+        "properties": {
+          "bytes_done": {
+            "title": "Bytes Done",
+            "type": "integer"
+          },
+          "bytes_total": {
+            "title": "Bytes Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "bytes_done",
+          "bytes_total"
+        ],
+        "title": "SmartSearchDownloadResponse",
+        "type": "object"
+      },
+      "SmartSearchIndexingResponse": {
+        "properties": {
+          "done": {
+            "title": "Done",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "done",
+          "total"
+        ],
+        "title": "SmartSearchIndexingResponse",
+        "type": "object"
+      },
+      "SmartSearchModelResponse": {
+        "properties": {
+          "dims": {
+            "title": "Dims",
+            "type": "integer"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "download_host": {
+            "title": "Download Host",
+            "type": "string"
+          },
+          "license_spdx": {
+            "title": "License Spdx",
+            "type": "string"
+          },
+          "license_url": {
+            "title": "License Url",
+            "type": "string"
+          },
+          "model_id": {
+            "title": "Model Id",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "model_id",
+          "display_name",
+          "license_spdx",
+          "license_url",
+          "size_bytes",
+          "download_host",
+          "dims"
+        ],
+        "title": "SmartSearchModelResponse",
+        "type": "object"
+      },
+      "SmartSearchStatusResponse": {
+        "properties": {
+          "can_use_now": {
+            "title": "Can Use Now",
+            "type": "boolean"
+          },
+          "download": {
+            "$ref": "#/components/schemas/SmartSearchDownloadResponse"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "failed_step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed Step"
+          },
+          "free_bytes": {
+            "title": "Free Bytes",
+            "type": "integer"
+          },
+          "indexing": {
+            "$ref": "#/components/schemas/SmartSearchIndexingResponse"
+          },
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "model": {
+            "$ref": "#/components/schemas/SmartSearchModelResponse"
+          },
+          "search_available": {
+            "title": "Search Available",
+            "type": "boolean"
+          },
+          "space_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Space Id"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "suggest_in_onboarding": {
+            "title": "Suggest In Onboarding",
+            "type": "boolean"
+          },
+          "update_available": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SmartSearchUpdateResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "waiting_network": {
+            "title": "Waiting Network",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "state",
+          "waiting_network",
+          "error_code",
+          "failed_step",
+          "space_id",
+          "download",
+          "indexing",
+          "model",
+          "free_bytes",
+          "update_available",
+          "locked",
+          "search_available",
+          "can_use_now",
+          "suggest_in_onboarding"
+        ],
+        "title": "SmartSearchStatusResponse",
+        "type": "object"
+      },
+      "SmartSearchUpdateProgressResponse": {
+        "properties": {
+          "bytes_done": {
+            "title": "Bytes Done",
+            "type": "integer"
+          },
+          "bytes_total": {
+            "title": "Bytes Total",
+            "type": "integer"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bytes_done",
+          "bytes_total",
+          "state"
+        ],
+        "title": "SmartSearchUpdateProgressResponse",
+        "type": "object"
+      },
+      "SmartSearchUpdateResponse": {
+        "properties": {
+          "progress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SmartSearchUpdateProgressResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "revision",
+          "size_bytes",
+          "progress"
+        ],
+        "title": "SmartSearchUpdateResponse",
+        "type": "object"
+      },
       "SortOrder": {
         "enum": [
           "asc",
@@ -6479,6 +6745,214 @@
           }
         },
         "summary": "Patch Settings"
+      }
+    },
+    "/api/smart-search": {
+      "get": {
+        "operationId": "smart_search_status_api_smart_search_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartSearchStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Smart Search Status"
+      }
+    },
+    "/api/smart-search/activate": {
+      "post": {
+        "operationId": "activate_smart_search_api_smart_search_activate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SmartSearchActivateRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartSearchStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate Smart Search"
+      }
+    },
+    "/api/smart-search/cancel": {
+      "post": {
+        "operationId": "cancel_smart_search_api_smart_search_cancel_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartSearchStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Cancel Smart Search"
+      }
+    },
+    "/api/smart-search/license": {
+      "get": {
+        "operationId": "smart_search_license_api_smart_search_license_get",
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Smart Search License"
+      }
+    },
+    "/api/smart-search/model": {
+      "delete": {
+        "operationId": "remove_smart_search_model_api_smart_search_model_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartSearchStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Remove Smart Search Model"
+      }
+    },
+    "/api/smart-search/pause": {
+      "post": {
+        "operationId": "pause_smart_search_api_smart_search_pause_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartSearchStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Pause Smart Search"
+      }
+    },
+    "/api/smart-search/resume": {
+      "post": {
+        "operationId": "resume_smart_search_api_smart_search_resume_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartSearchStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Resume Smart Search"
+      }
+    },
+    "/api/smart-search/retry": {
+      "post": {
+        "operationId": "retry_smart_search_api_smart_search_retry_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartSearchStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Retry Smart Search"
+      }
+    },
+    "/api/smart-search/update": {
+      "post": {
+        "operationId": "update_smart_search_model_api_smart_search_update_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartSearchStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Update Smart Search Model"
+      }
+    },
+    "/api/smart-search/use-now": {
+      "post": {
+        "description": "\"Usar ya\": search switches to the space being re-embedded before it reaches 100 %.",
+        "operationId": "use_smart_search_space_now_api_smart_search_use_now_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartSearchStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Use Smart Search Space Now"
       }
     },
     "/api/storage/local": {

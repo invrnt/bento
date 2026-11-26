@@ -7,12 +7,28 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, Mapping
 
-from pydantic import AliasChoices, Field, PrivateAttr, model_validator
+from pydantic import AliasChoices, Field, PrivateAttr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import dotenv_values
 
 from bento.domain.settings import EffectiveSettingsSnapshot, PersistedSettings, SecretReferenceMutation
-from bento.domain.settings_registry import SETTINGS_BY_KEY, SETTINGS_REGISTRY
+from bento.domain.settings_registry import (
+    DEFAULT_EMBEDDING_DIMENSIONS,
+    DEFAULT_SMART_SEARCH_MODEL_ID,
+    LEGACY_CUSTOM_MODEL_PATH,
+    SETTINGS_BY_KEY,
+    SETTINGS_REGISTRY,
+)
+from bento.domain.smart_search import EMBEDDINGS_PROVIDER_CHOICES, migrate_embeddings_provider
+
+_PROVIDER_KEYS_LOWER = frozenset({"embeddings_provider", "bento_embedding_provider"})
+_CUSTOM_MODEL_PATH_KEYS = (
+    "custom_model_path",
+    "jina_model_path",
+    "BENTO_CUSTOM_MODEL_PATH",
+    "JINA_MODEL_PATH",
+    "BENTO_EMBEDDING_MODEL_PATH",
+)
 
 
 class Settings(BaseSettings):
@@ -46,23 +62,51 @@ class Settings(BaseSettings):
     ocr_provider: Literal["disabled", "mock", "rapidocr", "mlkit"] = Field(
         default="disabled", validation_alias=AliasChoices("OCR_PROVIDER", "BENTO_OCR_PROVIDER", "ocr_provider")
     )
-    embeddings_provider: Literal["disabled", "mock", "jina"] = Field(
+    embeddings_provider: Literal["disabled", "managed", "custom", "mock"] = Field(
         default="disabled",
         validation_alias=AliasChoices("EMBEDDINGS_PROVIDER", "BENTO_EMBEDDING_PROVIDER", "embeddings_provider"),
     )
-    jina_model_path: str = Field(
-        default="./data/models/jina-v5-omni-nano.gguf",
-        validation_alias=AliasChoices("JINA_MODEL_PATH", "BENTO_EMBEDDING_MODEL_PATH", "jina_model_path"),
+    smart_search_model: str = Field(
+        default=DEFAULT_SMART_SEARCH_MODEL_ID,
+        validation_alias=AliasChoices("BENTO_SMART_SEARCH_MODEL", "smart_search_model"),
     )
-    embedding_server_url: str = Field(
-        default="http://127.0.0.1:8080/v1/embeddings",
-        validation_alias=AliasChoices("BENTO_EMBEDDING_SERVER_URL", "embedding_server_url"),
+    custom_model_path: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "BENTO_CUSTOM_MODEL_PATH", "JINA_MODEL_PATH", "BENTO_EMBEDDING_MODEL_PATH", "custom_model_path", "jina_model_path"
+        ),
+    )
+    custom_mmproj_path: str = Field(
+        default="", validation_alias=AliasChoices("BENTO_CUSTOM_MMPROJ_PATH", "custom_mmproj_path")
+    )
+    custom_query_prefix: str = Field(
+        default="", validation_alias=AliasChoices("BENTO_CUSTOM_QUERY_PREFIX", "custom_query_prefix")
+    )
+    custom_document_prefix: str = Field(
+        default="", validation_alias=AliasChoices("BENTO_CUSTOM_DOCUMENT_PREFIX", "custom_document_prefix")
+    )
+    custom_pooling: Literal["auto", "mean", "last", "cls"] = Field(
+        default="auto", validation_alias=AliasChoices("BENTO_CUSTOM_POOLING", "custom_pooling")
     )
     embedding_dimensions: int = Field(
-        default=768,
+        default=DEFAULT_EMBEDDING_DIMENSIONS,
         ge=1,
         le=65536,
         validation_alias=AliasChoices("BENTO_EMBEDDING_DIMENSIONS", "embedding_dimensions"),
+    )
+    llama_server_path: str = Field(
+        default="", validation_alias=AliasChoices("BENTO_LLAMA_SERVER_BINARY", "llama_server_path")
+    )
+    # External server; when set, Bento spawns no llama-server of its own.
+    embedding_server_url: str = Field(
+        default="",
+        validation_alias=AliasChoices("BENTO_EMBEDDING_SERVER_URL", "embedding_server_url"),
+    )
+    embedding_threads: int = Field(
+        default=SETTINGS_BY_KEY["embedding_threads"].default,
+        ge=1,
+        le=64,
+        validation_alias=AliasChoices("BENTO_EMBEDDING_THREADS", "embedding_threads"),
     )
     data_dir: str = "/app/data"
     telegram_parallel_transfers: int = Field(
@@ -117,6 +161,43 @@ class Settings(BaseSettings):
     )
     _settings_snapshot: EffectiveSettingsSnapshot | None = PrivateAttr(default=None)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _legacy_embeddings_provider(cls, data: Any) -> Any:
+        """A leftover `jina` (an old `.env` or environment) follows the `0009` rule: `custom` when its model
+        file exists, otherwise `disabled`. The settings resolver applies the same rule to saved rows."""
+        if not isinstance(data, dict):
+            return data
+        # Environment sources may hand over the alias in any case.
+        by_name = {str(name).lower(): name for name in data}
+        provider_keys = [name for name in data if str(name).lower() in _PROVIDER_KEYS_LOWER]
+        legacy = [name for name in provider_keys if data[name] not in EMBEDDINGS_PROVIDER_CHOICES]
+        if not legacy:
+            return data
+        configured = ""
+        for name in _CUSTOM_MODEL_PATH_KEYS:
+            original = by_name.get(name.lower())
+            if original is not None and str(data[original] or "").strip():
+                configured = str(data[original]).strip()
+                break
+        candidate = Path(configured or LEGACY_CUSTOM_MODEL_PATH).expanduser()
+        if not candidate.is_absolute():
+            data_dir = data.get(by_name["data_dir"]) if "data_dir" in by_name else None
+            candidate = (Path(str(data_dir or "/app/data")).parent / candidate).resolve()
+        exists = candidate.is_file()
+        normalized = dict(data)
+        for name in legacy:
+            normalized[name] = migrate_embeddings_provider(str(data[name] or ""), exists)
+        if exists and not configured:
+            normalized["custom_model_path"] = LEGACY_CUSTOM_MODEL_PATH
+        return normalized
+
+    @field_validator("smart_search_model")
+    @classmethod
+    def _known_smart_search_model(cls, value: str) -> str:
+        choices = SETTINGS_BY_KEY["smart_search_model"].choices
+        return value if value in choices else DEFAULT_SMART_SEARCH_MODEL_ID
+
     @model_validator(mode="after")
     def _fake_backend_is_development_only(self) -> Settings:
         if self.storage_backend == "fake" and self.environment == "production":
@@ -140,6 +221,11 @@ class Settings(BaseSettings):
     @property
     def effective_snapshot(self) -> EffectiveSettingsSnapshot | None:
         return self._settings_snapshot
+
+    @property
+    def jina_model_path(self) -> str:
+        """Deprecated read-only alias of `custom_model_path` for code written before Stage 24."""
+        return self.custom_model_path
 
 
 def fake_telegram_directory(settings: Settings) -> Path:

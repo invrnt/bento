@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import tempfile
 import uuid
 from dataclasses import dataclass
@@ -30,6 +31,7 @@ from bento.application.photos import (
     TimelineQuery,
     UpdateAlbumCommand,
 )
+from bento.application.settings import resolve_model_path
 from bento.application.storage_maintenance import StorageMaintenanceService
 from bento.domain.assets import Asset, AssetKind, AssetMode
 from bento.domain.drive import DriveItem, DriveSort, Folder, SortOrder
@@ -53,9 +55,13 @@ from bento.interfaces.http.routes_pairing import router as pairing_router
 from bento.interfaces.http.routes_trash import router as trash_router
 from bento.interfaces.http.routes_search import router as search_router
 from bento.interfaces.http.routes_settings import router as settings_router
+from bento.interfaces.http.routes_smart_search import activation_service as smart_search_activation
+from bento.interfaces.http.routes_smart_search import router as smart_search_router
 from bento.interfaces.http.routes_sync import router as sync_router
 from bento.interfaces.http.routes_telegram import router as telegram_router
 from bento.interfaces.http.routes_vault import router as vault_router
+
+LOGGER = logging.getLogger("bento.http")
 
 router = APIRouter()
 router.include_router(search_router)
@@ -74,6 +80,7 @@ router.include_router(sync_router)
 router.include_router(drive_paths_router)
 router.include_router(android_router)
 router.include_router(events_router)
+router.include_router(smart_search_router)
 
 
 class HealthResponse(BaseModel):
@@ -359,10 +366,9 @@ async def version(request: Request) -> dict[str, str]:
 async def public_settings(request: Request) -> dict[str, Any]:
     settings = _settings(request)
     data_dir = _data_dir(settings)
-    model_path = _resolve_data_path(settings.jina_model_path, data_dir)
     ocr_enabled = settings.ocr_provider != "disabled"
     embeddings_enabled = settings.embeddings_provider != "disabled"
-    model_available = model_path.is_file()
+    embeddings_state, model_available = await _embeddings_status(request, settings)
     maintenance = await _storage_maintenance_dependencies(request).service.status()
     return {
         "storage_backend": settings.storage_backend,
@@ -372,7 +378,7 @@ async def public_settings(request: Request) -> dict[str, Any]:
         "ocr_enabled": ocr_enabled,
         "ocr_state": "ready" if ocr_enabled else "disabled",
         "embeddings_enabled": embeddings_enabled,
-        "embeddings_state": _embeddings_state(settings, model_available),
+        "embeddings_state": embeddings_state,
         "model_available": model_available,
         "worker_status": "running" if settings.worker_concurrency > 0 else "stopped",
         "data_paths": {
@@ -937,19 +943,26 @@ def _safe_limit(limit: int) -> int:
     return max(1, min(limit, 200))
 
 
-def _resolve_data_path(path: str, data_dir: Path) -> Path:
-    candidate = Path(path)
-    if candidate.is_absolute():
-        return candidate
-    return (data_dir.parent / candidate).resolve()
+async def _embeddings_status(request: Request, settings: Settings) -> tuple[str, bool]:
+    """`(embeddings_state, model_available)` for old clients (`api/smart-search-contract.md`).
 
-
-def _embeddings_state(settings: Settings, model_available: bool) -> str:
-    if settings.embeddings_provider == "disabled":
-        return "disabled"
-    if settings.embeddings_provider == "mock":
-        return "ready"
-    return "ready" if model_available else "pending"
+    `managed` folds the smart search status (`legacy_embeddings_state()`) and its verified install; `custom`
+    looks for the person's own model file (`custom_model_path`)."""
+    provider = settings.embeddings_provider
+    if provider == "managed":
+        try:
+            view = await smart_search_activation(request).status()
+        except Exception as exc:  # noqa: BLE001 - the settings summary never fails on smart search bookkeeping
+            LOGGER.warning("Could not read the smart search status: %s", exc.__class__.__name__)
+            return "pending", False
+        return view.status.legacy_embeddings_state().value, view.model_installed
+    model_path = str(settings.custom_model_path or "").strip()
+    model_available = bool(model_path) and resolve_model_path(model_path, settings.data_dir).is_file()
+    if provider == "disabled":
+        return "disabled", model_available
+    if provider == "mock":
+        return "ready", model_available
+    return ("ready" if model_available else "pending"), model_available
 
 
 def _storage_maintenance_status_response(status: Any) -> StorageMaintenanceStatusResponse:

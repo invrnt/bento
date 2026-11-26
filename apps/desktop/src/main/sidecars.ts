@@ -1,5 +1,6 @@
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
+import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { EventEmitter } from "node:events";
 import { BENTO_ORIGIN, LifecycleState, ProbeRequest, ProbeResult } from "../shared/contracts";
@@ -28,8 +29,15 @@ export const DESKTOP_CLI_TOKEN_ENV = "BENTO_DESKTOP_CLI_TOKEN";
 export const SIDECAR_PATH_ENV = "BENTO_SIDECAR_PATH";
 /** Sidecars watch this PID and stop when the desktop host is gone (see bento/infrastructure/parent_watch.py). */
 export const PARENT_PID_ENV = "BENTO_PARENT_PID";
+/** The bundled llama-server for smart search (packaged: always the one inside the app's resources). */
+export const LLAMA_SERVER_PATH_ENV = "BENTO_LLAMA_SERVER_PATH";
+/** JSON power state for the worker (smart search indexing pauses on battery below 20 %). */
+export const POWER_STATE_FILE_ENV = "BENTO_POWER_STATE_FILE";
+export const LOW_BATTERY_PERCENT = 20;
 /** Never inherited by sidecars; main sets the token for the API process only. */
-const STRIPPED_SIDECAR_ENVIRONMENT = [DEVICE_WRAPPING_KEY_ENV, DESKTOP_API_TOKEN_ENV, DESKTOP_CLI_TOKEN_ENV, SIDECAR_PATH_ENV, "API_PORT"] as const;
+const STRIPPED_SIDECAR_ENVIRONMENT = [
+  DEVICE_WRAPPING_KEY_ENV, DESKTOP_API_TOKEN_ENV, DESKTOP_CLI_TOKEN_ENV, SIDECAR_PATH_ENV, LLAMA_SERVER_PATH_ENV, POWER_STATE_FILE_ENV, "API_PORT",
+] as const;
 /** Two tokens (renderer + CLI) per API launch. */
 const TOKEN_HISTORY = 16;
 
@@ -56,6 +64,21 @@ export interface SidecarSupervisorOptions {
   log?: RedactingLog;
   readinessTimeoutMs?: number;
   shutdownTimeoutMs?: number;
+  /** Bundled llama-server; by default derived from a packaged `command` (see `llamaServerPathForCommand`). */
+  llamaServerPath?: string | null;
+  /** Battery charge in percent, `null` when unknown; defaults to `readBatteryPercent`. */
+  batteryPercent?: () => Promise<number | null>;
+  /** How often the charge is re-read while on battery (the power hook only reports AC/battery changes). */
+  batteryPollMs?: number;
+}
+
+/** What the worker reads from `BENTO_POWER_STATE_FILE`; a missing file means "on AC, unknown charge". */
+export interface PowerStateDocument {
+  on_battery: boolean;
+  battery_percent: number | null;
+  /** On battery and below `LOW_BATTERY_PERCENT`; an unknown charge on battery counts as low (CPU-safe). */
+  low_battery: boolean;
+  updated_at: string;
 }
 
 export class SidecarSupervisor extends EventEmitter {
@@ -79,6 +102,12 @@ export class SidecarSupervisor extends EventEmitter {
   private readonly log: RedactingLog;
   private readonly readinessTimeoutMs: number;
   private readonly shutdownTimeoutMs: number;
+  private readonly llamaServerPath: string | null;
+  private readonly batteryPercent: () => Promise<number | null>;
+  private readonly batteryPollMs: number;
+  private onBattery: boolean | null = null;
+  private powerWrites: Promise<void> = Promise.resolve();
+  private cancelBatteryPoll: (() => void) | null = null;
 
   constructor(private readonly options: SidecarSupervisorOptions) {
     super();
@@ -94,6 +123,24 @@ export class SidecarSupervisor extends EventEmitter {
     ]);
     this.readinessTimeoutMs = options.readinessTimeoutMs ?? 30_000;
     this.shutdownTimeoutMs = options.shutdownTimeoutMs ?? 5_000;
+    this.llamaServerPath = options.llamaServerPath === undefined ? llamaServerPathForCommand(options.command) : options.llamaServerPath;
+    this.batteryPercent = options.batteryPercent ?? (() => readBatteryPercent());
+    this.batteryPollMs = options.batteryPollMs ?? 60_000;
+  }
+
+  /** `<data_dir>/run/power.json`, next to the worker's `embedder.json`. */
+  get powerStateFile(): string {
+    return path.join(this.options.dataDir, "run", "power.json");
+  }
+
+  /**
+   * Records AC/battery for the worker. Fed by the existing power hook: every `POST /api/backup/power` the
+   * PowerReporter sends through `apiFetch` lands here too. Never throws.
+   */
+  setPowerState(onBattery: boolean | null): Promise<void> {
+    this.onBattery = onBattery;
+    this.scheduleBatteryPoll();
+    return this.writePowerState();
   }
 
   get status(): { state: LifecycleState; recoveryMode: boolean } {
@@ -136,6 +183,8 @@ export class SidecarSupervisor extends EventEmitter {
     this.stopping = false;
     this.setState("starting");
     const token = this.issueToken();
+    if (this.onBattery !== null) await this.writePowerState();
+    this.scheduleBatteryPoll();
     await this.runToCompletion("migrate", []);
     await this.startApiAndWait(token);
     this.worker = this.launch("worker", []);
@@ -147,6 +196,7 @@ export class SidecarSupervisor extends EventEmitter {
   async stop(): Promise<void> {
     this.stopping = true;
     this.setState("stopping");
+    this.clearBatteryPoll();
     this.apiGone();
     await Promise.all([this.terminate(this.worker), this.terminate(this.api)]);
     this.worker = null;
@@ -195,6 +245,8 @@ export class SidecarSupervisor extends EventEmitter {
   async apiFetch(pathname: string, init: RequestInit = {}): Promise<Response> {
     assertApiPath(pathname);
     // The token only ever goes to a port the running API reported over its own stdout.
+    // The worker reads power state from a file, so record it even while the API is briefly away.
+    if (pathname === POWER_ROUTE && (init.method ?? "GET").toUpperCase() === "POST") this.observePowerReport(init.body);
     if (this.apiPort === 0 || !this.token) throw new Error("Desktop API is not available");
     const headers = new Headers(init.headers);
     headers.set("Authorization", `Bearer ${this.token}`);
@@ -218,6 +270,57 @@ export class SidecarSupervisor extends EventEmitter {
     } catch {
       return { status: "failed", code: "invalid_probe_response" };
     }
+  }
+
+  private observePowerReport(body: RequestInit["body"]): void {
+    if (typeof body !== "string") return;
+    try {
+      const value = (JSON.parse(body) as { on_battery?: unknown }).on_battery;
+      if (typeof value === "boolean") void this.setPowerState(value);
+    } catch {
+      // Not a power report this hook understands; the API validates the request itself.
+    }
+  }
+
+  private writePowerState(): Promise<void> {
+    const run = this.powerWrites.then(async () => {
+      const onBattery = this.onBattery;
+      if (onBattery === null) return;
+      const percent = onBattery ? normalisePercent(await this.batteryPercent().catch(() => null)) : null;
+      const document: PowerStateDocument = {
+        on_battery: onBattery,
+        battery_percent: percent,
+        low_battery: onBattery && (percent === null || percent < LOW_BATTERY_PERCENT),
+        updated_at: new Date().toISOString(),
+      };
+      const target = this.powerStateFile;
+      const temporary = `${target}.${process.pid}.tmp`;
+      try {
+        await mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
+        await writeFile(temporary, `${JSON.stringify(document)}\n`, { encoding: "utf8", mode: 0o600 });
+        await rename(temporary, target);
+      } catch (error) {
+        await rm(temporary, { force: true }).catch(() => undefined);
+        this.log.write("warn", "power state not written", { error: String(error) });
+      }
+    });
+    this.powerWrites = run.catch(() => undefined);
+    return this.powerWrites;
+  }
+
+  private scheduleBatteryPoll(): void {
+    this.clearBatteryPoll();
+    if (this.onBattery !== true || this.stopping) return;
+    const timer = setTimeout(() => {
+      this.cancelBatteryPoll = null;
+      void this.writePowerState().then(() => this.scheduleBatteryPoll());
+    }, this.batteryPollMs);
+    this.cancelBatteryPoll = () => clearTimeout(timer);
+  }
+
+  private clearBatteryPoll(): void {
+    this.cancelBatteryPoll?.();
+    this.cancelBatteryPoll = null;
   }
 
   private issueToken(): string {
@@ -290,6 +393,8 @@ export class SidecarSupervisor extends EventEmitter {
       DATA_DIR: this.options.dataDir,
       BENTO_DESKTOP_ORIGIN: BENTO_ORIGIN,
       [PARENT_PID_ENV]: String(process.pid),
+      [POWER_STATE_FILE_ENV]: this.powerStateFile,
+      ...(this.llamaServerPath ? { [LLAMA_SERVER_PATH_ENV]: this.llamaServerPath } : {}),
       ...secretEnvironment(this.secretEnvironment),
       ...(this.options.deviceWrappingKey ? { [DEVICE_WRAPPING_KEY_ENV]: this.options.deviceWrappingKey } : {}),
       ...extra,
@@ -393,6 +498,81 @@ export function resolveSidecarCommand(
   if (override) return { executable: override, prefixArguments: [] };
   return { executable: "uv", prefixArguments: ["run", "--project", apiProjectPath, "bento-sidecar"] };
 }
+
+/**
+ * The bundled llama-server. Packaged builds always use `<resources>/llama-server/llama-server[.exe]` and
+ * ignore the environment (like `BENTO_SIDECAR_PATH`); development may point `BENTO_LLAMA_SERVER_PATH` at a
+ * build of scripts/build-llama-server.sh, otherwise the backend falls back to its setting and `PATH`.
+ */
+export function resolveLlamaServerPath(
+  resourcesPath: string,
+  packaged: boolean,
+  environment: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform,
+): string | null {
+  if (packaged) return path.join(resourcesPath, "llama-server", llamaServerExecutable(platform));
+  return environment[LLAMA_SERVER_PATH_ENV] || null;
+}
+
+/**
+ * llama-server next to the sidecar bundle a command runs: `<dir>/bento-sidecar/bento-sidecar[.exe]` is the
+ * packaged layout (and the dev bundle from build-sidecar.mjs), so `<dir>/llama-server/` holds the server.
+ * `uv run` development commands get the development override instead.
+ */
+export function llamaServerPathForCommand(
+  command: LaunchCommand,
+  environment: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform,
+): string | null {
+  const executable = path.basename(command.executable).toLowerCase();
+  const bundle = path.dirname(command.executable);
+  if (command.prefixArguments.length === 0 && /^bento-sidecar(?:\.exe)?$/u.test(executable) && path.basename(bundle) === "bento-sidecar") {
+    return resolveLlamaServerPath(path.dirname(bundle), true, environment, platform);
+  }
+  return resolveLlamaServerPath("", false, environment, platform);
+}
+
+function llamaServerExecutable(platform: NodeJS.Platform): string {
+  return platform === "win32" ? "llama-server.exe" : "llama-server";
+}
+
+/** Battery charge (0-100) of the system battery, or `null` when the platform does not tell (Windows, desktops). */
+export async function readBatteryPercent(
+  platform: NodeJS.Platform = process.platform,
+  powerSupplyRoot = "/sys/class/power_supply",
+): Promise<number | null> {
+  try {
+    if (platform === "linux") {
+      const values: number[] = [];
+      for (const name of await readdir(powerSupplyRoot)) {
+        const read = (file: string): Promise<string> => readFile(path.join(powerSupplyRoot, name, file), "utf8").then((text) => text.trim());
+        if (await read("type").catch(() => "") !== "Battery") continue;
+        // Peripherals (mice, keyboards) report scope "Device"; only system batteries count.
+        if (await read("scope").catch(() => "System") === "Device") continue;
+        const capacity = Number.parseInt(await read("capacity").catch(() => ""), 10);
+        if (Number.isFinite(capacity)) values.push(capacity);
+      }
+      return values.length ? normalisePercent(Math.min(...values)) : null;
+    }
+    if (platform === "darwin") {
+      const output = await new Promise<string>((resolve, reject) => {
+        execFile("pmset", ["-g", "batt"], { timeout: 2_000 }, (error, stdout) => (error ? reject(error) : resolve(String(stdout))));
+      });
+      const match = /(\d{1,3})%/u.exec(output);
+      return match ? normalisePercent(Number(match[1])) : null;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function normalisePercent(value: number | null): number | null {
+  if (value === null || !Number.isFinite(value)) return null;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+const POWER_ROUTE = "/api/backup/power";
 
 /** The port from a well-formed `BENTO_API_READY {"port":N}` line, otherwise `null`. */
 export function parseApiReadyLine(line: string): number | null {
