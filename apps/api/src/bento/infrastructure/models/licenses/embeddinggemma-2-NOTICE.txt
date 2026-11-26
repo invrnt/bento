@@ -1,0 +1,12 @@
+EmbeddingGemma 2 (embeddinggemma-2-Q8_0.gguf)
+
+Publisher: Google (source model google/embeddinggemma-2), GGUF conversion by ggml-org
+Source: https://huggingface.co/ggml-org/embeddinggemma-2-GGUF/tree/6ea3e3a309d12a4779cfda98b8c19800d2d5da71
+License: Apache License 2.0 (see Apache-2.0.txt, shipped by Bento because the source repository has no LICENSE file)
+License page linked from the model card: https://gemma.ai/resources/apache-2/
+
+The model card also states: "Deployments must adhere to the Gemma Prohibited Use Policy."
+Gemma Prohibited Use Policy: https://gemma.ai/resources/prohibited-use/
+
+Bento downloads this file only when the person turns on search by meaning, verifies its pinned
+SHA-256 and runs it on this device. No data about the person's files leaves the device.

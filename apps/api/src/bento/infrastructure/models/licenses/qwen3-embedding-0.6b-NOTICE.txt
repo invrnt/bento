@@ -1,0 +1,5 @@
+Qwen3-Embedding-0.6B (Qwen3-Embedding-0.6B-Q8_0.gguf)
+
+Publisher: Qwen (Alibaba Cloud)
+Source: https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/tree/370f27d7550e0def9b39c1f16d3fbaa13aa67728
+License: Apache License 2.0 (see Apache-2.0.txt)

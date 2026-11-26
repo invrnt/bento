@@ -16,6 +16,7 @@ from bento.ports.jobs import JobQueuePort
 from bento.ports.repositories import ClockPort
 
 if TYPE_CHECKING:
+    from bento.interfaces.worker.handlers_models import ModelDownloadJobHandler
     from bento.interfaces.worker.storage_pipeline import StoragePipelineJobHandler
     from bento.interfaces.worker.telegram import TelegramJobHandlers
 
@@ -36,6 +37,7 @@ class WorkerDispatcher:
     sync_snapshot: Callable[[Job], Awaitable[None]] | None = None
     processing: ProcessingCompletionService | None = None
     reindex: ReindexService | None = None
+    model_download: ModelDownloadJobHandler | None = None
 
     async def process_one(
         self, *, types: frozenset[JobType] | None = None, deferral: JobDeferral | None = None
@@ -105,6 +107,9 @@ class WorkerDispatcher:
             return
         if job.type == JobType.SYNC_SNAPSHOT and self.sync_snapshot is not None:
             await self.sync_snapshot(job)
+            return
+        if self.model_download is not None and self.model_download.handles(job.type):
+            await self.model_download.handle(job)
             return
         if job.type == JobType.REINDEX and self.reindex is not None:
             queued = await self.reindex.run()

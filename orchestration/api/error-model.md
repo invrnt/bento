@@ -55,3 +55,6 @@ Use consistent JSON errors:
 - `settings_restart_failed`
 - `settings_source_locked`
 - `secret_store_unavailable`
+- `smart_search_state_conflict` (`409`, `details: {state, event}`): the smart search action is not allowed in the current state (maps the domain's `illegal_smart_search_transition`).
+- `smart_search_no_space` (`409`, `details: {required_bytes, free_bytes}`): less free disk than the model size plus 10 %.
+- `invalid_model_spec` (`400`): unknown smart search model id, unsupported dimensions, or a malformed model manifest.
