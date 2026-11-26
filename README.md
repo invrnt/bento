@@ -12,8 +12,6 @@ Bento respalda tus fotos y archivos en tu propia cuenta de Telegram, cifrados an
 
 > Bento usa la API de Telegram y no está afiliado a Telegram.
 
-_Captura de pantalla: [[COMPLETAR: añadir una captura de la biblioteca en docs/assets/ y mostrarla aquí]]_
-
 ## Descargar
 
 Descarga la [última versión](https://github.com/invrnt/bento/releases/latest):

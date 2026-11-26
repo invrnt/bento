@@ -2,8 +2,6 @@
 
 English: [Third-party notices](../en/third-party-notices.md).
 
-> Borrador pendiente de revisión legal antes de publicarse. Consulta [el índice de documentos legales](../README.md).
-
 ## Telegram
 
 Bento usa la API de Telegram y no está afiliado a Telegram. Bento no es una app oficial de Telegram ni está respaldado por Telegram. Bento usa su propio identificador de aplicación de la API de Telegram y se rige por las [condiciones de la API de Telegram](https://core.telegram.org/api/terms).
@@ -71,6 +69,6 @@ El sitio web incluye las tipografías Geist y Geist Mono (SIL Open Font License 
 
 ### Búsqueda inteligente
 
-El modelo de búsqueda inteligente se descarga solo si activas esa función. Licencia del modelo: [[COMPLETAR: verificar y citar la licencia del modelo de búsqueda inteligente]].
+Bento no incluye ni descarga el modelo de búsqueda inteligente: si activas esa función, tú aportas el archivo del modelo (GGUF). Bento está pensado para el modelo **jina-embeddings-v5-omni-nano** de Jina AI, que su [ficha oficial](https://huggingface.co/jinaai/jina-embeddings-v5-omni-nano) licencia bajo **CC BY-NC 4.0** (uso no comercial; para uso comercial, la ficha indica contactar con Jina AI). Si obtienes una copia convertida de otra fuente, revisa la licencia que indique esa fuente.
 
 ffmpeg no se incluye con Bento: si está instalado en tu sistema, Bento lo usa para generar miniaturas de vídeo y se rige por la licencia de esa instalación.
