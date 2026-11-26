@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
+from dataclasses import replace
+from ipaddress import ip_address
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -21,7 +23,17 @@ from bento.domain.settings import (
     SettingValueType,
     SettingsValidationResult,
 )
-from bento.domain.settings_registry import SETTINGS_BY_ALIAS, SETTINGS_BY_KEY, SETTINGS_REGISTRY, platform_default
+from bento.domain.settings_registry import (
+    LEGACY_CUSTOM_MODEL_PATH,
+    MANAGED_MODEL_DIMS,
+    SETTINGS_BY_ALIAS,
+    SETTINGS_BY_KEY,
+    SETTINGS_REGISTRY,
+    embeddings_provider_choices,
+    platform_default,
+)
+from bento.domain.smart_search import EMBEDDINGS_PROVIDER_CHOICES, InvalidModelSpecError, migrate_embeddings_provider
+from bento.ports.models import ModelCatalogPort
 from bento.ports.settings import SettingsRepositoryPort
 
 
@@ -88,7 +100,43 @@ def resolve_effective_settings(
             source=source,
             locked=locked,
         )
+    _normalize_smart_search(values, platform)
     return EffectiveSettingsSnapshot(revision=persisted.revision, values=values)
+
+
+def _normalize_smart_search(values: dict[str, EffectiveSetting], platform: str) -> None:
+    """Values older builds may still hold (a `.env`, a row the `0009` migration has not rewritten yet).
+
+    `jina` (or any unknown provider) follows the migration rule: `custom` when its model file exists,
+    otherwise `disabled`. An unknown managed model falls back to the recommended one.
+    """
+    provider = values["embeddings_provider"]
+    if provider.value not in EMBEDDINGS_PROVIDER_CHOICES:
+        model = values["custom_model_path"]
+        configured_path = str(model.value or "").strip()
+        candidate_path = configured_path or LEGACY_CUSTOM_MODEL_PATH
+        data_dir = str(values["data_dir"].value or "")
+        exists = resolve_model_path(candidate_path, data_dir).is_file()
+        values["embeddings_provider"] = replace(
+            provider, value=migrate_embeddings_provider(str(provider.value or ""), exists)
+        )
+        if exists and not configured_path:
+            values["custom_model_path"] = replace(model, value=candidate_path)
+    if values["embeddings_provider"].value not in embeddings_provider_choices(platform):
+        values["embeddings_provider"] = replace(values["embeddings_provider"], value="disabled")
+    model_choice = values["smart_search_model"]
+    if model_choice.value not in SETTINGS_BY_KEY["smart_search_model"].choices:
+        values["smart_search_model"] = replace(
+            model_choice, value=platform_default("smart_search_model", platform)
+        )
+
+
+def resolve_model_path(path: str, data_dir: str) -> Path:
+    """A model or binary path as the runtime reads it: relative paths are relative to `data_dir`'s parent."""
+    candidate = Path(path).expanduser()
+    if candidate.is_absolute():
+        return candidate
+    return (Path(data_dir).parent / candidate).resolve()
 
 
 class GetSettingsUseCase:
@@ -108,8 +156,10 @@ class EditableSettingsService:
         runtime_mode: str = "headless",
         policy_values: Mapping[str, Any] | None = None,
         bootstrap_values: Mapping[str, Any] | None = None,
+        model_catalog: ModelCatalogPort | None = None,
     ) -> None:
         self._repository = repository
+        self._model_catalog = model_catalog
         self._environ = dict(environ if environ is not None else os.environ)
         self._runtime_mode = runtime_mode
         self._policy_values = dict(policy_values or {})
@@ -184,7 +234,7 @@ class EditableSettingsService:
             if item.configured is not None
         }
         configured.update({key: mutation.configured for key, mutation in references.items()})
-        errors.extend(_cross_validate(candidate, configured))
+        errors.extend(_cross_validate(candidate, configured, model_catalog=self._model_catalog))
         warnings.extend(_cross_warnings(candidate, configured))
         probes = _run_probes(normalized, candidate) if run_probes and not errors else ()
         errors.extend(
@@ -308,26 +358,83 @@ def _validate_constraints(definition: Any, value: Any) -> None:
 
 def _cross_warnings(values: Mapping[str, Any], configured: Mapping[str, bool]) -> list[FieldIssue]:
     """Telegram mode without build credentials stays valid: the library keeps working locally."""
+    warnings: list[FieldIssue] = []
     if values.get("storage_backend") == "telegram" and not all(
         configured.get(key) for key in ("telegram_api_id", "telegram_api_hash")
     ):
-        return [FieldIssue("storage_backend", "telegram_not_available", "This build has no Telegram application credentials")]
-    return []
+        warnings.append(FieldIssue("storage_backend", "telegram_not_available", "This build has no Telegram application credentials"))
+    server_url = str(values.get("embedding_server_url") or "").strip()
+    if server_url and urlparse(server_url).scheme in {"http", "https"} and not _is_loopback_url(server_url):
+        # File text is sent to this server to be embedded; outside this device it leaves unencrypted.
+        warnings.append(FieldIssue("embedding_server_url", "embedding_server_not_local", "The embedding server is not on this device"))
+    return warnings
 
 
-def _cross_validate(values: Mapping[str, Any], configured: Mapping[str, bool]) -> list[FieldIssue]:
+def _is_loopback_url(url: str) -> bool:
+    try:
+        host = urlparse(url).hostname or ""
+    except ValueError:
+        return False
+    if host == "localhost":
+        return True
+    try:
+        return ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def _cross_validate(
+    values: Mapping[str, Any],
+    configured: Mapping[str, bool],
+    *,
+    model_catalog: ModelCatalogPort | None = None,
+) -> list[FieldIssue]:
     issues: list[FieldIssue] = []
     if values.get("storage_backend") == "fake" and values.get("environment") == "production":
         issues.append(FieldIssue("storage_backend", "storage_backend_unavailable", "The simulated Telegram is not available"))
-    if values.get("embeddings_provider") == "jina" and not str(values.get("jina_model_path") or "").strip():
-        issues.append(FieldIssue("jina_model_path", "model_path_required", "A model path is required"))
     data_dir = Path(str(values.get("data_dir") or ""))
     if str(data_dir) and data_dir == Path(data_dir.anchor):
         issues.append(FieldIssue("data_dir", "filesystem_root_forbidden", "The data directory cannot be a filesystem root"))
-    server_url = str(values.get("embedding_server_url") or "")
+    server_url = str(values.get("embedding_server_url") or "").strip()
     if server_url and urlparse(server_url).scheme not in {"http", "https"}:
         issues.append(FieldIssue("embedding_server_url", "invalid_url", "Expected an HTTP or HTTPS URL"))
+    issues.extend(_smart_search_issues(values, server_url, model_catalog))
     return issues
+
+
+def _smart_search_issues(
+    values: Mapping[str, Any],
+    server_url: str,
+    model_catalog: ModelCatalogPort | None,
+) -> list[FieldIssue]:
+    provider = values.get("embeddings_provider")
+    platform = str(values.get("platform") or "auto")
+    if provider is not None and provider not in embeddings_provider_choices(platform):
+        return [FieldIssue("embeddings_provider", "smart_search_unavailable", "Search by meaning is not available on this device")]
+    if provider == "custom" and not server_url and not str(values.get("custom_model_path") or "").strip():
+        # An external server (`embedding_server_url`) brings its own model.
+        return [FieldIssue("custom_model_path", "model_path_required", "A model path is required")]
+    if provider != "managed":
+        return []
+    model_id = str(values.get("smart_search_model") or "")
+    dims = values.get("embedding_dimensions")
+    spec = model_catalog.get(model_id) if model_catalog is not None else None
+    if spec is not None:
+        try:
+            spec.validate_dims(int(dims) if dims is not None else spec.default_dims)
+        except InvalidModelSpecError as exc:
+            return [FieldIssue("embedding_dimensions", exc.code, _dims_message(exc.details.get("allowed", ())))]
+        return []
+    allowed = MANAGED_MODEL_DIMS.get(model_id)
+    if allowed is None or model_catalog is not None:
+        return [FieldIssue("smart_search_model", "invalid_model_spec", "Unknown smart search model")]
+    if dims is not None and dims not in allowed:
+        return [FieldIssue("embedding_dimensions", "invalid_model_spec", _dims_message(allowed))]
+    return []
+
+
+def _dims_message(allowed: Any) -> str:
+    return f"Expected one of: {', '.join(str(value) for value in allowed)}"
 
 
 def _run_probes(changed: Mapping[str, Any], candidate: Mapping[str, Any]) -> tuple[ProbeResult, ...]:
@@ -337,12 +444,21 @@ def _run_probes(changed: Mapping[str, Any], candidate: Mapping[str, Any]) -> tup
         parent = path if path.exists() else path.parent
         status = "passed" if parent.exists() and os.access(parent, os.W_OK) else "failed"
         results.append(ProbeResult("data_dir", status, None if status == "passed" else "Directory is not writable"))
-    if "jina_model_path" in changed and candidate.get("embeddings_provider") == "jina":
-        path = Path(str(candidate["jina_model_path"])).expanduser()
-        if not path.is_absolute():
-            path = (Path(str(candidate["data_dir"])).parent / path).resolve()
-        status = "passed" if path.is_file() else "failed"
-        results.append(ProbeResult("jina_model_path", status, None if status == "passed" else "Model file was not found"))
+    data_dir = str(candidate.get("data_dir") or "")
+    if candidate.get("embeddings_provider") == "custom":
+        for key in ("custom_model_path", "custom_mmproj_path"):
+            configured_path = str(candidate.get(key) or "").strip()
+            if key not in changed or not configured_path:
+                continue
+            status = "passed" if resolve_model_path(configured_path, data_dir).is_file() else "failed"
+            results.append(ProbeResult(key, status, None if status == "passed" else "Model file was not found"))
+    server_path = str(candidate.get("llama_server_path") or "").strip()
+    if "llama_server_path" in changed and server_path:
+        path = resolve_model_path(server_path, data_dir)
+        status = "passed" if path.is_file() and os.access(path, os.X_OK) else "failed"
+        results.append(
+            ProbeResult("llama_server_path", status, None if status == "passed" else "The llama-server program was not found")
+        )
     return tuple(results)
 
 
