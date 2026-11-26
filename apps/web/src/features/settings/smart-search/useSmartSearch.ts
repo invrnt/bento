@@ -99,8 +99,11 @@ export function useSmartSearchMutations(
     setError(null);
     try {
       const next = await request();
-      if (next && typeof next === "object") targetRef.current.setStatus(next);
-      else await targetRef.current.refresh();
+      if (next && typeof next === "object") {
+        targetRef.current.setStatus(next);
+        // A poll that started before this request may land after it and win; re-read so the newest answer does.
+        void targetRef.current.refresh();
+      } else await targetRef.current.refresh();
       return next ?? null;
     } catch (caught) {
       setError({ action, error: caught });
