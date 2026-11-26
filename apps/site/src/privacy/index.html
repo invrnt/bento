@@ -9,11 +9,23 @@
 <meta name="referrer" content="no-referrer">
 <title>Política de privacidad · Bento</title>
 <meta name="description" content="Qué datos trata Bento, qué ve Telegram, qué ve el relay de emparejamiento y cómo ejercer tus derechos.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="/privacy/">
+<link rel="alternate" hreflang="es" href="/privacy/">
+<link rel="alternate" hreflang="en" href="/en/privacy/">
+<link rel="alternate" hreflang="x-default" href="/en/privacy/">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Bento">
+<meta property="og:locale" content="es_ES">
+<meta property="og:url" content="/privacy/">
+<meta property="og:title" content="Política de privacidad · Bento">
+<meta property="og:description" content="Sin cuentas, sin analíticas y sin servidores con tus archivos. Qué ve cada parte y tus derechos.">
+<meta property="og:image" content="/assets/social/og-es.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="/assets/social/og-es.jpg">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/assets/site.css">
 <script type="module" src="/assets/motion.js"></script>
-<link rel="alternate" hreflang="es" href="/privacy/">
-<link rel="alternate" hreflang="en" href="/en/privacy/">
 </head>
 <body>
 <a class="skip-link" href="#contenido">Saltar al contenido</a>
@@ -24,9 +36,10 @@
       Bento
     </a>
     <nav class="site-nav" aria-label="Principal">
-      <a href="/#como-funciona">Cómo funciona</a>
+      <a href="/#dia-a-dia">Qué incluye</a>
+      <a href="/#agentes">Agentes IA</a>
       <a href="/#privacidad">Privacidad</a>
-      <a href="/#dispositivos">Dispositivos</a>
+      <a href="/#como-funciona">Cómo funciona</a>
       <a href="/#preguntas">Preguntas</a>
       <a href="/security/">Seguridad</a>
     </nav>
@@ -42,41 +55,37 @@
     <header class="page-header narrow">
       <span class="eyebrow">Privacidad</span>
       <h1 class="page-title">Política de privacidad</h1>
-      <p class="updated">Última actualización: [[COMPLETAR: fecha de entrada en vigor]]</p>
+      <p class="updated">Última actualización: 24 de noviembre de 2026</p>
     </header>
 
     <div class="prose">
-      <p class="callout callout-warning draft-notice">
-        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
-        <span>Borrador pendiente de revisión legal: debe revisarlo un profesional antes de publicarse. [[COMPLETAR: eliminar este aviso tras la revisión legal]]</span>
-      </p>
-
       <h2 id="resumen">En pocas palabras</h2>
       <ul>
-        <li>Bento funciona en tus equipos. No hay cuentas de Bento ni servidores nuestros que reciban tus archivos, sus nombres o tus credenciales de Telegram.</li>
-        <li>Lo que Bento guarda en tu Telegram va cifrado en tu equipo. Telegram ve datos sin contenido: que usas Bento, tamaños, horas y las sesiones de tus equipos.</li>
-        <li>El relay de emparejamiento solo pasa mensajes cifrados entre dos equipos durante unos minutos.</li>
-        <li>Sin analíticas, telemetría, publicidad ni cookies. No vendemos datos ni los usamos para entrenar inteligencia artificial.</li>
+        <li>Bento funciona en tus dispositivos (escritorio, Android y línea de comandos). No existen cuentas de Bento ni servidores nuestros que reciban tus archivos, sus nombres o tus credenciales de Telegram.</li>
+        <li>Lo que Bento guarda en tu Telegram se cifra antes en tu dispositivo. Telegram ve datos sin contenido: que usas Bento, tamaños, horas y las sesiones de tus equipos.</li>
+        <li>El relay de emparejamiento solo reenvía tramas cifradas de extremo a extremo entre dos dispositivos durante un máximo de 10 minutos.</li>
+        <li>Sin analíticas, telemetría, publicidad ni cookies. No vendemos datos ni los usamos para entrenar modelos de inteligencia artificial.</li>
         <li>Bento usa la API de Telegram y no está afiliado a Telegram.</li>
       </ul>
 
       <h2 id="responsable">1. Quién es el responsable</h2>
-      <p>Bento lo ofrece [[COMPLETAR: nombre legal del responsable]], con domicilio en [[COMPLETAR: domicilio del responsable]] («nosotros»). Para cualquier asunto de privacidad escríbenos a [[COMPLETAR: correo de contacto de privacidad]].</p>
+      <p>Bento es ofrecido por <strong>Humans Corporation S.A.S.</strong> (Humans Corporation), con domicilio en Colombia («nosotros»). Para cualquier consulta o solicitud relacionada con privacidad y protección de datos personales, escríbenos a <span class="mono">privacy@bentocloud.app</span>.</p>
 
       <h2 id="que-es">2. Qué es Bento</h2>
-      <p>Bento es una aplicación de escritorio que guarda tu biblioteca de fotos y archivos en tus equipos y, si conectas tu cuenta de Telegram, una copia cifrada en canales privados de esa cuenta para sincronizar tus dispositivos. Bento se ejecuta en tus equipos: nosotros no recibimos tus archivos, sus nombres ni sus metadatos, tu número de teléfono, tus mensajes ni tus credenciales de Telegram.</p>
+      <p>Bento es software libre disponible para escritorio, Android y línea de comandos (CLI) que mantiene tu biblioteca de fotos y archivos en tus dispositivos y, si conectas tu propia cuenta de Telegram, guarda una copia cifrada en canales privados de esa cuenta para sincronizar tus equipos. Todo se ejecuta localmente en tus dispositivos: nosotros no recibimos tus archivos, sus nombres ni sus metadatos, tu número de teléfono, tus mensajes ni tus credenciales de Telegram.</p>
 
       <h2 id="en-tus-equipos">3. Datos que se quedan en tus equipos</h2>
       <ul>
-        <li>Tu biblioteca: archivos, miniaturas, vistas previas, nombres, carpetas, álbumes, favoritos, metadatos (fechas, cámara, ubicación) y el índice de búsqueda (texto reconocido y datos de búsqueda inteligente).</li>
-        <li>La sesión de Telegram de cada equipo, las llaves de tu nube y la identidad del equipo, cifradas con una llave protegida por el sistema.</li>
-        <li>Ajustes, registros técnicos y el estado de las tareas en segundo plano. Los registros no incluyen credenciales ni llaves.</li>
+        <li>Tu biblioteca: archivos, miniaturas, vistas previas, nombres, carpetas, álbumes, favoritos, metadatos (fechas, cámara, ubicación) y el índice de búsqueda local (texto reconocido por OCR y datos de búsqueda inteligente si la activas).</li>
+        <li>La sesión de Telegram de cada dispositivo, las llaves de tu nube y la identidad del dispositivo, cifradas con una llave protegida por el almacén seguro del sistema operativo (o por un archivo protegido en instalaciones sin entorno gráfico).</li>
+        <li>Ajustes, registros técnicos locales y estado de las tareas en segundo plano. Los registros no incluyen credenciales, contraseñas ni llaves.</li>
       </ul>
-      <p>Puedes borrarlos desinstalando Bento y eliminando su carpeta de datos.</p>
+      <p>Si autorizas a un agente de IA o script externo (como OpenClaw, Claude Code o Codex) a operar la CLI de Bento en tu equipo o servidor, ese agente interactúa localmente con tu biblioteca bajo las políticas de privacidad y permisos que tú configures para dicho agente; Bento no envía tus archivos a ningún servicio de IA.</p>
+      <p>Puedes borrar todos los datos locales desinstalando Bento y eliminando su carpeta de datos.</p>
 
       <h2 id="en-telegram">4. Datos que se guardan en tu cuenta de Telegram</h2>
-      <p>Telegram trata los datos de tu cuenta según su propia <a href="https://telegram.org/privacy">política de privacidad</a>, como proveedor de tu cuenta. Bento guarda en tres canales privados de tu cuenta tus archivos y tu biblioteca, cifrados en tu equipo antes de subirlos.</p>
-      <p>Telegram puede ver el título y la descripción de esos canales, el número y el tamaño de las partes cifradas, las horas de subida y descarga, las sesiones de tus equipos (nombre de la app, modelo o sistema e IP) y un mensaje técnico con identificadores internos, la fecha de creación y una copia cifrada de tus llaves. Lo que envías sin cifrar por decisión propia (compartir por Telegram, la Bandeja y el emparejamiento sin relay) se explica en la <a href="/security/#sin-cifrar">página de seguridad</a>.</p>
+      <p>Telegram trata los datos de tu cuenta conforme a su propia <a href="https://telegram.org/privacy">política de privacidad</a>, como proveedor independiente de tu cuenta. Bento guarda en tres canales privados de tu cuenta tus archivos y el registro de sincronización, cifrados en tu dispositivo antes de subirlos.</p>
+      <p>Telegram puede ver el título y la descripción de esos canales, el número y tamaño de las partes cifradas, las horas de subida y descarga, las sesiones de tus equipos (nombre de la app, modelo o sistema e IP) y un mensaje técnico fijado con identificadores internos, fecha de creación y una copia de tus llaves cifrada con tu kit de recuperación. Lo que decides enviar sin cifrar (compartir por Telegram, la Bandeja y el emparejamiento sin relay) se detalla en la <a href="/security/#sin-cifrar">página de seguridad</a>.</p>
 
       <h2 id="servicios">5. Servicios externos con los que se conecta Bento</h2>
       <div class="table-scroll">
@@ -86,47 +95,52 @@
           </thead>
           <tbody>
             <tr><td>Telegram</td><td>Mientras usas tu nube</td><td>Lo descrito en el apartado 4.</td></tr>
-            <tr><td>Relay de emparejamiento (lo operamos en Cloudflare)</td><td>Solo mientras añades un equipo</td><td>La IP de los dos equipos, los 4 primeros caracteres del código, la hora y el número y tamaño de mensajes cifrados. El estado de cada sala dura como máximo 10 minutos; los registros no contienen IP ni contenido.</td></tr>
-            <tr><td>GitHub</td><td>Al buscar y descargar actualizaciones</td><td>Tu IP y la versión consultada, según la declaración de privacidad de GitHub.</td></tr>
-            <tr><td>Origen del modelo de búsqueda inteligente</td><td>Solo si activas la búsqueda inteligente</td><td>Tu IP al descargar el modelo desde [[COMPLETAR: origen de descarga del modelo de búsqueda inteligente]].</td></tr>
+            <tr><td>Relay de emparejamiento (operado en Cloudflare Workers)</td><td>Solo mientras emparejas un dispositivo</td><td>La dirección IP de ambos dispositivos (necesaria para enrutar la conexión y limitar abusos mediante una huella derivada, sin almacenarla en registros), los 4 primeros caracteres del código, la hora y la cantidad y tamaño de tramas cifradas. Cada sala dura como máximo 10 minutos.</td></tr>
+            <tr><td>GitHub</td><td>Al buscar o descargar actualizaciones e instaladores</td><td>Tu dirección IP y la versión consultada, conforme a la declaración de privacidad de GitHub.</td></tr>
+            <tr><td>Modelo de búsqueda inteligente (opcional)</td><td>Solo si decides activar la búsqueda inteligente y suministrar un modelo local</td><td>Bento no descarga modelos automáticamente sin tu acción; si obtienes el archivo del modelo desde un proveedor externo elegido por ti (por ejemplo, Hugging Face), ese proveedor recibirá tu IP según su propia política.</td></tr>
           </tbody>
         </table>
       </div>
-      <p>Cloudflare presta servicio para nosotros en el relay y en este sitio web. Cloudflare y GitHub pueden tratar datos fuera de tu país. [[COMPLETAR: garantías aplicables a las transferencias internacionales]]</p>
+      <p>Cloudflare actúa como proveedor de infraestructura para el relay de emparejamiento y este sitio web. Tanto Cloudflare como GitHub operan redes globales y pueden tratar datos técnicos fuera de Colombia o de tu país de residencia aplicando sus garantías estándar para transferencias internacionales (como las Cláusulas Contractuales Tipo de la Unión Europea y los marcos de adecuación vigentes cuando resultan aplicables). En ningún caso reciben tus archivos, nombres de carpetas ni llaves sin cifrar.</p>
 
       <h2 id="sitio-web">6. Este sitio web</h2>
-      <p>Este sitio está alojado en Cloudflare Pages. No usa cookies, analíticas ni contenido de terceros. Cloudflare procesa la IP y los datos técnicos de cada visita para servir las páginas y protegerlas de abusos. La página para añadir un equipo lee el código de emparejamiento en tu navegador, desde la parte de la dirección que va tras «#», que no se envía al servidor.</p>
+      <p>Este sitio está alojado en Cloudflare Pages. No usa cookies, analíticas, rastreadores ni recursos de terceros. Cloudflare procesa la dirección IP y los datos técnicos de cada petición para entregar las páginas y proteger el sitio contra abusos. La página de emparejamiento lee el código únicamente en tu navegador, desde el fragmento posterior a «#», que nunca se envía al servidor.</p>
 
       <h2 id="lo-que-no-hacemos">7. Lo que no hacemos</h2>
       <ul>
-        <li>No creamos cuentas ni perfiles de usuario.</li>
+        <li>No creamos cuentas, perfiles ni directorios de usuarios.</li>
         <li>No incluimos analíticas, telemetría ni publicidad.</li>
-        <li>No vendemos ni cedemos datos.</li>
-        <li>No usamos tus archivos ni datos obtenidos de Telegram para entrenar modelos de inteligencia artificial. El reconocimiento de texto y la búsqueda funcionan en tus equipos.</li>
+        <li>No vendemos, alquilamos ni cedemos datos personales.</li>
+        <li>No usamos tus archivos ni datos de Telegram para entrenar modelos de inteligencia artificial. El OCR y la búsqueda operan localmente en tus dispositivos.</li>
       </ul>
 
-      <h2 id="bases">8. Bases jurídicas</h2>
-      <p>Tratamos los pocos datos que nos llegan (IP y datos técnicos en el relay y en el sitio web) para prestarte el servicio que pides y por nuestro interés legítimo en mantenerlo seguro y evitar abusos. [[COMPLETAR: confirmar las bases jurídicas según la ley aplicable]]</p>
+      <h2 id="bases">8. Bases jurídicas y alcance internacional</h2>
+      <p>Bento puede usarse desde cualquier país. Cuando recibimos los mínimos datos técnicos necesarios para operar este sitio web o el relay de emparejamiento (como la dirección IP en tránsito para entregar la conexión y prevenir abusos), los tratamos con fundamento en:</p>
+      <ul>
+        <li>la <strong>ejecución del servicio o funcionalidad que solicitas</strong> al visitar el sitio o iniciar un emparejamiento;</li>
+        <li>nuestro <strong>interés legítimo</strong> en mantener la disponibilidad, seguridad e integridad del sitio y del relay frente a abusos o ataques automatizados; y</li>
+        <li>el <strong>cumplimiento de obligaciones legales</strong> aplicables, en concordancia con la Ley 1581 de 2012 de Colombia y, cuando resulte aplicable por el lugar de residencia del usuario, con el Reglamento General de Protección de Datos (RGPD) y normativas equivalentes.</li>
+      </ul>
 
       <h2 id="conservacion">9. Conservación</h2>
       <ul>
-        <li>Relay: el estado de cada sala, como máximo 10 minutos; los registros técnicos, sin IP ni contenido, durante [[COMPLETAR: plazo de conservación de los registros del relay]].</li>
-        <li>Sitio web: los registros de Cloudflare, según su política.</li>
-        <li>En tus equipos y en tu Telegram: hasta que los borres. La papelera guarda lo borrado 30 días, y la Bandeja borra los mensajes ya importados a las 24 horas (puedes cambiar el plazo).</li>
+        <li><strong>Relay de emparejamiento:</strong> el estado de cada sala se elimina automáticamente al expirar un máximo de 10 minutos. Los registros de invocación y trazas están desactivados; únicamente se emiten eventos técnicos estructurados sin IP ni contenido (nombre del evento, antigüedad de la sala, conteo de tramas y códigos de error), conservados durante el plazo estándar de observabilidad de Cloudflare Workers (actualmente hasta 3 días en el plan gratuito o hasta 7 días en planes de pago), sin copias propias fuera de Cloudflare.</li>
+        <li><strong>Sitio web:</strong> los registros técnicos de red gestionados por Cloudflare se conservan conforme a la política de retención de Cloudflare.</li>
+        <li><strong>En tus equipos y en tu Telegram:</strong> permanecen hasta que decidas borrarlos. La papelera conserva los elementos eliminados durante 30 días y la Bandeja borra los mensajes importados a las 24 horas (plazo configurable).</li>
       </ul>
 
       <h2 id="derechos">10. Tus derechos</h2>
-      <p>Como no recibimos tu biblioteca, la controlas tú directamente: puedes borrar archivos y vaciar la papelera, quitar equipos, borrar los canales de Bento en Telegram o eliminar la carpeta de datos de Bento. Los derechos sobre los datos que trata Telegram se ejercen ante Telegram.</p>
-      <p>Para cualquier otra solicitud (acceso, rectificación, supresión, oposición, limitación o portabilidad) escríbenos a [[COMPLETAR: correo de contacto de privacidad]]. También puedes reclamar ante [[COMPLETAR: autoridad de protección de datos competente]].</p>
+      <p>Como no almacenamos tu biblioteca ni tenemos cuentas de usuario, ejerces el control directo sobre tus datos: puedes borrar archivos, vaciar la papelera, revocar dispositivos, eliminar los canales de Bento en Telegram o borrar la carpeta local de datos. Los derechos sobre los datos tratados por Telegram se ejercen directamente ante Telegram.</p>
+      <p>Para ejercer tus derechos de conocer, actualizar, rectificar, suprimir, oponerte, limitar el tratamiento o solicitar información adicional, escríbenos a <span class="mono">privacy@bentocloud.app</span>. También tienes derecho a presentar reclamaciones ante la <strong>Superintendencia de Industria y Comercio (SIC)</strong> en Colombia o, si resides fuera de Colombia y tu legislación imperativa así lo prevé, ante la autoridad de protección de datos de tu jurisdicción.</p>
 
       <h2 id="menores">11. Menores</h2>
-      <p>Bento no está dirigido a personas que no tengan la edad mínima para usar Telegram en su país.</p>
+      <p>Bento no está dirigido a personas que no alcancen la edad mínima requerida para usar Telegram o prestar consentimiento digital válido en su país.</p>
 
       <h2 id="seguridad">12. Seguridad</h2>
-      <p>Explicamos cómo protegemos tus datos y sus límites en la <a href="/security/">página de seguridad</a>.</p>
+      <p>Explicamos en detalle cómo ciframos tus datos, qué ve cada parte y los límites técnicos del sistema en la <a href="/security/">página de seguridad</a>.</p>
 
       <h2 id="cambios">13. Cambios</h2>
-      <p>Si cambiamos esta política, actualizaremos la fecha de arriba y, si el cambio es importante, lo anunciaremos en las notas de la versión.</p>
+      <p>Si actualizamos esta política, modificaremos la fecha indicada al inicio y, ante cambios relevantes, lo informaremos en las notas de la versión.</p>
     </div>
   </div>
 </main>
@@ -136,13 +150,14 @@
     <div class="footer-grid">
       <div class="footer-brand">
         <a class="logo" href="/">Bento</a>
-        <p>Tu nube privada, en orden.</p>
+        <p>Tu Google Drive y Google Fotos sin límites, cifrado en tu Telegram y listo para tus agentes de IA.</p>
       </div>
       <nav aria-label="Producto">
         <h2>Producto</h2>
         <ul>
           <li><a href="/#descargar">Descargar</a></li>
           <li><a href="/android/">Bento para Android</a></li>
+          <li><a href="/#agentes">CLI para agentes IA</a></li>
           <li><a href="/#como-funciona">Cómo funciona</a></li>
           <li><a href="/#preguntas">Preguntas frecuentes</a></li>
         </ul>
@@ -159,6 +174,7 @@
         <h2>Ayuda</h2>
         <ul>
           <li><a href="https://github.com/invrnt/bento/blob/main/docs/user/es/README.md">Guías de uso</a></li>
+          <li><a href="https://github.com/invrnt/bento/blob/main/docs/user/es/cli.md">Bento en la terminal</a></li>
           <li><a href="https://github.com/invrnt/bento/blob/main/docs/user/es/solucion-de-problemas.md">Solución de problemas</a></li>
           <li><a href="https://github.com/invrnt/bento">GitHub</a></li>
         </ul>

@@ -8,12 +8,24 @@
 <meta name="theme-color" content="#0c0e15" media="(prefers-color-scheme: dark)">
 <meta name="referrer" content="no-referrer">
 <title>Terms of use · Bento</title>
-<meta name="description" content="Terms for using Bento, your Telegram account, your keys and the limits of the service.">
+<meta name="description" content="Terms for using Bento, your Telegram account, your keys, the agent CLI and the limits of the service.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="/en/terms/">
+<link rel="alternate" hreflang="es" href="/terms/">
+<link rel="alternate" hreflang="en" href="/en/terms/">
+<link rel="alternate" hreflang="x-default" href="/en/terms/">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Bento">
+<meta property="og:locale" content="en_US">
+<meta property="og:url" content="/en/terms/">
+<meta property="og:title" content="Terms of use · Bento">
+<meta property="og:description" content="Terms for using Bento under AGPL-3.0-only, your keys, Telegram, and the AI agent CLI.">
+<meta property="og:image" content="/assets/social/og-en.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="/assets/social/og-en.jpg">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/assets/site.css">
 <script type="module" src="/assets/motion.js"></script>
-<link rel="alternate" hreflang="es" href="/terms/">
-<link rel="alternate" hreflang="en" href="/en/terms/">
 </head>
 <body>
 <a class="skip-link" href="#content">Skip to content</a>
@@ -24,9 +36,10 @@
       Bento
     </a>
     <nav class="site-nav" aria-label="Main">
-      <a href="/en/#how-it-works">How it works</a>
+      <a href="/en/#everyday">Features</a>
+      <a href="/en/#agents">AI agents</a>
       <a href="/en/#privacy">Privacy</a>
-      <a href="/en/#devices">Devices</a>
+      <a href="/en/#how-it-works">How it works</a>
       <a href="/en/#faq">FAQ</a>
       <a href="/en/security/">Security</a>
     </nav>
@@ -42,69 +55,65 @@
     <header class="page-header narrow">
       <span class="eyebrow">Terms</span>
       <h1 class="page-title">Terms of use</h1>
-      <p class="updated">Last updated: [[COMPLETAR: fecha de entrada en vigor]]</p>
+      <p class="updated">Last updated: November 24, 2026</p>
     </header>
 
     <div class="prose">
-      <p class="callout callout-warning draft-notice">
-        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
-        <span>Draft pending legal review: a professional must review it before it is published. [[COMPLETAR: eliminar este aviso tras la revisión legal]]</span>
-      </p>
-
       <h2 id="acceptance">1. Acceptance</h2>
-      <p>By downloading or using Bento you accept these terms. If you don’t agree, don’t use Bento.</p>
+      <p>By downloading, installing, or using Bento (including the desktop app, Android app, command-line tool, pairing relay, or this website) you accept these terms. If you don’t agree, don’t use Bento.</p>
 
       <h2 id="who">2. Who offers Bento</h2>
-      <p>Bento is offered by [[COMPLETAR: nombre legal del responsable]], located at [[COMPLETAR: domicilio del responsable]] (“we”). Contact: [[COMPLETAR: correo de contacto]].</p>
+      <p>Bento is offered by <strong>Humans Corporation S.A.S.</strong> (Humans Corporation), located in Colombia (“we”). General and legal contact: <span class="mono">legal@bentocloud.app</span>.</p>
 
-      <h2 id="what-it-is">3. What Bento is</h2>
-      <p>Bento is a desktop app that keeps your photo and file library on your devices and, if you connect your Telegram account, an encrypted copy in private channels of that account to sync your devices. Bento uses the Telegram API and is not affiliated with or endorsed by Telegram.</p>
-      <p>The software is offered under the <a href="https://github.com/invrnt/bento/blob/main/LICENSE">GNU Affero General Public License v3.0</a> (AGPL-3.0-only). Bento is free of charge. Third-party components keep their own licenses, listed in the <a href="https://github.com/invrnt/bento/blob/main/docs/legal/en/third-party-notices.md">third-party notices</a>.</p>
+      <h2 id="what-it-is">3. What Bento is and license</h2>
+      <p>Bento is free open-source software available for desktop, Android, and the command line (CLI) that keeps your photo and file library on your devices and, if you connect your Telegram account, stores an encrypted copy in private channels of that account to sync your devices. Bento uses the Telegram API and is not affiliated with or endorsed by Telegram.</p>
+      <p>The software is provided free of charge under the <a href="https://github.com/invrnt/bento/blob/main/LICENSE">GNU Affero General Public License v3.0 (AGPL-3.0-only)</a>. In any conflict regarding source code rights and redistribution, that license governs. Third-party components keep their own licenses, listed in the <a href="https://github.com/invrnt/bento/blob/main/docs/legal/en/third-party-notices.md">third-party notices</a>.</p>
 
       <h2 id="telegram">4. Your Telegram account</h2>
       <ul>
-        <li>To use the cloud you need your own Telegram account. You remain bound by <a href="https://telegram.org/tos">Telegram’s terms of service</a>.</li>
-        <li>Telegram may change its service, limit its use, or suspend or delete accounts. We don’t control those decisions.</li>
-        <li>Bento respects the limits Telegram sets and only acts on the channels it creates for you and the chats you choose.</li>
+        <li>To use cloud sync you need your own Telegram account and remain bound by <a href="https://telegram.org/tos">Telegram’s terms of service</a>.</li>
+        <li>Telegram may change its service, throttle speed, restrict features, or suspend or delete accounts (including inactivity deletion). We do not control or guarantee Telegram’s decisions.</li>
+        <li>Bento respects Telegram’s technical limits and only acts on the channels it creates for you and the chats you explicitly choose.</li>
       </ul>
 
       <h2 id="storage">5. Storage and availability</h2>
-      <p>“No storage limit” describes the fact that Telegram does not currently announce a total limit for what you keep in its cloud. It is not a contractual promise from Telegram or from us. We don’t guarantee that your cloud will always be available or that Telegram will keep your data. Bento is not a substitute for a second copy of what you cannot afford to lose.</p>
+      <p>“No storage limit” describes only the fact that Telegram does not currently announce a total cap on what you store in its cloud. It is not a contractual promise or guarantee from Telegram or from Humans Corporation S.A.S. We do not guarantee uninterrupted availability or indefinite retention on Telegram. Bento is not a substitute for an independent backup of irreplaceable files.</p>
 
-      <h2 id="keys">6. Your keys and your recovery kit</h2>
-      <p>Your cloud’s keys exist only on your devices and in your recovery kit. You are responsible for keeping the kit somewhere safe. If you lose all your devices and the kit too, you will permanently lose access to your cloud: we cannot recover or reset it.</p>
+      <h2 id="keys">6. Your keys, recovery kit, and AI agents</h2>
+      <p>Your cloud’s encryption keys exist only on your devices and in your recovery kit. You are solely responsible for securing your devices and storing your recovery kit safely. If you lose all your devices and the kit too, you will permanently lose access to your cloud: nobody, including us, can recover or reset it.</p>
+      <p>If you connect scripts, automations, or third-party AI agents (such as OpenClaw, Claude Code, or Codex) through the Bento CLI, those tools run locally on your device or server under your sole authorization and supervision. You are responsible for reviewing and confirming the actions you delegate to them.</p>
 
       <h2 id="acceptable-use">7. Acceptable use</h2>
-      <p>Don’t use Bento to:</p>
+      <p>Don’t use Bento, the pairing relay, or this website to:</p>
       <ul>
-        <li>store or share content that is illegal or infringes other people’s rights;</li>
-        <li>send spam, distribute malicious software or break Telegram’s terms;</li>
-        <li>overload, attack or abuse the pairing relay or this website.</li>
+        <li>store, distribute, or share illegal content or material that infringes intellectual property, privacy, or other third-party rights;</li>
+        <li>send spam, distribute malicious software, or violate Telegram’s terms of service;</li>
+        <li>overload, attack, bypass rate limits, or abuse the pairing relay or this website.</li>
       </ul>
 
       <h2 id="your-content">8. Your content</h2>
-      <p>Your content is yours. We don’t receive it and claim no rights over it. You are responsible for what you store and what you choose to share.</p>
+      <p>Your content belongs exclusively to you. We never receive it, cannot read it, and claim no rights over it. You are solely responsible for the legality of what you store and what you choose to share.</p>
 
       <h2 id="third-parties">9. Third-party services</h2>
-      <p>Telegram, Cloudflare and GitHub provide their services under their own terms. We are not responsible for how they operate.</p>
+      <p>Telegram, Cloudflare, GitHub, and any AI agent or model host you choose to connect operate under their own terms. We are not responsible for their operation, outages, changes, or policies.</p>
 
       <h2 id="changes-to-service">10. Updates and changes</h2>
-      <p>We may improve, change or remove features. If we stop offering the pairing relay, Bento can keep pairing devices through your own Telegram.</p>
+      <p>We may update, modify, or discontinue features, and may suspend or retire the optional pairing relay at any time. If the relay is unavailable, Bento can still pair devices through your own Telegram account or run locally.</p>
 
-      <h2 id="warranty">11. No warranty</h2>
-      <p>Bento is provided “as is” and “as available”, to the fullest extent permitted by law. [[COMPLETAR: adaptar la exclusión de garantías a la ley aplicable y a los derechos de las personas consumidoras]]</p>
+      <h2 id="warranty">11. Disclaimer of warranty</h2>
+      <p>Consistent with the AGPL-3.0-only license (Section 15) and to the fullest extent permitted by applicable law, Bento, the pairing relay, and this website are provided free of charge “as is” and “as available”, without warranties of any kind, whether express or implied, including implied warranties of merchantability, fitness for a particular purpose, accuracy, uninterrupted availability, or non-infringement. Nothing in this section excludes warranties that cannot be excluded under mandatory consumer protection laws in your jurisdiction.</p>
 
       <h2 id="liability">12. Limitation of liability</h2>
-      <p>To the fullest extent permitted by law, we are not liable for loss of data or access, or for indirect damages, arising from the use of Bento or Telegram, or from the loss of your devices, keys or recovery kit. Nothing in this section limits rights that the law does not allow to be limited. [[COMPLETAR: revisar la limitación de responsabilidad con asesoría legal]]</p>
+      <p>Consistent with the AGPL-3.0-only license (Section 16) and to the fullest extent permitted by applicable law, Humans Corporation S.A.S., its officers, collaborators, and contributors shall not be liable for any indirect, incidental, special, or consequential damages, lost profits, or loss or corruption of data or access arising out of the use or inability to use Bento, decisions or outages of Telegram or third parties, actions performed by AI agents or local scripts, or the loss of your devices, keys, or recovery kit. Where applicable law allows limiting direct damages for free software, our total aggregate liability shall not exceed the amount you actually paid to Humans Corporation S.A.S. for Bento ($0 USD). Nothing in this section limits liability for willful misconduct, gross negligence, or non-waivable rights that applicable law does not allow to be limited.</p>
 
-      <h2 id="law">13. Governing law</h2>
-      <p>[[COMPLETAR: ley aplicable y tribunales competentes]]</p>
+      <h2 id="law">13. Governing law and jurisdiction</h2>
+      <p>These terms are governed by and construed in accordance with the laws of the Republic of Colombia, without regard to conflict-of-law principles. Any dispute relating to Bento or these terms shall be submitted to the competent courts of the Republic of Colombia, without prejudice to mandatory consumer protection and jurisdictional rules that apply in your country of residence.</p>
 
       <h2 id="changes">14. Changes to these terms</h2>
-      <p>If we change these terms, we will update the date above and, if the change is significant, announce it in the release notes. Continuing to use Bento afterwards means you accept the new terms.</p>
+      <p>We may update these terms from time to time. We will update the date at the top and, for material changes, note them in the release notes. Continuing to use Bento after an update means you accept the revised terms.</p>
 
       <h2 id="trademarks">15. Trademarks</h2>
-      <p>Telegram is a trademark of its respective owners. Bento is not affiliated with Telegram.</p>
+      <p>Telegram is a trademark of its respective owners. Google Drive, Google Photos, and any other third-party names referenced descriptively belong to their respective owners. Bento is not affiliated with or endorsed by Telegram or any such third party.</p>
     </div>
   </div>
 </main>
@@ -114,13 +123,14 @@
     <div class="footer-grid">
       <div class="footer-brand">
         <a class="logo" href="/en/">Bento</a>
-        <p>Your private cloud, in order.</p>
+        <p>Your unlimited Google Drive and Google Photos, encrypted in your Telegram and built for your AI agents.</p>
       </div>
       <nav aria-label="Product">
         <h2>Product</h2>
         <ul>
           <li><a href="/en/#download">Download</a></li>
           <li><a href="/en/android/">Bento for Android</a></li>
+          <li><a href="/en/#agents">CLI for AI agents</a></li>
           <li><a href="/en/#how-it-works">How it works</a></li>
           <li><a href="/en/#faq">FAQ</a></li>
         </ul>
@@ -137,6 +147,7 @@
         <h2>Help</h2>
         <ul>
           <li><a href="https://github.com/invrnt/bento/blob/main/docs/user/en/README.md">User guides</a></li>
+          <li><a href="https://github.com/invrnt/bento/blob/main/docs/user/en/cli.md">Bento in the terminal</a></li>
           <li><a href="https://github.com/invrnt/bento/blob/main/docs/user/en/troubleshooting.md">Troubleshooting</a></li>
           <li><a href="https://github.com/invrnt/bento">GitHub</a></li>
         </ul>

@@ -1,0 +1,29 @@
+# Bento
+
+> Private, open-source Google Drive & Google Photos alternative with no announced storage limit, end-to-end encrypted inside your own free Telegram account, with a JSON-first CLI built for AI agents (OpenClaw, Claude Code, Codex).
+
+## What Bento is
+- **Category:** Local-first private cloud storage, photo gallery, document organizer, and AI-agent storage CLI.
+- **Platforms:** Windows, macOS (Apple Silicon & Intel), Linux (.deb and portable .zip), Android (signed APK, Android 10+), and standalone CLI (`bento`) for Linux, macOS, Windows, VPS, and Raspberry Pi.
+- **Price & License:** Free ($0/month), open source under GNU Affero General Public License v3.0 (`AGPL-3.0-only`).
+- **Encryption:** AES-256-GCM on-device encryption before upload (contents, filenames, folders, dates, photo locations, OCR text, and sync logs). Random 256-bit master key held only on user devices and their recovery kit. Zero Bento storage servers.
+- **AI Agent CLI (`bento`):** Single standalone binary with `bento guide` (built-in instructions for AI agents), `--json` structured output on every command, `bento commands --json` machine-readable catalog, `--dry-run` previews, SHA-256 deduplication, and 30-day trash protection. Works seamlessly with OpenClaw, Claude Code, Codex, and headless servers.
+- **Honest limits:** Uses the user's own free Telegram account (MTProto via three private channels created by Bento). Telegram does not announce a total storage limit, but does not guarantee one by contract. Bento is not affiliated with Telegram.
+
+## Canonical Pages
+- Home (Spanish): https://bentocloud.app/
+- Home (English): https://bentocloud.app/en/
+- Security & Threat Model (ES): https://bentocloud.app/security/
+- Security & Threat Model (EN): https://bentocloud.app/en/security/
+- Privacy Policy (ES): https://bentocloud.app/privacy/
+- Privacy Policy (EN): https://bentocloud.app/en/privacy/
+- Terms of Use (ES): https://bentocloud.app/terms/
+- Terms of Use (EN): https://bentocloud.app/en/terms/
+
+## Source & Documentation
+- GitHub Repository: https://github.com/invrnt/bento
+- Releases & Downloads: https://github.com/invrnt/bento/releases/latest
+- CLI Guide (ES): https://github.com/invrnt/bento/blob/main/docs/user/es/cli.md
+- CLI Guide (EN): https://github.com/invrnt/bento/blob/main/docs/user/en/cli.md
+- Android Guide (ES): https://github.com/invrnt/bento/blob/main/docs/user/es/android.md
+- Android Guide (EN): https://github.com/invrnt/bento/blob/main/docs/user/en/android.md
