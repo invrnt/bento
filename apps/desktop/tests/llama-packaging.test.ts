@@ -72,8 +72,9 @@ class FakeChild extends EventEmitter {
 function supervisorWith(options: { dataDir: string; command?: { executable: string; prefixArguments: string[] }; batteryPercent?: () => Promise<number | null> }) {
   const launches: Array<{ command: string; env: NodeJS.ProcessEnv }> = [];
   const fetch = vi.fn(async () => new Response(JSON.stringify({ status: "ready" }), { status: 200, headers: { "content-type": "application/json" } }));
+  const command = options.command ?? { executable: "/opt/Bento/resources/bento-sidecar/bento-sidecar", prefixArguments: [] };
   const supervisor = new SidecarSupervisor({
-    command: options.command ?? { executable: "/opt/Bento/resources/bento-sidecar/bento-sidecar", prefixArguments: [] },
+    command,
     dataDir: options.dataDir,
     randomToken: () => "unguessable-per-launch-token-1234567890",
     fetch,
@@ -82,10 +83,11 @@ function supervisorWith(options: { dataDir: string; command?: { executable: stri
     batteryPollMs: 3_600_000,
     spawnProcess: (_executable, arguments_, spawnOptions) => {
       const child = new FakeChild();
-      const command = arguments_[0] ?? "";
-      launches.push({ command, env: spawnOptions.env });
-      if (command === "migrate") queueMicrotask(() => child.exit(0));
-      if (command === "api") queueMicrotask(() => child.stdout.write("BENTO_API_READY {\"port\":43127}\n"));
+      // The sidecar subcommand follows the launch command's prefix (`uv run bento-sidecar migrate`).
+      const subcommand = arguments_[command.prefixArguments.length] ?? "";
+      launches.push({ command: subcommand, env: spawnOptions.env });
+      if (subcommand === "migrate") queueMicrotask(() => child.exit(0));
+      if (subcommand === "api") queueMicrotask(() => child.stdout.write("BENTO_API_READY {\"port\":43127}\n"));
       return child;
     },
   });

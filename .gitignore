@@ -13,6 +13,8 @@ apps/desktop/dist/
 apps/desktop/out/
 apps/desktop/resources/sidecars/*-*/
 dist/desktop/
+# scripts/build-llama-server.* output, one folder per platform
+dist/llama-server/
 
 /data/
 

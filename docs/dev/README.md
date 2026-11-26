@@ -14,6 +14,7 @@ Everything a maintainer needs to build, configure and ship the Telegram-first Be
 | [Android release](android-release.md) | Local signed APK builds, the Android update-manifest entry, the dry run and the in-app updater. |
 | [CLI](cli.md) | The `bento` command: profiles, daemon, desktop discovery, packaging and tests. |
 | [Releasing](releasing.md) | Versions and tags, the changelog, the local release tool, signing, SBOMs, Windows/macOS builds, publishing. |
+| [Smart search](smart-search.md) | The pinned embedding model and llama.cpp build, how `llama-server` is built, packaged and found, the model mirror (`bento-release models`) and how to bump either pin. |
 
 Related:
 
@@ -32,5 +33,6 @@ Related:
 | `BENTO_UPDATE_PUBLIC_KEY` | public | Desktop and Android updaters (Ed25519 manifest signatures) | release environment |
 | `BENTO_UPDATE_SIGNING_KEY_FILE` | secret (path) | `bento-release` and `release.sh` (sign update manifests) | release environment |
 | `BENTO_RELEASE_SIGNING_KEY` | secret (path) | `bento-release` (signs `SHA256SUMS`) | release environment |
+| `BENTO_SKIP_LLAMA_SERVER` | dev only | Desktop and CLI packaging (`1` = package without `llama-server`) | local env for dev; `bento-release build --release` refuses it ([smart search](smart-search.md#packaging-without-llama-server-development)) |
 
 Desktop builds write these into `resources/build-config.json` at package time and pass them to the sidecars as environment variables; absent values are omitted. Without Telegram credentials, sign-in reports `telegram_not_available`; without a relay URL, pairing uses the Telegram Sync-channel fallback; without a site URL, the pairing dialog shows no web link.
