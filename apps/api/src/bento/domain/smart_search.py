@@ -118,6 +118,11 @@ class ModelSpec:
     document_template: str
     modalities: frozenset[Modality] = frozenset({Modality.TEXT})
     chunk_tokens: int = 512
+    min_similarity: tuple[tuple[int, float], ...] = ()
+    """Calibrated cosine floor per Matryoshka dims (`min_similarity_for`); dims without one use
+    `DEFAULT_MIN_SIMILARITY`."""
+    similarity_margin: float | None = None
+    """Semantic hits more than this below the query's best hit are dropped too (`semantic_cutoff`)."""
 
     def __post_init__(self) -> None:
         if not _ID_RE.match(self.model_id):
@@ -147,6 +152,13 @@ class ModelSpec:
             raise InvalidModelSpecError(
                 "Need 0 < chunk_tokens <= ubatch_tokens <= context_tokens", {"model_id": self.model_id}
             )
+        floor_dims = [dims for dims, _ in self.min_similarity]
+        if len(set(floor_dims)) != len(floor_dims) or not set(floor_dims) <= set(self.matryoshka_dims):
+            raise InvalidModelSpecError("min_similarity keys must be distinct matryoshka dims", {"model_id": self.model_id})
+        if any(not 0.0 <= value < 1.0 for _, value in self.min_similarity):
+            raise InvalidModelSpecError("min_similarity values must be in [0, 1)", {"model_id": self.model_id})
+        if self.similarity_margin is not None and not 0.0 < self.similarity_margin <= 1.0:
+            raise InvalidModelSpecError("similarity_margin must be in (0, 1]", {"model_id": self.model_id})
 
     @property
     def weights(self) -> ModelFile:
@@ -156,6 +168,10 @@ class ModelSpec:
     def text_bytes(self) -> int:
         """Bytes the person downloads to turn on text smart search."""
         return self.weights.size_bytes
+
+    def min_similarity_for(self, dims: int) -> float:
+        """The cosine below which a vector hit in this model's `dims` space is not a match."""
+        return dict(self.min_similarity).get(dims, DEFAULT_MIN_SIMILARITY)
 
     def validate_dims(self, dims: int) -> int:
         if dims not in self.matryoshka_dims:
@@ -189,6 +205,10 @@ class ModelSpec:
 
 
 MANIFEST_SCHEMA_VERSION = 1
+
+DEFAULT_MIN_SIMILARITY = 0.30
+"""Cosine floor for spaces with no calibrated `min_similarity` (other models, `mock`, legacy vectors). Low on
+purpose: it drops unrelated vectors without risking an uncalibrated model's real matches."""
 
 
 def parse_manifest(data: Mapping[str, Any]) -> tuple[tuple[ModelSpec, ...], str]:
@@ -242,6 +262,12 @@ def _parse_model(entry: Any) -> ModelSpec:
             document_template=str(entry["document_template"]),
             modalities=frozenset(Modality(m) for m in entry.get("modalities", ["text"])),
             chunk_tokens=int(entry.get("chunk_tokens", 512)),
+            min_similarity=tuple(
+                sorted((int(dims), float(value)) for dims, value in dict(entry.get("min_similarity", {})).items())
+            ),
+            similarity_margin=(
+                None if entry.get("similarity_margin") is None else float(entry["similarity_margin"])
+            ),
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise InvalidModelSpecError("Malformed manifest model entry", {"error": type(exc).__name__}) from exc
@@ -347,6 +373,52 @@ def best_chunk_scores(hits: Iterable[tuple[str, float]]) -> dict[str, float]:
         if asset_id not in best or score > best[asset_id]:
             best[asset_id] = score
     return best
+
+
+def semantic_cutoff(top_score: float, *, floor: float, margin: float | None = None) -> float:
+    """The lowest similarity a semantic hit may have: the space's floor, raised to `top_score - margin` when the
+    model carries a margin (hits far below the best one are noise even above the floor)."""
+    if margin is None:
+        return floor
+    return max(floor, top_score - margin)
+
+
+def similarity_rule(spec: ModelSpec | None, space_id: str) -> tuple[float, float | None]:
+    """`(floor, margin)` for vector hits in `space_id`: the model's calibrated values when `spec` is that space's
+    model and revision, else `DEFAULT_MIN_SIMILARITY` and no margin."""
+    try:
+        model_id, revision, dims = parse_space_id(space_id)
+    except InvalidEmbeddingSpaceError:
+        return DEFAULT_MIN_SIMILARITY, None
+    if spec is None or (spec.model_id, spec.revision) != (model_id, revision):
+        return DEFAULT_MIN_SIMILARITY, None
+    return spec.min_similarity_for(dims), spec.similarity_margin
+
+
+SEMANTIC_FULL_STRENGTH_SPAN = 0.20
+"""A hit this far above the floor is full-strength vector evidence (EmbeddingGemma 2: relevant documents sit
+0.0-0.24 above its 0.60 floor, median 0.17)."""
+
+
+def semantic_strength(score: float, *, top_score: float, floor: float) -> float:
+    """A kept hit's vector evidence in [0, 1]: 0 at the floor, 1 for the query's best hit when that one is at
+    least `SEMANTIC_FULL_STRENGTH_SPAN` above the floor.
+
+    Raw cosines of one model sit in a narrow band (about 0.6-0.85 for EmbeddingGemma 2), so fusing them as they
+    are lets any lexical hit outrank a strong semantic one; this spreads the band the way text scores are
+    normalised by the best text hit, without making a weak best hit (just above the floor) look strong."""
+    span = max(top_score - floor, SEMANTIC_FULL_STRENGTH_SPAN)
+    return min(max((score - floor) / span, 0.0), 1.0)
+
+
+def relevant_semantic_scores(
+    scores: Mapping[str, float], *, floor: float, margin: float | None = None
+) -> dict[str, float]:
+    """The semantic hits that count as matches (`semantic_cutoff`); the rest are dropped before fusion."""
+    if not scores:
+        return {}
+    cut = semantic_cutoff(max(scores.values()), floor=floor, margin=margin)
+    return {key: score for key, score in scores.items() if score >= cut}
 
 
 # --------------------------------------------------------------------------------------

@@ -184,5 +184,5 @@ def test_text_and_pdf_content_is_searchable_without_ocr(device: Device) -> None:
         assert items[0]["asset_id"] == expected and "semantic" in items[0]["match_reasons"]
 
     # Both files settle as indexed.
-    states = {item["asset_id"]: item["processing_state"] for item in device.search("arrendamiento tomates")}
+    states = {item["asset_id"]: item["processing_state"] for query in ("arrendamiento", "tomates") for item in device.search(query)}
     assert states.get(lease) == "indexed" and states.get(note) == "indexed"

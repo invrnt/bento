@@ -278,4 +278,5 @@ Exit: the web, desktop and site suites are green. A manual pass on Linux, plus w
   - The measurement spike is in `scripts/spikes/smart-search/`, with results in `research/embedding-models-2026.md` §Measured.
 - Decisions D1 and D3-D9 are taken. D2 is open and blocks public release only. D9 changed from 512 to 768 on 2026-11-27.
 - 2026-11-27: default dims 768 (D9); document text without OCR (`text_extract`, §Architecture) and the `.txt` embedding state bug fixed. A real-model pass by the owner follows.
+- 2026-11-27: search relevance calibrated on the real model (`evidence/smart-search-relevance-calibration-2026-11-27.md`). The similarity floor and margin are in the manifest per model and dims, and stop words, short prefixes and name-only matches no longer outrank semantic hits. Recall@5 stays at 0.983 at 768.
 - Stage 24 is next. Research: `research/embedding-models-2026.md`.
