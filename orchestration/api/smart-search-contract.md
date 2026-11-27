@@ -184,3 +184,13 @@ llama-server -m <weights> --embeddings --pooling <pooling> -c 2048 -ub 2048 -b 2
 Activating a different space (a new model, revision or dims) creates an `embedding_spaces` row with `state = building` and queues `reembed` for this device's own assets. Search keeps using the `active` space until the new one reaches 100 %, or until the person chooses "Usar ya" (`POST /api/smart-search/use-now`). Then one transaction flips `active`, marks the old space `retired`, and drops its rows and `vec0` table. The old model files are deleted only after that.
 
 For a model update the activation service does the glue: once the newer revision is verified it registers the space (`register_space`) and starts `reembed`, when its process has the space registry and re-embed owner wired. After the flip, `SmartSearchActivationService.space_activated()` (reached from `ReembedService` through `ActivationReembedObserver`) moves the status's `space_id` to the new space without changing its state, so the runtime supervisor serves the new model, and deletes the old revision's files and `model_installs` rows.
+
+Progress is live. Each `reembed` scan remembers which of this device's assets still wait for their embedding job, and the worker reports every embedding job that ends for good (done, or failed on its last attempt) to `ReembedService.embedding_finished(asset_id)`. That moves `indexing.done` forward by one per asset (a retried attempt or a duplicate job never counts twice), and the last one runs the final check at once: the flip when needed, then `indexed` → `ready`. The `wait` check job, due 60 s later, stays as the fallback for work this process did not scan (for example after a worker restart); once live progress completed the space it is closed without running.
+
+## Activation and removal while the processes run
+
+Activation and removal take effect without restarting the API or the worker (they write `embeddings_provider` through the settings service, but nothing restarts the sidecars). Unless `embeddings_provider` is pinned elsewhere (`custom`, `mock`, `disabled` from the environment or a policy, or a platform without `managed`, see `follows_smart_search_status`):
+
+- the worker always builds the runtime supervisor as `managed` and follows the persisted status every tick: `off` serves nothing (embedding jobs are no-ops), `starting`/`indexing`/`ready` start the server for the status's space, and removal stops it;
+- the API re-reads `embeddings_provider` (one indexed SQLite read) and the status's `space_id` on each search and rebuilds its search wiring only when that pair changes; `GET /api/settings` folds the same live value;
+- uploads queue embedding jobs from the live value too.

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+from collections.abc import Callable
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, Mapping
@@ -18,8 +19,9 @@ from bento.domain.settings_registry import (
     LEGACY_CUSTOM_MODEL_PATH,
     SETTINGS_BY_KEY,
     SETTINGS_REGISTRY,
+    embeddings_provider_choices,
 )
-from bento.domain.smart_search import EMBEDDINGS_PROVIDER_CHOICES, migrate_embeddings_provider
+from bento.domain.smart_search import EMBEDDINGS_PROVIDER_CHOICES, follows_smart_search_status, migrate_embeddings_provider
 
 _PROVIDER_KEYS_LOWER = frozenset({"embeddings_provider", "bento_embedding_provider"})
 _CUSTOM_MODEL_PATH_KEYS = (
@@ -266,6 +268,55 @@ def load_persisted_settings(database_path: Path) -> PersistedSettings:
     finally:
         if "connection" in locals():
             connection.close()
+
+
+def setting_locked(settings: Settings, key: str) -> bool:
+    """The environment or a policy pins `key` (from the snapshot taken at startup; locks never change at run time)."""
+    snapshot = settings.effective_snapshot
+    item = snapshot.values.get(key) if snapshot is not None else None
+    return item is not None and item.locked
+
+
+def load_persisted_setting(database_path: Path, key: str) -> str | None:
+    """The raw saved value of one setting, or None (no database, no table or no row). One indexed read."""
+    if not database_path.is_file():
+        return None
+    try:
+        connection = sqlite3.connect(f"{database_path.resolve().as_uri()}?mode=ro", uri=True)
+    except sqlite3.Error:
+        return None
+    try:
+        row = connection.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+    except sqlite3.Error:
+        return None
+    finally:
+        connection.close()
+    return str(row[0]) if row is not None else None
+
+
+def live_embeddings_provider(settings: Settings) -> Callable[[], str]:
+    """`embeddings_provider` as in effect now, for processes that outlive a change to it: the smart search
+    activation writes `managed` and removal writes `disabled` without restarting the API or the worker.
+
+    Only where the worker follows the smart search status too (`follows_smart_search_status`); elsewhere, and
+    for a locked value, it is the startup value. Otherwise the saved row wins, and an unknown or missing row falls
+    back to the startup value. Cheap enough to call per request (one indexed SQLite read)."""
+    startup = str(settings.embeddings_provider)
+    locked = setting_locked(settings, "embeddings_provider")
+    if locked or not follows_smart_search_status(
+        startup, locked=locked, offered=embeddings_provider_choices(str(settings.platform))
+    ):
+        return lambda: startup
+    database_path = settings_database_path(settings)
+
+    def read() -> str:
+        raw = load_persisted_setting(database_path, "embeddings_provider")
+        if raw is None:
+            return startup
+        value = deserialize_setting_value("embeddings_provider", raw)
+        return value if isinstance(value, str) and value in EMBEDDINGS_PROVIDER_CHOICES else startup
+
+    return read
 
 
 def load_effective_settings(

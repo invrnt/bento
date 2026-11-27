@@ -45,7 +45,7 @@ from bento.application.activity import ActivityService
 from bento.application.backup import BackupService
 from bento.application.content import FULL_FETCH_THRESHOLD_BYTES, AssetContentService
 from bento.application.drive import DriveUseCases
-from bento.application.ingestion import AssetFileQueryService, AssetIngestionService, IndexingPolicy
+from bento.application.ingestion import AssetFileQueryService, AssetIngestionService, LiveIndexingPolicy
 from bento.application.storage_maintenance import StorageMaintenanceService
 from bento.application.storage_pipeline import RemoteStoreProvider, StoragePipelineService
 from bento.application.trash import TrashService
@@ -59,7 +59,7 @@ from bento.domain.vault import VaultStatus
 from bento.infrastructure import services
 from bento.infrastructure.db.clock import SystemClock
 from bento.infrastructure.db.engine import create_app_session_factory
-from bento.infrastructure.settings import Settings
+from bento.infrastructure.settings import Settings, live_embeddings_provider
 from bento.ports.blob_store import RemoteBlobStorePort
 
 GIB = 1024**3
@@ -107,6 +107,12 @@ class StoragePipelineComponents:
 
 _lock = threading.Lock()
 _components: dict[tuple[str, str], StoragePipelineComponents] = {}
+
+
+def _indexing_policy(settings: Settings) -> LiveIndexingPolicy:
+    """Uploads follow smart search activation and removal while the process runs (`live_embeddings_provider`)."""
+    ocr_provider = str(settings.ocr_provider)
+    return LiveIndexingPolicy(ocr_provider=lambda: ocr_provider, embeddings_provider=live_embeddings_provider(settings))
 
 
 def get_storage_pipeline(settings: Settings) -> StoragePipelineComponents:
@@ -197,9 +203,7 @@ def build_storage_pipeline(
         blob_refs=blob_refs,
         metadata_extractor=LocalUploadMetadataExtractor(),
         remote_uploads=pipeline,
-        indexing=IndexingPolicy.from_providers(
-            ocr_provider=settings.ocr_provider, embeddings_provider=settings.embeddings_provider
-        ),
+        indexing=_indexing_policy(settings),
     )
     drive = DriveUseCases(assets=assets, folders=folders, manifest=manifest, clock=clock)
     policy = SQLiteBackupPolicyRepository(factory, clock, locked=_locked_backup_settings(settings))

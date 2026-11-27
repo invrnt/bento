@@ -6,6 +6,7 @@ Every endpoint that changes state answers with the `SmartSearchStatus` body. Bus
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
@@ -20,10 +21,13 @@ from bento.application.smart_search.activation import (
     SmartSearchStatusView,
 )
 from bento.domain.errors import DomainError, SettingsRevisionConflictError
+from bento.domain.smart_search import SmartSearchState
 from bento.interfaces.http.routes_content import error_response
 
 if TYPE_CHECKING:
     from bento.interfaces.http.host_resources import HostResources
+
+LOGGER = logging.getLogger("bento.http.smart_search")
 
 router = APIRouter()
 
@@ -254,6 +258,30 @@ def _host_resources(probe: Callable[[], HostResources]) -> Callable[[], tuple[in
         return resources.cpu_cores, resources.ram_bytes
 
     return read
+
+
+def live_embeddings_provider(request: Request) -> str:
+    """`embeddings_provider` as in effect now (activation and removal change it while the API runs)."""
+    reader = getattr(request.app.state, "live_embeddings_provider", None)
+    if reader is None:
+        from bento.infrastructure.settings import live_embeddings_provider as build_reader
+
+        reader = request.app.state.live_embeddings_provider = build_reader(request.app.state.settings)
+    return str(reader())
+
+
+async def live_embedding_key(request: Request) -> tuple[str, str | None]:
+    """`(embeddings_provider, smart search space_id)` now; the search dependencies are rebuilt when it changes.
+    The space is None unless the provider is `managed` and the status is not `off`."""
+    provider = live_embeddings_provider(request)
+    if provider != "managed":
+        return provider, None
+    try:
+        status = await activation_service(request).repository.load()
+    except Exception as exc:  # noqa: BLE001 - search never fails on smart search bookkeeping
+        LOGGER.debug("Smart search status unavailable: %s", exc.__class__.__name__)
+        return provider, None
+    return provider, (status.space_id if status.state is not SmartSearchState.OFF else None)
 
 
 class SettingsProviderSwitch:
