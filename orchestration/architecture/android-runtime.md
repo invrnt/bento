@@ -139,6 +139,7 @@ Bridge rules: calls are coarse (one call per file, never per byte); bridges neve
 | Storage backends | `telegram`, `local`; `fake` only in debug builds |
 | Pairing | relay (host and guest) and Sync-channel fallback |
 | OCR | ML Kit bundled Latin; default on, charging + idle only |
+| Document text without OCR (`text_extract`) | plain text files only (≤ 4 MiB read, stops at `check_safe_boundary()` like other bounded work; not in the deferred `indexing` class because it is cheap and renders nothing). PDF text layers are not read on Android (no pypdfium2): PDFs there are indexed by OCR as before, or by the text a desktop publishes |
 | Search by meaning | off (no model on phone); FTS/name/metadata/OCR text work, including OCR text synced from desktops |
 | Inbox import, Telegram import, share via Telegram | yes |
 | Folder backup | MediaStore buckets only (no arbitrary filesystem paths); SAF folder upload as a one-shot import |

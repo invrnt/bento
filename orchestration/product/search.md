@@ -62,7 +62,7 @@ Contract: `api/smart-search-contract.md`. Program: `execution/smart-search-progr
 - Vector search is used only while `search_available` (`ready` or `indexing`). In every other state, and whenever the API cannot reach the local embedding server, search silently uses name, folder, OCR, metadata and FTS as today, and `semantic` never appears in `match_reasons`.
 - v1 is text only. Photos match by meaning through their OCR text and metadata (album, place, date, file name), not their pixels (D5).
 - Android does not offer it in v1 (D6).
-- Default space: EmbeddingGemma 2 at 512 dims (D1, D9). Measured on a Ryzen 7 5800H: about 21 ms per query embedding at p50.
+- Default space: EmbeddingGemma 2 at 768 dims (D1, D9; 512 until 2026-11-27, existing 512 spaces keep working). Measured on a Ryzen 7 5800H: about 21 ms per query embedding at p50.
 
 ## Explanation
 
