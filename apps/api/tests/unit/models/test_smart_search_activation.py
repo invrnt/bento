@@ -247,6 +247,48 @@ def test_a_drop_inside_the_job_is_retried_and_clears_waiting_network(tmp_path: P
     run(scenario())
 
 
+def test_drops_with_progress_in_between_do_not_use_up_the_in_job_waits(tmp_path: Path, host: FakeModelHost) -> None:
+    # One in-job wait, four separate drops: each attempt gets bytes before it drops, so the job never gives up.
+    kit = make_kit(tmp_path, host, retry_delays=(0.0,))
+    host.fail_primary()
+    host.behavior.drop_at = 512 * 1024
+    host.behavior.next_drops = [1024 * 1024, 1536 * 1024, 2048 * 1024]
+    host.behavior.reset = True
+
+    async def scenario() -> None:
+        await kit.service.activate()
+
+        assert await kit.run_last_job() is DownloadJobResult.STARTING
+        requests = host.requests_for(MIRROR_URL)
+        assert len(requests) == 5
+        assert requests[0].range is None
+        starts = [int(request.range.removeprefix("bytes=").rstrip("-")) for request in requests[1:] if request.range]
+        assert len(starts) == 4 and starts == sorted(set(starts))  # every retry resumed further on
+        assert (await kit.repository.load()).waiting_network is False
+
+    run(scenario())
+
+
+def test_an_outage_with_no_progress_still_ends_the_in_job_waits(tmp_path: Path, host: FakeModelHost) -> None:
+    kit = make_kit(tmp_path, host, retry_delays=(0.0, 0.0))
+    host.fail_primary()
+    host.behavior.drop_at = 512 * 1024
+    host.behavior.drop_once = False  # the link is down from this byte on: no progress after the first attempt
+
+    async def scenario() -> None:
+        await kit.service.activate()
+
+        with pytest.raises(ModelDownloadRetryLater):
+            await kit.run_last_job()
+        # One request per wait plus the first: the waits are not reset when no byte arrives.
+        assert len(host.requests_for(MIRROR_URL)) == 3
+        status = await kit.repository.load()
+        assert status.waiting_network is True
+        assert status.bytes_done == 512 * 1024
+
+    run(scenario())
+
+
 def test_the_last_attempt_without_network_is_error_download(tmp_path: Path, host: FakeModelHost) -> None:
     kit = make_kit(tmp_path, host, retry_delays=(), rewrite_url=lambda url: "http://127.0.0.1:9/unreachable")
 

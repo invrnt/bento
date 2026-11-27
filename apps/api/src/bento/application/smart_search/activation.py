@@ -62,7 +62,8 @@ SPACE_HEADROOM = 0.10
 """The free-space precheck needs the file size plus 10 %."""
 MODEL_DOWNLOAD_MAX_ATTEMPTS = 8
 NETWORK_RETRY_DELAYS: tuple[float, ...] = (1.0, 2.0, 4.0, 8.0, 16.0, 32.0)
-"""In-job waits while the network is down; after them the job is retried later by the queue's backoff."""
+"""In-job waits while the network is down; after them the job is retried later by the queue's backoff. The
+waits start over whenever an attempt received bytes, so only an outage with no progress uses them up."""
 STATUS_POLL_SECONDS = 0.25
 LICENSE_URL = "/api/smart-search/license"
 USE_NOW_EVENT = "use_now"
@@ -573,18 +574,25 @@ class SmartSearchActivationService:
         if free < max(0, file.size_bytes - start):
             return DownloadOutcome(DownloadResult.NO_SPACE, start)
         delays = self.network_retry_delays
-        for attempt in range(len(delays) + 1):
+        attempt = 0
+        while True:
             outcome = await self._download_once(spec, space_id, purpose, start)
-            if outcome.result is not DownloadResult.NETWORK or attempt == len(delays):
+            if outcome.result is not DownloadResult.NETWORK:
+                return outcome
+            if outcome.bytes_done > start:
+                # Bytes arrived since the last drop: this is a new drop, not the same outage, so the waits
+                # start over. Otherwise a long download over a flaky link spends the budget while it progresses.
+                attempt = 0
+            if attempt == len(delays):
                 return outcome
             start = max(start, outcome.bytes_done)
             if purpose is DownloadPurpose.ACTIVATE:
                 await self.advance(space_id, SmartSearchEvent(SmartSearchEventKind.NETWORK_LOST))
             await self.sleep(delays[attempt])
+            attempt += 1
             check_safe_boundary()
             if purpose is DownloadPurpose.ACTIVATE and not await self._still_downloading(space_id):
                 return None
-        return None  # pragma: no cover - the loop always returns
 
     async def _download_once(
         self, spec: ModelSpec, space_id: str, purpose: DownloadPurpose, start: int

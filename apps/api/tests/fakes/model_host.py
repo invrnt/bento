@@ -3,7 +3,13 @@
 `FakeModelHost` serves a 3 MB synthetic blob over plain HTTP on 127.0.0.1 with `Range`/`206`/`ETag`/
 `If-Range` support, and injects the failures the downloader must survive:
 
-- `drop_at`: close the connection once the body reaches this absolute byte offset (one-shot by default);
+- `drop_at`: close the connection once the body reaches this absolute byte offset (one-shot by default;
+  with `drop_once=False` every request at or past it is cut too);
+  `next_drops` lists the offsets that arm `drop_at` again after each one-shot drop (a flaky link);
+- `reset`: drops are TCP resets (`SO_LINGER` 0) instead of an orderly shutdown;
+- `stall_at`/`stall_seconds`: once the body reaches this offset, send nothing for that long (one-shot), with the
+  connection left open;
+- `short_body_at`: one-shot, end the response cleanly (FIN) at this offset although `Content-Length` promised more;
 - `ignore_range`: answer `200` with the whole body when a range was asked;
 - `missing`: paths that answer `404` (the primary URL → mirror fallback);
 - `trickle_delay`: sleep between 64 KiB chunks (slow link, for pause/cancel mid-download);
@@ -21,6 +27,7 @@ import hashlib
 import random
 import re
 import socket
+import struct
 import threading
 import time
 from collections.abc import Iterator
@@ -67,6 +74,11 @@ class HostBehavior:
     etag: str = '"tiny-v1"'
     drop_at: int | None = None
     drop_once: bool = True
+    next_drops: list[int] = field(default_factory=list)
+    reset: bool = False
+    stall_at: int | None = None
+    stall_seconds: float = 0.0
+    short_body_at: int | None = None
     ignore_range: bool = False
     missing: set[str] = field(default_factory=set)
     trickle_delay: float = 0.0
@@ -181,12 +193,29 @@ class FakeModelHost:
             while offset < size:
                 end = min(size, offset + CHUNK_BYTES)
                 drop_at = behavior.drop_at
-                if drop_at is not None and offset < drop_at <= end:
+                # A repeating drop (`drop_once=False`) also cuts a request that starts at or past it: the link is
+                # down from that byte on.
+                if drop_at is not None and (offset < drop_at <= end or (not behavior.drop_once and offset >= drop_at)):
                     handler.wfile.write(data[offset:drop_at])
                     handler.wfile.flush()
                     if behavior.drop_once:
-                        behavior.drop_at = None
+                        behavior.drop_at = behavior.next_drops.pop(0) if behavior.next_drops else None
+                    _drop(handler, reset=behavior.reset)
+                    return
+                short_at = behavior.short_body_at
+                if short_at is not None and offset < short_at <= end:
+                    behavior.short_body_at = None
+                    handler.wfile.write(data[offset:short_at])
+                    handler.wfile.flush()
                     _drop(handler)
+                    return
+                stall_at = behavior.stall_at
+                if stall_at is not None and offset < stall_at <= end:
+                    behavior.stall_at = None
+                    handler.wfile.write(data[offset:stall_at])
+                    handler.wfile.flush()
+                    time.sleep(behavior.stall_seconds)  # the connection stays open, silent
+                    handler.close_connection = True
                     return
                 handler.wfile.write(data[offset:end])
                 offset = end
@@ -206,8 +235,15 @@ def _send_empty(handler: BaseHTTPRequestHandler, status: int, headers: dict[str,
     handler.end_headers()
 
 
-def _drop(handler: BaseHTTPRequestHandler) -> None:
+def _drop(handler: BaseHTTPRequestHandler, *, reset: bool = False) -> None:
     handler.close_connection = True
+    if reset:
+        try:
+            handler.connection.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+            handler.connection.close()
+        except OSError:
+            pass
+        return
     try:
         handler.connection.shutdown(socket.SHUT_RDWR)
     except OSError:
