@@ -77,7 +77,7 @@ def test_journey_activate_pause_resume_verify_start_index_ready_remove(tmp_path:
         "license_url": "/api/smart-search/license",
         "size_bytes": BLOB_SIZE,
         "download_host": "primary.bento.example",
-        "dims": 512,
+        "dims": 768,
     }
     assert body["free_bytes"] > 0
 
@@ -275,7 +275,7 @@ def test_default_wiring_reads_the_packaged_manifest_and_the_database(tmp_path: P
     assert body["model"]["model_id"] == "embeddinggemma-2-q8_0"
     assert body["model"]["size_bytes"] == 309_855_456
     assert body["model"]["download_host"] == "huggingface.co"
-    assert body["model"]["dims"] == 512
+    assert body["model"]["dims"] == 768  # D9
 
 
 def test_openapi_lists_every_smart_search_endpoint(tmp_path: Path) -> None:

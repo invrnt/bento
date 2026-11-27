@@ -8,7 +8,7 @@ import { fakeApi } from "./testkit";
 vi.hoisted(() => Object.defineProperty(navigator, "language", { configurable: true, value: "es-ES" }));
 
 const offer = {
-  dims: 512, display_name: "EmbeddingGemma 2", download_host: "huggingface.co", license_spdx: "Apache-2.0", license_url: "/api/smart-search/license",
+  dims: 768, display_name: "EmbeddingGemma 2", download_host: "huggingface.co", license_spdx: "Apache-2.0", license_url: "/api/smart-search/license",
   model_id: "embeddinggemma-2-q8_0", size_bytes: 309_855_456,
 };
 const statusOf = (overrides: Partial<SmartSearchStatus> = {}): SmartSearchStatus => ({

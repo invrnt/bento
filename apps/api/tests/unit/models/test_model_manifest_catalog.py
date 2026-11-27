@@ -38,18 +38,18 @@ def test_packaged_manifest_matches_the_canonical_fixture_except_the_mirror_url()
     assert weights["urls"][1].endswith("/embeddinggemma-2-Q8_0.gguf")
 
 
-def test_packaged_catalog_default_is_embeddinggemma_2_at_512_dims_with_qwen3_fallback() -> None:
+def test_packaged_catalog_default_is_embeddinggemma_2_at_768_dims_with_qwen3_fallback() -> None:
     catalog = load_model_catalog()
 
     default = catalog.default()
     assert default.model_id == "embeddinggemma-2-q8_0"
     assert default.revision == "6ea3e3a309d12a4779cfda98b8c19800d2d5da71"
-    assert default.default_dims == 512
+    assert default.default_dims == 768  # D9 (2026-11-27)
     assert default.pooling is Pooling.MEAN
     assert default.weights.size_bytes == 309_855_456
     assert default.weights.sha256 == "2188ac1deca4b77dffefd603c2776a9d76d9d74ec01841392982ebb840b09135"
     assert default.license_spdx == "Apache-2.0"
-    assert default.space().id == "embeddinggemma-2-q8_0@6ea3e3a309d12a4779cfda98b8c19800d2d5da71/512"
+    assert default.space().id == "embeddinggemma-2-q8_0@6ea3e3a309d12a4779cfda98b8c19800d2d5da71/768"
 
     fallback = catalog.get("qwen3-embedding-0.6b-q8_0")
     assert fallback is not None

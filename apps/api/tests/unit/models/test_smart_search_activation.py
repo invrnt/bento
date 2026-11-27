@@ -66,7 +66,7 @@ def test_activate_downloads_verifies_and_hands_over_at_starting(tmp_path: Path, 
         assert view.status.state is SmartSearchState.DOWNLOADING
         assert view.status.space_id == kit.spec.space().id
         assert view.status.bytes_total == BLOB_SIZE
-        assert view.dims == 512
+        assert view.dims == 768  # D9
         assert view.body()["model"]["download_host"] == "primary.bento.example"
         assert kit.switch.value == "managed"
         job = kit.jobs.jobs[-1]
@@ -423,5 +423,26 @@ def test_update_is_refused_when_nothing_newer_or_not_ready(tmp_path: Path, host:
         assert (await kit.service.status()).update is None
         with pytest.raises(SmartSearchStateConflictError):
             await kit.service.update()
+
+    run(scenario())
+
+
+def test_an_existing_512_install_keeps_its_space_while_new_activations_use_768(
+    tmp_path: Path, host: FakeModelHost
+) -> None:
+    """D9 moved the default to 768 (2026-11-27). Another dimension is another space: a device activated at 512
+    keeps serving its 512 space (no table is rewritten); only a fresh activation gets 768."""
+    kit = make_kit(tmp_path, host)
+    old_space = kit.spec.space(512).id
+    kit.repository.status = SmartSearchStatus(state=SmartSearchState.READY, space_id=old_space)
+
+    async def scenario() -> None:
+        view = await kit.service.status()
+        assert view.dims == 512 and view.status.space_id == old_space
+        assert kit.jobs.jobs == []  # nothing is queued just because the default changed
+
+        await kit.service.remove()
+        fresh = await kit.service.activate()
+        assert fresh.dims == 768 and fresh.status.space_id == kit.spec.space().id != old_space
 
     run(scenario())

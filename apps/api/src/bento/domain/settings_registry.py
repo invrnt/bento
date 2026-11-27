@@ -62,7 +62,7 @@ MANAGED_MODEL_DIMS: MappingProxyType[str, tuple[int, ...]] = MappingProxyType(
 )
 SMART_SEARCH_MODEL_IDS: tuple[str, ...] = tuple(MANAGED_MODEL_DIMS)
 DEFAULT_SMART_SEARCH_MODEL_ID = SMART_SEARCH_MODEL_IDS[0]
-DEFAULT_EMBEDDING_DIMENSIONS = 512  # D9: EmbeddingGemma 2 truncated to 512.
+DEFAULT_EMBEDDING_DIMENSIONS = 768  # D9 (2026-11-27): EmbeddingGemma 2 at its native 768 dims.
 # Where Stage <= 23 builds looked for the Jina GGUF; read only to map a leftover `jina` provider value.
 LEGACY_CUSTOM_MODEL_PATH = "./data/models/jina-v5-omni-nano.gguf"
 # `auto` leaves pooling to the GGUF metadata (no `--pooling` flag).

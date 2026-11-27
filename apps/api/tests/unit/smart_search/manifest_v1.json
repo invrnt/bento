@@ -22,7 +22,7 @@
       ],
       "native_dims": 768,
       "matryoshka_dims": [768, 512, 256, 128],
-      "default_dims": 512,
+      "default_dims": 768,
       "pooling": "mean",
       "context_tokens": 2048,
       "ubatch_tokens": 2048,
