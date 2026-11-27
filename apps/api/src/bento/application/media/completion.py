@@ -20,6 +20,7 @@ PROCESSING_JOB_TYPES = frozenset(
         JobType.METADATA,
         JobType.OCR,
         JobType.EMBEDDING,
+        JobType.TEXT_EXTRACT,
     }
 )
 

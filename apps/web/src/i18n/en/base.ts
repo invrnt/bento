@@ -318,6 +318,7 @@ export const enBase: Partial<Record<MessageKey, string>> = {
   "jobs.type.pdf_thumbnail": "PDF thumbnail",
   "jobs.type.reindex": "Reindex",
   "jobs.type.telegram_import": "Telegram import",
+  "jobs.type.text_extract": "Document text",
   "jobs.type.thumbnail": "Thumbnail",
   "jobs.type.video_thumbnail": "Video thumbnail",
   "settings.dataPaths": "Data paths",

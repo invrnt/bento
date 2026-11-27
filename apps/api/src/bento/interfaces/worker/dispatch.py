@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from bento.application.indexing.embedding import EmbeddingIndexingService
 from bento.application.indexing import OCRIndexingService
 from bento.application.indexing.reindex import ReindexService
+from bento.application.indexing.text import TextExtractionService
 from bento.application.media import PROCESSING_JOB_TYPES, MediaProcessingService, ProcessingCompletionService
 from bento.application.smart_search.reembed import ReembedService
 from bento.application.work_budget import WorkBudgetExceeded
@@ -40,6 +41,7 @@ class WorkerDispatcher:
     reindex: ReindexService | None = None
     model_download: ModelDownloadJobHandler | None = None
     reembed: ReembedService | None = None
+    text: TextExtractionService | None = None
 
     async def process_one(
         self, *, types: frozenset[JobType] | None = None, deferral: JobDeferral | None = None
@@ -109,6 +111,12 @@ class WorkerDispatcher:
             asset_id = job.asset_id or _payload_asset_id(job)
             await self.media.process_asset_media(asset_id)
             return
+        if job.type == JobType.TEXT_EXTRACT:
+            if self.text is None:
+                raise RuntimeError("No text extraction handler registered")
+            asset_id = job.asset_id or _payload_asset_id(job)
+            await self.text.process_asset_text(asset_id)
+            return
         if job.type == JobType.OCR:
             if self.ocr is None:
                 raise RuntimeError("No OCR handler registered")
@@ -128,7 +136,7 @@ class WorkerDispatcher:
             await self.model_download.handle(job)
             return
         if job.type == JobType.REINDEX and self.reindex is not None:
-            queued = await self.reindex.run()
+            queued = await self.reindex.run(text_only=job.payload.get("text_only") is True)
             LOGGER.info("Reindex queued %s indexing jobs", queued)
             return
         if job.type == JobType.REEMBED and self.reembed is not None:

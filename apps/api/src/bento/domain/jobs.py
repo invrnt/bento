@@ -28,6 +28,7 @@ class JobType(StrEnum):
     SYNC_SNAPSHOT = "sync_snapshot"
     MODEL_DOWNLOAD = "model_download"
     REEMBED = "reembed"
+    TEXT_EXTRACT = "text_extract"
 
 
 class JobStatus(StrEnum):
@@ -44,6 +45,11 @@ class JobPriority(IntEnum):
     METADATA = 2
     OCR = 3
     EMBEDDING = 4
+
+
+TEXT_EXTRACT_PRIORITY = int(JobPriority.METADATA)
+"""`text_extract` runs after thumbnails and before OCR and embeddings, which read the text it stores (the queue
+claims by priority first). Not a `JobPriority` member: an equal value would make it an alias of `METADATA`."""
 
 
 @dataclass(frozen=True, slots=True)

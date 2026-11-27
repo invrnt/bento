@@ -55,7 +55,7 @@ def test_ingestion_is_local_first_and_the_job_uploads_encrypted_parts(tmp_path: 
         ]
         local_path = components.local_resolver.resolve(result.blob_ref)
 
-        assert await JobRunner(components).run_all() == 1
+        assert await JobRunner(components).run_all(types={JobType.REMOTE_UPLOAD.value}) == 1
 
         remote = await components.blob_refs.latest_for_asset(result.asset.id, BlobKind.ORIGINAL)
         assert remote is not None and remote.backend == StorageBackend.TELEGRAM

@@ -21,7 +21,12 @@ def _asset(asset_id: str, origin: AssetOrigin | None = AssetOrigin.DEVICE, kind:
         mode=AssetMode.DRIVE,
         folder_id=None,
         filename=f"{asset_id}.pdf",
-        metadata=AssetMetadata(original_filename=f"{asset_id}.pdf", mime_type="application/pdf", size_bytes=1, sha256="a" * 64),
+        metadata=AssetMetadata(
+            original_filename=f"{asset_id}.pdf",
+            mime_type="video/mp4" if kind == AssetKind.VIDEO else "application/pdf",
+            size_bytes=1,
+            sha256="a" * 64,
+        ),
         processing_state=ProcessingState.INDEXED,
         favorite=False,
         created_at=NOW,
@@ -100,9 +105,11 @@ def test_embedding_jobs_name_the_active_space() -> None:
         page_size=2,
     )
 
-    assert asyncio.run(service.run()) == 3
+    assert asyncio.run(service.run()) == 5
     assert [(job_type, payload) for job_type, payload, _ in jobs.queued] == [
+        (JobType.TEXT_EXTRACT, {"asset_id": "asset_1"}),
         (JobType.EMBEDDING, {"asset_id": "asset_1", "space_id": SPACE}),
+        (JobType.TEXT_EXTRACT, {"asset_id": "asset_2"}),
         (JobType.EMBEDDING, {"asset_id": "asset_2", "space_id": SPACE}),
         (JobType.EMBEDDING, {"asset_id": "asset_3", "space_id": SPACE}),
     ]
@@ -134,10 +141,38 @@ def test_without_spaces_the_payload_is_unchanged_and_ocr_still_runs() -> None:
         embeddings_enabled=True,
     )
 
-    assert asyncio.run(service.run()) == 4
+    assert asyncio.run(service.run()) == 6
     assert [(job_type, payload) for job_type, payload, _ in jobs.queued] == [
+        (JobType.TEXT_EXTRACT, {"asset_id": "asset_1"}),
         (JobType.OCR, {"asset_id": "asset_1"}),
         (JobType.EMBEDDING, {"asset_id": "asset_1"}),
+        (JobType.TEXT_EXTRACT, {"asset_id": "asset_2"}),
         (JobType.OCR, {"asset_id": "asset_2"}),
         (JobType.EMBEDDING, {"asset_id": "asset_3"}),
     ]
+
+
+def test_text_only_queues_text_extraction_for_own_documents_whatever_ocr_and_embeddings_say() -> None:
+    jobs = Jobs(busy={("asset_2", JobType.TEXT_EXTRACT)})
+    service = ReindexService(
+        assets=Assets(_library()),
+        jobs=jobs,  # type: ignore[arg-type]
+        active=jobs,
+        ocr_enabled=True,
+        embeddings_enabled=True,
+        spaces=Spaces(SPACE),
+    )
+
+    # asset_2 already waits for one; the video has no text to read; Telegram and peer assets are never read.
+    assert asyncio.run(service.run(text_only=True)) == 1
+    assert jobs.queued == [(JobType.TEXT_EXTRACT, {"asset_id": "asset_1"}, "asset_1")]
+
+
+def test_text_extraction_is_queued_even_with_ocr_and_embeddings_off() -> None:
+    jobs = Jobs()
+    service = ReindexService(
+        assets=Assets(_library()), jobs=jobs, active=jobs, ocr_enabled=False, embeddings_enabled=False  # type: ignore[arg-type]
+    )
+
+    assert asyncio.run(service.run()) == 2
+    assert {job_type for job_type, _, _ in jobs.queued} == {JobType.TEXT_EXTRACT}

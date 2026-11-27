@@ -16,7 +16,8 @@ from bento.domain.assets import (
     supports_ocr,
 )
 from bento.domain.errors import DuplicateAssetError, FolderNotFoundError, UploadTooLargeError
-from bento.domain.jobs import JobPriority, JobType
+from bento.domain.indexing import supports_text_extraction
+from bento.domain.jobs import TEXT_EXTRACT_PRIORITY, JobPriority, JobType
 from bento.domain.manifest import ManifestEntityType, ManifestEventType
 from bento.domain.storage import BlobKind, BlobRef
 from bento.ports.blob_store import BlobStorePort
@@ -123,7 +124,9 @@ class UploadAssetUseCase:
             asset = asset.transition_to(initial_state, now)
         index_text = command.ocr_enabled and asset.ai_indexing_allowed and supports_ocr(kind)
         embed = command.embeddings_enabled and asset.ai_indexing_allowed
-        if not (_can_generate_media(kind) or index_text or embed):
+        # Text the file already contains is read whatever OCR says (cheap, no rendering, no model).
+        extract_text = asset.ai_indexing_allowed and supports_text_extraction(metadata.mime_type)
+        if not (_can_generate_media(kind) or index_text or embed or extract_text):
             # Nothing else will touch it: it is as ready as it gets, like the copies peers receive.
             asset = asset.finish_processing(now)
         await self._assets.add(asset)
@@ -143,6 +146,13 @@ class UploadAssetUseCase:
             await self._jobs.enqueue(
                 type=JobType.THUMBNAIL,
                 priority=int(JobPriority.THUMBNAIL),
+                payload={"asset_id": asset.id},
+                asset_id=asset.id,
+            )
+        if extract_text:
+            await self._jobs.enqueue(
+                type=JobType.TEXT_EXTRACT,
+                priority=TEXT_EXTRACT_PRIORITY,
                 payload={"asset_id": asset.id},
                 asset_id=asset.id,
             )

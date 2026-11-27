@@ -24,6 +24,7 @@ from bento.adapters.security import StreamingBlobCipher, VaultCrypto
 from bento.application.media.service import GeneratedMediaFile
 from bento.domain.assets import Asset, AssetMetadata
 from bento.domain.errors import ValidationFailedError
+from bento.domain.jobs import JobType
 from bento.domain.security import EncryptionMetadata, EncryptionMode
 from bento.domain.storage import BlobKind, BlobPart, BlobRef, StorageBackend
 from bento.domain.telegram import RemotePart
@@ -248,7 +249,10 @@ class JobRunner:
             job = await _peek(self.components, types)
             if job is None:
                 break
-            assert await dispatcher.process_one()
+            if types is None:
+                assert await dispatcher.process_one()
+            else:  # claim what was peeked, not a job of another type that happens to come first
+                assert await dispatcher.process_one(types=frozenset(JobType(value) for value in types))
             self.handled.append(job.type.value)
             processed += 1
         return processed
@@ -268,6 +272,7 @@ async def _peek(components: StoragePipelineComponents, types: set[str] | None): 
             .where(
                 JobModel.status.in_(["queued", "retrying"]),
                 or_(JobModel.run_after.is_(None), JobModel.run_after <= now),
+                *([JobModel.type.in_(sorted(types))] if types is not None else []),
             )
             .order_by(JobModel.priority.asc(), JobModel.created_at.asc(), JobModel.id.asc())
             .limit(1)
@@ -275,10 +280,7 @@ async def _peek(components: StoragePipelineComponents, types: set[str] | None): 
         model = session.scalar(statement)
         if model is None:
             return None
-        job = job_from_model(model)
-        if types is not None and job.type.value not in types:
-            return None
-        return job
+        return job_from_model(model)
 
 
 class _NoMedia:

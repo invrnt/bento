@@ -322,6 +322,7 @@ const esBase = {
   "jobs.type.pdf_thumbnail": "Miniatura PDF",
   "jobs.type.reindex": "Reindexado",
   "jobs.type.telegram_import": "Importar Telegram",
+  "jobs.type.text_extract": "Texto del documento",
   "jobs.type.thumbnail": "Miniatura",
   "jobs.type.video_thumbnail": "Miniatura video",
   "settings.dataPaths": "Rutas de datos",

@@ -56,7 +56,7 @@ def test_upload_orchestration_creates_asset_blob_manifest_and_jobs() -> None:
         assert result.asset.mode == AssetMode.DRIVE
         assert result.asset.processing_state == ProcessingState.THUMBNAIL_PENDING
         assert result.blob_ref is not None
-        assert [job.type for job in jobs.items] == [JobType.THUMBNAIL, JobType.OCR, JobType.EMBEDDING]
+        assert [job.type for job in jobs.items] == [JobType.THUMBNAIL, JobType.TEXT_EXTRACT, JobType.OCR, JobType.EMBEDDING]
         assert [event.type for event in manifest.events] == [
             ManifestEventType.ASSET_CREATED,
             ManifestEventType.BLOB_STORED,

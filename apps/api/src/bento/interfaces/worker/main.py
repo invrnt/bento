@@ -17,6 +17,7 @@ from bento.adapters.search.sqlite_fts import SQLiteFTSSearchIndex
 from bento.adapters.search.sqlite_vec import SQLiteVecSearchIndex
 from bento.application.indexing.embedding import EmbeddingIndexingService
 from bento.application.indexing.reindex import ReindexService
+from bento.application.indexing.text import TextExtractionService
 from bento.application.media import MediaProcessingService, ProcessingCompletionService
 from bento.application.smart_search.reembed import ReembedService
 from bento.domain.settings_registry import embeddings_provider_choices
@@ -26,7 +27,7 @@ from bento.application.ingestion import IndexingPolicy
 from bento.infrastructure import services
 from bento.infrastructure.db.clock import SystemClock
 from bento.infrastructure.db.engine import create_app_session_factory
-from bento.infrastructure.settings import Settings, get_settings, setting_locked
+from bento.infrastructure.settings import Settings, get_settings, live_embeddings_provider, setting_locked
 from bento.infrastructure.storage_pipeline import get_storage_pipeline
 from bento.interfaces.worker.dispatch import WorkerDispatcher
 from bento.interfaces.worker.handlers_models import build_model_download_handler
@@ -98,16 +99,34 @@ def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> Work
         remote_uploads=pipeline.pipeline,
     )
     provider = services.get_ocr_provider(settings)
+    text_index = SQLiteFTSSearchIndex(session_factory, clock)
+    pdf_pages = SQLitePDFPageTextCatalog(session_factory, clock)
     ocr = OCRIndexingService(
         assets=assets,
         blob_refs=blob_refs,
         resolver=resolver,
         provider=provider,
-        index=SQLiteFTSSearchIndex(session_factory, clock),
+        index=text_index,
         manifest=manifest,
         clock=clock,
         pdf_renderer=services.get_pdf_page_renderer(settings, data_dir / "cache" / "ocr" / "pdf-pages"),
-        pdf_pages=SQLitePDFPageTextCatalog(session_factory, clock),
+        pdf_pages=pdf_pages,
+        index_recorder=create_asset_index_recorder(settings, session_factory),
+        document_text=text_index,
+    )
+    ocr_on = str(settings.ocr_provider) != "disabled"
+    embeddings_provider = live_embeddings_provider(settings)
+    text = TextExtractionService(
+        assets=assets,
+        blob_refs=blob_refs,
+        resolver=resolver,
+        extractor=services.get_text_extractor(settings),
+        store=text_index,
+        ocr_enabled=lambda: ocr_on,
+        embeddings_enabled=lambda: embeddings_provider() != "disabled",
+        jobs=jobs,
+        active=jobs,
+        pdf_pages=pdf_pages,
         index_recorder=create_asset_index_recorder(settings, session_factory),
     )
     worker_embedding = _worker_embedding(settings)
@@ -182,6 +201,7 @@ def _create_dispatcher(worker_id: str, settings: Settings | None = None) -> Work
             vectors=vec_index,
         ),
         reembed=reembed,
+        text=text,
     )
 
 
