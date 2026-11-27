@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import socket
+import time
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -272,3 +273,59 @@ def test_the_work_budget_stops_the_download_at_a_block_boundary(tmp_path: Path, 
 
     asyncio.run(scenario())
     assert size_of(part) == TEST_BLOCK_BYTES  # the bytes received so far stay for the next run
+
+
+# -- network failures mid-body (real loopback sockets) ----------------------------------------
+
+
+def test_a_connection_reset_keeps_the_bytes_and_the_next_call_resumes_there(
+    tmp_path: Path, host: FakeModelHost
+) -> None:
+    host.behavior.drop_at = 1024 * 1024
+    host.behavior.reset = True
+    host.fail_primary()
+    part = part_path(tmp_path)
+    downloader = fake_host_downloader(host)
+
+    first = downloader.download_blocking(model_file(host), part, lambda *_: None, never_stop)
+    second = downloader.download_blocking(model_file(host), part, lambda *_: None, never_stop)
+
+    assert first.result is DownloadResult.NETWORK
+    assert 0 < first.bytes_done <= 1024 * 1024
+    assert second.result is DownloadResult.COMPLETED
+    assert host.requests_for(MIRROR_URL)[-1].range == f"bytes={first.bytes_done}-"
+
+
+def test_a_silent_connection_hits_the_read_timeout_instead_of_hanging(tmp_path: Path, host: FakeModelHost) -> None:
+    host.behavior.stall_at = 1024 * 1024
+    host.behavior.stall_seconds = 3.0
+    host.fail_primary()
+    part = part_path(tmp_path)
+    downloader = fake_host_downloader(host, timeout_seconds=0.5)
+
+    started = time.monotonic()
+    outcome = downloader.download_blocking(model_file(host), part, lambda *_: None, never_stop)
+    elapsed = time.monotonic() - started
+
+    assert outcome.result is DownloadResult.NETWORK
+    assert outcome.bytes_done == 1024 * 1024 == size_of(part)
+    assert elapsed < 2.5
+    resumed = downloader.download_blocking(model_file(host), part, lambda *_: None, never_stop)
+    assert resumed.result is DownloadResult.COMPLETED
+    assert host.requests_for(MIRROR_URL)[-1].range == f"bytes={1024 * 1024}-"
+
+
+def test_a_body_shorter_than_its_content_length_is_resumed_not_accepted(tmp_path: Path, host: FakeModelHost) -> None:
+    host.behavior.short_body_at = 2 * 1024 * 1024
+    host.fail_primary()
+    part = part_path(tmp_path)
+    downloader = fake_host_downloader(host)
+
+    first = downloader.download_blocking(model_file(host), part, lambda *_: None, never_stop)
+
+    assert first.result is DownloadResult.NETWORK
+    assert first.bytes_done == 2 * 1024 * 1024
+    assert not part.with_name("tiny-model.gguf").exists()
+    second = downloader.download_blocking(model_file(host), part, lambda *_: None, never_stop)
+    assert second.result is DownloadResult.COMPLETED
+    assert part.with_name("tiny-model.gguf").read_bytes() == host.blob

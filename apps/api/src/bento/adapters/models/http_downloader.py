@@ -5,8 +5,10 @@
   changed), a changed ETag or a bad `Content-Range` restarts the file from zero.
 - Tries `file.urls` in order (pinned Hugging Face first, then the Bento mirror). A `4xx` moves on to the next
   URL; a connection that cannot be opened or a `5xx`/`429` also moves on, and makes the final result `network`
-  (retryable) instead of `failed`. A connection that drops mid-body returns `network` right away: the
-  `.part` keeps every byte received.
+  (retryable) instead of `failed`. A connection that drops mid-body, or ends before its `Content-Length`, returns
+  `network` right away: the `.part` keeps every byte received. `timeout_seconds` (30 s) bounds the connect and
+  every read, so a connection that stays open but sends nothing also ends as `network` instead of hanging.
+- Honors the standard proxy variables (`HTTPS_PROXY`, `NO_PROXY`) through `urllib`'s default `ProxyHandler`.
 - Hashes while streaming (re-reading the existing `.part` first on resume). On a match the file is fsynced
   and atomically renamed to its final name; on a mismatch the `.part` is deleted.
 - Calls `should_stop()` between 4 MiB blocks (the caller also checks the worker's safe boundary there) and
@@ -267,6 +269,7 @@ class HttpModelDownloader:
                         return DownloadOutcome(DownloadResult.STOPPED, done, url)
             if done < file.size_bytes:
                 _flush(handle)
+                LOGGER.info("Model download ended early at %s bytes", done)
                 progress.report(done, force=True)
                 return DownloadOutcome(DownloadResult.NETWORK, done, url)
             try:

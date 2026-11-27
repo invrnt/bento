@@ -108,6 +108,7 @@ infrastructure/models/        manifest.json, paths, binary resolution (packaged 
 - **Ports** (sketch):
   - `ModelCatalogPort.default() -> ModelSpec`, `.get(model_id, revision)`.
   - `ModelDownloaderPort.download(file: ModelFile, dest_part: Path, on_progress, should_stop) -> DownloadOutcome`. It resumes from `dest_part.stat().st_size` with `Range`, checks for `206` and `Content-Range`, and restarts from zero on `200` or when the ETag changes. It calls `check_safe_boundary()` between 4 MiB blocks, so Android budgets and pause work.
+  - Network failures (measured in `evidence/smart-search-network-resilience-2026-11-27.md`): a 30 s connect/read timeout ends a silent connection as `network`. The job then waits 1, 2, 4, 8, 16 and 32 s between attempts, and starts those waits over whenever an attempt received bytes. After an outage with no progress through all of them, the job goes back to the queue with its backoff (30 s doubling, 8 attempts, about 70 min in total), and the status stays `waiting_network`. After the last attempt the status is `error(download)`; `retry` resumes from the `.part`.
   - `ModelStorePort.installed() / path_for(spec) / free_bytes() / remove(spec) / verify(spec)`.
   - `EmbeddingRuntimePort.ensure(spec, paths) -> EndpointInfo`, `.stop()`, `.health()`.
   - `EmbeddingProviderPort.space -> EmbeddingSpace`, `embed_query(text)`, `embed_documents(texts)`, `embed_image(path)` (raises `Unsupported` for text-only spaces).
