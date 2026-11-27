@@ -47,7 +47,16 @@ def tiny_spec(blob: bytes, *, revision: str | None = None, urls: tuple[str, ...]
         size_bytes=len(blob),
         sha256=sha256_hex(blob),
     )
-    return replace(base, files=(weights,), revision=revision or base.revision)
+    # The fake llama-server returns hash vectors (cosine about 0 between any two texts), not the model's: the
+    # model's calibrated floor and margin would drop every hit, so the stand-in keeps none.
+    no_floor = tuple((dims, 0.0) for dims in base.matryoshka_dims)
+    return replace(
+        base,
+        files=(weights,),
+        revision=revision or base.revision,
+        min_similarity=no_floor,
+        similarity_margin=None,
+    )
 
 
 def tiny_catalog(blob: bytes, *, revision: str | None = None) -> ManifestModelCatalog:

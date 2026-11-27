@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 from collections import Counter
 from collections.abc import Sequence
 
@@ -13,6 +12,7 @@ from bento.adapters.repositories.ids import new_id
 from bento.domain.assets import Asset, AssetKind, ProcessingState
 from bento.domain.indexing import EmbeddingRecord, ExtractedPage, OCRBlock
 from bento.domain.search import SearchFacet, SearchHit, SearchQuery, SearchResultType, SearchResults
+from bento.domain.search_terms import lexical_query
 from bento.infrastructure.db.engine import session_scope
 from bento.infrastructure.db.models import AssetEmbeddingModel, AssetModel, AssetTextModel, OCRBlockModel
 from bento.ports.repositories import ClockPort
@@ -255,10 +255,12 @@ def _model_metadata_text(asset: AssetModel) -> str:
 
 
 def _fts_query(raw: str) -> str | None:
-    tokens = re.findall(r"[\w]+", raw, flags=re.UNICODE)
-    if not tokens:
+    """FTS5 query: every content word (stop words dropped, `domain/search_terms.py`) and every quoted phrase,
+    ANDed. Words are letters and digits only, so they need no escaping inside the double quotes."""
+    phrases = lexical_query(raw).fts_words
+    if not phrases:
         return None
-    return " ".join(f'"{token}"' for token in tokens[:16])
+    return " ".join(f'"{" ".join(words)}"' for words in phrases[:16])
 
 
 def _kind_filter(result_type: SearchResultType | None) -> AssetKind | None:

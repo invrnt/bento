@@ -14,36 +14,22 @@ synthetic fixture (`scripts/spikes/smart-search/dataset.py`); D9 asks for this c
 from __future__ import annotations
 
 import asyncio
-import importlib.util
 import json
-import math
 import os
 import statistics
 import sys
 import time
 from pathlib import Path
-from types import ModuleType
 from typing import Any
 
 import pytest
 
-from bento.adapters.embeddings import LlamaCppEmbeddingProvider
-from bento.adapters.runtime.llama_server_process import LlamaServerProcess
-from bento.domain.smart_search import (
-    best_chunk_scores,
-    chunk_text,
-    default_embedding_threads,
-    parse_manifest,
-    truncate_and_renormalize,
-)
+from bento.domain.smart_search import best_chunk_scores, chunk_text, truncate_and_renormalize
+
+from tests.integration.embeddings.real_model_support import dataset, dot, model_spec, needs_real_model, real_provider
 
 pytestmark = pytest.mark.real_model
 
-SERVER = os.environ.get("BENTO_REAL_LLAMA_SERVER", "")
-MODEL = os.environ.get("BENTO_REAL_EMBEDDING_MODEL", "")
-REPO_ROOT = Path(__file__).resolve().parents[5]
-DATASET = REPO_ROOT / "scripts" / "spikes" / "smart-search" / "dataset.py"
-MANIFEST = Path(__file__).resolve().parents[2] / "unit" / "smart_search" / "manifest_v1.json"
 RECALL_AT_5_FLOOR = 0.75
 
 # (query, relevant document ids): Spanish queries for English documents and English queries for Spanish ones.
@@ -81,14 +67,6 @@ CROSS_LANGUAGE_QUERIES: list[tuple[str, str, list[str]]] = [
 ]
 
 
-def _dataset() -> ModuleType:
-    spec = importlib.util.spec_from_file_location("bento_spike_dataset", DATASET)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
 def _score(rankings: dict[str, list[str]]) -> dict[str, float]:
     recalls, reciprocal = [], []
     for _, query, relevant in CROSS_LANGUAGE_QUERIES:
@@ -100,35 +78,19 @@ def _score(rankings: dict[str, list[str]]) -> dict[str, float]:
     return {"recall5": statistics.fmean(recalls), "mrr": statistics.fmean(reciprocal)}
 
 
-def _dot(left: tuple[float, ...], right: tuple[float, ...]) -> float:
-    return math.fsum(a * b for a, b in zip(left, right, strict=True))
-
-
-@pytest.mark.skipif(not (SERVER and MODEL), reason="set BENTO_REAL_LLAMA_SERVER and BENTO_REAL_EMBEDDING_MODEL")
+@needs_real_model
 def test_cross_language_recall_on_the_pinned_model(tmp_path: Path) -> None:
-    dataset = _dataset()
-    documents: list[dict[str, str]] = dataset.documents()
+    documents: list[dict[str, str]] = dataset().documents()
     ids = {doc["id"] for doc in documents}
     assert len(CROSS_LANGUAGE_QUERIES) >= 20
     for _, _, relevant in CROSS_LANGUAGE_QUERIES:
         assert set(relevant) <= ids, relevant
-
-    specs, default_id = parse_manifest(json.loads(MANIFEST.read_text(encoding="utf-8")))
-    model_id = os.environ.get("BENTO_REAL_MODEL_ID", default_id)
-    spec = next(s for s in specs if s.model_id == model_id)
-    native = spec.space(spec.native_dims)
+    spec = model_spec()
 
     async def scenario() -> dict[str, Any]:
-        runtime = LlamaServerProcess(
-            run_dir=tmp_path / "run",
-            binary=Path(SERVER).expanduser(),
-            threads=default_embedding_threads(os.cpu_count() or 1),
-        )
         started = time.perf_counter()
-        info = await runtime.ensure(spec, native, Path(MODEL).expanduser())
-        ready_seconds = time.perf_counter() - started
-        provider = LlamaCppEmbeddingProvider(spec=spec, space=native, endpoint=lambda: info)
-        try:
+        async with real_provider(tmp_path / "run", spec) as provider:
+            ready_seconds = time.perf_counter() - started
             chunk_vectors: list[tuple[str, tuple[float, ...]]] = []
             started = time.perf_counter()
             for doc in documents:
@@ -142,8 +104,6 @@ def test_cross_language_recall_on_the_pinned_model(tmp_path: Path) -> None:
                 started = time.perf_counter()
                 query_vectors[query] = await provider.embed_query(query)
                 query_ms.append((time.perf_counter() - started) * 1000)
-        finally:
-            await runtime.stop()
 
         results: dict[str, Any] = {
             "model": spec.model_id,
@@ -158,7 +118,7 @@ def test_cross_language_recall_on_the_pinned_model(tmp_path: Path) -> None:
             rankings = {}
             for query, vector in query_vectors.items():
                 q = truncate_and_renormalize(vector, dims)
-                best = best_chunk_scores((doc_id, _dot(q, doc_vector)) for doc_id, doc_vector in docs_at)
+                best = best_chunk_scores((doc_id, dot(q, doc_vector)) for doc_id, doc_vector in docs_at)
                 rankings[query] = [doc for doc, _ in sorted(best.items(), key=lambda item: item[1], reverse=True)]
             results["dims"][str(dims)] = _score(rankings)
         return results

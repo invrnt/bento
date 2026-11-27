@@ -127,6 +127,7 @@ The fixture is 200 synthetic documents shaped like Bento content: invoices for s
 - Qwen3 mostly loses MRR: it ranks the month-specific invoices and payslips below a bank statement for the same month (q01, q15, q31), and it misses «presupuesto para cambiarnos de casa» (q27).
 - The fixture is small and near the ceiling for EG2, so it can confirm "no regression on Spanish". It cannot resolve differences under about 3 points. Cross-language is the weakest point for every model and has only 5 queries.
 - Not tested: real OCR noise, long multi-chunk documents and image pixels. Stage 24's opt-in `real_model` test and Stage 26 cover those.
+- Similarity floor (2026-11-27, `execution/evidence/smart-search-relevance-calibration-2026-11-27.md`). At 768, EG2 cosines of relevant pairs run from 0.606 to 0.839 (p5 0.670). Other pairs have p95 0.649, and the best hit of off-topic queries ranges from 0.532 to 0.664. The ranges overlap, so the manifest floor is the highest one that keeps every relevant document: 0.60 at 768, 0.61 at 512 and 256, and 0.70 at 128. A 0.15 margin under the best hit removes half the remaining tail, and recall@5 stays at 0.983.
 
 **Token estimator check** (real counts from `/tokenize`, BOS/EOS excluded)
 - The first rule, 4 characters per token, under-counted Spanish: real tokens were up to 1.83× the estimate, because Gemma and Qwen split digits one per token.

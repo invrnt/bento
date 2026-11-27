@@ -83,7 +83,7 @@ scripts/release/bento-release models publish                              # draf
 2. Pin it: the repo **commit** (not a branch), the file name, the size and the SHA-256 that Hugging Face shows for the LFS object. Download the file once and check `sha256sum` matches.
 3. Copy the license text (and NOTICE, if any) at that commit into `infrastructure/models/licenses/`. Check the card for use-policy lines (D2).
 4. Update `manifest.json` and its canonical test copy, including the mirror URL `https://github.com/invrnt/bento/releases/download/models-<name>-<revision[:8]>/<file>` (`bento-release models plan` must report no problem). A new revision is a new embedding space: the app re-indexes blue/green and never auto-downloads; Settings offers the update.
-5. Run the opt-in real-model test (`pytest -m real_model`) and record latency and recall in the research doc.
+5. Run the opt-in real-model tests (`pytest -m real_model`) and record latency and recall in the research doc. Set the new model's `min_similarity` per dims and `similarity_margin` from `test_real_model_calibration.py` (`BENTO_REAL_MODEL_CALIBRATION_REPORT=<file>` writes the sweep): the highest floor that keeps every relevant document, then the smallest margin that does too. Check the ranking with `test_real_model_hybrid_ranking.py`. Without values the model runs on the 0.30 fallback.
 6. Stage and publish the mirror (above), then update the [third-party notices](../legal/en/third-party-notices.md) in both languages and, if the host, size or license changes, the privacy page and the user guides.
 
 ## Bumping llama.cpp

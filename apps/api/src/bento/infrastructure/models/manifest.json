@@ -23,6 +23,8 @@
       "native_dims": 768,
       "matryoshka_dims": [768, 512, 256, 128],
       "default_dims": 768,
+      "min_similarity": {"768": 0.6, "512": 0.61, "256": 0.61, "128": 0.7},
+      "similarity_margin": 0.15,
       "pooling": "mean",
       "context_tokens": 2048,
       "ubatch_tokens": 2048,

@@ -101,6 +101,7 @@ Per-asset embedding failures are not smart search errors. They keep the existing
 - `matryoshka_dims` includes `native_dims`, and `default_dims` is one of them.
 - `0 < chunk_tokens ≤ ubatch_tokens ≤ context_tokens`.
 - `query_template` contains `{q}`; `document_template` contains `{text}` and may contain `{title}`, which is filled with the file name or `none`.
+- `min_similarity` (optional) maps Matryoshka dims, as strings, to the cosine below which a vector hit is not a match. Values are in `[0, 1)`, and keys must be `matryoshka_dims`. Dims without a value use `DEFAULT_MIN_SIMILARITY` (0.30, `domain/smart_search.py`). `similarity_margin` (optional, in `(0, 1]`) also drops hits more than that far below the query's best hit. Both are measured with `tests/integration/embeddings/test_real_model_calibration.py` (§Similarity floor). Older parsers ignore unknown keys, so the fields do not change `schema_version`.
 
 | Field | EmbeddingGemma 2 (default, D1) | Qwen3-Embedding-0.6B (fallback) |
 |---|---|---|
@@ -112,6 +113,7 @@ Per-asset embedding failures are not smart search errors. They keep the existing
 | context / ubatch / chunk | 2048 / 2048 / 512 | 2048 / 2048 / 512 |
 | query | `task: search result \| query: {q}` | `Instruct: Given a search query, retrieve relevant files\nQuery:{q}` |
 | document | `title: {title} \| text: {text}` | `{text}` |
+| `min_similarity` / `similarity_margin` | `{"768": 0.6, "512": 0.61, "256": 0.61, "128": 0.7}` / `0.15` (2026-11-27) | not calibrated (fallback 0.30, no margin) |
 | URLs | HF pinned, then the Bento GitHub Releases mirror (D3) | HF pinned |
 
 Both SHA-256 values were re-checked against downloaded files on 2026-11-26.
@@ -123,6 +125,7 @@ Both SHA-256 values were re-checked against downloaded files on 2026-11-26.
 - Peer vectors: `peer_vector_decision(active, peer_space, dims)` returns `index` only for the same space id and matching dims. Everything else, including old peers without `space`, is `store_only`.
 - Matryoshka: the provider truncates to `space.dims` and re-normalises with `truncate_and_renormalize()` (an L2 norm of 1; non-finite or zero vectors are rejected). Vectors are compared with a dot product.
 - An asset's vector score is the best of its chunks (`best_chunk_scores()`).
+- Similarity floor: search keeps a vector hit only at or above `semantic_cutoff(best, floor, margin)`, where `(floor, margin) = similarity_rule(spec, space_id)`. That is the provider's model at the space's dims when the spec is the space's model and revision, else `DEFAULT_MIN_SIMILARITY` with no margin (mock, legacy and other spaces). Dropped hits do not rank and do not show `semantic`. A kept hit enters fusion as `semantic_strength()`: 0 at the floor, 1 at the best hit, with a span of at least 0.20. Evidence: `execution/evidence/smart-search-relevance-calibration-2026-11-27.md`.
 - Changing the default dims (D9: 512 → 768) changes the space id of new activations only. An installed space keeps its dims: the status, model updates (`update()` keeps `…/<dims>` of the installed space) and the runtime serve what was activated. Moving an existing install to other dims is a new space built by §Re-indexing; tables of an existing space are never altered.
 - Size: a chunk vector is `dims × 4` bytes (3 KiB at 768, 2 KiB at 512), stored in `asset_embedding_chunks` and again in the space's `vec0` table.
 
