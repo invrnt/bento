@@ -280,3 +280,24 @@ def test_hits_carry_reason_codes_snippet_folder_mime_and_origin(tmp_path: Path) 
         assert [item.asset_id for item in peers.items] == [photo.id]  # the album itself is left out
 
     asyncio.run(scenario())
+
+
+def test_filename_match_finds_an_asset_older_than_the_candidate_window(tmp_path: Path) -> None:
+    """An image with no indexed text (OCR off) is found by name even when many newer assets exist."""
+
+    async def scenario() -> None:
+        factory = migrated_session_factory(tmp_path)
+        clock = FixedClock()
+        assets = SQLiteAssetRepository(factory)
+        search = CompositeSearchIndex(factory, clock, text_index=SQLiteFTSSearchIndex(factory, clock))
+        old = make_asset("asset_old", filename="endesa-recibo-abril.png", kind=AssetKind.IMAGE, sha256="0" * 64)
+        await assets.add(replace(old, created_at=datetime(2020, 1, 1, tzinfo=UTC), updated_at=datetime(2020, 1, 1, tzinfo=UTC)))
+        for index in range(60):
+            await assets.add(make_asset(f"asset_new_{index:02d}", filename=f"photo-{index:02d}.jpg", kind=AssetKind.IMAGE, sha256=f"{index + 1:064x}"))
+
+        results = await search.search(SearchQuery(text="endesa", limit=6))
+
+        assert [item.asset_id for item in results.items] == ["asset_old"]
+        assert "filename" in results.items[0].match_reasons
+
+    asyncio.run(scenario())

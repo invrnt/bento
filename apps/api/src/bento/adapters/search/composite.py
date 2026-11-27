@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Protocol
 
-from sqlalchemy import Select, func, or_, select
+from sqlalchemy import ColumnElement, Select, String, cast, func, or_, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from bento.application.search.parser import ParsedSearchQuery, QueryIntent, parse_search_query
@@ -262,8 +262,16 @@ class CompositeSearchIndex(SearchIndexPort):
         if not parsed.tokens:
             return
         with session_scope(self._session_factory) as session:
-            statement = _asset_select(query).limit(limit)
-            for model in session.scalars(statement):
+            # Assets with no FTS row (images, videos with OCR off) are only found here, so the limit must apply to
+            # matching rows, not to the newest assets. SQLite's lower() folds ASCII only, so the newest window is
+            # still scanned in Python for names such as «AÑO».
+            matching = _asset_select(query).where(or_(*_metadata_conditions(parsed.tokens))).limit(limit)
+            seen: set[str] = set()
+            models = [*session.scalars(matching), *session.scalars(_asset_select(query).limit(limit))]
+            for model in models:
+                if model.id in seen:
+                    continue
+                seen.add(model.id)
                 score, reasons = _metadata_match(model, parsed)
                 if score <= 0:
                     continue
@@ -652,6 +660,17 @@ def _metadata_text(model: AssetModel) -> str:
     if model.exif_json:
         parts.append(json.dumps(model.exif_json, ensure_ascii=False, sort_keys=True))
     return " ".join(part for part in parts if part)
+
+
+def _metadata_conditions(tokens: tuple[str, ...]) -> list[ColumnElement[bool]]:
+    """SQL prefilter for `_metadata_match`: any token inside a field of `_metadata_text`."""
+    columns = (
+        AssetModel.filename,
+        AssetModel.original_filename,
+        AssetModel.mime_type,
+        func.coalesce(cast(AssetModel.exif_json, String), ""),
+    )
+    return [func.lower(column).contains(token, autoescape=True) for token in tokens for column in columns]
 
 
 def _name_match_score(name: str, tokens: tuple[str, ...]) -> float:
