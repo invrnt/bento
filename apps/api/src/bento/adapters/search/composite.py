@@ -10,14 +10,25 @@ from sqlalchemy import ColumnElement, Select, String, cast, func, or_, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from bento.application.search.parser import ParsedSearchQuery, QueryIntent, parse_search_query
-from bento.application.search.scoring import ScoreParts, fuse_scores, recency_score, weights_for_intent
+from bento.application.search.scoring import (
+    ScoreParts,
+    fuse_scores,
+    hybrid_text_score,
+    recency_score,
+    weights_for_intent,
+)
 from bento.domain.assets import Asset, AssetKind, ProcessingState
 from bento.domain.indexing import EmbeddingRecord, OCRBlock
+from bento.domain.search_terms import LexicalQuery, lexical_query, match_score, sql_needles
 from bento.domain.smart_search import (
     EmbeddingSpace,
     InvalidEmbeddingSpaceError,
+    ModelSpec,
     legacy_space_id,
     parse_space_id,
+    relevant_semantic_scores,
+    semantic_strength,
+    similarity_rule,
     truncate_and_renormalize,
 )
 from bento.domain.search import (
@@ -79,8 +90,16 @@ class _Candidate:
     thumbnail_url: str | None = None
     processing_state: ProcessingState | None = None
     text_score: float = 0.0
+    """Text-only search's text evidence: FTS score or name share, whichever is higher, normalised at the end."""
+    fts_score: float = 0.0
+    """FTS (bm25) or OCR-block evidence; `name_score` is the share of the query found in a name."""
+    name_score: float = 0.0
+    body_matched: bool = False
+    """The query was found in the file's own text (document text, OCR), not just a name."""
     vector_score: float = 0.0
     metadata_score: float = 0.0
+    hybrid_metadata_score: float = 0.0
+    """`metadata_score` without the file's own name, which counts once, as text, with smart search on."""
     recency_score: float = 0.0
     final_score: float = 0.0
     reasons: set[str] = field(default_factory=set)
@@ -127,6 +146,7 @@ class CompositeSearchIndex(SearchIndexPort):
 
     async def search(self, query: SearchQuery) -> SearchResults:
         parsed = parse_search_query(query.text)
+        lexical = lexical_query(query.text)
         effective = _effective_query(query, parsed)
         limit = max(min(effective.limit, 100), 1)
         offset = _decode_cursor(effective.cursor)
@@ -134,13 +154,13 @@ class CompositeSearchIndex(SearchIndexPort):
         candidates: dict[tuple[SearchResultType, str], _Candidate] = {}
 
         if effective.result_type != SearchResultType.OCR_BLOCK:
-            await self._add_text_hits(candidates, effective, parsed, candidate_limit)
-            self._add_metadata_hits(candidates, effective, parsed, candidate_limit)
+            await self._add_text_hits(candidates, effective, lexical, candidate_limit)
+            self._add_metadata_hits(candidates, effective, parsed, lexical, candidate_limit)
             self._add_recent_asset_hits(candidates, effective, parsed, candidate_limit)
-        self._add_ocr_block_hits(candidates, effective, parsed, candidate_limit)
+        self._add_ocr_block_hits(candidates, effective, lexical, candidate_limit)
         if effective.origin is None:  # folders and albums have no origin
-            self._add_collection_hits(candidates, effective, parsed, candidate_limit)
-        self._add_container_hits(candidates, effective, parsed, candidate_limit)
+            self._add_collection_hits(candidates, effective, lexical, candidate_limit)
+        self._add_container_hits(candidates, effective, lexical, candidate_limit)
 
         vector_available = await self._add_vector_hits(candidates, effective, candidate_limit)
         self._finalize_scores(candidates.values(), parsed, vector_available)
@@ -157,7 +177,7 @@ class CompositeSearchIndex(SearchIndexPort):
         next_cursor = str(offset + limit) if len(sorted_candidates) > offset + limit else None
         folder_names = self._folder_names({candidate.folder_id for candidate in page if candidate.folder_id is not None})
         return SearchResults(
-            items=tuple(_hit(candidate, parsed.tokens, folder_names) for candidate in page),
+            items=tuple(_hit(candidate, lexical.needles, folder_names) for candidate in page),
             facets=facets,
             next_cursor=next_cursor,
         )
@@ -172,22 +192,22 @@ class CompositeSearchIndex(SearchIndexPort):
         self,
         candidates: dict[tuple[SearchResultType, str], _Candidate],
         query: SearchQuery,
-        parsed: ParsedSearchQuery,
+        lexical: LexicalQuery,
         limit: int,
     ) -> None:
         """Files inside a folder, or photos in an album, whose name matches: `folder_name` / `album` reasons."""
-        if not parsed.tokens or query.result_type in {SearchResultType.FOLDER, SearchResultType.ALBUM, SearchResultType.OCR_BLOCK}:
+        if lexical.is_empty or query.result_type in {SearchResultType.FOLDER, SearchResultType.ALBUM, SearchResultType.OCR_BLOCK}:
             return
         with session_scope(self._session_factory) as session:
             folders = [
                 (folder.id, folder.name, score)
                 for folder in session.scalars(select(FolderModel).where(FolderModel.deleted_at.is_(None)))
-                if (score := _name_match_score(folder.name, parsed.tokens)) > 0
+                if (score := _name_match_score(folder.name, lexical)) > 0
             ]
             albums = [
                 (album.id, album.title, score)
                 for album in session.scalars(select(AlbumModel).where(AlbumModel.deleted_at.is_(None)))
-                if (score := _name_match_score(album.title, parsed.tokens)) > 0
+                if (score := _name_match_score(album.title, lexical)) > 0
             ]
             for folder_id, name, score in folders[:limit]:
                 for model in session.scalars(_asset_select(query).where(AssetModel.folder_id == folder_id).limit(limit)):
@@ -214,6 +234,8 @@ class CompositeSearchIndex(SearchIndexPort):
     ) -> None:
         candidate = _asset_candidate(session, model, _asset_result_type(model, query.result_type))
         candidate.metadata_score = max(candidate.metadata_score, score * 0.6)
+        candidate.hybrid_metadata_score = max(candidate.hybrid_metadata_score, score * 0.6)
+        candidate.name_score = max(candidate.name_score, score * 0.6)
         candidate.reasons.add(reason)
         candidate.texts[reason] = text
         _merge_candidate(candidates, candidate)
@@ -222,7 +244,7 @@ class CompositeSearchIndex(SearchIndexPort):
         self,
         candidates: dict[tuple[SearchResultType, str], _Candidate],
         query: SearchQuery,
-        parsed: ParsedSearchQuery,
+        lexical: LexicalQuery,
         limit: int,
     ) -> None:
         if not query.text.strip() or query.result_type in {SearchResultType.FOLDER, SearchResultType.ALBUM}:
@@ -247,7 +269,9 @@ class CompositeSearchIndex(SearchIndexPort):
                     continue
                 candidate = _asset_candidate(session, model, _asset_result_type(model, query.result_type))
                 candidate.text_score = max(candidate.text_score, hit.score)
-                candidate.reasons.update(_matched_sources(session, model, parsed.tokens, candidate.texts))
+                candidate.fts_score = max(candidate.fts_score, hit.score)
+                reasons, candidate.body_matched = _matched_sources(session, model, lexical, candidate.texts)
+                candidate.reasons.update(reasons)
                 _merge_candidate(candidates, candidate)
 
     def _add_metadata_hits(
@@ -255,30 +279,33 @@ class CompositeSearchIndex(SearchIndexPort):
         candidates: dict[tuple[SearchResultType, str], _Candidate],
         query: SearchQuery,
         parsed: ParsedSearchQuery,
+        lexical: LexicalQuery,
         limit: int,
     ) -> None:
         if query.result_type in {SearchResultType.FOLDER, SearchResultType.ALBUM, SearchResultType.OCR_BLOCK}:
             return
-        if not parsed.tokens:
+        if lexical.is_empty:
             return
         with session_scope(self._session_factory) as session:
             # Assets with no FTS row (images, videos with OCR off) are only found here, so the limit must apply to
             # matching rows, not to the newest assets. SQLite's lower() folds ASCII only, so the newest window is
             # still scanned in Python for names such as «AÑO».
-            matching = _asset_select(query).where(or_(*_metadata_conditions(parsed.tokens))).limit(limit)
+            matching = _asset_select(query).where(or_(*_metadata_conditions(sql_needles(lexical)))).limit(limit)
             seen: set[str] = set()
             models = [*session.scalars(matching), *session.scalars(_asset_select(query).limit(limit))]
             for model in models:
                 if model.id in seen:
                     continue
                 seen.add(model.id)
-                score, reasons = _metadata_match(model, parsed)
+                score, name_score, other_score, reasons = _metadata_match(model, parsed, lexical)
                 if score <= 0:
                     continue
                 candidate = _asset_candidate(session, model, _asset_result_type(model, query.result_type))
                 candidate.metadata_score = max(candidate.metadata_score, score)
+                candidate.hybrid_metadata_score = max(candidate.hybrid_metadata_score, other_score)
                 if "filename" in reasons:
                     candidate.text_score = max(candidate.text_score, score)
+                    candidate.name_score = max(candidate.name_score, name_score)
                 candidate.reasons.update(reasons)
                 _merge_candidate(candidates, candidate)
 
@@ -297,6 +324,7 @@ class CompositeSearchIndex(SearchIndexPort):
             for model in session.scalars(_asset_select(query).limit(limit)):
                 candidate = _asset_candidate(session, model, _asset_result_type(model, query.result_type))
                 candidate.metadata_score = max(candidate.metadata_score, 0.15 if parsed.tokens else 0.05)
+                candidate.hybrid_metadata_score = max(candidate.hybrid_metadata_score, candidate.metadata_score)
                 candidate.reasons.add("date" if parsed.intent == QueryIntent.DATE else "recent")
                 _merge_candidate(candidates, candidate)
 
@@ -304,13 +332,13 @@ class CompositeSearchIndex(SearchIndexPort):
         self,
         candidates: dict[tuple[SearchResultType, str], _Candidate],
         query: SearchQuery,
-        parsed: ParsedSearchQuery,
+        lexical: LexicalQuery,
         limit: int,
     ) -> None:
-        if query.result_type not in {None, SearchResultType.OCR_BLOCK} or not parsed.tokens:
+        if query.result_type not in {None, SearchResultType.OCR_BLOCK} or lexical.is_empty:
             return
         with session_scope(self._session_factory) as session:
-            filters = [OCRBlockModel.text.ilike(f"%{token}%") for token in parsed.tokens]
+            filters = [OCRBlockModel.text.contains(needle, autoescape=True) for needle in sql_needles(lexical)]
             statement = (
                 select(OCRBlockModel, AssetModel)
                 .join(AssetModel, AssetModel.id == OCRBlockModel.asset_id)
@@ -319,6 +347,8 @@ class CompositeSearchIndex(SearchIndexPort):
                 .limit(limit)
             )
             for block, asset in session.execute(statement).all():
+                if match_score(lexical, block.text) <= 0:  # the SQL filter is a substring prefilter
+                    continue
                 candidate = _Candidate(
                     id=block.id,
                     type=SearchResultType.OCR_BLOCK,
@@ -329,7 +359,10 @@ class CompositeSearchIndex(SearchIndexPort):
                     processing_state=ProcessingState(asset.processing_state),
                     updated_at=asset.updated_at,
                     text_score=1.0,
+                    fts_score=1.0,
+                    body_matched=True,
                     metadata_score=0.2,
+                    hybrid_metadata_score=0.2,
                     reasons={"ocr"},
                     folder_id=asset.folder_id,
                     mime_type=asset.mime_type,
@@ -343,12 +376,12 @@ class CompositeSearchIndex(SearchIndexPort):
         self,
         candidates: dict[tuple[SearchResultType, str], _Candidate],
         query: SearchQuery,
-        parsed: ParsedSearchQuery,
+        lexical: LexicalQuery,
         limit: int,
     ) -> None:
         if query.result_type not in {None, SearchResultType.FOLDER, SearchResultType.ALBUM}:
             return
-        if not parsed.tokens and query.result_type is None:
+        if lexical.is_empty and query.result_type is None:
             return
         with session_scope(self._session_factory) as session:
             if query.result_type in {None, SearchResultType.FOLDER}:
@@ -361,8 +394,8 @@ class CompositeSearchIndex(SearchIndexPort):
                 if query.folder_id is not None:
                     folder_statement = folder_statement.where(FolderModel.parent_id == query.folder_id)
                 for folder in session.scalars(folder_statement):
-                    score = _name_match_score(folder.name, parsed.tokens)
-                    if score <= 0 and parsed.tokens:
+                    score = _name_match_score(folder.name, lexical)
+                    if score <= 0 and not lexical.is_empty:
                         continue
                     _merge_candidate(
                         candidates,
@@ -373,7 +406,9 @@ class CompositeSearchIndex(SearchIndexPort):
                             subtitle="Carpeta",
                             updated_at=folder.updated_at,
                             text_score=score,
+                            name_score=score,
                             metadata_score=max(score, 0.1),
+                            hybrid_metadata_score=0.1,
                             reasons={"folder"},
                             folder_id=folder.parent_id,
                             texts={"folder": folder.name},
@@ -387,8 +422,8 @@ class CompositeSearchIndex(SearchIndexPort):
                     .limit(limit)
                 )
                 for album in session.scalars(album_statement):
-                    score = _name_match_score(album.title, parsed.tokens)
-                    if score <= 0 and parsed.tokens:
+                    score = _name_match_score(album.title, lexical)
+                    if score <= 0 and not lexical.is_empty:
                         continue
                     _merge_candidate(
                         candidates,
@@ -399,7 +434,9 @@ class CompositeSearchIndex(SearchIndexPort):
                             subtitle="Album",
                             updated_at=album.updated_at,
                             text_score=score,
+                            name_score=score,
                             metadata_score=max(score, 0.1),
+                            hybrid_metadata_score=0.1,
                             reasons={"album"},
                             texts={"album": album.title},
                         ),
@@ -428,18 +465,28 @@ class CompositeSearchIndex(SearchIndexPort):
             # The embedding runtime is missing, unhealthy or stopped: search keeps working on text alone.
             return False
 
-        by_asset = {hit.asset_id: hit for hit in vector_hits}
+        by_asset = {hit.asset_id: hit.score for hit in vector_hits}
         if not by_asset:
             return True
+        floor, margin = similarity_rule(self._provider_spec(), space_id)
         with session_scope(self._session_factory) as session:
-            statement = _asset_select(query).where(AssetModel.id.in_(by_asset.keys()))
-            for model in session.scalars(statement):
-                vector_hit = by_asset[model.id]
+            models = list(session.scalars(_asset_select(query).where(AssetModel.id.in_(by_asset.keys()))))
+            # Below the space's floor (or far below the best hit) a vector hit is noise, not a match: it is dropped
+            # here, before fusion, so it neither ranks nor shows `semantic`.
+            kept = relevant_semantic_scores({model.id: by_asset[model.id] for model in models}, floor=floor, margin=margin)
+            top = max(kept.values(), default=floor)
+            for model in models:
+                if model.id not in kept:
+                    continue
                 candidate = _asset_candidate(session, model, _asset_result_type(model, query.result_type))
-                candidate.vector_score = max(candidate.vector_score, vector_hit.score)
+                candidate.vector_score = semantic_strength(kept[model.id], top_score=top, floor=floor)
                 candidate.reasons.add("vector")
                 _merge_candidate(candidates, candidate)
         return True
+
+    def _provider_spec(self) -> ModelSpec | None:
+        spec = getattr(self._query_embedding_provider, "spec", None)
+        return spec if isinstance(spec, ModelSpec) else None
 
     async def _query_vector(self, text: str) -> tuple[str, Vector] | None:
         """The query vector in the space search must use: the active space, else the provider's own space.
@@ -472,7 +519,16 @@ class CompositeSearchIndex(SearchIndexPort):
         vector_available: bool,
     ) -> None:
         candidate_list = list(candidates)
-        _normalize_text_scores(candidate_list)
+        if vector_available:
+            best_fts = max((candidate.fts_score for candidate in candidate_list), default=0.0)
+            for candidate in candidate_list:
+                fts = candidate.fts_score / best_fts if best_fts > 0 else 0.0
+                candidate.text_score = hybrid_text_score(
+                    text=min(fts, 1.0), name=candidate.name_score, body_matched=candidate.body_matched
+                )
+                candidate.metadata_score = candidate.hybrid_metadata_score
+        else:
+            _normalize_text_scores(candidate_list)
         weights = weights_for_intent(parsed.intent, vector_available=vector_available)
         now = self._clock.now()
         for candidate in candidate_list:
@@ -611,32 +667,37 @@ def _asset_result_type(model: AssetModel, requested_type: SearchResultType | Non
     return SearchResultType.ASSET
 
 
-def _metadata_match(model: AssetModel, parsed: ParsedSearchQuery) -> tuple[float, set[str]]:
-    if not parsed.tokens:
-        return 0.0, set()
-    filename = model.filename.lower()
-    metadata = _metadata_text(model).lower()
-    filename_hits = sum(1 for token in parsed.tokens if token in filename)
-    metadata_hits = sum(1 for token in parsed.tokens if token in metadata)
-    score = max(filename_hits, metadata_hits) / len(parsed.tokens)
+def _metadata_match(
+    model: AssetModel, parsed: ParsedSearchQuery, lexical: LexicalQuery
+) -> tuple[float, float, float, set[str]]:
+    """`(metadata score, file-name share, metadata score without the names, reasons)` under the lexical rules
+    (`domain/search_terms.py`)."""
+    if lexical.is_empty:
+        return 0.0, 0.0, 0.0, set()
+    filename_score = match_score(lexical, model.filename)
+    metadata_score = match_score(lexical, _metadata_text(model))
+    other_score = match_score(lexical, _metadata_text(model, names=False))
+    score = max(filename_score, metadata_score)
     reasons: set[str] = set()
-    if filename_hits:
+    if filename_score > 0:
         reasons.add("filename")
-    if metadata_hits:
+    if metadata_score > 0:
         reasons.add("metadata")
     if parsed.intent == QueryIntent.DOCUMENT and model.kind in {AssetKind.DOCUMENT.value, AssetKind.PDF.value} and score > 0:
         score = min(score + 0.25, 1.0)
+        other_score = min(other_score + 0.25, 1.0)
         reasons.add("document")
-    return score, reasons
+    return score, filename_score, other_score, reasons
 
 
 def _matched_sources(
-    session: Session, model: AssetModel, tokens: tuple[str, ...], texts: dict[str, str] | None = None
-) -> set[str]:
+    session: Session, model: AssetModel, lexical: LexicalQuery, texts: dict[str, str] | None = None
+) -> tuple[set[str], bool]:
+    """The reasons of an FTS hit, and whether the query was found in the file's own text (not only its name)."""
     reasons: set[str] = set()
-    if not tokens:
-        return reasons
-    if any(token in model.filename.lower() for token in tokens):
+    if lexical.is_empty:
+        return reasons, False
+    if match_score(lexical, model.filename) > 0:
         reasons.add("filename")
     rows = session.execute(
         select(AssetTextModel.source, AssetTextModel.text)
@@ -644,26 +705,26 @@ def _matched_sources(
         .order_by(AssetTextModel.source.asc(), AssetTextModel.id.asc())
     ).all()
     for source, text in preferred_text_rows([(source, text) for source, text in rows]):
-        lowered = text.lower()
-        if any(token in lowered for token in tokens):
+        if match_score(lexical, text) > 0:
             reason = _TEXT_SOURCE_REASONS.get(source, "metadata")
             reasons.add(reason)
             if reason in {"ocr", "text"} and texts is not None:
                 texts.setdefault(reason, text)
+    body = bool(reasons & _BODY_REASONS)
     if not reasons:
         reasons.add("text")
-    return reasons
+    return reasons, body
 
 
-def _metadata_text(model: AssetModel) -> str:
-    parts = [model.filename, model.original_filename, model.mime_type]
+def _metadata_text(model: AssetModel, *, names: bool = True) -> str:
+    parts = [model.filename, model.original_filename, model.mime_type] if names else [model.mime_type]
     if model.exif_json:
         parts.append(json.dumps(model.exif_json, ensure_ascii=False, sort_keys=True))
     return " ".join(part for part in parts if part)
 
 
 def _metadata_conditions(tokens: tuple[str, ...]) -> list[ColumnElement[bool]]:
-    """SQL prefilter for `_metadata_match`: any token inside a field of `_metadata_text`."""
+    """SQL prefilter for `_metadata_match`: any needle inside a field of `_metadata_text`."""
     columns = (
         AssetModel.filename,
         AssetModel.original_filename,
@@ -673,12 +734,10 @@ def _metadata_conditions(tokens: tuple[str, ...]) -> list[ColumnElement[bool]]:
     return [func.lower(column).contains(token, autoescape=True) for token in tokens for column in columns]
 
 
-def _name_match_score(name: str, tokens: tuple[str, ...]) -> float:
-    if not tokens:
+def _name_match_score(name: str, lexical: LexicalQuery) -> float:
+    if lexical.is_empty:
         return 0.1
-    lowered = name.lower()
-    hits = sum(1 for token in tokens if token in lowered)
-    return hits / len(tokens)
+    return match_score(lexical, name)
 
 
 def _asset_subtitle(model: AssetModel) -> str:
@@ -706,6 +765,9 @@ def _merge_candidate(candidates: dict[tuple[SearchResultType, str], _Candidate],
         candidates[key] = incoming
         return
     existing.text_score = max(existing.text_score, incoming.text_score)
+    existing.fts_score = max(existing.fts_score, incoming.fts_score)
+    existing.name_score = max(existing.name_score, incoming.name_score)
+    existing.body_matched = existing.body_matched or incoming.body_matched
     existing.vector_score = max(existing.vector_score, incoming.vector_score)
     existing.metadata_score = max(existing.metadata_score, incoming.metadata_score)
     existing.reasons.update(incoming.reasons)
@@ -735,6 +797,7 @@ _REASON_CODES: dict[str, MatchReason] = {
 _SNIPPET_SOURCES = ("ocr", "text", "filename", "folder", "album")
 # `asset_text.source` -> candidate reason: text read from the file itself is "indexed text", not OCR.
 _TEXT_SOURCE_REASONS = {OCR_TEXT_SOURCE: "ocr", DOCUMENT_TEXT_SOURCE: "text"}
+_BODY_REASONS = frozenset(_TEXT_SOURCE_REASONS.values())
 
 
 def _match_reasons(candidate: _Candidate) -> tuple[MatchReason, ...]:
