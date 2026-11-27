@@ -12,7 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from bento.adapters.ocr.sqlite_pages import SQLitePDFPageTextCatalog
-from bento.adapters.search.sqlite_fts import SQLiteFTSSearchIndex
+from bento.adapters.search.sqlite_fts import DOCUMENT_TEXT_SOURCE, SQLiteFTSSearchIndex
 from bento.adapters.search.sqlite_vec import (
     CHUNKS_TABLE,
     SQLiteVecSearchIndex,
@@ -94,6 +94,11 @@ class AssetIndexData:
 
     def indexed_asset_ids(self, session: Session) -> list[str]:
         ids: set[str] = set(session.scalars(select(OCRBlockModel.asset_id).distinct()))
+        ids.update(
+            session.scalars(
+                select(AssetTextModel.asset_id).where(AssetTextModel.source == DOCUMENT_TEXT_SOURCE).distinct()
+            )
+        )
         ids.update(session.scalars(select(PDFPageModel.asset_id).distinct()))
         ids.update(str(value) for value in session.execute(text(f"SELECT DISTINCT asset_id FROM {CHUNKS_TABLE}")).scalars())
         return sorted(ids)
@@ -110,6 +115,7 @@ class AssetIndexData:
 
     def _read_text(self, session: Session, asset_ids: list[str]) -> dict[str, dict[str, Any]]:
         blocks: dict[str, list[str]] = {}
+        documents: dict[str, list[str]] = {}
         for asset_id, block_text in session.execute(
             select(OCRBlockModel.asset_id, OCRBlockModel.text)
             .where(OCRBlockModel.asset_id.in_(asset_ids))
@@ -117,6 +123,15 @@ class AssetIndexData:
         ):
             if block_text.strip():
                 blocks.setdefault(asset_id, []).append(block_text)
+        # Text read from the file itself (`text_extract`) replaces OCR text, as in local search.
+        for asset_id, document_text in session.execute(
+            select(AssetTextModel.asset_id, AssetTextModel.text)
+            .where(AssetTextModel.asset_id.in_(asset_ids), AssetTextModel.source == DOCUMENT_TEXT_SOURCE)
+            .order_by(AssetTextModel.asset_id, AssetTextModel.id)
+        ):
+            if document_text.strip():
+                documents.setdefault(asset_id, []).append(document_text)
+        blocks.update(documents)
         pages: dict[str, list[tuple[int, str]]] = {}
         for asset_id, page_number, page_text in session.execute(
             select(PDFPageModel.asset_id, PDFPageModel.page_number, PDFPageModel.text)

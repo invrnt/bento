@@ -24,18 +24,21 @@ from bento.adapters.search.composite import CompositeSearchIndex
 from bento.adapters.search.sqlite_fts import SQLiteFTSSearchIndex
 from bento.adapters.search.sqlite_vec import SQLiteVecSearchIndex
 from bento.adapters.storage.local_blob_store import LocalBlobStoreAdapter
-from bento.application.indexing import OCRIndexingService
+from bento.application.indexing import OCRIndexingService, PDFPageRender
 from bento.application.indexing.embedding import EmbeddingIndexingService
 from bento.application.indexing.reindex import ReindexService
+from bento.application.indexing.text import TextExtractionService
+from bento.adapters.text import CompositeTextExtractor, PlainTextExtractor, Pypdfium2TextLayerExtractor
 from bento.application.media import MediaProcessingService, ProcessingCompletionService
 from bento.application.upload import UploadAssetCommand, UploadAssetUseCase
 from bento.domain.assets import Asset, AssetOrigin, ProcessingState
 from bento.domain.jobs import JobStatus, JobType
 from bento.domain.search import SearchQuery
 from bento.infrastructure.db.engine import session_scope
-from bento.infrastructure.db.models import AssetEmbeddingModel, JobModel, OCRBlockModel
+from bento.infrastructure.db.models import AssetEmbeddingModel, AssetTextModel, JobModel, OCRBlockModel
 from bento.interfaces.worker.dispatch import WorkerDispatcher
 from tests.integration.db.support import FixedClock, make_asset, migrated_session_factory
+from tests.fakes.pdf_documents import pdf_with_pages
 from tests.integration.storage_pipeline.support import FakeMediaGenerator
 
 MIME = {"txt": "text/plain", "jpg": "image/jpeg", "pdf": "application/pdf"}
@@ -44,6 +47,16 @@ MIME = {"txt": "text/plain", "jpg": "image/jpeg", "pdf": "application/pdf"}
 class FailingGenerator(FakeMediaGenerator):
     async def generate(self, asset, source_path):  # type: ignore[no-untyped-def]
         raise OSError("cannot identify image file")
+
+
+class _OnePageRenderer:
+    def __init__(self, image: Path) -> None:
+        self.image = image
+        self.calls = 0
+
+    async def render_pages(self, *, asset_id: str, source_path: Path) -> tuple[PDFPageRender, ...]:
+        self.calls += 1
+        return (PDFPageRender(page_number=1, image_path=self.image),)
 
 
 @dataclass
@@ -57,10 +70,12 @@ class Worker:
     upload: UploadAssetUseCase
     dispatcher: WorkerDispatcher
 
-    async def ingest(self, name: str, *, origin: AssetOrigin = AssetOrigin.DEVICE, ai: bool = False) -> Asset:
+    async def ingest(
+        self, name: str, *, origin: AssetOrigin = AssetOrigin.DEVICE, ai: bool = False, content: bytes | None = None
+    ) -> Asset:
         source = self.tmp_path / "incoming" / name
         source.parent.mkdir(parents=True, exist_ok=True)
-        content = f"{name} contents".encode()
+        content = content if content is not None else f"{name} contents".encode()
         source.write_bytes(content)
         result = await self.upload.execute(
             UploadAssetCommand(
@@ -114,6 +129,8 @@ def _worker(tmp_path: Path, *, generator: FakeMediaGenerator | None = None) -> W
         manifest=manifest,
         clock=clock,
     )
+    page_image = tmp_path / "page-1.png"
+    page_image.write_bytes(b"png")
     ocr = OCRIndexingService(
         assets=assets,
         blob_refs=blob_refs,
@@ -122,6 +139,8 @@ def _worker(tmp_path: Path, *, generator: FakeMediaGenerator | None = None) -> W
         index=SQLiteFTSSearchIndex(factory, clock),
         manifest=manifest,
         clock=clock,
+        pdf_renderer=_OnePageRenderer(page_image),
+        document_text=SQLiteFTSSearchIndex(factory, clock),
     )
     embedding = EmbeddingIndexingService(
         assets=assets,
@@ -132,6 +151,15 @@ def _worker(tmp_path: Path, *, generator: FakeMediaGenerator | None = None) -> W
         manifest=manifest,
         clock=clock,
     )
+    text = TextExtractionService(
+        assets=assets,
+        blob_refs=blob_refs,
+        resolver=resolver,
+        extractor=CompositeTextExtractor([PlainTextExtractor(), Pypdfium2TextLayerExtractor()]),
+        store=SQLiteFTSSearchIndex(factory, clock),
+        jobs=jobs,
+        active=jobs,
+    )
     dispatcher = WorkerDispatcher(
         jobs=jobs,
         media=media,
@@ -139,6 +167,7 @@ def _worker(tmp_path: Path, *, generator: FakeMediaGenerator | None = None) -> W
         worker_id="worker-test",
         ocr=ocr,
         embedding=embedding,
+        text=text,
         processing=ProcessingCompletionService(assets=assets, jobs=jobs, clock=clock),
         reindex=ReindexService(assets=assets, jobs=jobs, active=jobs, ocr_enabled=True, embeddings_enabled=True),
     )
@@ -164,15 +193,49 @@ def run(coroutine):  # type: ignore[no-untyped-def]
     return asyncio.run(coroutine)
 
 
-def test_a_text_file_with_ai_indexing_off_is_ready_right_away(tmp_path: Path) -> None:
+def _document_text(worker: Worker, asset_id: str) -> list[str]:
+    with session_scope(worker.factory) as session:  # type: ignore[arg-type]
+        statement = select(AssetTextModel.text).where(
+            AssetTextModel.asset_id == asset_id, AssetTextModel.source == "document"
+        )
+        return list(session.scalars(statement))
+
+
+def test_a_text_file_with_ai_indexing_off_is_ready_after_its_text_is_read(tmp_path: Path) -> None:
     async def scenario() -> None:
         worker = _worker(tmp_path)
 
         note = await worker.ingest("nota.txt")
 
-        assert note.processing_state == ProcessingState.INDEXED
+        assert note.processing_state == ProcessingState.BLOB_STORED
+        assert worker.job_types(note.id) == [JobType.TEXT_EXTRACT]
+        assert await worker.drain() == 1
         assert await worker.state(note.id) == ProcessingState.INDEXED
-        assert worker.job_types(note.id) == []
+        assert _document_text(worker, note.id) == ["nota.txt contents"]
+
+    run(scenario())
+
+
+def test_a_text_file_with_embeddings_on_is_embedded_and_indexed(tmp_path: Path) -> None:
+    """Regression: a `.txt` (no thumbnail) stayed in `blob_stored`, and its embedding job failed with "Invalid
+    asset processing state transition" (`blob_stored -> embedding_pending` was not an edge of the state graph)."""
+
+    async def scenario() -> None:
+        worker = _worker(tmp_path)
+
+        note = await worker.ingest("nota.txt", ai=True)
+        assert worker.job_types(note.id) == [JobType.TEXT_EXTRACT, JobType.OCR, JobType.EMBEDDING]
+
+        assert await worker.drain() == 3
+        with session_scope(worker.factory) as session:  # type: ignore[arg-type]
+            jobs = list(session.scalars(select(JobModel).where(JobModel.asset_id == note.id)))
+            assert {(job.type, job.status, job.error) for job in jobs} == {
+                (JobType.TEXT_EXTRACT.value, JobStatus.SUCCEEDED.value, None),
+                (JobType.OCR.value, JobStatus.SUCCEEDED.value, None),
+                (JobType.EMBEDDING.value, JobStatus.SUCCEEDED.value, None),
+            }
+        assert await worker.state(note.id) == ProcessingState.INDEXED
+        assert _ai_rows(worker) == (0, 1)  # no OCR for text files; one vector
 
     run(scenario())
 
@@ -273,7 +336,8 @@ def test_reindex_queues_ai_work_only_for_this_devices_own_files(tmp_path: Path) 
         assert await worker.drain(limit=1) == 1
         assert (await worker.jobs.get(reindex.id)).status == JobStatus.SUCCEEDED  # type: ignore[union-attr]
 
-        assert worker.job_types(note.id) == [JobType.OCR, JobType.EMBEDDING]
+        # The note's first `text_extract` ran at upload; the reindex queued a new one.
+        assert worker.job_types(note.id) == [JobType.TEXT_EXTRACT, JobType.TEXT_EXTRACT, JobType.OCR, JobType.EMBEDDING]
         assert worker.job_types(photo.id) == [JobType.THUMBNAIL, JobType.OCR, JobType.EMBEDDING]
         assert worker.job_types(forwarded.id) == [JobType.THUMBNAIL]
         assert worker.job_types(from_peer.id) == [] and worker.job_types(trashed.id) == []
@@ -281,6 +345,106 @@ def test_reindex_queues_ai_work_only_for_this_devices_own_files(tmp_path: Path) 
         # Running it again while that work waits queues nothing twice.
         await worker.jobs.enqueue(type=JobType.REINDEX, priority=4, payload={"scope": "all"})
         assert await worker.drain(limit=1) == 1
-        assert worker.job_types(note.id) == [JobType.OCR, JobType.EMBEDDING]
+        assert worker.job_types(note.id) == [JobType.TEXT_EXTRACT, JobType.TEXT_EXTRACT, JobType.OCR, JobType.EMBEDDING]
 
     run(scenario())
+
+
+def _handled_order(worker: Worker, asset_id: str) -> list[JobType]:
+    with session_scope(worker.factory) as session:  # type: ignore[arg-type]
+        statement = (
+            select(JobModel.type)
+            .where(JobModel.asset_id == asset_id, JobModel.status == JobStatus.SUCCEEDED.value)
+            .order_by(JobModel.updated_at, JobModel.priority)
+        )
+        return [JobType(value) for value in session.scalars(statement)]
+
+
+def test_a_pdf_text_layer_is_read_before_ocr_and_ocr_is_skipped(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        worker = _worker(tmp_path)
+        lines = ["Contrato de arrendamiento", "Renta mensual 850 EUR, fianza de dos meses."]
+        pdf = await worker.ingest("contrato.pdf", ai=True, content=pdf_with_pages([lines]))
+        assert worker.job_types(pdf.id) == [JobType.THUMBNAIL, JobType.TEXT_EXTRACT, JobType.OCR, JobType.EMBEDDING]
+
+        assert await worker.drain(limit=2) == 2  # thumbnail, then the text layer, before OCR and embeddings
+        assert _document_text(worker, pdf.id) == ["\n".join(lines)]
+        with session_scope(worker.factory) as session:  # type: ignore[arg-type]
+            waiting = set(session.scalars(select(JobModel.type).where(JobModel.status == JobStatus.QUEUED.value)))
+        assert waiting == {JobType.OCR.value, JobType.EMBEDDING.value}
+
+        await worker.drain()
+        assert await worker.state(pdf.id) == ProcessingState.INDEXED
+        assert _ai_rows(worker) == (0, 1)  # OCR skipped: the text layer is preferred
+
+        search = CompositeSearchIndex(
+            worker.factory, worker.clock, text_index=SQLiteFTSSearchIndex(worker.factory, worker.clock)  # type: ignore[arg-type]
+        )
+        results = await search.search(SearchQuery(text="fianza"))
+        assert [item.asset_id for item in results.items] == [pdf.id]
+
+    run(scenario())
+
+
+def test_a_scanned_pdf_still_goes_through_ocr(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        worker = _worker(tmp_path)
+        scan = await worker.ingest("escaneo.pdf", ai=True, content=pdf_with_pages([None]))
+
+        await worker.drain()
+
+        assert _document_text(worker, scan.id) == []
+        assert _ai_rows(worker) == (1, 1)  # OCR read the page
+        assert await worker.state(scan.id) == ProcessingState.INDEXED
+
+    run(scenario())
+
+
+def test_a_malformed_pdf_fails_its_text_job_cleanly(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        worker = _worker(tmp_path)
+        broken = await worker.ingest("roto.pdf", content=b"%PDF-1.4 not a pdf at all")
+        with session_scope(worker.factory) as session:  # type: ignore[arg-type]
+            for job in session.scalars(select(JobModel).where(JobModel.asset_id == broken.id)):
+                job.max_attempts = 1
+
+        await worker.drain()
+
+        with session_scope(worker.factory) as session:  # type: ignore[arg-type]
+            job = session.scalar(
+                select(JobModel).where(JobModel.asset_id == broken.id, JobModel.type == JobType.TEXT_EXTRACT.value)
+            )
+            assert job is not None and job.status == JobStatus.FAILED.value
+            assert job.error == "The PDF could not be read"
+        assert _document_text(worker, broken.id) == []
+        assert await worker.state(broken.id) == ProcessingState.FAILED_PARTIAL
+
+    run(scenario())
+
+
+def test_the_text_backfill_reads_existing_files_then_refreshes_their_embeddings(tmp_path: Path) -> None:
+    """Migration 0010 queues `reindex {text_only}` for libraries uploaded before text extraction existed."""
+
+    async def scenario() -> None:
+        worker = _worker(tmp_path)
+        assert worker.dispatcher.text is not None
+        with_embeddings(worker.dispatcher.text)
+        note = await worker.ingest("nota.txt", content=b"presupuesto de la reforma de la cocina")
+        with session_scope(worker.factory) as session:  # type: ignore[arg-type]
+            for job in session.scalars(select(JobModel).where(JobModel.asset_id == note.id)):
+                session.delete(job)  # as if uploaded before text extraction: indexed, no text
+        await worker.assets.save(note.finish_processing(worker.clock.now()))
+
+        await worker.jobs.enqueue(type=JobType.REINDEX, priority=2, payload={"text_only": True})
+        await worker.drain()
+
+        assert _document_text(worker, note.id) == ["presupuesto de la reforma de la cocina"]
+        assert worker.job_types(note.id) == [JobType.TEXT_EXTRACT, JobType.EMBEDDING]
+        assert _ai_rows(worker) == (0, 1)
+        assert await worker.state(note.id) == ProcessingState.INDEXED
+
+    run(scenario())
+
+
+def with_embeddings(service: TextExtractionService) -> None:
+    service._embeddings_enabled = lambda: True  # noqa: SLF001 - the harness flips one policy flag

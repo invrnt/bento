@@ -164,7 +164,7 @@ The Sync channel's pinned message is a JSON text message (≤ 4096 chars):
 
 - A SQLAlchemy `before_flush` listener installed on the session factory captures inserts/updates/deletes of `FolderModel`, `AssetModel`, `AlbumModel`, `AlbumAssetModel`, `BlobRefModel`, `BlobPartModel`, and `ThumbnailModel`, diffs changed synced columns, assigns an HLC, and inserts rows into `sync_outbox` in the same transaction.
 - Sessions that apply remote ops set `session.info["sync_apply"] = True`; the listener skips them, so remote ops never echo.
-- `asset_index` ops are emitted explicitly by the OCR and embedding application services after a successful index write. When their fields exceed 1 MiB of JSON, `ocr_text` is cut to 512 KiB and `pdf_pages` to 512 KiB in total (encoded JSON; pages in order, the last one cut, later ones left out) before they are recorded, and the same cut applies to full-state publishes, snapshots, and outbox rows recorded before the cap. Peers index that part only; the device that ran OCR keeps its full local index.
+- `asset_index` ops are emitted explicitly by the OCR, text extraction (document text goes out as `ocr_text`/`pdf_pages`) and embedding application services after a successful index write. When their fields exceed 1 MiB of JSON, `ocr_text` is cut to 512 KiB and `pdf_pages` to 512 KiB in total (encoded JSON; pages in order, the last one cut, later ones left out) before they are recorded, and the same cut applies to full-state publishes, snapshots, and outbox rows recorded before the cap. Peers index that part only; the device that ran OCR keeps its full local index.
 - Capture is disabled when the vault is not configured (storage `local`) so local-only users pay nothing.
 
 ### Batches

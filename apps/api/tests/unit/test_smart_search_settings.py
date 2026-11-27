@@ -151,7 +151,7 @@ def test_registry_mirror_matches_the_shipped_manifest_when_present() -> None:
         ("custom_query_prefix", SettingValueType.STRING, ""),
         ("custom_document_prefix", SettingValueType.STRING, ""),
         ("custom_pooling", SettingValueType.CHOICE, "auto"),
-        ("embedding_dimensions", SettingValueType.INTEGER, 512),
+        ("embedding_dimensions", SettingValueType.INTEGER, 768),
         ("llama_server_path", SettingValueType.PATH, ""),
         ("embedding_server_url", SettingValueType.STRING, ""),
         ("embedding_threads", SettingValueType.INTEGER, default_embedding_threads(os.cpu_count() or 1)),

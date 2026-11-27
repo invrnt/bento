@@ -45,7 +45,7 @@ from bento.infrastructure.db.models import (
 from bento.ports.repositories import ClockPort
 from bento.ports.search import SearchIndexPort
 
-from .sqlite_fts import SQLiteFTSSearchIndex
+from .sqlite_fts import DOCUMENT_TEXT_SOURCE, OCR_TEXT_SOURCE, SQLiteFTSSearchIndex, preferred_text_rows
 from .sqlite_vec import SQLiteVecSearchIndex, Vector
 
 
@@ -630,15 +630,18 @@ def _matched_sources(
         return reasons
     if any(token in model.filename.lower() for token in tokens):
         reasons.add("filename")
-    for source, text in session.execute(
-        select(AssetTextModel.source, AssetTextModel.text).where(AssetTextModel.asset_id == model.id)
-    ):
+    rows = session.execute(
+        select(AssetTextModel.source, AssetTextModel.text)
+        .where(AssetTextModel.asset_id == model.id)
+        .order_by(AssetTextModel.source.asc(), AssetTextModel.id.asc())
+    ).all()
+    for source, text in preferred_text_rows([(source, text) for source, text in rows]):
         lowered = text.lower()
         if any(token in lowered for token in tokens):
-            reason = "ocr" if source == "ocr" else "metadata"
+            reason = _TEXT_SOURCE_REASONS.get(source, "metadata")
             reasons.add(reason)
-            if reason == "ocr" and texts is not None:
-                texts.setdefault("ocr", text)
+            if reason in {"ocr", "text"} and texts is not None:
+                texts.setdefault(reason, text)
     if not reasons:
         reasons.add("text")
     return reasons
@@ -710,7 +713,9 @@ _REASON_CODES: dict[str, MatchReason] = {
     "recent": MatchReason.RECENT,
     "text": MatchReason.INDEXED_TEXT,
 }
-_SNIPPET_SOURCES = ("ocr", "filename", "folder", "album")
+_SNIPPET_SOURCES = ("ocr", "text", "filename", "folder", "album")
+# `asset_text.source` -> candidate reason: text read from the file itself is "indexed text", not OCR.
+_TEXT_SOURCE_REASONS = {OCR_TEXT_SOURCE: "ocr", DOCUMENT_TEXT_SOURCE: "text"}
 
 
 def _match_reasons(candidate: _Candidate) -> tuple[MatchReason, ...]:

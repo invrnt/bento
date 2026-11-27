@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from bento.domain.device import DeviceConditions, JobDeferral
     from bento.ports.backup import BackupSuggestionsPort, FolderWatcherPort, MediaLibraryPort
     from bento.ports.device import ContentImportsPort, DeviceConditionsPort, NotifierPort
-    from bento.ports.providers import OCRProviderPort
+    from bento.ports.providers import OCRProviderPort, TextExtractorPort
     from bento.infrastructure.settings import Settings
     from bento.ports.blob_store import RemoteBlobStorePort
     from bento.ports.content import AssetContentPort
@@ -214,6 +214,25 @@ def get_pdf_page_renderer(settings: Settings, output_dir: Path) -> PDFPageRender
     from bento.adapters.ocr import Pypdfium2PDFPageRenderer
 
     return Pypdfium2PDFPageRenderer(output_dir)
+
+
+def get_text_extractor(settings: Settings) -> TextExtractorPort:
+    """Plain text everywhere; PDF text layers where pypdfium2 is installed (desktop, Docker). The Android engine
+    does not bundle pypdfium2, so PDFs there are only indexed by OCR (ML Kit), as before."""
+    from bento.adapters.text import CompositeTextExtractor, PlainTextExtractor
+
+    extractors: list[TextExtractorPort] = [PlainTextExtractor()]
+    if android_host(settings) is None and _pypdfium2_available():
+        from bento.adapters.text import Pypdfium2TextLayerExtractor
+
+        extractors.append(Pypdfium2TextLayerExtractor())
+    return CompositeTextExtractor(extractors)
+
+
+def _pypdfium2_available() -> bool:
+    import importlib.util
+
+    return importlib.util.find_spec("pypdfium2") is not None
 
 
 def get_ocr_provider(settings: Settings) -> OCRProviderPort:

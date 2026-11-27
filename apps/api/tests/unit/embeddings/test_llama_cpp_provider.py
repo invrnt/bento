@@ -69,7 +69,7 @@ def provider_for(
 def test_query_prefix_key_and_model_on_the_wire(tmp_path: Path) -> None:
     async def scenario() -> None:
         with FakeLlamaServer(api_key=KEY, dims=768) as fake:
-            provider = provider_for(EG2, fake, tmp_path)
+            provider = provider_for(EG2, fake, tmp_path, dims=512)  # a truncated space (512 was the D9 default)
 
             vector = await provider.embed_query("  fotos de la playa  ")
 
@@ -118,7 +118,7 @@ def test_qwen_prefixes_and_no_client_eos(tmp_path: Path) -> None:
 def test_documents_are_sent_in_batches_of_eight_in_order(tmp_path: Path) -> None:
     async def scenario() -> None:
         with FakeLlamaServer(api_key=KEY, dims=768) as fake:
-            provider = provider_for(EG2, fake, tmp_path)
+            provider = provider_for(EG2, fake, tmp_path, dims=512)
             texts = [f"fragmento {index}" for index in range(19)]
 
             vectors = await provider.embed_documents(texts, title="doc.txt")
@@ -212,7 +212,7 @@ def test_unix_socket_endpoint(tmp_path: Path, short_dir: Path) -> None:
 
             vector = await provider.embed_query("factura")
 
-            assert len(vector) == 512
+            assert len(vector) == 768  # D9: the default space keeps EG2's native dims
             assert fake.state.embedding_requests()[0]["authorization"] == f"Bearer {KEY}"
 
     asyncio.run(scenario())
@@ -245,7 +245,7 @@ def test_multimodal_space_sends_image_content_parts_without_prefix(tmp_path: Pat
 
             vector = await provider.embed_image(image)
 
-            assert len(vector) == 512
+            assert len(vector) == 768
             (inputs,) = fake.state.embedding_inputs()
             encoded = base64.b64encode(b"\xff\xd8\xffpreview").decode("ascii")
             assert inputs == [{"content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{encoded}"}}]}]

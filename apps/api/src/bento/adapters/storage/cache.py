@@ -36,6 +36,7 @@ PROCESSING_JOB_TYPES = (
     JobType.METADATA.value,
     JobType.OCR.value,
     JobType.EMBEDDING.value,
+    JobType.TEXT_EXTRACT.value,
 )
 _ACTIVE_JOB_STATUSES = (JobStatus.QUEUED.value, JobStatus.RUNNING.value, JobStatus.RETRYING.value)
 

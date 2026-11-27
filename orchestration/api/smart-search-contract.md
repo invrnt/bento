@@ -32,7 +32,7 @@ All endpoints are loopback-only like the rest of the API. Every response that ca
   "waiting_network": false,
   "error_code": null,
   "failed_step": null,
-  "space_id": "embeddinggemma-2-q8_0@6ea3e3a309d12a4779cfda98b8c19800d2d5da71/512",
+  "space_id": "embeddinggemma-2-q8_0@6ea3e3a309d12a4779cfda98b8c19800d2d5da71/768",
   "download": {"bytes_done": 104857600, "bytes_total": 309855456},
   "indexing": {"done": 0, "total": 0},
   "model": {
@@ -42,7 +42,7 @@ All endpoints are loopback-only like the rest of the API. Every response that ca
     "license_url": "/api/smart-search/license",
     "size_bytes": 309855456,
     "download_host": "huggingface.co",
-    "dims": 512
+    "dims": 768
   },
   "free_bytes": 52613349376,
   "update_available": null,
@@ -107,7 +107,7 @@ Per-asset embedding failures are not smart search errors. They keep the existing
 | `model_id` | `embeddinggemma-2-q8_0` | `qwen3-embedding-0.6b-q8_0` |
 | `revision` | `6ea3e3a309d12a4779cfda98b8c19800d2d5da71` | `370f27d7550e0def9b39c1f16d3fbaa13aa67728` |
 | weights | `embeddinggemma-2-Q8_0.gguf`, 309,855,456 B, `2188ac1d…40b09135` | `Qwen3-Embedding-0.6B-Q8_0.gguf`, 639,150,592 B, `06507c7b…49c3e439` |
-| dims | native 768, MRL `[768, 512, 256, 128]`, **default 512** (D9) | native 1024, `[1024, 768, 512, 256]`, default 1024 |
+| dims | native 768, MRL `[768, 512, 256, 128]`, **default 768** (D9, 2026-11-27; was 512) | native 1024, `[1024, 768, 512, 256]`, default 1024 |
 | pooling | `mean` | `last` (the server appends EOS itself, verified in the spike) |
 | context / ubatch / chunk | 2048 / 2048 / 512 | 2048 / 2048 / 512 |
 | query | `task: search result \| query: {q}` | `Instruct: Given a search query, retrieve relevant files\nQuery:{q}` |
@@ -123,6 +123,17 @@ Both SHA-256 values were re-checked against downloaded files on 2026-11-26.
 - Peer vectors: `peer_vector_decision(active, peer_space, dims)` returns `index` only for the same space id and matching dims. Everything else, including old peers without `space`, is `store_only`.
 - Matryoshka: the provider truncates to `space.dims` and re-normalises with `truncate_and_renormalize()` (an L2 norm of 1; non-finite or zero vectors are rejected). Vectors are compared with a dot product.
 - An asset's vector score is the best of its chunks (`best_chunk_scores()`).
+- Changing the default dims (D9: 512 → 768) changes the space id of new activations only. An installed space keeps its dims: the status, model updates (`update()` keeps `…/<dims>` of the installed space) and the runtime serve what was activated. Moving an existing install to other dims is a new space built by §Re-indexing; tables of an existing space are never altered.
+- Size: a chunk vector is `dims × 4` bytes (3 KiB at 768, 2 KiB at 512), stored in `asset_embedding_chunks` and again in the space's `vec0` table.
+
+## Document text (no OCR)
+
+The embedding text of an asset is its document text when it has some, else its OCR text, plus its metadata row (`SQLiteEmbeddingTextCatalog`); with neither, the file name and MIME type. Document text comes from the `text_extract` job (`application/indexing/text.py`, `TextExtractorPort`), stored as `asset_text` rows with `source = "document"`, one per PDF page (ids `doc_<sha1(asset_id)[:24]>_<page:05d>`, so id order is page order) or one for a text file.
+
+- Types: `text/plain`, `text/markdown`, `text/csv` (`PlainTextExtractor`) and `application/pdf` (`Pypdfium2TextLayerExtractor`); MIME parameters are ignored. Limits in `domain/indexing.py`: 4 MiB read per text file, 500 PDF pages, 2,000,000 characters per document.
+- Queued at upload for this device's own files of those types, whatever OCR says, with priority `TEXT_EXTRACT_PRIORITY` (2), and by every `reindex` (`text_only: true` queues nothing else; `missing_only` skips it).
+- FTS indexes it (`asset_fts.text`) and search reports a match in it as `indexed_text`, with a snippet. When an asset has document text, its OCR rows are left out of FTS, of the embedding text and of sync snapshots.
+- When the extraction stores text and embeddings are on, it queues the asset's `embedding` job unless one is already waiting (new uploads have one; the 0010 backfill relies on this to refresh vectors computed from file names).
 
 ## Chunking
 

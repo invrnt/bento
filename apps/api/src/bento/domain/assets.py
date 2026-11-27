@@ -54,32 +54,53 @@ class ProcessingState(StrEnum):
 _TRANSITIONS: Mapping[ProcessingState, frozenset[ProcessingState]] = MappingProxyType(
     {
         ProcessingState.CREATED: frozenset({ProcessingState.BLOB_STORED, ProcessingState.FAILED}),
+        # Files without thumbnails (text, office documents) stay in `blob_stored` until their first indexing
+        # step, so OCR and embeddings must be able to start from here.
         ProcessingState.BLOB_STORED: frozenset(
             {
                 ProcessingState.METADATA_EXTRACTED,
                 ProcessingState.THUMBNAIL_PENDING,
+                ProcessingState.OCR_PENDING,
+                ProcessingState.EMBEDDING_PENDING,
                 ProcessingState.INDEXED,
                 ProcessingState.FAILED_PARTIAL,
             }
         ),
         ProcessingState.METADATA_EXTRACTED: frozenset(
-            {ProcessingState.THUMBNAIL_PENDING, ProcessingState.OCR_PENDING, ProcessingState.INDEXED}
-        ),
-        ProcessingState.THUMBNAIL_PENDING: frozenset(
             {
-                ProcessingState.THUMBNAIL_READY,
+                ProcessingState.THUMBNAIL_PENDING,
                 ProcessingState.OCR_PENDING,
+                ProcessingState.EMBEDDING_PENDING,
                 ProcessingState.INDEXED,
                 ProcessingState.FAILED_PARTIAL,
             }
         ),
+        # A thumbnail job waiting for a retry must not block the asset's embedding job.
+        ProcessingState.THUMBNAIL_PENDING: frozenset(
+            {
+                ProcessingState.THUMBNAIL_READY,
+                ProcessingState.OCR_PENDING,
+                ProcessingState.EMBEDDING_PENDING,
+                ProcessingState.INDEXED,
+                ProcessingState.FAILED_PARTIAL,
+            }
+        ),
+        # `failed_partial` from the "ready" states: a step that keeps no state of its own (`text_extract`) failed
+        # for good after the previous one finished.
         ProcessingState.THUMBNAIL_READY: frozenset(
-            {ProcessingState.OCR_PENDING, ProcessingState.EMBEDDING_PENDING, ProcessingState.INDEXED}
+            {
+                ProcessingState.OCR_PENDING,
+                ProcessingState.EMBEDDING_PENDING,
+                ProcessingState.INDEXED,
+                ProcessingState.FAILED_PARTIAL,
+            }
         ),
         ProcessingState.OCR_PENDING: frozenset(
             {ProcessingState.OCR_READY, ProcessingState.EMBEDDING_PENDING, ProcessingState.FAILED_PARTIAL}
         ),
-        ProcessingState.OCR_READY: frozenset({ProcessingState.EMBEDDING_PENDING, ProcessingState.INDEXED}),
+        ProcessingState.OCR_READY: frozenset(
+            {ProcessingState.EMBEDDING_PENDING, ProcessingState.INDEXED, ProcessingState.FAILED_PARTIAL}
+        ),
         ProcessingState.EMBEDDING_PENDING: frozenset(
             {ProcessingState.EMBEDDING_READY, ProcessingState.INDEXED, ProcessingState.FAILED_PARTIAL}
         ),

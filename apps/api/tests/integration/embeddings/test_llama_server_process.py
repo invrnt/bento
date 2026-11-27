@@ -123,7 +123,7 @@ def test_argv_flags_key_file_and_environment(tmp_path: Path, run_dir: Path) -> N
             assert info.space_id == EG2.space().id and info.pid == runtime.pid
 
             provider = LlamaCppEmbeddingProvider(spec=EG2, space=EG2.space(), endpoint=runtime.endpoint)
-            assert len(await provider.embed_query("factura de la luz")) == 512
+            assert len(await provider.embed_query("factura de la luz")) == 768
         finally:
             await runtime.stop()
 

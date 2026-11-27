@@ -33,6 +33,12 @@ class PDFPageTextCatalogPort(Protocol):
     async def save_page_text(self, *, asset_id: str, page_number: int, text: str) -> None: ...
 
 
+class DocumentTextPresencePort(Protocol):
+    async def has_document_text(self, asset_id: str) -> bool:
+        """Whether `text_extract` stored a text layer for the asset (then OCR of its PDF pages is not needed)."""
+        ...
+
+
 class OCRIndexingService:
     def __init__(
         self,
@@ -47,6 +53,7 @@ class OCRIndexingService:
         pdf_renderer: PDFPageRendererPort | None = None,
         pdf_pages: PDFPageTextCatalogPort | None = None,
         index_recorder: AssetIndexRecorderPort | None = None,
+        document_text: DocumentTextPresencePort | None = None,
     ) -> None:
         self._assets = assets
         self._blob_refs = blob_refs
@@ -58,6 +65,7 @@ class OCRIndexingService:
         self._pdf_renderer = pdf_renderer
         self._pdf_pages = pdf_pages
         self._index_recorder = index_recorder
+        self._document_text = document_text
 
     async def process_asset_ocr(self, asset_id: str) -> tuple[OCRBlock, ...]:
         asset = await self._assets.get(asset_id)
@@ -71,7 +79,7 @@ class OCRIndexingService:
 
         pending_asset = await self._mark_ocr_pending(asset)
         try:
-            if not await self._provider.is_enabled():
+            if not await self._provider.is_enabled() or await self._has_text_layer(pending_asset):
                 await self._mark_ocr_ready(pending_asset)
                 return ()
 
@@ -99,6 +107,12 @@ class OCRIndexingService:
             raise
         await self._record_index(asset.id, blocks)
         return blocks
+
+    async def _has_text_layer(self, asset: Asset) -> bool:
+        """A PDF whose text layer was extracted needs no OCR: the text layer is preferred when both exist."""
+        if asset.kind != AssetKind.PDF or self._document_text is None:
+            return False
+        return await self._document_text.has_document_text(asset.id)
 
     async def _record_index(self, asset_id: str, blocks: tuple[OCRBlock, ...]) -> None:
         """Publish the OCR result to other devices (`asset_index` op); sync failures never fail indexing."""

@@ -14,7 +14,8 @@ export type JobType =
   | "telegram_import"
   | "journal_export"
   | "model_download"
-  | "reembed";
+  | "reembed"
+  | "text_extract";
 
 export type JobRecord = {
   asset_id?: string | null;

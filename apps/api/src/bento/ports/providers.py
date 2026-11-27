@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Protocol
 
-from bento.domain.indexing import EmbeddingRecord, OCRBlock
+from bento.domain.indexing import EmbeddingRecord, ExtractedText, OCRBlock
 from bento.domain.smart_search import EmbeddingSpace, Vector
 
 
@@ -12,6 +12,20 @@ class OCRProviderPort(Protocol):
     async def is_enabled(self) -> bool: ...
 
     async def extract_text(self, asset_id: str, source_ref: str) -> tuple[OCRBlock, ...]: ...
+
+
+class TextExtractorPort(Protocol):
+    """Reads the text a document already contains (plain text files, a PDF's text layer); never OCR, never renders.
+
+    Implementations cap what they read (`domain.indexing` limits), return an empty `ExtractedText` for files that
+    hold no readable text (binary content, encrypted PDFs), and raise `ValidationFailedError` for files they cannot
+    parse. `checkpoint` is called between pages: bounded worker runs stop there (`check_safe_boundary`)."""
+
+    def supports(self, mime_type: str) -> bool: ...
+
+    async def extract(
+        self, source_path: Path, mime_type: str, *, checkpoint: Callable[[], None] | None = None
+    ) -> ExtractedText: ...
 
 
 class EmbeddingProviderPort(Protocol):

@@ -12,7 +12,7 @@ import type { Route } from "../core/testkit";
 vi.hoisted(() => Object.defineProperty(navigator, "language", { configurable: true, value: "es-ES" }));
 
 const model = {
-  dims: 512,
+  dims: 768,
   display_name: "EmbeddingGemma 2",
   download_host: "huggingface.co",
   license_spdx: "Apache-2.0",
@@ -20,7 +20,7 @@ const model = {
   model_id: "embeddinggemma-2-q8_0",
   size_bytes: 309_855_456,
 };
-const spaceId = "embeddinggemma-2-q8_0@6ea3e3a309d12a4779cfda98b8c19800d2d5da71/512";
+const spaceId = "embeddinggemma-2-q8_0@6ea3e3a309d12a4779cfda98b8c19800d2d5da71/768";
 
 const statusOf = (overrides: Partial<SmartSearchStatus> = {}): SmartSearchStatus => ({
   can_use_now: false,

@@ -29,7 +29,8 @@ Target: fast, no DB, no network, no Docker.
 
 - Handler dispatch.
 - Retry/backoff.
-- Thumbnail/OCR/embedding handlers with fake providers.
+- Thumbnail/text extraction/OCR/embedding handlers with fake providers; job order (thumbnail → `text_extract` → OCR → embedding).
+- Text extraction adapters on small generated files: encodings (UTF-8, BOM, Latin-1/Windows-1252), binary content, size caps, PDF text layers (hand-written PDFs in `tests/fakes/pdf_documents.py`), malformed PDFs.
 
 ## Frontend
 

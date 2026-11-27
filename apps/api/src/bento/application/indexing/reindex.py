@@ -1,4 +1,6 @@
-"""`reindex` job (`POST /api/admin/reindex`): queue OCR and embeddings again for this device's own files.
+"""`reindex` job (`POST /api/admin/reindex`): queue text extraction, OCR and embeddings again for this device's
+own files. `payload.text_only` (the one-off backfill queued by migration 0010) queues only `text_extract`; each
+extraction that finds text then queues the asset's embedding refresh itself.
 
 Files obtained from Telegram (Inbox, imports) and assets that arrived from other devices are skipped: Telegram's API
 terms forbid feeding its data to ML models, and peers publish their own index.
@@ -13,7 +15,8 @@ from collections.abc import AsyncIterator, Sequence
 from typing import Protocol
 
 from bento.domain.assets import Asset, supports_ocr
-from bento.domain.jobs import JobPriority, JobType
+from bento.domain.indexing import supports_text_extraction
+from bento.domain.jobs import TEXT_EXTRACT_PRIORITY, JobPriority, JobType
 from bento.ports.jobs import ActiveJobsPort, JobQueuePort
 
 REINDEX_PAGE_SIZE = 200
@@ -75,24 +78,29 @@ class ReindexService:
         self._vectors = vectors
         self._page_size = max(page_size, 1)
 
-    async def run(self, *, space_id: str | None = None, missing_only: bool = False) -> int:
+    async def run(self, *, space_id: str | None = None, missing_only: bool = False, text_only: bool = False) -> int:
         """Returns how many jobs were queued. Assets that already wait for a job of that type are not queued twice.
 
         `space_id` defaults to the active space. `missing_only` (needs a vector port and a space) queues
-        embeddings only for assets without vectors in that space.
+        embeddings only for assets without vectors in that space (and no text extraction). `text_only` queues only
+        text extraction.
         """
-        if not (self._ocr_enabled or self._embeddings_enabled):
-            return 0
+        ocr = self._ocr_enabled and not text_only
+        embeddings = self._embeddings_enabled and not text_only
         target = space_id
-        if target is None and self._embeddings_enabled and self._spaces is not None:
+        if target is None and embeddings and self._spaces is not None:
             target = await self._spaces.active_space_id()
         queued = 0
         async for page in own_indexable_pages(self._assets, page_size=self._page_size):
-            embedded = await self._embedded(target, page) if missing_only else frozenset()
+            embedded = await self._embedded(target, page) if missing_only and embeddings else frozenset()
             for asset in page:
-                if self._ocr_enabled and supports_ocr(asset.kind):
+                if not missing_only and supports_text_extraction(asset.metadata.mime_type):
+                    queued += await self._queue(
+                        asset, JobType.TEXT_EXTRACT, TEXT_EXTRACT_PRIORITY, {"asset_id": asset.id}
+                    )
+                if ocr and supports_ocr(asset.kind):
                     queued += await self._queue(asset, JobType.OCR, JobPriority.OCR, {"asset_id": asset.id})
-                if self._embeddings_enabled and asset.id not in embedded:
+                if embeddings and asset.id not in embedded:
                     queued += await self._queue(
                         asset, JobType.EMBEDDING, JobPriority.EMBEDDING, embedding_payload(asset.id, target)
                     )
@@ -103,7 +111,7 @@ class ReindexService:
             return frozenset()
         return await self._vectors.assets_with_vectors(space_id, [asset.id for asset in page])
 
-    async def _queue(self, asset: Asset, job_type: JobType, priority: JobPriority, payload: dict[str, object]) -> int:
+    async def _queue(self, asset: Asset, job_type: JobType, priority: int, payload: dict[str, object]) -> int:
         if await self._active.has_active(asset.id, types=frozenset({job_type})):
             return 0
         await self._jobs.enqueue(type=job_type, priority=int(priority), payload=payload, asset_id=asset.id)

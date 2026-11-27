@@ -81,6 +81,7 @@ const typeLabels: Record<JobType, MessageKey> = {
   reembed: "smartSearch.job.reembed",
   reindex: "jobs.type.reindex",
   telegram_import: "jobs.type.telegram_import",
+  text_extract: "jobs.type.text_extract",
   thumbnail: "jobs.type.thumbnail",
   video_thumbnail: "jobs.type.video_thumbnail",
 };
@@ -95,6 +96,7 @@ const typeIcons: Record<JobType, LucideIcon> = {
   reembed: Sparkles,
   reindex: RefreshCw,
   telegram_import: Send,
+  text_extract: FileText,
   thumbnail: Image,
   video_thumbnail: Film,
 };

@@ -24,7 +24,8 @@ def test_upload_duplicate_download_and_logical_delete_local_mode(tmp_path: Path)
     body = first.json()
     assert body["filename"] == "note.txt"
     assert body["mime_type"] == "text/plain"
-    assert body["processing_state"] == "indexed"  # nothing else to process: a txt with AI indexing off is ready
+    # Its text is read by the worker's `text_extract` job (with or without OCR), so it is not settled yet.
+    assert body["processing_state"] == "blob_stored"
     assert body["duplicate"] is False
     assert first.headers["x-bento-duplicate"] == "false"
 

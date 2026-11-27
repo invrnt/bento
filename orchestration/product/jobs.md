@@ -21,6 +21,7 @@ Jobs run progressive background work without blocking the UI.
 
 - `thumbnail`
 - `metadata`
+- `text_extract` (document text without OCR: text files, PDF text layers)
 - `ocr`
 - `embedding`
 - `pdf_thumbnail`
@@ -28,6 +29,7 @@ Jobs run progressive background work without blocking the UI.
 - `reindex`
 - `telegram_import`
 - `journal_export`
+- `model_download`, `reembed` (smart search)
 
 ## Statuses
 

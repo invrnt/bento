@@ -36,9 +36,10 @@ def test_manifest_parses_default_and_fallback() -> None:
     assert default_id == "embeddinggemma-2-q8_0"
     eg2, qwen = specs
     assert eg2.weights.sha256 == EG2_SHA and eg2.text_bytes == 309_855_456
-    assert eg2.default_dims == 512  # D9
-    assert eg2.space().id == "embeddinggemma-2-q8_0@6ea3e3a309d12a4779cfda98b8c19800d2d5da71/512"
-    assert eg2.space(768).dims == 768
+    assert eg2.default_dims == 768  # D9 (2026-11-27)
+    assert eg2.space().id == "embeddinggemma-2-q8_0@6ea3e3a309d12a4779cfda98b8c19800d2d5da71/768"
+    assert eg2.space(512).dims == 512
+    assert eg2.space(512).id != eg2.space().id  # another dimension is another space
     assert qwen.space().dims == 1024
     assert eg2.weights.urls[0].startswith("https://huggingface.co/") and "/resolve/" + eg2.revision in eg2.weights.urls[0]
 

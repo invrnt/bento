@@ -1,19 +1,26 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from collections import Counter
+from collections.abc import Sequence
 
 from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from bento.adapters.repositories.ids import new_id
 from bento.domain.assets import Asset, AssetKind, ProcessingState
-from bento.domain.indexing import EmbeddingRecord, OCRBlock
+from bento.domain.indexing import EmbeddingRecord, ExtractedPage, OCRBlock
 from bento.domain.search import SearchFacet, SearchHit, SearchQuery, SearchResultType, SearchResults
 from bento.infrastructure.db.engine import session_scope
 from bento.infrastructure.db.models import AssetEmbeddingModel, AssetModel, AssetTextModel, OCRBlockModel
 from bento.ports.repositories import ClockPort
+
+
+DOCUMENT_TEXT_SOURCE = "document"
+"""`asset_text.source` of text read from the file itself (`text_extract`); preferred over `ocr` when both exist."""
+OCR_TEXT_SOURCE = "ocr"
 
 
 class SQLiteFTSSearchIndex:
@@ -78,6 +85,41 @@ class SQLiteFTSSearchIndex:
             )
             session.flush()
             _rebuild_asset_fts(session, block.asset_id)
+
+    async def replace_document_text(self, asset_id: str, pages: Sequence[ExtractedPage]) -> None:
+        now = self._clock.now()
+        with session_scope(self._session_factory) as session:
+            session.execute(
+                delete(AssetTextModel).where(
+                    AssetTextModel.asset_id == asset_id,
+                    AssetTextModel.source == DOCUMENT_TEXT_SOURCE,
+                )
+            )
+            for position, page in enumerate(pages):
+                if not page.text.strip():
+                    continue
+                session.add(
+                    AssetTextModel(
+                        id=document_text_id(asset_id, page.page_number or position),
+                        asset_id=asset_id,
+                        source=DOCUMENT_TEXT_SOURCE,
+                        text=page.text,
+                        language=None,
+                        created_at=now,
+                        updated_at=now,
+                    )
+                )
+            session.flush()
+            _rebuild_asset_fts(session, asset_id)
+
+    async def has_document_text(self, asset_id: str) -> bool:
+        with session_scope(self._session_factory) as session:
+            found = session.scalar(
+                select(AssetTextModel.id)
+                .where(AssetTextModel.asset_id == asset_id, AssetTextModel.source == DOCUMENT_TEXT_SOURCE)
+                .limit(1)
+            )
+        return found is not None
 
     async def index_embedding(self, record: EmbeddingRecord) -> None:
         with session_scope(self._session_factory) as session:
@@ -162,7 +204,12 @@ def _rebuild_asset_fts(session: Session, asset_id: str) -> None:
     asset = session.get(AssetModel, asset_id)
     if asset is None or asset.deleted_at is not None:
         return
-    texts = list(session.scalars(select(AssetTextModel.text).where(AssetTextModel.asset_id == asset_id)))
+    rows = session.execute(
+        select(AssetTextModel.source, AssetTextModel.text)
+        .where(AssetTextModel.asset_id == asset_id)
+        .order_by(AssetTextModel.source.asc(), AssetTextModel.id.asc())
+    ).all()
+    texts = [text for source, text in preferred_text_rows(rows)]
     metadata = _model_metadata_text(asset)
     session.execute(
         text(
@@ -178,6 +225,19 @@ def _rebuild_asset_fts(session: Session, asset_id: str) -> None:
             "metadata": metadata,
         },
     )
+
+
+def document_text_id(asset_id: str, page: int) -> str:
+    """Stable, page-ordered ids, so reading rows by id keeps the document's page order."""
+    digest = hashlib.sha1(asset_id.encode("utf-8")).hexdigest()[:24]
+    return f"doc_{digest}_{max(page, 0):05d}"
+
+
+def preferred_text_rows(rows: Sequence[tuple[str, str]]) -> list[tuple[str, str]]:
+    """An asset's `(source, text)` rows without its OCR text when it has document text (the text layer wins)."""
+    if any(source == DOCUMENT_TEXT_SOURCE for source, _ in rows):
+        return [(source, text) for source, text in rows if source != OCR_TEXT_SOURCE]
+    return list(rows)
 
 
 def _asset_metadata_text(asset: Asset) -> str:
